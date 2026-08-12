@@ -6,9 +6,14 @@
 <div class="container-fluid px-0">
 
     <!-- Header Judul Dashboard -->
-    <div class="mb-4">
-        <h2 class="fw-black text-uppercase text-dark mb-1" style="letter-spacing: -0.02em; font-weight: 900; font-size: 2rem;">DASHBOARD</h2>
-        <p class="text-muted mb-0" style="font-size: 0.95rem; font-weight: 500;">Ringkasan aktivitas dan pengisian jurnal hari ini.</p>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-black text-uppercase text-dark mb-1" style="letter-spacing: -0.02em; font-weight: 900; font-size: 2rem;">DASHBOARD</h2>
+            <p class="text-muted mb-0" style="font-size: 0.95rem; font-weight: 500;">Ringkasan aktivitas dan pengisian jurnal hari ini.</p>
+        </div>
+        <a href="{{ route('jurnal.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-2 shadow-sm">
+            <i class="bi bi-plus-circle-fill"></i> Tambah Jurnal
+        </a>
     </div>
 
     <!-- Alert Notifikasi Flash -->
@@ -22,17 +27,17 @@
         </div>
     @endif
 
-    <!-- 3 Stat Cards Grid (Tepat Sesuai Foto) -->
+    <!-- 3 Stat Cards Grid -->
     <div class="row g-4 mb-4">
         <!-- Card 1: Total Jurnal Terisi -->
         <div class="col-12 col-md-4">
             <div class="stat-card-custom">
                 <div class="stat-card-title">Total jurnal terisi</div>
                 <div class="stat-number-large text-success">
-                    {{ count($dataJurnal) > 0 ? count($dataJurnal) : '20' }}
+                    {{ count($dataJurnal) }}
                 </div>
-                <div class="stat-card-label">Kelas</div>
-                <p class="stat-card-subtext">5 dari kelas 10, 15 dari kelas 11</p>
+                <div class="stat-card-label">Jurnal Catatan</div>
+                <p class="stat-card-subtext">Pengisian jurnal mengajar terdaftar</p>
             </div>
         </div>
 
@@ -40,24 +45,31 @@
         <div class="col-12 col-md-4">
             <div class="stat-card-custom">
                 <div class="stat-card-title">Siswa Tidak Hadir</div>
-                <div class="stat-number-large" style="color: #0284c7;">15</div>
+                <div class="stat-number-large" style="color: #0284c7;">
+                    @php
+                        $absensiCount = \App\Models\AbsensiJurnal::whereIn('status', ['Sakit', 'Izin', 'Alpa', 'Dispen'])->count();
+                    @endphp
+                    {{ $absensiCount }}
+                </div>
                 <div class="stat-card-label">Siswa Tidak Hadir</div>
-                <p class="stat-card-subtext">8 Sakit, 5 Izin, 2 Alpha</p>
+                <p class="stat-card-subtext">Catatan absensi ketidakhadiran</p>
             </div>
         </div>
 
-        <!-- Card 3: Guru Tidak Hadir -->
+        <!-- Card 3: Status Guru -->
         <div class="col-12 col-md-4">
             <div class="stat-card-custom">
-                <div class="stat-card-title">Guru Tidak Hadir</div>
-                <div class="stat-number-large text-danger">2</div>
-                <div class="stat-card-label">Guru Tidak Hadir</div>
-                <p class="stat-card-subtext">1 Sakit, 1 Dinas</p>
+                <div class="stat-card-title">Guru Pengajar Active</div>
+                <div class="stat-number-large text-danger">
+                    {{ \App\Models\User::where('role', 'guru')->count() }}
+                </div>
+                <div class="stat-card-label">Guru Terdaftar</div>
+                <p class="stat-card-subtext">Guru terdaftar dalam sistem</p>
             </div>
         </div>
     </div>
 
-    <!-- Riwayat Jurnal Terbaru Section Card (Tepat Sesuai Foto) -->
+    <!-- Riwayat Jurnal Terbaru Section Card -->
     <div class="table-card-custom">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h5 class="fw-bold text-dark mb-0" style="font-size: 1.15rem; font-weight: 800;">Riwayat Jurnal Terbaru</h5>
@@ -77,89 +89,60 @@
             <table class="table table-custom align-middle">
                 <thead>
                     <tr>
-                        <th style="width: 15%;">WAKTU</th>
-                        <th style="width: 15%;">KELAS</th>
+                        <th style="width: 12%;">WAKTU / TGL</th>
+                        <th style="width: 12%;">KELAS</th>
                         <th style="width: 20%;">GURU PENGAJAR</th>
-                        <th style="width: 20%;">MATA PELAJARAN</th>
-                        <th style="width: 20%;">MATERI PEMBELAJARAN</th>
-                        <th style="width: 10%; text-align: right;">STATUS</th>
+                        <th style="width: 18%;">MATA PELAJARAN</th>
+                        <th style="width: 22%;">MATERI PEMBELAJARAN</th>
+                        <th style="width: 16%; text-align: right;">AKSI</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($dataJurnal as $jurnal)
                         <tr>
                             <td class="fw-medium text-dark">
-                                {{ \Carbon\Carbon::parse($jurnal->tanggal)->format('H:i') != '00:00' ? \Carbon\Carbon::parse($jurnal->tanggal)->format('H:i') . ' WIB' : \Carbon\Carbon::parse($jurnal->tanggal)->format('d/m/Y') }}
+                                @if($jurnal->waktu_isi)
+                                    <div>{{ \Carbon\Carbon::parse($jurnal->waktu_isi)->format('H:i') }} WIB</div>
+                                    <small class="text-muted" style="font-size: 0.75rem;">{{ \Carbon\Carbon::parse($jurnal->tanggal)->format('d/m/Y') }}</small>
+                                @else
+                                    {{ \Carbon\Carbon::parse($jurnal->tanggal)->format('d/m/Y') }}
+                                @endif
                             </td>
                             <td>
-                                <span class="fw-bold text-dark">{{ $jurnal->kelas->nama_kelas ?? '-' }}</span>
+                                <span class="fw-bold text-dark">{{ $jurnal->jadwal->kelas->nama_kelas ?? '-' }}</span>
                             </td>
                             <td>
-                                <div class="fw-medium text-dark">{{ $jurnal->guru->nama_guru ?? '-' }}</div>
+                                <div class="fw-medium text-dark">{{ $jurnal->jadwal->guru->nama ?? $jurnal->jadwal->guru->nama_guru ?? '-' }}</div>
                             </td>
                             <td>
-                                <span class="text-secondary">{{ $jurnal->mapel->nama_mapel ?? '-' }}</span>
+                                <span class="text-secondary">{{ $jurnal->jadwal->mapel->nama_mapel ?? '-' }}</span>
                             </td>
                             <td>
                                 <div class="text-dark fw-medium">{{ $jurnal->materi }}</div>
+                                @if($jurnal->catatan_kejadian)
+                                    <small class="text-muted d-block text-truncate" style="max-width: 200px;">Catatan: {{ $jurnal->catatan_kejadian }}</small>
+                                @endif
                             </td>
                             <td class="text-end">
-                                <span class="status-badge-terisi">
-                                    <i class="bi bi-check-circle-fill" style="font-size: 0.75rem;"></i> Terisi
-                                </span>
+                                <div class="d-flex justify-content-end gap-1">
+                                    <a href="{{ route('jurnal.edit', $jurnal->id) }}" class="btn btn-sm btn-light border text-primary rounded-2 px-2 py-1" title="Edit">
+                                        <i class="bi bi-pencil-square"></i> Edit
+                                    </a>
+                                    <form action="{{ route('jurnal.destroy', $jurnal->id) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus jurnal ini?');" class="d-inline">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-sm btn-light border text-danger rounded-2 px-2 py-1" title="Hapus">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                     @empty
-                        <!-- Row 1 -->
                         <tr>
-                            <td class="fw-medium text-dark">10:00 WIB</td>
-                            <td><span class="fw-bold text-dark">XII RPL 1</span></td>
-                            <td><div class="fw-medium text-dark">Budi Santoso</div></td>
-                            <td><span class="text-secondary">Pemrograman Web</span></td>
-                            <td><div class="text-dark fw-medium">Routing Laravel</div></td>
-                            <td class="text-end">
-                                <span class="status-badge-terisi">
-                                    <i class="bi bi-check-circle-fill" style="font-size: 0.75rem;"></i> Terisi
-                                </span>
-                            </td>
-                        </tr>
-                        <!-- Row 2 -->
-                        <tr>
-                            <td class="fw-medium text-dark">09:30 WIB</td>
-                            <td><span class="fw-bold text-dark">XI TKJ 2</span></td>
-                            <td><div class="fw-medium text-dark">Ahmad Subarjo</div></td>
-                            <td><span class="text-secondary">Jaringan Dasar</span></td>
-                            <td><div class="text-dark fw-medium">Konfigurasi Router Mikrotik</div></td>
-                            <td class="text-end">
-                                <span class="status-badge-terisi">
-                                    <i class="bi bi-check-circle-fill" style="font-size: 0.75rem;"></i> Terisi
-                                </span>
-                            </td>
-                        </tr>
-                        <!-- Row 3 -->
-                        <tr>
-                            <td class="fw-medium text-dark">09:15 WIB</td>
-                            <td><span class="fw-bold text-dark">XI AKL 1</span></td>
-                            <td><div class="fw-medium text-dark">Siti Aminah</div></td>
-                            <td><span class="text-secondary">Akuntansi</span></td>
-                            <td><div class="text-dark fw-medium">Laporan Keuangan Perusahaan</div></td>
-                            <td class="text-end">
-                                <span class="status-badge-terisi">
-                                    <i class="bi bi-check-circle-fill" style="font-size: 0.75rem;"></i> Terisi
-                                </span>
-                            </td>
-                        </tr>
-                        <!-- Row 4 -->
-                        <tr>
-                            <td class="fw-medium text-dark">08:45 WIB</td>
-                            <td><span class="fw-bold text-dark">X TKR 2</span></td>
-                            <td><div class="fw-medium text-dark">Bambang Wijaya</div></td>
-                            <td><span class="text-secondary">Pemeliharaan Mesin</span></td>
-                            <td><div class="text-dark fw-medium">Perbaikan Sistem Injeksi</div></td>
-                            <td class="text-end">
-                                <span class="status-badge-terisi">
-                                    <i class="bi bi-check-circle-fill" style="font-size: 0.75rem;"></i> Terisi
-                                </span>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                <i class="bi bi-journal-x fs-2 d-block mb-2 text-secondary"></i>
+                                Belum ada data jurnal mengajar.
                             </td>
                         </tr>
                     @endforelse

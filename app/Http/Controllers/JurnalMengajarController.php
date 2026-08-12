@@ -2,99 +2,128 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\JurnalMengajar;
-use App\Models\Jadwal;
+use App\Models\Jurnal;
+use App\Models\JadwalPelajaran;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class JurnalMengajarController extends Controller
 {
-    // 1. Menampilkan daftar semua jurnal mengajar
+    /**
+     * Menampilkan daftar semua jurnal mengajar
+     */
     public function index()
     {
-        $dataJurnal = JurnalMengajar::with(['guru', 'mapel', 'kelas', 'jadwal'])
-                        ->orderBy('tanggal', 'desc')
-                        ->get();
+        $dataJurnal = Jurnal::with([
+            'jadwal.guru',
+            'jadwal.mapel',
+            'jadwal.kelas',
+            'jadwal.jamPelajaran'
+        ])
+        ->orderBy('tanggal', 'desc')
+        ->orderBy('id', 'desc')
+        ->get();
 
         return view('admin.jurnal.index', compact('dataJurnal'));
     }
 
-    // 2. Menampilkan form tambah jurnal mengajar
+    /**
+     * Menampilkan form tambah jurnal mengajar
+     */
     public function create()
     {
-        $jadwals = Jadwal::with(['guru', 'kelas', 'mapel'])->get();
+        $jadwals = JadwalPelajaran::with([
+            'guru',
+            'kelas',
+            'mapel',
+            'jamPelajaran',
+            'tahunAjaran'
+        ])->get();
+
         return view('admin.jurnal.create', compact('jadwals'));
     }
 
-    // 3. Menyimpan data jurnal mengajar baru
+    /**
+     * Menyimpan data jurnal mengajar baru
+     */
     public function store(Request $request)
     {
-        $request->validate([
-            'id_jadwal'          => 'required|exists:jadwal,id_jadwal',
-            'tanggal'            => 'required|date',
-            'materi'             => 'required|string',
-            'keterangan'         => 'nullable|string',
-            'status_guru'        => 'required|in:Hadir,Izin,Sakit,Tugas',
-            'jumlah_siswa_hadir' => 'required|integer|min:0',
-            'semester'           => 'required|string',
-            'tahun_ajaran'       => 'required|string',
+        $validated = $request->validate([
+            'id_jadwal'        => 'required|exists:jadwal_pelajaran,id',
+            'tanggal'          => 'required|date',
+            'materi'           => 'required|string',
+            'catatan_kejadian' => 'nullable|string',
+            'foto_kegiatan'    => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
-        JurnalMengajar::create([
-            'id_jadwal'          => $request->id_jadwal,
-            'tanggal'            => $request->tanggal,
-            'materi'             => $request->materi,
-            'keterangan'         => $request->keterangan,
-            'status_guru'        => $request->status_guru,
-            'jumlah_siswa_hadir' => $request->jumlah_siswa_hadir,
-            'semester'           => $request->semester,
-            'tahun_ajaran'       => $request->tahun_ajaran,
-            'is_ttd'             => 0,
-        ]);
+        if ($request->hasFile('foto_kegiatan')) {
+            $validated['foto_kegiatan'] = $request->file('foto_kegiatan')->store('foto_jurnal', 'public');
+        }
+
+        // Set otomatis waktu_isi memakai now()
+        $validated['waktu_isi'] = now();
+
+        Jurnal::create($validated);
 
         return redirect()->route('jurnal.index')->with('success', 'Jurnal mengajar berhasil ditambahkan!');
     }
 
-    // 4. Menampilkan form edit jurnal mengajar
+    /**
+     * Menampilkan form edit jurnal mengajar
+     */
     public function edit($id)
     {
-        $jurnal = JurnalMengajar::findOrFail($id);
-        $jadwals = Jadwal::with(['guru', 'kelas', 'mapel'])->get();
+        $jurnal = Jurnal::findOrFail($id);
+        $jadwals = JadwalPelajaran::with([
+            'guru',
+            'kelas',
+            'mapel',
+            'jamPelajaran',
+            'tahunAjaran'
+        ])->get();
+
         return view('admin.jurnal.edit', compact('jurnal', 'jadwals'));
     }
 
-    // 5. Mengupdate data jurnal mengajar
+    /**
+     * Mengupdate data jurnal mengajar
+     */
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'id_jadwal'          => 'required|exists:jadwal,id_jadwal',
-            'tanggal'            => 'required|date',
-            'materi'             => 'required|string',
-            'keterangan'         => 'nullable|string',
-            'status_guru'        => 'required|in:Hadir,Izin,Sakit,Tugas',
-            'jumlah_siswa_hadir' => 'required|integer|min:0',
-            'semester'           => 'required|string',
-            'tahun_ajaran'       => 'required|string',
+        $jurnal = Jurnal::findOrFail($id);
+
+        $validated = $request->validate([
+            'id_jadwal'        => 'required|exists:jadwal_pelajaran,id',
+            'tanggal'          => 'required|date',
+            'materi'           => 'required|string',
+            'catatan_kejadian' => 'nullable|string',
+            'foto_kegiatan'    => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
-        $jurnal = JurnalMengajar::findOrFail($id);
-        $jurnal->update([
-            'id_jadwal'          => $request->id_jadwal,
-            'tanggal'            => $request->tanggal,
-            'materi'             => $request->materi,
-            'keterangan'         => $request->keterangan,
-            'status_guru'        => $request->status_guru,
-            'jumlah_siswa_hadir' => $request->jumlah_siswa_hadir,
-            'semester'           => $request->semester,
-            'tahun_ajaran'       => $request->tahun_ajaran,
-        ]);
+        if ($request->hasFile('foto_kegiatan')) {
+            // Hapus foto lama jika ada
+            if ($jurnal->foto_kegiatan && Storage::disk('public')->exists($jurnal->foto_kegiatan)) {
+                Storage::disk('public')->delete($jurnal->foto_kegiatan);
+            }
+            $validated['foto_kegiatan'] = $request->file('foto_kegiatan')->store('foto_jurnal', 'public');
+        }
+
+        $jurnal->update($validated);
 
         return redirect()->route('jurnal.index')->with('success', 'Jurnal mengajar berhasil diperbarui!');
     }
 
-    // 6. Menghapus data jurnal mengajar
+    /**
+     * Menghapus data jurnal mengajar
+     */
     public function destroy($id)
     {
-        $jurnal = JurnalMengajar::findOrFail($id);
+        $jurnal = Jurnal::findOrFail($id);
+
+        if ($jurnal->foto_kegiatan && Storage::disk('public')->exists($jurnal->foto_kegiatan)) {
+            Storage::disk('public')->delete($jurnal->foto_kegiatan);
+        }
+
         $jurnal->delete();
 
         return redirect()->route('jurnal.index')->with('success', 'Jurnal mengajar berhasil dihapus!');

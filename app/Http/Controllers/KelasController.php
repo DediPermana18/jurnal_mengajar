@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Kelas;
 use App\Models\Jurusan;
 use App\Models\Guru;
+use App\Models\Siswa;
+use App\Models\Jadwal;
 use Illuminate\Http\Request;
 
 class KelasController extends Controller
@@ -16,7 +18,17 @@ class KelasController extends Controller
         return view('admin.kelas.index', compact('dataKelas'));
     }
 
-    // 2. Menampilkan form tambah kelas (simpel tanpa desain)
+    // 2. Menampilkan detail kelas: daftar siswa + tombol lihat matriks mapel
+    public function show($id)
+    {
+        $kelas  = Kelas::with(['jurusan', 'waliKelas'])->findOrFail($id);
+        $siswa  = Siswa::where('id_kelas', $id)->orderBy('nama_siswa')->get();
+        $jadwals = Jadwal::with(['guru', 'mapel'])->where('id_kelas', $id)->orderBy('jam_mulai')->get();
+
+        return view('admin.kelas.show', compact('kelas', 'siswa', 'jadwals'));
+    }
+
+    // 3. Menampilkan form tambah kelas
     public function create()
     {
         $dataJurusan = Jurusan::all();

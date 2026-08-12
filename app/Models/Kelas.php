@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Kelas extends Model
@@ -11,28 +13,34 @@ class Kelas extends Model
     use HasFactory, SoftDeletes;
 
     protected $table = 'kelas';
-    protected $primaryKey = 'id_kelas';
-    public $timestamps = false;
 
-    protected $fillable = ['id_jurusan', 'nama_kelas', 'id_guru_wali', 'jumlah_siswa'];
+    protected $fillable = [
+        'nama_kelas',
+        'tingkat',
+        'id_wali_kelas',
+    ];
 
-    public function jurusan()
+    /**
+     * Relasi ke User sebagai Wali Kelas
+     */
+    public function waliKelas(): BelongsTo
     {
-        return $this->belongsTo(Jurusan::class, 'id_jurusan', 'id_jurusan');
+        return $this->belongsTo(User::class, 'id_wali_kelas', 'id');
     }
 
-    public function waliKelas()
+    /**
+     * Relasi ke Siswa dalam kelas ini
+     */
+    public function siswa(): HasMany
     {
-        return $this->belongsTo(Guru::class, 'id_guru_wali', 'id_guru');
+        return $this->hasMany(Siswa::class, 'id_kelas', 'id');
     }
 
-    public function siswa()
+    /**
+     * Relasi ke Jadwal Pelajaran
+     */
+    public function jadwalPelajaran(): HasMany
     {
-        return $this->hasMany(Siswa::class, 'id_kelas', 'id_kelas');
-    }
-
-    public function jadwal()
-    {
-        return $this->hasMany(Jadwal::class, 'id_kelas', 'id_kelas');
+        return $this->hasMany(JadwalPelajaran::class, 'id_kelas', 'id');
     }
 }

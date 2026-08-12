@@ -1,18 +1,19 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Data Kelas - WebJournal Management System')
+@section('title', 'Data Master Kelas - WebJournal Management System')
 
 @section('content')
 <div class="container-fluid px-0">
 
+    <!-- Header -->
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <div>
-            <h2 class="fw-extrabold text-uppercase text-dark mb-1" style="letter-spacing: -0.02em; font-weight: 800;">DATA KELAS</h2>
-            <p class="text-muted mb-0">Kelola daftar kelas, jurusan, serta pembagian wali kelas.</p>
+            <h2 class="fw-black text-dark mb-1" style="font-weight: 800; font-size: 1.85rem; letter-spacing: -0.02em;">Data Master Kelas</h2>
+            <p class="text-muted mb-0" style="font-size: 0.925rem; font-weight: 500;">Kelola rombongan belajar, wali kelas, dan ruangan.</p>
         </div>
-        <a href="{{ route('kelas.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-2">
-            <i class="bi bi-plus-circle-fill"></i>
-            <span>Tambah Data Kelas</span>
+        <a href="{{ route('kelas.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-2" style="background-color: #1565c0; border: none;">
+            <i class="bi bi-plus"></i>
+            <span>+ Tambah Kelas</span>
         </a>
     </div>
 
@@ -26,68 +27,141 @@
         </div>
     @endif
 
-    <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0 text-nowrap">
-                    <thead style="background-color: #fafafa; border-bottom: 2px solid #f1f5f9;">
-                        <tr>
-                            <th class="ps-4 text-uppercase text-muted fw-bold" style="font-size: 0.75rem; letter-spacing: 0.05em; width: 5%;">No</th>
-                            <th class="text-uppercase text-muted fw-bold" style="font-size: 0.75rem; letter-spacing: 0.05em;">Nama Kelas</th>
-                            <th class="text-uppercase text-muted fw-bold" style="font-size: 0.75rem; letter-spacing: 0.05em;">Jurusan</th>
-                            <th class="text-uppercase text-muted fw-bold" style="font-size: 0.75rem; letter-spacing: 0.05em;">Wali Kelas</th>
-                            <th class="text-uppercase text-muted fw-bold" style="font-size: 0.75rem; letter-spacing: 0.05em;">Jumlah Siswa</th>
-                            <th class="pe-4 text-end text-uppercase text-muted fw-bold" style="font-size: 0.75rem; letter-spacing: 0.05em; width: 15%;">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($dataKelas as $key => $kelas)
-                            <tr>
-                                <td class="ps-4 fw-medium text-dark">{{ $key + 1 }}</td>
-                                <td>
-                                    <span class="fw-bold text-dark fs-6">{{ $kelas->nama_kelas }}</span>
-                                </td>
-                                <td>
-                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-1 rounded-pill fw-semibold">
-                                        {{ $kelas->jurusan->nama_jurusan ?? '-' }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="fw-medium text-dark">
-                                        <i class="bi bi-person-badge text-primary me-1"></i>
-                                        {{ $kelas->waliKelas->nama_guru ?? '-' }}
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="badge bg-info-subtle text-info border border-info-subtle px-3 py-1 rounded-3 fw-semibold">
-                                        <i class="bi bi-people-fill me-1"></i> {{ $kelas->jumlah_siswa ?? 0 }} Siswa
-                                    </span>
-                                </td>
-                                <td class="pe-4 text-end">
-                                    <a href="{{ route('kelas.edit', $kelas->id_kelas) }}" class="btn btn-sm btn-light border rounded-3 me-1" title="Edit Data">
-                                        <i class="bi bi-pencil-square text-warning"></i>
-                                    </a>
-                                    <form action="{{ route('kelas.destroy', $kelas->id_kelas) }}" method="POST" class="d-inline" onsubmit="return confirm('Yakin hapus data kelas ini?')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button class="btn btn-sm btn-light border rounded-3" title="Hapus Data">
-                                            <i class="bi bi-trash text-danger"></i>
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6" class="text-center py-5 text-muted">
-                                    <i class="bi bi-door-open fs-1 d-block mb-2 text-secondary"></i>
-                                    Belum ada data kelas. Silakan tambahkan data baru.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+    <div class="table-card-custom">
+
+        <!-- Filter Bar -->
+        <div class="row g-3 align-items-center mb-4">
+            <div class="col-12 col-md-5">
+                <div class="position-relative">
+                    <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                    <input type="text" class="form-control rounded-3 ps-5 bg-light border-0 py-2" placeholder="Cari nama kelas atau ruangan...">
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <select class="form-select rounded-3 bg-light border-0 py-2 small text-secondary fw-medium">
+                    <option value="">Semua Tingkat</option>
+                    <option value="X">Kelas X</option>
+                    <option value="XI">Kelas XI</option>
+                    <option value="XII">Kelas XII</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-4">
+                <select class="form-select rounded-3 bg-light border-0 py-2 small text-secondary fw-medium">
+                    <option value="">Semua Jurusan</option>
+                    @foreach(App\Models\Jurusan::all() as $j)
+                        <option value="{{ $j->id_jurusan }}">{{ $j->nama_jurusan }}</option>
+                    @endforeach
+                </select>
             </div>
         </div>
+
+        <!-- Tabel -->
+        <div class="table-responsive">
+            <table class="table table-custom align-middle">
+                <thead>
+                    <tr>
+                        <th style="width: 18%;">NAMA KELAS</th>
+                        <th style="width: 27%;">JURUSAN</th>
+                        <th style="width: 22%;">WALI KELAS</th>
+                        <th style="width: 12%;">JML SISWA</th>
+                        <th style="width: 12%;">RUANGAN</th>
+                        <th style="width: 9%; text-align: right;">AKSI</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($dataKelas as $kelas)
+                        <tr>
+                            <td>
+                                <span class="badge fw-semibold px-3 py-1 rounded-2" style="background:#dbeafe; color:#1d4ed8; font-size: 0.85rem; letter-spacing: 0.02em;">
+                                    {{ $kelas->nama_kelas }}
+                                </span>
+                            </td>
+                            <td class="fw-medium text-dark">{{ $kelas->jurusan->nama_jurusan ?? '-' }}</td>
+                            <td class="fw-semibold text-dark">{{ $kelas->waliKelas->nama_guru ?? '-' }}</td>
+                            <td>
+                                <span class="fw-semibold text-dark">{{ $kelas->jumlah_siswa ?? 0 }}</span>
+                                <span class="text-muted small"> Siswa</span>
+                            </td>
+                            <td>
+                                @if($kelas->ruangan ?? null)
+                                    <span class="badge bg-light border px-2 py-1 rounded-2 fw-medium text-dark">
+                                        {{ $kelas->ruangan }}
+                                    </span>
+                                @else
+                                    <span class="text-muted small">-</span>
+                                @endif
+                            </td>
+                            <td class="text-end">
+                                {{-- 👁️ Ikon Mata → Detail Kelas (Daftar Siswa) --}}
+                                <a href="{{ route('kelas.show', $kelas->id_kelas) }}" class="text-secondary me-2 fs-6" title="Lihat Detail Kelas & Siswa">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{{ route('kelas.edit', $kelas->id_kelas) }}" class="text-secondary me-2 fs-6" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form action="{{ route('kelas.destroy', $kelas->id_kelas) }}" method="POST" class="d-inline" onsubmit="return confirm('Yakin hapus data kelas ini?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="btn btn-link p-0 text-secondary border-0 fs-6" title="Hapus"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                    @empty
+                        <!-- Demo Rows sesuai foto -->
+                        <tr>
+                            <td><span class="badge fw-semibold px-3 py-1 rounded-2" style="background:#dbeafe; color:#1d4ed8;">XII RPL 1</span></td>
+                            <td class="fw-medium text-dark">Rekayasa Perangkat Lunak</td>
+                            <td class="fw-semibold text-dark">Budi Santoso, S.Kom.</td>
+                            <td><span class="fw-semibold text-dark">36</span><span class="text-muted small"> Siswa</span></td>
+                            <td><span class="badge bg-light border px-2 py-1 rounded-2 fw-medium text-dark">Lab RPL 1</span></td>
+                            <td class="text-end">
+                                <a href="#" class="text-secondary me-2 fs-6" title="Lihat Detail"><i class="bi bi-eye"></i></a>
+                                <a href="#" class="text-secondary me-2 fs-6" title="Edit"><i class="bi bi-pencil"></i></a>
+                                <a href="#" class="text-secondary fs-6" title="Hapus"><i class="bi bi-trash"></i></a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge fw-semibold px-3 py-1 rounded-2" style="background:#fce7f3; color:#be185d;">XI TKJ 2</span></td>
+                            <td class="fw-medium text-dark">Teknik Komputer & Jaringan</td>
+                            <td class="fw-semibold text-dark">Siti Aminah, M.Pd.</td>
+                            <td><span class="fw-semibold text-dark">32</span><span class="text-muted small"> Siswa</span></td>
+                            <td><span class="badge bg-light border px-2 py-1 rounded-2 fw-medium text-dark">Lab Komputer 2</span></td>
+                            <td class="text-end">
+                                <a href="#" class="text-secondary me-2 fs-6" title="Lihat Detail"><i class="bi bi-eye"></i></a>
+                                <a href="#" class="text-secondary me-2 fs-6" title="Edit"><i class="bi bi-pencil"></i></a>
+                                <a href="#" class="text-secondary fs-6" title="Hapus"><i class="bi bi-trash"></i></a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge fw-semibold px-3 py-1 rounded-2" style="background:#dcfce7; color:#166534;">X AKL 1</span></td>
+                            <td class="fw-medium text-dark">Akuntansi Keuangan Lembaga</td>
+                            <td class="fw-semibold text-dark">Dwi Wahyuni, S.E.</td>
+                            <td><span class="fw-semibold text-dark">34</span><span class="text-muted small"> Siswa</span></td>
+                            <td><span class="badge bg-light border px-2 py-1 rounded-2 fw-medium text-dark">R.105</span></td>
+                            <td class="text-end">
+                                <a href="#" class="text-secondary me-2 fs-6" title="Lihat Detail"><i class="bi bi-eye"></i></a>
+                                <a href="#" class="text-secondary me-2 fs-6" title="Edit"><i class="bi bi-pencil"></i></a>
+                                <a href="#" class="text-secondary fs-6" title="Hapus"><i class="bi bi-trash"></i></a>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer Pagination -->
+        <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+            <div class="text-muted small">Menampilkan 1-3 dari 24 kelas</div>
+            <div class="d-flex align-items-center gap-1">
+                <button class="btn btn-sm btn-light border px-2 py-1" style="border-radius: 6px;" disabled><i class="bi bi-chevron-left small"></i></button>
+                <button class="btn btn-sm btn-primary px-2 py-1" style="border-radius: 6px; background:#1565c0; border:none;">1</button>
+                <button class="btn btn-sm btn-light border px-2 py-1" style="border-radius: 6px;">2</button>
+                <button class="btn btn-sm btn-light border px-2 py-1" style="border-radius: 6px;">3</button>
+                <span class="text-muted small px-1">...</span>
+                <button class="btn btn-sm btn-light border px-2 py-1" style="border-radius: 6px;"><i class="bi bi-chevron-right small"></i></button>
+            </div>
+        </div>
+
     </div>
 
 </div>
