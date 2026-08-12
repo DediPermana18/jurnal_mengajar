@@ -15,14 +15,14 @@ class JurnalMengajarController extends Controller
                         ->orderBy('tanggal', 'desc')
                         ->get();
 
-        return view('jurnal.index', compact('dataJurnal'));
+        return view('admin.jurnal.index', compact('dataJurnal'));
     }
 
     // 2. Menampilkan form tambah jurnal mengajar
     public function create()
     {
         $jadwals = Jadwal::with(['guru', 'kelas', 'mapel'])->get();
-        return view('jurnal.create', compact('jadwals'));
+        return view('admin.jurnal.create', compact('jadwals'));
     }
 
     // 3. Menyimpan data jurnal mengajar baru
@@ -59,7 +59,7 @@ class JurnalMengajarController extends Controller
     {
         $jurnal = JurnalMengajar::findOrFail($id);
         $jadwals = Jadwal::with(['guru', 'kelas', 'mapel'])->get();
-        return view('jurnal.edit', compact('jurnal', 'jadwals'));
+        return view('admin.jurnal.edit', compact('jurnal', 'jadwals'));
     }
 
     // 5. Mengupdate data jurnal mengajar

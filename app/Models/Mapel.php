@@ -14,8 +14,28 @@ class Mapel extends Model
     protected $primaryKey = 'id_mapel';
     public $timestamps = false;
 
-    protected $fillable = ['kode_mapel', 'nama_mapel'];
+    protected $fillable = [
+        'kode_mapel',
+        'nama_mapel',
+        'id_kelas',
+        'id_guru',
+        'jam_ke',
+        'status_guru'
+    ];
 
+    // Relasi ke Kelas
+    public function kelas()
+    {
+        return $this->belongsTo(Kelas::class, 'id_kelas', 'id_kelas');
+    }
+
+    // Relasi ke Guru
+    public function guru()
+    {
+        return $this->belongsTo(Guru::class, 'id_guru', 'id_guru');
+    }
+
+    // Relasi ke Jadwal
     public function jadwal()
     {
         return $this->hasMany(Jadwal::class, 'id_mapel', 'id_mapel');

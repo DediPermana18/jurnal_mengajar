@@ -11,13 +11,13 @@ class GuruController extends Controller
     public function index()
     {
         $dataGuru = Guru::all();
-        return view('guru.index', compact('dataGuru'));
+        return view('admin.guru.index', compact('dataGuru'));
     }
 
     // 2. Menampilkan form tambah guru
     public function create()
     {
-        return view('guru.create');
+        return view('admin.guru.create');
     }
 
     // 3. Menyimpan data guru baru ke database
@@ -42,7 +42,7 @@ class GuruController extends Controller
     public function edit($id)
     {
         $guru = Guru::findOrFail($id);
-        return view('guru.edit', compact('guru'));
+        return view('admin.guru.edit', compact('guru'));
     }
 
     // 5. Mengupdate data guru di database

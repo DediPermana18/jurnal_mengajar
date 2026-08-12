@@ -7,12 +7,15 @@ use App\Http\Controllers\MapelController;
 use App\Http\Controllers\KelasController;
 use App\Http\Controllers\SiswaController;
 
-// Halaman utama langsung ke Jurnal Mengajar
+// Halaman utama / login langsung mengarah ke Dashboard Admin
 Route::get('/', [JurnalMengajarController::class, 'index'])->name('home');
+Route::get('/login', function () {
+    return redirect()->route('home');
+})->name('login');
 
-// Resource Routes (sudah mencakup index, create, store, show, edit, update, destroy)
-Route::resource('jurnal', JurnalMengajarController::class);
-Route::resource('guru', GuruController::class);
-Route::resource('mapel', MapelController::class);
-Route::resource('kelas', KelasController::class);
-Route::resource('siswa', SiswaController::class);
+// Resource Routes (Admin Data Master & Jurnal)
+Route::resource('admin/jurnal', JurnalMengajarController::class);
+Route::resource('admin/guru', GuruController::class);
+Route::resource('admin/mapel', MapelController::class);
+Route::resource('admin/kelas', KelasController::class);
+Route::resource('admin/siswa', SiswaController::class);
