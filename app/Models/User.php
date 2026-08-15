@@ -51,4 +51,16 @@ class User extends Authenticatable
     {
         return $this->hasMany(JadwalPelajaran::class, 'id_guru', 'id');
     }
+
+    /**
+     * Helper: apakah user ini adalah Wali Kelas?
+     * True jika role 'wali_kelas' ATAU terdaftar sebagai id_wali_kelas di tabel kelas.
+     */
+    public function isWaliKelas(): bool
+    {
+        if ($this->role === 'wali_kelas') {
+            return true;
+        }
+        return $this->kelasWali()->exists();
+    }
 }

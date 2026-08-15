@@ -86,9 +86,9 @@ class DummyDataSeeder extends Seeder
         }
 
         // Ambil ID Guru
-        $guruBudi   = User::where('username', 'gurbudi')->first();
-        $guruSiti   = User::where('username', 'gursiti')->first();
-        $guruAhmad  = User::where('username', 'gurahmad')->first();
+        $guruBudi   = User::whereIn('username', ['gurubudi', 'gurbudi', 'guru'])->first();
+        $guruSiti   = User::whereIn('username', ['gurupiket', 'gursiti'])->first();
+        $guruAhmad  = User::whereIn('username', ['gurahmad'])->first();
 
         // 4. Seed Kelas
         $kelas10 = Kelas::updateOrCreate(

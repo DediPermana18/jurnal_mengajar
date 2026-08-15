@@ -13,7 +13,22 @@ return new class extends Migration {
             $table->string('username', 100)->unique();
             $table->string('password');
             $table->string('kode_aktivasi', 100)->nullable();
-            $table->enum('role', ['guru', 'admin', 'super_admin', 'epic_admin', 'absolute_admin', 'warden'])->default('guru');
+            
+            // Perbaruan daftar role lengkap
+           // Perbaruan daftar role lengkap
+            $table->enum('role', [
+                'super_admin',
+                'admin_tu',
+                'admin_kurikulum',
+                'admin_kesiswaan',
+                'guru_mapel',
+                'wali_kelas',
+                'guru_piket',
+                'piket_satpam',
+                'guru',
+                'admin'
+            ])->default('guru_mapel');
+
             $table->timestamps();
             $table->softDeletes();
         });

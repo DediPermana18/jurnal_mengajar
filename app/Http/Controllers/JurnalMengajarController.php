@@ -6,6 +6,7 @@ use App\Models\Jurnal;
 use App\Models\JadwalPelajaran;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Carbon\Carbon;
 
 class JurnalMengajarController extends Controller
 {
@@ -14,6 +15,8 @@ class JurnalMengajarController extends Controller
      */
     public function index()
     {
+        $today = Carbon::today()->toDateString();
+
         $dataJurnal = Jurnal::with([
             'jadwal.guru',
             'jadwal.mapel',
@@ -22,9 +25,16 @@ class JurnalMengajarController extends Controller
         ])
         ->orderBy('tanggal', 'desc')
         ->orderBy('id', 'desc')
-        ->get();
+        ->get()
+        ->map(function ($jurnal) use ($today) {
+            // is_editable: Admin selalu bisa edit; Guru hanya bisa edit jurnal hari ini
+            $role = auth()->check() ? auth()->user()->role : null;
+            $isGuru = in_array($role, ['guru_mapel', 'guru', 'wali_kelas', 'guru_piket']);
+            $jurnal->is_editable = !$isGuru || $jurnal->tanggal === $today;
+            return $jurnal;
+        });
 
-        return view('admin.jurnal.index', compact('dataJurnal'));
+        return view('admin.jurnal.index', compact('dataJurnal', 'today'));
     }
 
     /**
@@ -74,6 +84,14 @@ class JurnalMengajarController extends Controller
     public function edit($id)
     {
         $jurnal = Jurnal::findOrFail($id);
+
+        // DATE-LOCK: Guru Piket & Guru Mapel hanya bisa edit jurnal hari ini
+        $role = auth()->check() ? auth()->user()->role : null;
+        $isGuru = in_array($role, ['guru_mapel', 'guru', 'wali_kelas', 'guru_piket']);
+        if ($isGuru && $jurnal->tanggal !== Carbon::today()->toDateString()) {
+            return redirect()->back()->with('error', 'Jurnal tanggal ' . $jurnal->tanggal . ' sudah terkunci dan tidak dapat diedit.');
+        }
+
         $jadwals = JadwalPelajaran::with([
             'guru',
             'kelas',
@@ -92,6 +110,13 @@ class JurnalMengajarController extends Controller
     {
         $jurnal = Jurnal::findOrFail($id);
 
+        // DATE-LOCK: Guru Piket & Guru Mapel hanya bisa update jurnal hari ini
+        $role = auth()->check() ? auth()->user()->role : null;
+        $isGuru = in_array($role, ['guru_mapel', 'guru', 'wali_kelas', 'guru_piket']);
+        if ($isGuru && $jurnal->tanggal !== Carbon::today()->toDateString()) {
+            abort(403, 'Jurnal ini sudah terkunci. Hanya jurnal hari ini yang dapat diubah.');
+        }
+
         $validated = $request->validate([
             'id_jadwal'        => 'required|exists:jadwal_pelajaran,id',
             'tanggal'          => 'required|date',
@@ -99,6 +124,7 @@ class JurnalMengajarController extends Controller
             'catatan_kejadian' => 'nullable|string',
             'foto_kegiatan'    => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
+
 
         if ($request->hasFile('foto_kegiatan')) {
             // Hapus foto lama jika ada

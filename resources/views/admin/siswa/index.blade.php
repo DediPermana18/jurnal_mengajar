@@ -1,93 +1,492 @@
-@extends('admin.layouts.app')
+@extends('layouts.app')
 
-@section('title', 'Data Siswa - WebJournal Management System')
+@section('title', 'Data Master Siswa - WebJournal Management System')
+
+@push('styles')
+<style>
+    /* === Avatar Inisial Siswa === */
+    .siswa-avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #ffffff;
+        flex-shrink: 0;
+    }
+
+    /* === Filter Bar === */
+    .filter-bar {
+        background: #ffffff;
+        border: 1px solid #e8eef5;
+        border-radius: 14px;
+        padding: 1.1rem 1.5rem;
+        margin-bottom: 1.25rem;
+        box-shadow: 0 1px 6px rgba(15, 23, 42, 0.04);
+    }
+
+    .filter-bar .form-control,
+    .filter-bar .form-select {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 0.875rem;
+        padding: 0.55rem 0.85rem;
+        color: #334155;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .filter-bar .form-control:focus,
+    .filter-bar .form-select:focus {
+        border-color: var(--primary-blue, #1677ff);
+        box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.12);
+        background-color: #ffffff;
+    }
+
+    .filter-bar .search-wrapper {
+        position: relative;
+    }
+
+    .filter-bar .search-wrapper i {
+        position: absolute;
+        left: 0.85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        font-size: 0.9rem;
+        pointer-events: none;
+    }
+
+    .filter-bar .search-wrapper .form-control {
+        padding-left: 2.4rem;
+    }
+
+    /* === Status Badge === */
+    .badge-aktif {
+        background-color: #ecfdf5;
+        color: #059669;
+        border: 1px solid #a7f3d0;
+        border-radius: 50px;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.76rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .badge-tidak-aktif {
+        background-color: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+        border-radius: 50px;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.76rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .badge-laki {
+        background-color: #eff6ff;
+        color: #2563eb;
+        border: 1px solid #bfdbfe;
+    }
+
+    .badge-perempuan {
+        background-color: #fdf2f8;
+        color: #db2777;
+        border: 1px solid #fbcfe8;
+    }
+
+    .badge-gender {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 0.375rem !important;
+        border-radius: 9999px !important;
+        padding: 0.25rem 0.75rem !important;
+        font-size: 0.75rem !important;
+        font-weight: 600 !important;
+        white-space: nowrap !important;
+        line-height: 1.2 !important;
+    }
+
+    /* === Badge Kelas === */
+    .badge-kelas {
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+        border-radius: 8px;
+        padding: 0.2rem 0.65rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    /* === NISN Code === */
+    .nisn-code {
+        background: #f1f5f9;
+        color: #475569;
+        border-radius: 6px;
+        padding: 0.15rem 0.55rem;
+        font-size: 0.78rem;
+        font-family: monospace;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        display: inline-block;
+    }
+
+    /* === Aksi Icon Buttons === */
+    .btn-aksi {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        color: #64748b;
+        transition: all 0.18s ease;
+        cursor: pointer;
+        text-decoration: none;
+    }
+
+    .btn-aksi:hover {
+        border-color: #cbd5e1;
+        background: #f8fafc;
+        color: #334155;
+    }
+
+    .btn-aksi.btn-aksi-danger:hover {
+        border-color: #fecaca;
+        background: #fef2f2;
+        color: #dc2626;
+    }
+
+    .btn-aksi.btn-aksi-primary:hover {
+        border-color: #bfdbfe;
+        background: #eff6ff;
+        color: #2563eb;
+    }
+
+    /* === Pagination Styling === */
+    .pagination-wrapper .pagination {
+        gap: 4px;
+        margin-bottom: 0;
+    }
+
+    .pagination-wrapper .page-item .page-link {
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        color: #475569;
+        font-size: 0.82rem;
+        font-weight: 600;
+        padding: 0.4rem 0.7rem;
+        transition: all 0.15s ease;
+    }
+
+    .pagination-wrapper .page-item.active .page-link {
+        background-color: var(--primary-blue, #1677ff);
+        border-color: var(--primary-blue, #1677ff);
+        color: #ffffff;
+    }
+
+    .pagination-wrapper .page-item .page-link:hover {
+        background-color: #f1f5f9;
+        border-color: #cbd5e1;
+        color: #1e293b;
+    }
+
+    .pagination-wrapper .page-item.disabled .page-link {
+        color: #cbd5e1;
+        border-color: #f1f5f9;
+    }
+</style>
+@endpush
 
 @section('content')
-<div class="container-fluid px-0">
-
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+<div>
+    {{-- ====================================================== --}}
+    {{-- HEADER                                                  --}}
+    {{-- ====================================================== --}}
+    <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-3 mb-4">
         <div>
-            <h2 class="fw-extrabold text-uppercase text-dark mb-1" style="letter-spacing: -0.02em; font-weight: 800;">DATA SISWA</h2>
-            <p class="text-muted mb-0">Kelola data seluruh siswa terpilih dan kelas terdaftar.</p>
+            <h2 class="mb-1" style="font-size: 1.65rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">
+                Data Master Siswa
+            </h2>
+            <p class="mb-0" style="font-size: 0.9rem; color: #64748b; font-weight: 500;">
+                Kelola data identitas siswa, NISN, dan rombel kelas.
+            </p>
         </div>
-        <a href="{{ route('siswa.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-2">
-            <i class="bi bi-plus-circle-fill"></i>
-            <span>Tambah Data Siswa</span>
+        <a href="{{ route('siswa.create') }}"
+           class="btn btn-primary rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-2 flex-shrink-0"
+           style="background-color: var(--primary-blue, #1677ff); border-color: var(--primary-blue, #1677ff); font-size: 0.9rem;">
+            <i class="bi bi-plus-lg"></i>
+            <span>+ Tambah Siswa</span>
         </a>
     </div>
 
+    {{-- ====================================================== --}}
+    {{-- FLASH MESSAGE                                           --}}
+    {{-- ====================================================== --}}
     @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-4 mb-4" role="alert">
-            <div class="d-flex align-items-center">
-                <i class="bi bi-check-circle-fill fs-5 me-2"></i>
-                <div>{{ session('success') }}</div>
-            </div>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <div class="alert alert-success alert-dismissible fade show border-0 rounded-3 mb-4 d-flex align-items-center gap-2" role="alert" style="background:#ecfdf5; color:#065f46;">
+            <i class="bi bi-check-circle-fill fs-5"></i>
+            <div>{{ session('success') }}</div>
+            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     @endif
 
-    <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0 text-nowrap">
-                    <thead style="background-color: #fafafa; border-bottom: 2px solid #f1f5f9;">
+    {{-- ====================================================== --}}
+    {{-- FILTER BAR                                              --}}
+    {{-- ====================================================== --}}
+    <div class="filter-bar">
+        <form action="{{ route('siswa.index') }}" method="GET">
+            <div class="row g-3 align-items-center">
+                {{-- Search Input --}}
+                <div class="col-12 col-md-5">
+                    <div class="search-wrapper">
+                        <i class="bi bi-search"></i>
+                        <input type="text"
+                               name="search"
+                               class="form-control"
+                               placeholder="Cari nama siswa atau NISN..."
+                               value="{{ request('search') }}">
+                    </div>
+                </div>
+
+                {{-- Dropdown Pilih Kelas --}}
+                <div class="col-6 col-md-3">
+                    <select name="id_kelas" class="form-select">
+                        <option value="">Pilih Kelas</option>
+                        @foreach($dataKelas as $kelas)
+                            <option value="{{ $kelas->id }}" {{ request('id_kelas') == $kelas->id ? 'selected' : '' }}>
+                                {{ $kelas->nama_kelas }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- Dropdown Jenis Kelamin --}}
+                <div class="col-6 col-md-2">
+                    <select name="jenis_kelamin" class="form-select">
+                        <option value="">Jenis Kelamin</option>
+                        <option value="L" {{ request('jenis_kelamin') == 'L' ? 'selected' : '' }}>Laki-laki</option>
+                        <option value="P" {{ request('jenis_kelamin') == 'P' ? 'selected' : '' }}>Perempuan</option>
+                    </select>
+                </div>
+
+                {{-- Tombol Filter & Reset --}}
+                <div class="col-12 col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold flex-grow-1"
+                            style="background-color: var(--primary-blue, #1677ff); border-color: var(--primary-blue, #1677ff); font-size: 0.85rem;">
+                        <i class="bi bi-funnel me-1"></i> Filter
+                    </button>
+                    @if(request()->hasAny(['search','id_kelas','jenis_kelamin']))
+                        <a href="{{ route('siswa.index') }}" class="btn btn-light border rounded-3 px-2 py-2" title="Reset Filter">
+                            <i class="bi bi-x-lg text-muted"></i>
+                        </a>
+                    @endif
+                </div>
+            </div>
+        </form>
+    </div>
+
+    {{-- ====================================================== --}}
+    {{-- TABLE CARD                                              --}}
+    {{-- ====================================================== --}}
+    <div class="table-card-custom">
+
+        {{-- Table --}}
+        <div class="table-responsive">
+            <table class="table table-custom align-middle">
+                <thead>
+                    <tr>
+                        <th style="width: 30%;">NISN & NAMA SISWA</th>
+                        <th style="width: 12%;">NIS</th>
+                        <th style="width: 20%;">KELAS & JURUSAN</th>
+                        <th style="width: 13%;">JENIS KELAMIN</th>
+                        <th style="width: 12%;">STATUS</th>
+                        <th style="width: 13%; text-align: right;">AKSI</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($dataSiswa as $idx => $siswa)
+                        @php
+                            // Generate inisial dari nama
+                            $words   = explode(' ', $siswa->nama ?? '');
+                            $inisial = strtoupper(substr($words[0] ?? 'S', 0, 1) . substr($words[1] ?? '', 0, 1));
+
+                            // Warna avatar berdasarkan indeks
+                            $palette = ['#3b82f6','#8b5cf6','#ec4899','#f97316','#10b981','#06b6d4','#f59e0b','#6366f1'];
+                            $bgColor = $palette[$idx % count($palette)];
+
+                            // Status siswa
+                            $status = $siswa->status_siswa ?? 'Aktif';
+                        @endphp
                         <tr>
-                            <th class="ps-4 text-uppercase text-muted fw-bold" style="font-size: 0.75rem; letter-spacing: 0.05em; width: 5%;">No</th>
-                            <th class="text-uppercase text-muted fw-bold" style="font-size: 0.75rem; letter-spacing: 0.05em;">NIS</th>
-                            <th class="text-uppercase text-muted fw-bold" style="font-size: 0.75rem; letter-spacing: 0.05em;">Nama Siswa</th>
-                            <th class="text-uppercase text-muted fw-bold" style="font-size: 0.75rem; letter-spacing: 0.05em;">Kelas</th>
-                            <th class="text-uppercase text-muted fw-bold" style="font-size: 0.75rem; letter-spacing: 0.05em;">Jenis Kelamin</th>
-                            <th class="pe-4 text-end text-uppercase text-muted fw-bold" style="font-size: 0.75rem; letter-spacing: 0.05em; width: 15%;">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($dataSiswa as $key => $siswa)
-                            <tr>
-                                <td class="ps-4 fw-medium text-dark">{{ $key + 1 }}</td>
-                                <td>
-                                    <span class="badge bg-light text-dark border px-2 py-1 font-monospace">{{ $siswa->nis ?? '-' }}</span>
-                                </td>
-                                <td>
-                                    <span class="fw-semibold text-dark">{{ $siswa->nama_siswa }}</span>
-                                </td>
-                                <td>
-                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 rounded-pill fw-semibold">
-                                        {{ $siswa->kelas->nama_kelas ?? '-' }}
-                                    </span>
-                                </td>
-                                <td>
-                                    @if($siswa->jenis_kelamin == 'L')
-                                        <span class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1 rounded-2 fw-semibold">Laki-laki</span>
-                                    @else
-                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 rounded-2 fw-semibold">Perempuan</span>
+                            {{-- Kolom 1: NISN & Nama --}}
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="siswa-avatar" style="background-color: {{ $bgColor }};">
+                                        {{ $inisial }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold text-dark" style="font-size: 0.9rem; line-height: 1.3;">
+                                            {{ $siswa->nama ?? '-' }}
+                                        </div>
+                                        <span class="nisn-code mt-1">
+                                            {{ $siswa->nisn ?? 'NISN belum diisi' }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </td>
+
+                            {{-- Kolom 2: NIS --}}
+                            <td>
+                                @if($siswa->nis)
+                                    <span class="nisn-code">{{ $siswa->nis }}</span>
+                                @else
+                                    <span class="text-muted" style="font-size: 0.82rem;">-</span>
+                                @endif
+                            </td>
+
+                            {{-- Kolom 3: Kelas & Jurusan --}}
+                            <td>
+                                @if($siswa->kelas)
+                                    <span class="badge-kelas">{{ $siswa->kelas->nama_kelas }}</span>
+                                    @if($siswa->kelas->tingkat)
+                                        <div class="mt-1" style="font-size: 0.75rem; color: #94a3b8; font-weight: 500;">
+                                            Tingkat {{ $siswa->kelas->tingkat }}
+                                        </div>
                                     @endif
-                                </td>
-                                <td class="pe-4 text-end">
-                                    <a href="{{ route('siswa.edit', $siswa->id_siswa) }}" class="btn btn-sm btn-light border rounded-3 me-1" title="Edit Data">
-                                        <i class="bi bi-pencil-square text-warning"></i>
+                                @else
+                                    <span class="text-muted" style="font-size: 0.82rem;">Belum ditentukan</span>
+                                @endif
+                            </td>
+
+                            {{-- Kolom 4: Jenis Kelamin --}}
+                            <td>
+                                @if($siswa->jenis_kelamin == 'L')
+                                    <span class="badge-gender badge-laki inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium">
+                                        <i class="bi bi-gender-male" style="font-size: 0.8rem;"></i>
+                                        <span>Laki-laki</span>
+                                    </span>
+                                @elseif($siswa->jenis_kelamin == 'P')
+                                    <span class="badge-gender badge-perempuan inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium">
+                                        <i class="bi bi-gender-female" style="font-size: 0.8rem;"></i>
+                                        <span>Perempuan</span>
+                                    </span>
+                                @else
+                                    <span class="text-muted" style="font-size: 0.82rem;">-</span>
+                                @endif
+                            </td>
+
+                            {{-- Kolom 5: Status Siswa --}}
+                            <td>
+                                @if(strtolower($status) == 'aktif')
+                                    <span class="badge-aktif">
+                                        <i class="bi bi-circle-fill" style="font-size: 0.42rem;"></i> Aktif
+                                    </span>
+                                @else
+                                    <span class="badge-tidak-aktif">
+                                        <i class="bi bi-circle-fill" style="font-size: 0.42rem;"></i> {{ $status }}
+                                    </span>
+                                @endif
+                            </td>
+
+                            {{-- Kolom 6: Aksi --}}
+                            <td>
+                                <div class="d-flex justify-content-end align-items-center gap-1">
+                                    {{-- Detail --}}
+                                    <a href="{{ route('siswa.show', $siswa->id) }}"
+                                       class="btn-aksi btn-aksi-primary"
+                                       title="Lihat Detail">
+                                        <i class="bi bi-eye"></i>
                                     </a>
-                                    <form action="{{ route('siswa.destroy', $siswa->id_siswa) }}" method="POST" class="d-inline" onsubmit="return confirm('Yakin hapus data siswa ini?')">
+
+                                    {{-- Edit --}}
+                                    <a href="{{ route('siswa.edit', $siswa->id) }}"
+                                       class="btn-aksi"
+                                       title="Edit Data">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+
+                                    {{-- Hapus --}}
+                                    <form action="{{ route('siswa.destroy', $siswa->id) }}" method="POST" class="d-inline"
+                                          onsubmit="return confirm('Yakin ingin menghapus data siswa {{ addslashes($siswa->nama) }}?')">
                                         @csrf
                                         @method('DELETE')
-                                        <button class="btn btn-sm btn-light border rounded-3" title="Hapus Data">
-                                            <i class="bi bi-trash text-danger"></i>
+                                        <button type="submit" class="btn-aksi btn-aksi-danger" title="Hapus">
+                                            <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6" class="text-center py-5 text-muted">
-                                    <i class="bi bi-people fs-1 d-block mb-2 text-secondary"></i>
-                                    Belum ada data siswa. Silakan tambahkan data baru.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="text-center py-5">
+                                <div style="color: #cbd5e1;">
+                                    <i class="bi bi-people" style="font-size: 2.5rem; display: block; margin-bottom: 0.75rem;"></i>
+                                </div>
+                                <div class="fw-semibold text-dark mb-1">Tidak ada data siswa</div>
+                                <div class="text-muted" style="font-size: 0.85rem;">
+                                    @if(request()->hasAny(['search','id_kelas','jenis_kelamin']))
+                                        Tidak ada siswa yang sesuai dengan filter. <a href="{{ route('siswa.index') }}">Reset filter</a>
+                                    @else
+                                        Belum ada siswa yang terdaftar. <a href="{{ route('siswa.create') }}">Tambah siswa baru</a>.
+                                    @endif
+                                </div>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
+
+        {{-- ====================================================== --}}
+        {{-- FOOTER: Info & Pagination                               --}}
+        {{-- ====================================================== --}}
+        @if($dataSiswa->total() > 0)
+            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3 mt-4 pt-3 border-top">
+                {{-- Info jumlah --}}
+                <div class="text-muted" style="font-size: 0.82rem; font-weight: 500;">
+                    Menampilkan
+                    <strong class="text-dark">{{ $dataSiswa->firstItem() }}–{{ $dataSiswa->lastItem() }}</strong>
+                    dari
+                    <strong class="text-dark">{{ number_format($dataSiswa->total()) }}</strong>
+                    siswa
+                    @if(request()->hasAny(['search','id_kelas','jenis_kelamin']))
+                        <span class="ms-1">(difilter dari total <strong class="text-dark">{{ number_format($totalSiswa) }}</strong> siswa)</span>
+                    @endif
+                </div>
+
+                {{-- Laravel Pagination --}}
+                <div class="pagination-wrapper">
+                    {{ $dataSiswa->links() }}
+                </div>
+            </div>
+        @endif
+
     </div>
 
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    // Auto submit filter saat dropdown berubah (opsional UX improvement)
+    document.querySelectorAll('.filter-bar select[name="id_kelas"], .filter-bar select[name="jenis_kelamin"]').forEach(function(el) {
+        el.addEventListener('change', function() {
+            this.closest('form').submit();
+        });
+    });
+</script>
+@endpush

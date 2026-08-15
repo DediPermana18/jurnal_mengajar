@@ -18,6 +18,7 @@ class AbsensiJurnal extends Model
         'id_siswa',
         'status',
         'keterangan',
+        'foto_surat',
     ];
 
     /**
