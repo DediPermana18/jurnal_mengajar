@@ -21,6 +21,12 @@ class User extends Authenticatable
         'password',
         'kode_aktivasi',
         'role',
+        'mapel_ids',
+    ];
+
+    protected $casts = [
+        'mapel_ids' => 'array',
+        'password' => 'hashed',
     ];
 
     protected $hidden = [
@@ -28,13 +34,6 @@ class User extends Authenticatable
         'kode_aktivasi',
         'remember_token',
     ];
-
-    protected function casts(): array
-    {
-        return [
-            'password' => 'hashed',
-        ];
-    }
 
     /**
      * Relasi ke Kelas sebagai Wali Kelas
