@@ -58,9 +58,11 @@ class GuruController extends Controller
 
         if ($request->filled('wali_kelas') && $request->wali_kelas !== 'Semua') {
             if ($request->wali_kelas === 'Ya') {
-                $query->has('kelasWali');
+                $query->where(function($q) {
+                    $q->has('kelasWali')->orWhereNotNull('kelas_id');
+                });
             } elseif ($request->wali_kelas === 'Tidak') {
-                $query->doesntHave('kelasWali');
+                $query->doesntHave('kelasWali')->whereNull('kelas_id');
             }
         }
 
@@ -70,6 +72,9 @@ class GuruController extends Controller
                 $q->whereHas('kelasWali.jurusan', function ($jQ) use ($kejuruanFilter) {
                     $jQ->where('kode_jurusan', $kejuruanFilter)
                        ->orWhere('nama_jurusan', 'like', "%{$kejuruanFilter}%");
+                })->orWhereHas('kelas.jurusan', function ($jQ) use ($kejuruanFilter) {
+                    $jQ->where('kode_jurusan', $kejuruanFilter)
+                       ->orWhere('nama_jurusan', 'like', "%{$kejuruanFilter}%");
                 })->orWhereHas('jadwalPelajaran.kelas.jurusan', function ($jQ) use ($kejuruanFilter) {
                     $jQ->where('kode_jurusan', $kejuruanFilter)
                        ->orWhere('nama_jurusan', 'like', "%{$kejuruanFilter}%");
@@ -77,7 +82,7 @@ class GuruController extends Controller
             });
         }
 
-        $dataGuru = $query->with(['kelasWali.jurusan', 'jadwalPelajaran.mataPelajaran', 'jadwalPelajaran.kelas.jurusan'])
+        $dataGuru = $query->with(['kelas.jurusan', 'kelasWali.jurusan', 'jadwalPelajaran.mataPelajaran', 'jadwalPelajaran.kelas.jurusan'])
             ->orderBy('id', 'asc')
             ->paginate(10)
             ->withQueryString();
@@ -134,6 +139,17 @@ class GuruController extends Controller
             }
         }
 
+        // Olah mapel_ids menjadi array integer bersih atau null
+        $mapelIds = null;
+        if ($request->filled('mapel_ids') || is_array($request->mapel_ids)) {
+            $mapelIds = array_values(array_filter(array_map('intval', (array)$request->mapel_ids)));
+            if (empty($mapelIds)) {
+                $mapelIds = null;
+            }
+        }
+
+        $kelasId = ($role === 'wali_kelas' && $request->filled('kelas_id')) ? (int)$request->kelas_id : null;
+
         // Buat user baru
         $user = User::create([
             'nama'          => $request->nama,
@@ -142,12 +158,13 @@ class GuruController extends Controller
             'password'      => Hash::make($request->password ?? 'password123'),
             'role'          => $role,
             'kode_aktivasi' => null,
-            'mapel_ids'     => $request->mapel_ids ?? null,
+            'mapel_ids'     => $mapelIds,
+            'kelas_id'      => $kelasId,
         ]);
 
         // Assign wali kelas: set id_wali_kelas pada tabel kelas
-        if ($role === 'wali_kelas' && !empty($request->kelas_id)) {
-            Kelas::where('id', $request->kelas_id)->update(['id_wali_kelas' => $user->id]);
+        if ($role === 'wali_kelas' && !empty($kelasId)) {
+            Kelas::where('id', $kelasId)->update(['id_wali_kelas' => $user->id]);
         }
 
         return redirect()->route('guru.index')->with('success', 'Data Guru baru berhasil ditambahkan!');
@@ -203,26 +220,45 @@ class GuruController extends Controller
         // Simpan role lama untuk perbandingan
         $oldRole = $user->role;
 
+        // Olah mapel_ids menjadi array integer bersih atau null
+        $mapelIds = null;
+        if ($request->has('mapel_ids') && is_array($request->mapel_ids)) {
+            $mapelIds = array_values(array_filter(array_map('intval', (array)$request->mapel_ids)));
+            if (empty($mapelIds)) {
+                $mapelIds = null;
+            }
+        }
+
+        $kelasId = ($role === 'wali_kelas' && $request->filled('kelas_id')) ? (int)$request->kelas_id : null;
+
         // Update data user
         $user->update([
             'nama'      => $request->nama,
             'nip'       => $request->nip,
             'username'  => $request->username,
             'role'      => $role,
-            'mapel_ids' => $request->mapel_ids ?? null,
+            'mapel_ids' => $mapelIds,
+            'kelas_id'  => $kelasId,
         ]);
 
         // ===== HANDLE PERUBAHAN ASSIGNMENT WALI KELAS =====
-
         if ($oldRole === 'wali_kelas' && $role !== 'wali_kelas') {
             // Role berubah DARI wali_kelas -> selain wali_kelas: lepas semua kelas yang diwaliin
             Kelas::where('id_wali_kelas', $user->id)->update(['id_wali_kelas' => null]);
         }
 
-        if ($role === 'wali_kelas' && !empty($request->kelas_id)) {
-            // Role adalah wali_kelas: lepas kelas lama, assign kelas baru
-            Kelas::where('id_wali_kelas', $user->id)->update(['id_wali_kelas' => null]);
-            Kelas::where('id', $request->kelas_id)->update(['id_wali_kelas' => $user->id]);
+        if ($role === 'wali_kelas') {
+            // Lepas kelas lama guru ini jika ada yang berbeda dari kelas baru
+            Kelas::where('id_wali_kelas', $user->id)
+                ->when(!empty($kelasId), function($q) use ($kelasId) {
+                    $q->where('id', '!=', $kelasId);
+                })
+                ->update(['id_wali_kelas' => null]);
+
+            // Set guru ini sebagai id_wali_kelas di tabel kelas
+            if (!empty($kelasId)) {
+                Kelas::where('id', $kelasId)->update(['id_wali_kelas' => $user->id]);
+            }
         }
 
         return redirect()->route('guru.index')->with('success', 'Data Guru berhasil diperbarui!');

@@ -144,14 +144,22 @@
 
                             // Kejuruan unik
                             $kejuruanList = collect();
-                            if ($guru->kelasWali->isNotEmpty()) {
+                            if ($guru->kelasWali && $guru->kelasWali->isNotEmpty()) {
                                 foreach($guru->kelasWali as $kw) {
                                     if ($kw->jurusan) {
                                         $kejuruanList->push($kw->jurusan->kode_jurusan);
                                     }
                                 }
                             }
-                            if ($guru->jadwalPelajaran->isNotEmpty()) {
+                            if ($guru->kelas && $guru->kelas->jurusan) {
+                                $kejuruanList->push($guru->kelas->jurusan->kode_jurusan);
+                            } elseif (!empty($guru->kelas_id)) {
+                                $k = $daftarKelas->firstWhere('id', $guru->kelas_id);
+                                if ($k && $k->jurusan) {
+                                    $kejuruanList->push($k->jurusan->kode_jurusan);
+                                }
+                            }
+                            if ($guru->jadwalPelajaran && $guru->jadwalPelajaran->isNotEmpty()) {
                                 foreach($guru->jadwalPelajaran as $jp) {
                                     if ($jp->kelas && $jp->kelas->jurusan) {
                                         $kejuruanList->push($jp->kelas->jurusan->kode_jurusan);
@@ -160,11 +168,34 @@
                             }
                             $kejuruanList = $kejuruanList->unique();
 
-                            // Mata pelajaran unik
-                            $mapelList = $guru->jadwalPelajaran
-                                ->map(fn($jp) => $jp->mataPelajaran ? $jp->mataPelajaran->nama_mapel : null)
-                                ->filter()
-                                ->unique();
+                            // Mata pelajaran unik (ambil dari mapel_ids yang tersimpan di user + jadwalPelajaran)
+                            $mapelNames = collect();
+                            if (!empty($guru->mapel_ids)) {
+                                $savedMapelIds = is_array($guru->mapel_ids) ? $guru->mapel_ids : (json_decode($guru->mapel_ids, true) ?? []);
+                                $savedMapelIds = array_map('intval', (array)$savedMapelIds);
+                                $mapelFromUser = $daftarMapel->whereIn('id', $savedMapelIds)->pluck('nama_mapel');
+                                $mapelNames = $mapelNames->concat($mapelFromUser);
+                            }
+                            if ($guru->jadwalPelajaran && $guru->jadwalPelajaran->isNotEmpty()) {
+                                $mapelFromJadwal = $guru->jadwalPelajaran
+                                    ->map(fn($jp) => $jp->mataPelajaran ? $jp->mataPelajaran->nama_mapel : null)
+                                    ->filter();
+                                $mapelNames = $mapelNames->concat($mapelFromJadwal);
+                            }
+                            $mapelList = $mapelNames->unique();
+
+                            // Nama kelas wali
+                            $namaKelasWali = null;
+                            if ($guru->kelasWali && $guru->kelasWali->isNotEmpty()) {
+                                $namaKelasWali = $guru->kelasWali->pluck('nama_kelas')->join(', ');
+                            } elseif ($guru->kelas) {
+                                $namaKelasWali = $guru->kelas->nama_kelas;
+                            } elseif (!empty($guru->kelas_id)) {
+                                $k = $daftarKelas->firstWhere('id', $guru->kelas_id);
+                                if ($k) {
+                                    $namaKelasWali = $k->nama_kelas;
+                                }
+                            }
                         @endphp
                         <tr>
                             <!-- Kolom GURU -->
@@ -210,8 +241,8 @@
                             <!-- Kolom WALI KELAS -->
                             <td>
                                 <span class="text-dark" style="font-size: 0.875rem;">
-                                    @if($guru->kelasWali->isNotEmpty())
-                                        Wali Kelas {{ $guru->kelasWali->pluck('nama_kelas')->join(', ') }}
+                                    @if($namaKelasWali)
+                                        Wali Kelas {{ $namaKelasWali }}
                                     @else
                                         -
                                     @endif
@@ -320,28 +351,11 @@
                 <h5 class="modal-title fw-bold text-dark" id="modalTambahGuruLabel">Tambah Data Guru Baru</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="{{ route('guru.store') }}" method="POST"
-                  x-data="{
-                      role: 'guru_mapel',
-                      init() {
-                          this.$nextTick(() => {
-                              this.$el.querySelectorAll('input[name=&quot;mapel_ids[]&quot;]').forEach(cb => cb.checked = false);
-                              const kelasSelect = this.$el.querySelector('select[name=&quot;kelas_id&quot;]');
-                              if (kelasSelect) kelasSelect.value = '';
-                          });
-                          this.$watch('role', (val) => {
-                              this.$nextTick(() => {
-                                  this.$el.querySelectorAll('input[name=&quot;mapel_ids[]&quot;]').forEach(cb => cb.checked = false);
-                                  const kelasSelect = this.$el.querySelector('select[name=&quot;kelas_id&quot;]');
-                                  if (kelasSelect) kelasSelect.value = '';
-                              });
-                          });
-                      }
-                  }">
+            <form action="{{ route('guru.store') }}" method="POST">
                 @csrf
                 <div class="modal-body py-4">
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-secondary small">NAMA GURU LENGKAP</label>
+                        <label class="form-label fw-semibold text-secondary small">NAMA GURU LENGKAP <span class="text-danger">*</span></label>
                         <input type="text" name="nama" required class="form-control rounded-3" placeholder="misal: Budi Santoso, S.Kom.">
                     </div>
                     <div class="mb-3">
@@ -349,7 +363,7 @@
                         <input type="text" name="nip" class="form-control rounded-3" placeholder="misal: 198005122005011003">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-secondary small">USERNAME (UNTUK LOGIN)</label>
+                        <label class="form-label fw-semibold text-secondary small">USERNAME (UNTUK LOGIN) <span class="text-danger">*</span></label>
                         <input type="text" name="username" required class="form-control rounded-3" placeholder="misal: gurubudi">
                     </div>
                     <div class="mb-3">
@@ -357,50 +371,44 @@
                         <input type="password" name="password" class="form-control rounded-3" placeholder="Kosongkan untuk default: password123">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-secondary small">ROLE GURU</label>
-                        <select name="role" class="form-select rounded-3" required x-model="role">
+                        <label class="form-label fw-semibold text-secondary small">ROLE GURU <span class="text-danger">*</span></label>
+                        <select name="role" id="tambah_role" class="form-select rounded-3" required onchange="toggleRoleFields('tambah')">
                             <option value="guru_mapel">Guru Mapel</option>
                             <option value="wali_kelas">Wali Kelas</option>
                             <option value="guru_piket">Guru Piket</option>
+                            <option value="guru">Guru (Umum)</option>
                         </select>
                     </div>
 
-                    <!-- FIELD DINAMIS: MATA PELAJARAN (muncul untuk Guru Mapel & Wali Kelas) -->
-                    <div class="mb-3" x-show="role === 'guru_mapel' || role === 'wali_kelas'" x-transition x-cloak>
+                    <!-- FIELD DINAMIS: MATA PELAJARAN (muncul untuk Guru Mapel, Wali Kelas, & Guru) -->
+                    <div class="mb-3" id="tambah_field_mapel">
                         <label class="form-label fw-semibold text-secondary small">
-                            MATA PELAJARAN <span class="text-danger">*</span>
+                            MATA PELAJARAN
                         </label>
-                        <div class="border rounded-3 p-2 bg-light" style="max-height: 180px; overflow-y: auto;">
+                        <select name="mapel_ids[]" id="tambah_mapel_select" class="form-select rounded-3" multiple size="5">
                             @foreach($daftarMapel as $mapel)
-                                <div class="form-check py-1">
-                                    <input class="form-check-input" type="checkbox"
-                                           name="mapel_ids[]"
-                                           value="{{ $mapel->id }}"
-                                           id="tambah_mapel_{{ $mapel->id }}">
-                                    <label class="form-check-label small" for="tambah_mapel_{{ $mapel->id }}">
-                                        {{ $mapel->nama_mapel }}
-                                        @if($mapel->kode_mapel)
-                                            <span class="text-muted">({{ $mapel->kode_mapel }})</span>
-                                        @endif
-                                    </label>
-                                </div>
+                                <option value="{{ $mapel->id }}">
+                                    {{ $mapel->nama_mapel }}
+                                    @if($mapel->kode_mapel)
+                                        ({{ $mapel->kode_mapel }})
+                                    @endif
+                                </option>
                             @endforeach
-                            @if($daftarMapel->isEmpty())
-                                <p class="text-muted small mb-0 py-2 text-center">Belum ada data mata pelajaran.</p>
-                            @endif
+                        </select>
+                        <div class="form-text text-muted small">
+                            <i class="bi bi-info-circle me-1"></i>Tahan tombol <strong>Ctrl</strong> (Windows) atau <strong>Cmd</strong> (Mac) untuk memilih lebih dari 1 mata pelajaran.
                         </div>
-                        <div class="form-text">Pilih satu atau lebih mata pelajaran yang diampu.</div>
                     </div>
 
                     <!-- FIELD DINAMIS: KELAS YANG DIWALIIN (muncul hanya untuk Wali Kelas) -->
-                    <div class="mb-3" x-show="role === 'wali_kelas'" x-transition x-cloak>
+                    <div class="mb-3" id="tambah_field_kelas" style="display: none;">
                         <label class="form-label fw-semibold text-secondary small">
                             KELAS YANG DIWALIIN <span class="text-danger">*</span>
                         </label>
-                        <select name="kelas_id" class="form-select rounded-3">
+                        <select name="kelas_id" id="tambah_kelas_select" class="form-select rounded-3">
                             <option value="">-- Pilih Kelas --</option>
                             @foreach($daftarKelas as $kelas)
-                                <option value="{{ $kelas->id }}">
+                                <option value="{{ $kelas->id }}" {{ $kelas->id_wali_kelas ? 'disabled' : '' }}>
                                     {{ $kelas->nama_kelas }}
                                     @if($kelas->jurusan)
                                         - {{ $kelas->jurusan->nama_jurusan }}
@@ -411,7 +419,7 @@
                                 </option>
                             @endforeach
                         </select>
-                        <div class="form-text">1 Wali Kelas hanya boleh memegang 1 Kelas.</div>
+                        <div class="form-text text-muted small">1 Wali Kelas hanya boleh memegang 1 Kelas.</div>
                     </div>
                 </div>
                 <div class="modal-footer border-0 pt-0">
@@ -426,6 +434,15 @@
 <!-- MODALS EDIT GURU & UBAH PASSWORD -->
 @foreach($dataGuru as $guru)
 
+@php
+    $selectedMapelIds = [];
+    if (!empty($guru->mapel_ids)) {
+        $selectedMapelIds = is_array($guru->mapel_ids) ? $guru->mapel_ids : (json_decode($guru->mapel_ids, true) ?? []);
+        $selectedMapelIds = array_map('intval', (array)$selectedMapelIds);
+    }
+    $currentKelasId = $guru->kelas_id ?? ($guru->kelasWali->first() ? $guru->kelasWali->first()->id : null);
+@endphp
+
 <!-- MODAL EDIT GURU -->
 <div class="modal fade" id="modalEditGuru{{ $guru->id }}" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -434,39 +451,12 @@
                 <h5 class="modal-title fw-bold text-dark">Edit Data Guru</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="{{ route('guru.update', $guru->id) }}" method="POST"
-                  x-data="{
-                      role: '{{ $guru->role }}',
-                      existingMapel: @js($guru->mapel_ids ?? []),
-                      existingKelas: '{{ $guru->kelasWali->first() ? $guru->kelasWali->first()->id : '' }}',
-                      init() {
-                          this.$nextTick(() => {
-                              this.syncCheckboxes();
-                              this.syncSelect();
-                          });
-                          this.$watch('role', () => {
-                              this.$nextTick(() => {
-                                  this.syncCheckboxes();
-                                  this.syncSelect();
-                              });
-                          });
-                      },
-                      syncCheckboxes() {
-                          const mapelIds = this.existingMapel.map(String);
-                          this.$el.querySelectorAll('input[name=&quot;mapel_ids[]&quot;]').forEach(cb => {
-                              cb.checked = mapelIds.includes(String(cb.value));
-                          });
-                      },
-                      syncSelect() {
-                          const kelasSelect = this.$el.querySelector('select[name=&quot;kelas_id&quot;]');
-                          if (kelasSelect) kelasSelect.value = this.existingKelas;
-                      }
-                  }">
+            <form action="{{ route('guru.update', $guru->id) }}" method="POST">
                 @csrf
                 @method('PUT')
                 <div class="modal-body py-4">
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-secondary small">NAMA GURU LENGKAP</label>
+                        <label class="form-label fw-semibold text-secondary small">NAMA GURU LENGKAP <span class="text-danger">*</span></label>
                         <input type="text" name="nama" value="{{ old('nama', $guru->nama) }}" required class="form-control rounded-3">
                     </div>
                     <div class="mb-3">
@@ -474,12 +464,12 @@
                         <input type="text" name="nip" value="{{ old('nip', $guru->nip) }}" class="form-control rounded-3">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-secondary small">USERNAME</label>
+                        <label class="form-label fw-semibold text-secondary small">USERNAME <span class="text-danger">*</span></label>
                         <input type="text" name="username" value="{{ old('username', $guru->username) }}" required class="form-control rounded-3">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-secondary small">ROLE GURU</label>
-                        <select name="role" class="form-select rounded-3" required x-model="role">
+                        <label class="form-label fw-semibold text-secondary small">ROLE GURU <span class="text-danger">*</span></label>
+                        <select name="role" id="edit_{{ $guru->id }}_role" class="form-select rounded-3" required onchange="toggleRoleFields('edit_{{ $guru->id }}')">
                             <option value="guru_mapel" {{ $guru->role == 'guru_mapel' ? 'selected' : '' }}>Guru Mapel</option>
                             <option value="wali_kelas" {{ $guru->role == 'wali_kelas' ? 'selected' : '' }}>Wali Kelas</option>
                             <option value="guru_piket" {{ $guru->role == 'guru_piket' ? 'selected' : '' }}>Guru Piket</option>
@@ -487,46 +477,39 @@
                         </select>
                     </div>
 
-                    <!-- FIELD DINAMIS: MATA PELAJARAN (muncul untuk Guru Mapel & Wali Kelas) -->
-                    <div class="mb-3" x-show="role === 'guru_mapel' || role === 'wali_kelas'" x-transition x-cloak>
+                    <!-- FIELD DINAMIS: MATA PELAJARAN (muncul untuk Guru Mapel, Wali Kelas, & Guru) -->
+                    <div class="mb-3" id="edit_{{ $guru->id }}_field_mapel" style="{{ in_array($guru->role, ['guru_mapel', 'wali_kelas', 'guru']) ? '' : 'display: none;' }}">
                         <label class="form-label fw-semibold text-secondary small">
-                            MATA PELAJARAN <span class="text-danger">*</span>
+                            MATA PELAJARAN
                         </label>
-                        <div class="border rounded-3 p-2 bg-light" style="max-height: 180px; overflow-y: auto;">
+                        <select name="mapel_ids[]" id="edit_{{ $guru->id }}_mapel_select" class="form-select rounded-3" multiple size="5">
                             @foreach($daftarMapel as $mapel)
-                                <div class="form-check py-1">
-                                    <input class="form-check-input" type="checkbox"
-                                           name="mapel_ids[]"
-                                           value="{{ $mapel->id }}"
-                                           id="edit_{{ $guru->id }}_mapel_{{ $mapel->id }}">
-                                    <label class="form-check-label small" for="edit_{{ $guru->id }}_mapel_{{ $mapel->id }}">
-                                        {{ $mapel->nama_mapel }}
-                                        @if($mapel->kode_mapel)
-                                            <span class="text-muted">({{ $mapel->kode_mapel }})</span>
-                                        @endif
-                                    </label>
-                                </div>
+                                <option value="{{ $mapel->id }}" {{ in_array((int)$mapel->id, $selectedMapelIds, true) ? 'selected' : '' }}>
+                                    {{ $mapel->nama_mapel }}
+                                    @if($mapel->kode_mapel)
+                                        ({{ $mapel->kode_mapel }})
+                                    @endif
+                                </option>
                             @endforeach
-                            @if($daftarMapel->isEmpty())
-                                <p class="text-muted small mb-0 py-2 text-center">Belum ada data mata pelajaran.</p>
-                            @endif
+                        </select>
+                        <div class="form-text text-muted small">
+                            <i class="bi bi-info-circle me-1"></i>Tahan tombol <strong>Ctrl</strong> (Windows) atau <strong>Cmd</strong> (Mac) untuk memilih lebih dari 1 mata pelajaran.
                         </div>
-                        <div class="form-text">Pilih satu atau lebih mata pelajaran yang diampu.</div>
                     </div>
 
                     <!-- FIELD DINAMIS: KELAS YANG DIWALIIN (muncul hanya untuk Wali Kelas) -->
-                    <div class="mb-3" x-show="role === 'wali_kelas'" x-transition x-cloak>
+                    <div class="mb-3" id="edit_{{ $guru->id }}_field_kelas" style="{{ $guru->role === 'wali_kelas' ? '' : 'display: none;' }}">
                         <label class="form-label fw-semibold text-secondary small">
                             KELAS YANG DIWALIIN <span class="text-danger">*</span>
                         </label>
-                        <select name="kelas_id" class="form-select rounded-3">
+                        <select name="kelas_id" id="edit_{{ $guru->id }}_kelas_select" class="form-select rounded-3">
                             <option value="">-- Pilih Kelas --</option>
                             @foreach($daftarKelas as $kelas)
                                 @php
-                                    $isOwnKelas = $guru->kelasWali->contains('id', $kelas->id);
+                                    $isOwnKelas = ($currentKelasId == $kelas->id) || ($guru->kelasWali && $guru->kelasWali->contains('id', $kelas->id));
                                     $hasOtherWali = $kelas->id_wali_kelas && !$isOwnKelas;
                                 @endphp
-                                <option value="{{ $kelas->id }}" {{ $hasOtherWali ? 'disabled' : '' }}>
+                                <option value="{{ $kelas->id }}" {{ $isOwnKelas ? 'selected' : '' }} {{ $hasOtherWali ? 'disabled' : '' }}>
                                     {{ $kelas->nama_kelas }}
                                     @if($kelas->jurusan)
                                         - {{ $kelas->jurusan->nama_jurusan }}
@@ -537,7 +520,7 @@
                                 </option>
                             @endforeach
                         </select>
-                        <div class="form-text">1 Wali Kelas hanya boleh memegang 1 Kelas.</div>
+                        <div class="form-text text-muted small">1 Wali Kelas hanya boleh memegang 1 Kelas.</div>
                     </div>
                 </div>
                 <div class="modal-footer border-0 pt-0">
@@ -559,7 +542,7 @@
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="{{ route('guru.update-password', $guru->id) }}" method="POST" x-data="{ useDefault: false, pwd: '' }">
+            <form action="{{ route('guru.update-password', $guru->id) }}" method="POST">
                 @csrf
                 <div class="modal-body py-4">
                     <p class="text-muted small mb-3">
@@ -567,13 +550,12 @@
                     </p>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-secondary small">PASSWORD BARU</label>
+                        <label class="form-label fw-semibold text-secondary small">PASSWORD BARU <span class="text-danger">*</span></label>
                         <input type="text" 
                                name="password" 
+                               id="inputPwd{{ $guru->id }}"
                                required 
                                minlength="6"
-                               x-model="pwd"
-                               :readonly="useDefault"
                                class="form-control rounded-3" 
                                placeholder="Ketik password baru (min 6 karakter)">
                     </div>
@@ -582,9 +564,8 @@
                     <div class="form-check bg-light p-3 rounded-3 border">
                         <input class="form-check-input ms-0 me-2" 
                                type="checkbox" 
-                               id="checkDefault{{ $guru->id }}" 
-                               x-model="useDefault"
-                               @change="if(useDefault) { pwd = 'password123'; } else { pwd = ''; }">
+                               id="checkDefault{{ $guru->id }}"
+                               onchange="handleDefaultPassword(this, 'inputPwd{{ $guru->id }}')">
                         <label class="form-check-label fw-semibold text-dark small" for="checkDefault{{ $guru->id }}">
                             Gunakan Password Default (<code class="text-primary fw-bold">password123</code>)
                         </label>
@@ -604,3 +585,47 @@
 @endforeach
 @endif
 @endsection
+
+@push('scripts')
+<script>
+    function toggleRoleFields(prefix) {
+        const roleSelect = document.getElementById(prefix + '_role');
+        const mapelField = document.getElementById(prefix + '_field_mapel');
+        const kelasField = document.getElementById(prefix + '_field_kelas');
+
+        if (!roleSelect) return;
+        const role = roleSelect.value;
+
+        if (mapelField) {
+            // Tampilkan pilihan Mapel untuk Guru Mapel, Wali Kelas, dan Guru Umum
+            if (role === 'guru_mapel' || role === 'wali_kelas' || role === 'guru') {
+                mapelField.style.display = 'block';
+            } else {
+                mapelField.style.display = 'none';
+            }
+        }
+
+        if (kelasField) {
+            // Tampilkan pilihan Kelas hanya untuk Wali Kelas
+            if (role === 'wali_kelas') {
+                kelasField.style.display = 'block';
+            } else {
+                kelasField.style.display = 'none';
+            }
+        }
+    }
+
+    function handleDefaultPassword(checkbox, inputId) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        if (checkbox.checked) {
+            input.value = 'password123';
+            input.readOnly = true;
+        } else {
+            input.value = '';
+            input.readOnly = false;
+            input.focus();
+        }
+    }
+</script>
+@endpush
