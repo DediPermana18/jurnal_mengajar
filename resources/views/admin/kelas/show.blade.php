@@ -1,6 +1,6 @@
-@extends('admin.layouts.app')
+@extends('layouts.app')
 
-@section('title', 'Detail Kelas {{ $kelas->nama_kelas }} - WebJournal')
+@section('title', 'Detail Kelas ' . $kelas->nama_kelas . ' - WebJournal Management System')
 
 @push('styles')
 <style>
@@ -144,11 +144,11 @@
                 Detail Kelas — {{ $kelas->nama_kelas }}
             </h2>
             <p class="text-muted mb-0" style="font-size: 0.9rem; font-weight: 500;">
-                {{ $kelas->jurusan->nama_jurusan ?? '-' }} · Wali Kelas: <strong>{{ $kelas->waliKelas->nama_guru ?? '-' }}</strong>
+                {{ $kelas->jurusan->nama_jurusan ?? '-' }} · Tingkat: <strong>Kelas {{ $kelas->tingkat }}</strong> · Wali Kelas: <strong>{{ $kelas->waliKelas->nama ?? 'Belum Ditentukan' }}</strong>
             </p>
         </div>
-        <a href="{{ route('kelas.edit', $kelas->id_kelas) }}" class="btn btn-light border rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-2">
-            <i class="bi bi-pencil"></i> Edit Kelas
+        <a href="{{ route('kelas.index') }}" class="btn btn-light border rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-2">
+            <i class="bi bi-arrow-left"></i> Kembali ke Daftar Kelas
         </a>
     </div>
 
@@ -161,7 +161,7 @@
                 </div>
                 <div>
                     <div class="info-kelas-label">Total Siswa</div>
-                    <div class="info-kelas-value">{{ $siswa->count() ?: ($kelas->jumlah_siswa ?? 0) }} Siswa</div>
+                    <div class="info-kelas-value">{{ $siswa->count() }} Siswa</div>
                 </div>
             </div>
         </div>
@@ -171,8 +171,8 @@
                     <i class="bi bi-calendar3" style="color: #166534;"></i>
                 </div>
                 <div>
-                    <div class="info-kelas-label">Jadwal Hari Ini</div>
-                    <div class="info-kelas-value">{{ $jadwals->count() }} Jam Pelajaran</div>
+                    <div class="info-kelas-label">Jadwal Pelajaran</div>
+                    <div class="info-kelas-value">{{ $jadwals->count() }} Mapel</div>
                 </div>
             </div>
         </div>
@@ -183,35 +183,21 @@
                 </div>
                 <div>
                     <div class="info-kelas-label">Wali Kelas</div>
-                    <div class="info-kelas-value">{{ $kelas->waliKelas->nama_guru ?? '-' }}</div>
+                    <div class="info-kelas-value">{{ $kelas->waliKelas->nama ?? '-' }}</div>
                 </div>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="info-kelas-card">
                 <div class="info-kelas-icon" style="background: #fce7f3;">
-                    <i class="bi bi-door-open-fill" style="color: #be185d;"></i>
+                    <i class="bi bi-diagram-3-fill" style="color: #be185d;"></i>
                 </div>
                 <div>
-                    <div class="info-kelas-label">Ruangan</div>
-                    <div class="info-kelas-value">{{ $kelas->ruangan ?? 'Lab RPL 1' }}</div>
+                    <div class="info-kelas-label">Jurusan</div>
+                    <div class="info-kelas-value">{{ $kelas->jurusan->kode_jurusan ?? '-' }}</div>
                 </div>
             </div>
         </div>
-    </div>
-
-    {{-- ========================================================== --}}
-    {{-- BANNER: Lihat Matriks Mata Pelajaran                        --}}
-    {{-- ========================================================== --}}
-    <div class="matriks-banner">
-        <div>
-            <h5><i class="bi bi-grid-3x3-gap-fill me-2"></i>Matriks Jadwal & Mata Pelajaran</h5>
-            <p>Lihat jadwal jam mengajar, guru pengajar, dan status kehadiran harian kelas ini secara visual.</p>
-        </div>
-        <a href="{{ route('mapel.show', $kelas->id_kelas) }}" class="btn-lihat-matriks">
-            <i class="bi bi-grid-3x3-gap-fill"></i>
-            Lihat Matriks Mata Pelajaran
-        </a>
     </div>
 
     {{-- ========================================================== --}}
@@ -235,19 +221,20 @@
                 <thead>
                     <tr>
                         <th style="width: 5%;">NO</th>
-                        <th style="width: 30%;">NAMA SISWA</th>
-                        <th style="width: 17%;">NIS</th>
-                        <th style="width: 17%;">NISN</th>
-                        <th style="width: 15%;">JENIS KELAMIN</th>
-                        <th style="width: 16%; text-align: right;">AKSI</th>
+                        <th style="width: 35%;">NAMA SISWA</th>
+                        <th style="width: 20%;">NIS</th>
+                        <th style="width: 20%;">NISN</th>
+                        <th style="width: 20%;">JENIS KELAMIN</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($siswa as $idx => $s)
                         @php
                             $inisial = '';
-                            foreach (array_slice(explode(' ', $s->nama_siswa), 0, 2) as $w) {
-                                $inisial .= strtoupper(substr($w, 0, 1));
+                            $parts = explode(' ', trim($s->nama));
+                            $inisial = strtoupper(substr($parts[0], 0, 1));
+                            if (count($parts) > 1) {
+                                $inisial .= strtoupper(substr(end($parts), 0, 1));
                             }
                             $colors = ['#3b82f6','#8b5cf6','#ec4899','#f97316','#10b981','#06b6d4'];
                             $color = $colors[$idx % count($colors)];
@@ -260,7 +247,7 @@
                                 <div class="d-flex align-items-center gap-3">
                                     <div class="siswa-avatar" style="background-color: {{ $color }};">{{ $inisial }}</div>
                                     <div>
-                                        <div class="fw-bold text-dark" style="font-size: 0.95rem;">{{ $s->nama_siswa }}</div>
+                                        <div class="fw-bold text-dark" style="font-size: 0.95rem;">{{ $s->nama }}</div>
                                     </div>
                                 </div>
                             </td>
@@ -287,54 +274,14 @@
                                     <span class="text-muted small">-</span>
                                 @endif
                             </td>
-                            <td class="text-end">
-                                <a href="{{ route('siswa.show', $s->id_siswa) }}" class="btn btn-sm btn-light border rounded-3 px-3 py-1 fw-semibold text-dark" title="Lihat Detail Siswa" style="font-size: 0.8rem;">
-                                    <i class="bi bi-eye me-1"></i> Detail
-                                </a>
-                                <a href="{{ route('siswa.edit', $s->id_siswa) }}" class="btn btn-sm btn-light border rounded-3 px-3 py-1 ms-1 fw-semibold text-dark" style="font-size: 0.8rem;">
-                                    <i class="bi bi-pencil me-1"></i> Edit
-                                </a>
-                            </td>
                         </tr>
                     @empty
-                        {{-- Demo Siswa jika DB kosong --}}
-                        @php
-                            $demoSiswa = [
-                                ['no' => 1, 'nama' => 'Ahmad Fauzi', 'nis' => '0061234567', 'jk' => 'L', 'color' => '#3b82f6', 'inisial' => 'AF'],
-                                ['no' => 2, 'nama' => 'Bima Sakti', 'nis' => '0061234568', 'jk' => 'L', 'color' => '#8b5cf6', 'inisial' => 'BS'],
-                                ['no' => 3, 'nama' => 'Cindy Rahayu', 'nis' => '0061234569', 'jk' => 'P', 'color' => '#ec4899', 'inisial' => 'CR'],
-                                ['no' => 4, 'nama' => 'Doni Pratama', 'nis' => '0061234570', 'jk' => 'L', 'color' => '#f97316', 'inisial' => 'DP'],
-                                ['no' => 5, 'nama' => 'Eka Putri', 'nis' => '0061234571', 'jk' => 'P', 'color' => '#10b981', 'inisial' => 'EP'],
-                                ['no' => 6, 'nama' => 'Fahri Nugraha', 'nis' => '0061234572', 'jk' => 'L', 'color' => '#06b6d4', 'inisial' => 'FN'],
-                            ];
-                        @endphp
-                        @foreach($demoSiswa as $demo)
-                            <tr>
-                                <td><div class="siswa-no-badge">{{ $demo['no'] }}</div></td>
-                                <td>
-                                    <div class="d-flex align-items-center gap-3">
-                                        <div class="siswa-avatar" style="background-color: {{ $demo['color'] }};">{{ $demo['inisial'] }}</div>
-                                        <div class="fw-bold text-dark" style="font-size: 0.95rem;">{{ $demo['nama'] }}</div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <code class="text-dark fw-semibold" style="background: #f1f5f9; padding: 0.2rem 0.55rem; border-radius: 6px; font-size: 0.85rem;">
-                                        {{ $demo['nis'] }}
-                                    </code>
-                                </td>
-                                <td>
-                                    @if($demo['jk'] == 'L')
-                                        <span class="badge badge-laki px-3 py-1 rounded-pill fw-semibold small"><i class="bi bi-gender-male me-1"></i> Laki-laki</span>
-                                    @else
-                                        <span class="badge badge-perempuan px-3 py-1 rounded-pill fw-semibold small"><i class="bi bi-gender-female me-1"></i> Perempuan</span>
-                                    @endif
-                                </td>
-                                <td class="text-end">
-                                    <a href="#" class="btn btn-sm btn-light border rounded-3 px-3 py-1 fw-semibold text-dark" style="font-size: 0.8rem;"><i class="bi bi-eye me-1"></i> Detail</a>
-                                    <a href="#" class="btn btn-sm btn-light border rounded-3 px-3 py-1 ms-1 fw-semibold text-dark" style="font-size: 0.8rem;"><i class="bi bi-pencil me-1"></i> Edit</a>
-                                </td>
-                            </tr>
-                        @endforeach
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <i class="bi bi-people fs-1 d-block mb-2 text-secondary"></i>
+                                Belum ada siswa yang terdaftar di kelas ini.
+                            </td>
+                        </tr>
                     @endforelse
                 </tbody>
             </table>
@@ -343,11 +290,13 @@
         <!-- Footer -->
         <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
             <div class="text-muted small">
-                Menampilkan {{ $siswa->count() ?: 6 }} siswa di kelas ini
+                Menampilkan {{ $siswa->count() }} siswa di kelas ini
             </div>
-            <a href="{{ route('siswa.create') }}" class="btn btn-sm btn-outline-primary rounded-3 px-3 fw-semibold" style="font-size: 0.85rem;">
-                <i class="bi bi-plus me-1"></i> Tambah Siswa
-            </a>
+            @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
+                <a href="{{ route('siswa.create') }}" class="btn btn-sm btn-outline-primary rounded-3 px-3 fw-semibold" style="font-size: 0.85rem;">
+                    <i class="bi bi-plus me-1"></i> Tambah Siswa Baru
+                </a>
+            @endif
         </div>
 
     </div>

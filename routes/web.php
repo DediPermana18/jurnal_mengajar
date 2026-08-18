@@ -34,12 +34,11 @@ Route::post('/admin/guru/{id}/reset-password', [GuruController::class, 'resetPas
 Route::post('/admin/guru/{id}/update-password', [GuruController::class, 'updatePassword'])->name('guru.update-password');
 Route::post('/admin/guru/{id}/toggle-status', [GuruController::class, 'toggleStatus'])->name('guru.toggle-status');
 
+use App\Http\Controllers\KelasController;
+
 // Resource Routes untuk Data Master
 Route::resource('admin/siswa', SiswaController::class);
-
-Route::get('/admin/kelas', function () {
-    return view('admin.placeholder', ['title' => 'Data Kelas']);
-})->name('kelas.index');
+Route::resource('admin/kelas', KelasController::class);
 
 Route::get('/admin/jurusan', function () {
     return view('admin.placeholder', ['title' => 'Data Jurusan']);
