@@ -36,6 +36,20 @@
         white-space: nowrap;
     }
 
+    .status-badge-terisi {
+        background-color: #f0fdf4;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+        border-radius: 50px;
+        padding: 0.3rem 0.8rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        white-space: nowrap;
+    }
+
     .jam-badge {
         background: #eff6ff;
         color: #1d4ed8;
@@ -78,14 +92,14 @@
     </div>
 
     @if(session('success'))
-        <div class="alert alert-success border-0 rounded-4 shadow-sm d-flex align-items-center gap-2">
+        <div class="alert alert-success border-0 rounded-4 shadow-sm d-flex align-items-center gap-2 mb-4">
             <i class="bi bi-check-circle-fill fs-5"></i>
             <span>{{ session('success') }}</span>
         </div>
     @endif
 
     @if(session('error'))
-        <div class="alert alert-danger border-0 rounded-4 shadow-sm d-flex align-items-center gap-2">
+        <div class="alert alert-danger border-0 rounded-4 shadow-sm d-flex align-items-center gap-2 mb-4">
             <i class="bi bi-exclamation-triangle-fill fs-5"></i>
             <span>{{ session('error') }}</span>
         </div>
@@ -115,16 +129,28 @@
                     </thead>
                     <tbody>
                         @foreach($jadwals as $item)
-                            <tr class="{{ !$item->can_fill ? 'text-muted' : '' }}">
+                            <tr class="{{ !$item->can_fill && !$item->can_edit ? 'text-muted' : '' }}">
                                 <td><span class="jam-badge">Jam {{ $item->jam_ke }}</span></td>
                                 <td>{{ $item->waktu }}</td>
                                 <td><span class="badge bg-light text-dark border">{{ $item->kelas }}</span></td>
                                 <td>{{ $item->mapel }}</td>
                                 <td>
                                     @if($item->is_filled)
-                                        <span class="status-badge-terisi">
-                                            <i class="bi bi-check-circle-fill"></i> Sudah Terisi
-                                        </span>
+                                        <div class="d-flex flex-column gap-1 align-items-start">
+                                            <span class="status-badge-terisi">
+                                                <i class="bi bi-check-circle-fill"></i> Sudah Terisi
+                                            </span>
+                                            @if(isset($item->jurnal) && $item->jurnal->status_kehadiran && $item->jurnal->status_kehadiran !== 'Hadir')
+                                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-1 small">
+                                                    Status: {{ $item->jurnal->status_kehadiran }}
+                                                </span>
+                                            @endif
+                                            @if(isset($item->jurnal) && $item->jurnal->guruPengganti)
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1 small">
+                                                    <i class="bi bi-person-fill-gear me-1"></i> {{ $item->jurnal->guruPengganti->nama }}
+                                                </span>
+                                            @endif
+                                        </div>
                                     @else
                                         <span class="status-badge-belum">
                                             <i class="bi bi-clock-history"></i> Belum Terisi
@@ -132,12 +158,30 @@
                                     @endif
                                 </td>
                                 <td class="text-end">
-                                    @if($item->can_fill)
+                                    @if($item->is_filled && isset($item->jurnal))
+                                        <div class="d-flex justify-content-end gap-2">
+                                            <!-- Tombol 1: Lihat Detail (Selalu Tampil Jika Sudah Terisi) -->
+                                            <a href="{{ route('guru.jurnal.show', $item->jurnal->id) }}"
+                                               class="btn btn-outline-secondary btn-sm rounded-3 px-3 fw-semibold shadow-sm">
+                                                <i class="bi bi-eye me-1"></i> Lihat Detail
+                                            </a>
+
+                                            <!-- Tombol 2: Edit Jurnal (Hanya Tampil Jika Tanggal Hari Ini) -->
+                                            @if($item->is_today)
+                                                <a href="{{ route('guru.jurnal.edit', $item->jurnal->id) }}"
+                                                   class="btn btn-warning btn-sm rounded-3 px-3 fw-semibold text-dark shadow-sm">
+                                                    <i class="bi bi-pencil-square me-1"></i> Edit Jurnal
+                                                </a>
+                                            @endif
+                                        </div>
+                                    @elseif($item->can_fill)
+                                        <!-- INPUT BARU BISA DIISI -->
                                         <a href="{{ route('guru.jurnal.form', $item->jadwal->id) }}"
-                                           class="btn btn-primary btn-sm rounded-3 px-3 fw-semibold">
+                                           class="btn btn-primary btn-sm rounded-3 px-3 fw-semibold shadow-sm">
                                             <i class="bi bi-pencil-square me-1"></i> Isi Jurnal
                                         </a>
                                     @else
+                                        <!-- TERKUNCI -->
                                         <button type="button"
                                                 class="btn btn-secondary btn-sm rounded-3 px-3 fw-semibold"
                                                 disabled
@@ -161,7 +205,7 @@
             <div class="row g-3">
                 @foreach($jadwals as $item)
                     <div class="col-12">
-                        <div class="jadwal-card p-4 {{ !$item->can_fill ? 'locked' : '' }}">
+                        <div class="jadwal-card p-4 {{ !$item->can_fill && !$item->can_edit ? 'locked' : '' }}">
                             <div class="d-flex justify-content-between align-items-start mb-3">
                                 <span class="jam-badge">Jam {{ $item->jam_ke }}</span>
                                 @if($item->is_filled)
@@ -188,7 +232,20 @@
                                 <div class="fw-semibold">{{ $item->mapel }}</div>
                             </div>
 
-                            @if($item->can_fill)
+                            @if($item->is_filled && isset($item->jurnal))
+                                <div class="d-flex gap-2">
+                                    <a href="{{ route('guru.jurnal.show', $item->jurnal->id) }}"
+                                       class="btn btn-outline-secondary w-100 rounded-3 fw-semibold shadow-sm">
+                                        <i class="bi bi-eye me-1"></i> Lihat Detail
+                                    </a>
+                                    @if($item->is_today)
+                                        <a href="{{ route('guru.jurnal.edit', $item->jurnal->id) }}"
+                                           class="btn btn-warning w-100 rounded-3 fw-semibold text-dark shadow-sm">
+                                            <i class="bi bi-pencil-square me-1"></i> Edit Jurnal
+                                        </a>
+                                    @endif
+                                </div>
+                            @elseif($item->can_fill)
                                 <a href="{{ route('guru.jurnal.form', $item->jadwal->id) }}"
                                    class="btn btn-primary w-100 rounded-3 fw-semibold">
                                     <i class="bi bi-pencil-square me-1"></i> Isi Jurnal

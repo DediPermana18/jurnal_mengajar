@@ -9,10 +9,10 @@
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <div>
             <h2 class="fw-black text-dark mb-1" style="letter-spacing: -0.02em; font-weight: 800; font-size: 1.75rem;">
-                Jurnal KBM Harian
+                Jurnal KBM Harian (Guru Piket)
             </h2>
             <p class="text-muted mb-0" style="font-size: 0.9rem;">
-                Pantau jurnal kegiatan belajar mengajar per tanggal.
+                Pantau jurnal KBM dan kelola Guru Pengganti / Piket per tanggal.
             </p>
         </div>
 
@@ -37,10 +37,10 @@
         <div>
             @if($tanggal === $today)
                 <strong>Hari Ini – {{ \Carbon\Carbon::parse($today)->translatedFormat('l, d F Y') }}</strong><br>
-                <span class="small">Jurnal hari ini <strong>dapat diedit</strong> oleh guru terkait.</span>
+                <span class="small">Jurnal hari ini <strong>dapat diperbarui</strong> oleh Guru Piket / TU.</span>
             @else
                 <strong>{{ \Carbon\Carbon::parse($tanggal)->translatedFormat('l, d F Y') }}</strong><br>
-                <span class="small">Jurnal tanggal ini <strong>sudah terkunci</strong>. Tidak dapat diedit.</span>
+                <span class="small">Jurnal tanggal ini <strong>sudah terkunci</strong> (Read-Only).</span>
             @endif
         </div>
     </div>
@@ -66,15 +66,24 @@
                 <thead>
                     <tr>
                         <th style="width: 12%;">WAKTU</th>
-                        <th style="width: 20%;">GURU</th>
-                        <th style="width: 15%;">KELAS</th>
-                        <th style="width: 20%;">MATA PELAJARAN</th>
-                        <th style="width: 23%;">MATERI</th>
-                        <th style="width: 10%; text-align: center;">STATUS</th>
+                        <th style="width: 20%;">GURU ASLI & STATUS</th>
+                        <th style="width: 18%;">GURU PENGGANTI</th>
+                        <th style="width: 12%;">KELAS</th>
+                        <th style="width: 16%;">MATA PELAJARAN</th>
+                        <th style="width: 14%;">MATERI / CATATAN</th>
+                        <th style="width: 8%; text-align: center;">AKSI</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($dataJurnal as $jurnal)
+                        @php
+                            $statusClass = match($jurnal->status_kehadiran) {
+                                'Izin' => 'bg-warning-subtle text-warning-emphasis border-warning-subtle',
+                                'Sakit' => 'bg-danger-subtle text-danger border-danger-subtle',
+                                'Disposisi' => 'bg-info-subtle text-info-emphasis border-info-subtle',
+                                default => 'bg-success-subtle text-success border-success-subtle',
+                            };
+                        @endphp
                         <tr class="{{ !$jurnal->is_editable ? 'opacity-75' : '' }}">
 
                             <!-- Waktu Jam Pelajaran -->
@@ -93,14 +102,28 @@
                                 </div>
                             </td>
 
-                            <!-- Guru -->
+                            <!-- Guru Asli & Status -->
                             <td>
                                 <div class="fw-semibold text-dark" style="font-size: 0.88rem;">
-                                    {{ $jurnal->jadwal->guru->nama ?? '-' }}
+                                    {{ $jurnal->guru->nama ?? $jurnal->jadwal->guru->nama ?? '-' }}
                                 </div>
-                                <div class="text-muted" style="font-size: 0.75rem;">
-                                    NIP: {{ $jurnal->jadwal->guru->nip ?? '-' }}
+                                <div class="mt-1">
+                                    <span class="badge border rounded-pill px-2 py-1 small {{ $statusClass }}">
+                                        <i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i> {{ $jurnal->status_kehadiran ?? 'Hadir' }}
+                                    </span>
                                 </div>
+                            </td>
+
+                            <!-- Guru Pengganti -->
+                            <td>
+                                @if($jurnal->guruPengganti)
+                                    <div class="fw-semibold text-primary" style="font-size: 0.85rem;">
+                                        <i class="bi bi-person-fill-gear me-1"></i> {{ $jurnal->guruPengganti->nama }}
+                                    </div>
+                                    <div class="text-muted small" style="font-size: 0.75rem;">Guru Piket</div>
+                                @else
+                                    <span class="text-muted small" style="font-size: 0.8rem;">- (Tidak Ada)</span>
+                                @endif
                             </td>
 
                             <!-- Kelas -->
@@ -117,29 +140,37 @@
                                 </span>
                             </td>
 
-                            <!-- Materi -->
+                            <!-- Materi & Catatan Kejadian -->
                             <td>
-                                <div class="text-dark" style="font-size: 0.88rem; max-width: 260px;">
-                                    {{ \Illuminate\Support\Str::limit($jurnal->materi, 80) }}
+                                <div class="text-dark" style="font-size: 0.85rem; max-width: 220px;">
+                                    {{ \Illuminate\Support\Str::limit($jurnal->materi, 60) }}
                                 </div>
                                 @if($jurnal->catatan_kejadian)
                                     <div class="text-warning small mt-1">
-                                        <i class="bi bi-exclamation-triangle-fill me-1"></i>{{ \Illuminate\Support\Str::limit($jurnal->catatan_kejadian, 60) }}
+                                        <i class="bi bi-exclamation-triangle-fill me-1"></i>{{ \Illuminate\Support\Str::limit($jurnal->catatan_kejadian, 50) }}
+                                    </div>
+                                @endif
+                                @if($jurnal->foto_kegiatan)
+                                    <div class="mt-1">
+                                        <a href="{{ route('jurnal.foto', basename($jurnal->foto_kegiatan)) }}" target="_blank" class="badge bg-info-subtle text-info-emphasis border text-decoration-none" style="font-size: 0.72rem;">
+                                            <i class="bi bi-image me-1"></i> Foto KBM
+                                        </a>
                                     </div>
                                 @endif
                             </td>
 
-                            <!-- Kolom Status: Terkunci / Dapat Di-edit -->
+                            <!-- Kolom Aksi / Status Edit Piket -->
                             <td class="text-center">
                                 @if($jurnal->is_editable)
-                                    <span class="rounded-pill px-3 py-1 fw-bold border border-success-subtle bg-success-subtle text-success"
-                                          style="font-size: 0.75rem; white-space: nowrap;">
-                                        <i class="bi bi-unlock-fill me-1"></i>Dapat Di-edit
-                                    </span>
+                                    <button type="button"
+                                            class="btn btn-sm btn-primary rounded-3 px-2 py-1 shadow-sm fw-semibold"
+                                            style="font-size: 0.78rem;"
+                                            onclick="openModalEditPiket({{ $jurnal->id }}, '{{ addslashes($jurnal->guru->nama ?? $jurnal->jadwal->guru->nama ?? '') }}', '{{ $jurnal->status_kehadiran ?? 'Hadir' }}', '{{ $jurnal->id_guru_pengganti ?? '' }}', '{{ addslashes($jurnal->catatan_kejadian ?? '') }}')">
+                                        <i class="bi bi-pencil-square me-1"></i> Edit Piket
+                                    </button>
                                 @else
-                                    <span class="rounded-pill px-3 py-1 fw-bold border border-secondary-subtle bg-secondary-subtle text-secondary"
-                                          style="font-size: 0.75rem; white-space: nowrap;">
-                                        <i class="bi bi-lock-fill me-1"></i>Terkunci
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2 py-1 small">
+                                        <i class="bi bi-lock-fill me-1"></i> Terkunci
                                     </span>
                                 @endif
                             </td>
@@ -147,7 +178,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="text-center py-5 text-muted">
+                            <td colspan="7" class="text-center py-5 text-muted">
                                 <i class="bi bi-journal-x fs-1 d-block mb-2 text-secondary"></i>
                                 Tidak ada jurnal yang ditemukan untuk tanggal <strong>{{ \Carbon\Carbon::parse($tanggal)->translatedFormat('d F Y') }}</strong>.
                             </td>
@@ -158,11 +189,88 @@
         </div>
 
         <!-- FOOTER COUNT -->
-        <div class="pt-3 border-top text-muted small">
-            Menampilkan <strong>{{ $dataJurnal->count() }}</strong> jurnal untuk tanggal
-            <strong>{{ \Carbon\Carbon::parse($tanggal)->translatedFormat('d F Y') }}</strong>.
+        <div class="pt-3 border-top text-muted small d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                Menampilkan <strong>{{ $dataJurnal->count() }}</strong> jurnal untuk tanggal
+                <strong>{{ \Carbon\Carbon::parse($tanggal)->translatedFormat('d F Y') }}</strong>.
+            </div>
         </div>
     </div>
 
 </div>
+
+<!-- ================= MODAL EDIT QUICK-PIKET (SPLIT PIKET & GURU PENGGANTI) ================= -->
+<div class="modal fade" id="modalEditPiket" tabindex="-1" aria-labelledby="modalEditPiketLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-primary text-white py-3">
+                <h5 class="modal-title fw-bold fs-6" id="modalEditPiketLabel">
+                    <i class="bi bi-person-fill-gear me-2"></i> Update Status & Guru Pengganti Piket
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formEditPiket" method="POST" action="">
+                @csrf
+                @method('PUT')
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary small text-uppercase">Guru Asli Pengajar</label>
+                        <input type="text" id="piket_nama_guru_asli" class="form-control rounded-3 bg-light" readonly disabled>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-dark">Status Kehadiran Guru <span class="text-danger">*</span></label>
+                        <select name="status_kehadiran" id="piket_status_kehadiran" class="form-select rounded-3 py-2" required>
+                            <option value="Hadir">Hadir</option>
+                            <option value="Izin">Izin</option>
+                            <option value="Sakit">Sakit</option>
+                            <option value="Disposisi">Disposisi / Dinas Out</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-dark">Guru Pengganti (Piket)</label>
+                        <select name="id_guru_pengganti" id="piket_id_guru_pengganti" class="form-select rounded-3 py-2">
+                            <option value="">-- Pilih Guru Pengganti / Piket --</option>
+                            @if(isset($gurus))
+                                @foreach($gurus as $guru)
+                                    <option value="{{ $guru->id }}">{{ $guru->nama }} ({{ $guru->role }})</option>
+                                @endforeach
+                            @endif
+                        </select>
+                        <small class="text-muted d-block mt-1">Jika status Guru Asli Izin/Sakit/Disposisi, tentukan Guru Piket yang menggantikan di kelas.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-dark">Catatan Kejadian Piket (Opsional)</label>
+                        <textarea name="catatan_kejadian" id="piket_catatan_kejadian" class="form-control rounded-3" rows="3" placeholder="Tuliskan catatan piket atau alasan pergantian guru..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0 py-3 justify-content-between">
+                    <button type="button" class="btn btn-outline-secondary rounded-3 px-4" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold">
+                        <i class="bi bi-save me-1"></i> Simpan Perubahan Piket
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+    function openModalEditPiket(jurnalId, namaGuruAsli, statusKehadiran, idGuruPengganti, catatanKejadian) {
+        const form = document.getElementById('formEditPiket');
+        form.action = "{{ url('/piket/jurnal') }}/" + jurnalId + "/update-piket";
+
+        document.getElementById('piket_nama_guru_asli').value = namaGuruAsli;
+        document.getElementById('piket_status_kehadiran').value = statusKehadiran || 'Hadir';
+        document.getElementById('piket_id_guru_pengganti').value = idGuruPengganti || '';
+        document.getElementById('piket_catatan_kejadian').value = catatanKejadian || '';
+
+        const modal = new bootstrap.Modal(document.getElementById('modalEditPiket'));
+        modal.show();
+    }
+</script>
+@endpush
 @endsection

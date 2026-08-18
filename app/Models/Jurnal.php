@@ -16,6 +16,9 @@ class Jurnal extends Model
 
     protected $fillable = [
         'id_jadwal',
+        'id_guru',
+        'id_guru_pengganti',
+        'status_kehadiran',
         'tanggal',
         'materi',
         'catatan_kejadian',
@@ -29,6 +32,22 @@ class Jurnal extends Model
             'tanggal'   => 'date',
             'waktu_isi' => 'datetime',
         ];
+    }
+
+    /**
+     * Relasi ke User (Guru asli)
+     */
+    public function guru(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'id_guru', 'id');
+    }
+
+    /**
+     * Relasi ke User (Guru Piket / Pengganti)
+     */
+    public function guruPengganti(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'id_guru_pengganti', 'id');
     }
 
     /**

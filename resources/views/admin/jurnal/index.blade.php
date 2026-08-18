@@ -112,6 +112,14 @@
                 </thead>
                 <tbody>
                     @forelse($dataJurnal as $jurnal)
+                        @php
+                            $statusClass = match($jurnal->status_kehadiran) {
+                                'Izin' => 'bg-warning-subtle text-warning-emphasis border-warning-subtle',
+                                'Sakit' => 'bg-danger-subtle text-danger border-danger-subtle',
+                                'Disposisi' => 'bg-info-subtle text-info-emphasis border-info-subtle',
+                                default => 'bg-success-subtle text-success border-success-subtle',
+                            };
+                        @endphp
                         <tr>
                             <td class="fw-medium text-dark">
                                 @if($jurnal->waktu_isi)
@@ -125,7 +133,19 @@
                                 <span class="fw-bold text-dark">{{ $jurnal->jadwal->kelas->nama_kelas ?? '-' }}</span>
                             </td>
                             <td>
-                                <div class="fw-medium text-dark">{{ $jurnal->jadwal->guru->nama ?? $jurnal->jadwal->guru->nama_guru ?? '-' }}</div>
+                                <div class="fw-medium text-dark">
+                                    {{ $jurnal->guru->nama ?? $jurnal->jadwal->guru->nama ?? '-' }}
+                                </div>
+                                <div class="d-flex align-items-center gap-1 mt-1 flex-wrap">
+                                    <span class="badge border rounded-pill px-2 py-1 small {{ $statusClass }}">
+                                        {{ $jurnal->status_kehadiran ?? 'Hadir' }}
+                                    </span>
+                                    @if($jurnal->guruPengganti)
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1 small" title="Guru Pengganti">
+                                            <i class="bi bi-person-fill-gear me-1"></i> {{ $jurnal->guruPengganti->nama }}
+                                        </span>
+                                    @endif
+                                </div>
                             </td>
                             <td>
                                 <span class="text-secondary">{{ $jurnal->jadwal->mapel->nama_mapel ?? '-' }}</span>

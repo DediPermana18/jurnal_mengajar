@@ -48,10 +48,42 @@
                 @enderror
             </div>
 
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold text-dark">Tanggal Mengajar <span class="text-danger">*</span></label>
+                    <input type="date" name="tanggal" class="form-control rounded-3 py-2 @error('tanggal') is-invalid @enderror" value="{{ old('tanggal', is_string($jurnal->tanggal) ? $jurnal->tanggal : $jurnal->tanggal?->format('Y-m-d')) }}" required>
+                    @error('tanggal')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold text-dark">Status Kehadiran Guru <span class="text-danger">*</span></label>
+                    <select name="status_kehadiran" class="form-select rounded-3 py-2 @error('status_kehadiran') is-invalid @enderror" required>
+                        <option value="Hadir" {{ old('status_kehadiran', $jurnal->status_kehadiran ?? 'Hadir') == 'Hadir' ? 'selected' : '' }}>Hadir</option>
+                        <option value="Izin" {{ old('status_kehadiran', $jurnal->status_kehadiran) == 'Izin' ? 'selected' : '' }}>Izin</option>
+                        <option value="Sakit" {{ old('status_kehadiran', $jurnal->status_kehadiran) == 'Sakit' ? 'selected' : '' }}>Sakit</option>
+                        <option value="Disposisi" {{ old('status_kehadiran', $jurnal->status_kehadiran) == 'Disposisi' ? 'selected' : '' }}>Disposisi / Dinas</option>
+                    </select>
+                    @error('status_kehadiran')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+            </div>
+
             <div class="mb-3">
-                <label class="form-label fw-semibold text-dark">Tanggal Mengajar <span class="text-danger">*</span></label>
-                <input type="date" name="tanggal" class="form-control rounded-3 py-2 @error('tanggal') is-invalid @enderror" value="{{ old('tanggal', is_string($jurnal->tanggal) ? $jurnal->tanggal : $jurnal->tanggal?->format('Y-m-d')) }}" required>
-                @error('tanggal')
+                <label class="form-label fw-semibold text-dark">Guru Pengganti / Piket (Opsional)</label>
+                <select name="id_guru_pengganti" class="form-select rounded-3 py-2 @error('id_guru_pengganti') is-invalid @enderror">
+                    <option value="">-- Tidak Ada / Pilih Guru Piket --</option>
+                    @if(isset($gurus))
+                        @foreach ($gurus as $guru)
+                            <option value="{{ $guru->id }}" {{ old('id_guru_pengganti', $jurnal->id_guru_pengganti) == $guru->id ? 'selected' : '' }}>
+                                {{ $guru->nama }} ({{ $guru->role }})
+                            </option>
+                        @endforeach
+                    @endif
+                </select>
+                <small class="text-muted">Pilih jika guru asli berhalangan (Izin/Sakit/Disposisi) dan digantikan oleh guru piket.</small>
+                @error('id_guru_pengganti')
                     <div class="invalid-feedback">{{ $message }}</div>
                 @enderror
             </div>
@@ -76,7 +108,7 @@
                 <label class="form-label fw-semibold text-dark">Foto Kegiatan (Opsional)</label>
                 @if($jurnal->foto_kegiatan)
                     <div class="mb-2">
-                        <img src="{{ asset('storage/' . $jurnal->foto_kegiatan) }}" alt="Foto Kegiatan" class="img-thumbnail rounded-3" style="max-height: 150px;">
+                        <img src="{{ route('jurnal.foto', basename($jurnal->foto_kegiatan)) }}" alt="Foto Kegiatan" class="img-thumbnail rounded-3" style="max-height: 150px;">
                     </div>
                 @endif
                 <input type="file" name="foto_kegiatan" class="form-control rounded-3 @error('foto_kegiatan') is-invalid @enderror" accept="image/*">

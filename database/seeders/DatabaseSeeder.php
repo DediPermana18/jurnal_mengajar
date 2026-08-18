@@ -17,4 +17,5 @@ class DatabaseSeeder extends Seeder
             DummyDataSeeder::class,
         ]);
     }
+    
 }

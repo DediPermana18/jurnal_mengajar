@@ -472,17 +472,27 @@
         <div class="sidebar-nav">
             @php
                 $userRole = auth()->check() ? auth()->user()->role : null;
-                $isWaliKelasRole = auth()->check() && (
-                    $userRole === 'wali_kelas' || 
-                    (method_exists(auth()->user(), 'kelasWali') && auth()->user()->kelasWali()->exists())
-                );
-                $isGuruRole = auth()->check() && in_array($userRole, ['guru_mapel', 'guru', 'wali_kelas']);
-                $isGuruPiketRole = auth()->check() && $userRole === 'guru_piket';
-                // Aktifkan tampilan navigasi Guru jika role guru atau sedang berada di route guru/walikelas
-                $isGuruContext = $isGuruRole || request()->is('guru*') || request()->is('walikelas*');
+
+                // Role Kurikulum — role DB: 'admin_kurikulum', aliases: 'waka_kurikulum', 'kurikulum'
+                $isKurikulumRole = in_array($userRole, ['admin_kurikulum', 'waka_kurikulum', 'kurikulum']);
+
+                // Wali Kelas: hanya jika role PERSIS 'wali_kelas'
+                $isWaliKelasRole = ($userRole === 'wali_kelas');
+
+                // Guru context: role guru_mapel, guru umum, atau wali_kelas
+                $isGuruRole = in_array($userRole, ['guru_mapel', 'guru', 'wali_kelas']);
+
+                // Aktifkan Guru Piket
+                $isGuruPiketRole = ($userRole === 'guru_piket');
+
+                // Aktifkan blok navigasi Guru — HANYA dari role, bukan dari URL
+                $isGuruContext = $isGuruRole || (request()->is('guru*') && !$isGuruPiketRole);
             @endphp
 
-            @if($isGuruPiketRole || request()->is('piket*'))
+            @if($isKurikulumRole)
+                {{-- ================= NAVIGASI WAKA KURIKULUM ================= --}}
+                <x-sidebar-kurikulum />
+            @elseif($isGuruPiketRole || request()->is('piket*'))
                 <!-- ================= NAVIGASI GURU PIKET ================= -->
                 <!-- Dashboard Piket -->
                 <div class="nav-item-container">
@@ -547,8 +557,8 @@
                     </a>
                 </div>
 
-                <!-- SECTION / DROPDOWN KELAS SAYA (KHUSUS WALI KELAS SAJA) -->
-                @if(auth()->check() && auth()->user()->isWaliKelas())
+                <!-- SECTION KELAS SAYA: HANYA untuk role 'wali_kelas' secara KETAT -->
+                @if($isWaliKelasRole)
                     @php
                         $isKelasSayaActive = request()->routeIs('walikelas.*');
                     @endphp

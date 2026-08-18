@@ -46,6 +46,8 @@ class GuruPiketController extends Controller
         $tanggal = $request->get('tanggal', $today);
 
         $dataJurnal = Jurnal::with([
+            'guru',
+            'guruPengganti',
             'jadwal.guru',
             'jadwal.mapel',
             'jadwal.kelas',
@@ -61,7 +63,9 @@ class GuruPiketController extends Controller
             return $jurnal;
         });
 
-        return view('piket.jurnal', compact('dataJurnal', 'tanggal', 'today'));
+        $gurus = \App\Models\User::orderBy('nama')->get();
+
+        return view('piket.jurnal', compact('dataJurnal', 'tanggal', 'today', 'gurus'));
     }
 
     /**

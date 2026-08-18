@@ -14,10 +14,48 @@ class JamPelajaran extends Model
 
     protected $fillable = [
         'kategori_hari',
+        'tingkat',
         'jam_ke',
         'jam_mulai',
         'jam_selesai',
+        'jenis',
     ];
+
+    protected $casts = [
+        'jam_ke' => 'integer',
+    ];
+
+    /**
+     * Label tingkat kelas ramah tampilan (misal: "Kelas 10")
+     */
+    public function getTingkatLabelAttribute(): string
+    {
+        return $this->tingkat ? "Kelas {$this->tingkat}" : 'Semua Tingkat';
+    }
+
+    /**
+     * Label jenis KBM yang ramah tampilan
+     */
+    public function getJenisLabelAttribute(): string
+    {
+        return match ($this->jenis) {
+            'kbm'        => 'KBM',
+            'istirahat'  => 'Istirahat',
+            'upacara'    => 'Upacara',
+            'pembiasaan' => 'Pembiasaan',
+            default      => ucfirst($this->jenis ?? '-'),
+        };
+    }
+
+    /**
+     * Format jam_mulai & jam_selesai sebagai "HH.MM – HH.MM"
+     */
+    public function getRentangWaktuAttribute(): string
+    {
+        $mulai   = substr($this->jam_mulai, 0, 5);
+        $selesai = substr($this->jam_selesai, 0, 5);
+        return str_replace(':', '.', $mulai) . ' – ' . str_replace(':', '.', $selesai);
+    }
 
     /**
      * Relasi ke Jadwal Pelajaran
