@@ -9,6 +9,7 @@ use App\Http\Controllers\WaliKelasController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Kurikulum\JamPelajaranController;
 use App\Http\Controllers\Kurikulum\JadwalPelajaranController;
+use App\Http\Controllers\DashboardController;
 
 // Halaman Login & Autentikasi
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
@@ -16,7 +17,7 @@ Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Halaman utama mengarah ke Dashboard Admin
-Route::get('/', [JurnalMengajarController::class, 'index'])->name('home');
+Route::get('/', [DashboardController::class, 'index'])->name('home');
 
 // Resource Route untuk Jurnal Mengajar
 Route::get('/jurnal/foto/{filename}', [JurnalMengajarController::class, 'showFoto'])->name('jurnal.foto');
@@ -27,22 +28,35 @@ use App\Http\Controllers\GuruController;
 
 // Route Data Master Guru
 Route::get('/admin/guru', [GuruController::class, 'index'])->name('guru.index');
+Route::get('/admin/guru/create', [GuruController::class, 'create'])->name('admin.guru.create');
 Route::post('/admin/guru', [GuruController::class, 'store'])->name('guru.store');
+Route::get('/admin/guru/{id}/edit', [GuruController::class, 'edit'])->name('admin.guru.edit');
 Route::put('/admin/guru/{id}', [GuruController::class, 'update'])->name('guru.update');
 Route::delete('/admin/guru/{id}', [GuruController::class, 'destroy'])->name('guru.destroy');
 Route::post('/admin/guru/{id}/reset-password', [GuruController::class, 'resetPassword'])->name('guru.reset-password');
 Route::post('/admin/guru/{id}/update-password', [GuruController::class, 'updatePassword'])->name('guru.update-password');
 Route::post('/admin/guru/{id}/toggle-status', [GuruController::class, 'toggleStatus'])->name('guru.toggle-status');
+Route::post('/admin/guru/{id}/approve', [GuruController::class, 'approve'])->name('guru.approve');
+Route::post('/admin/guru/{id}/update-status', [GuruController::class, 'updateStatus'])->name('guru.update-status');
 
 use App\Http\Controllers\KelasController;
+use App\Http\Controllers\JurusanController;
+use App\Http\Controllers\UserController;
 
 // Resource Routes untuk Data Master
 Route::resource('admin/siswa', SiswaController::class);
 Route::resource('admin/kelas', KelasController::class);
 
-Route::get('/admin/jurusan', function () {
-    return view('admin.placeholder', ['title' => 'Data Jurusan']);
-})->name('jurusan.index');
+Route::resource('admin/users', UserController::class)
+    ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
+    ->names('admin.users');
+Route::post('/admin/users/{id}/reset-password', [UserController::class, 'resetPassword'])
+    ->name('admin.users.reset-password');
+
+Route::get('/admin/jurusan', [JurusanController::class, 'index'])->name('jurusan.index');
+Route::post('/admin/jurusan', [JurusanController::class, 'store'])->name('jurusan.store');
+Route::put('/admin/jurusan/{id}', [JurusanController::class, 'update'])->name('jurusan.update');
+Route::delete('/admin/jurusan/{id}', [JurusanController::class, 'destroy'])->name('jurusan.destroy');
 
 Route::get('/admin/mata-pelajaran', function () {
     return view('admin.placeholder', ['title' => 'Data Mata Pelajaran']);
@@ -93,6 +107,8 @@ Route::prefix('piket')->group(function () {
     Route::put('/jurnal/{id}/update-piket', [JurnalMengajarController::class, 'updateByPiket'])->name('piket.jurnal.updateByPiket');
 });
 
+use App\Http\Controllers\Kurikulum\JadwalPiketController;
+
 // ================= ROUTE PORTAL WAKA KURIKULUM =================
 Route::prefix('kurikulum')->group(function () {
     Route::get('/dashboard', function () {
@@ -113,6 +129,11 @@ Route::prefix('kurikulum')->group(function () {
     Route::put('/jadwal/{jadwalPelajaran}',    [JadwalPelajaranController::class, 'update'])->name('kurikulum.jadwal.update');
     Route::delete('/jadwal/{jadwalPelajaran}', [JadwalPelajaranController::class, 'destroy'])->name('kurikulum.jadwal.destroy');
     Route::get('/jadwal-pelajaran',            fn() => redirect()->route('kurikulum.jadwal.index'));
+
+    // Jadwal Piket Guru
+    Route::get('/jadwal-piket',          [JadwalPiketController::class, 'index'])->name('kurikulum.jadwal-piket.index');
+    Route::post('/jadwal-piket',         [JadwalPiketController::class, 'store'])->name('kurikulum.jadwal-piket.store');
+    Route::delete('/jadwal-piket/{id}',  [JadwalPiketController::class, 'destroy'])->name('kurikulum.jadwal-piket.destroy');
 
     Route::get('/izin', function () {
         return view('admin.placeholder', ['title' => 'Approval Izin Guru']);

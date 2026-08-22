@@ -152,7 +152,7 @@
                             <!-- Kolom TINGKAT -->
                             <td>
                                 <span class="badge bg-light text-dark border px-2 py-1 rounded-2 font-monospace" style="font-size: 0.8rem;">
-                                    Kelas {{ $kelas->tingkat }}
+                                    {{ $kelas->tingkat }}
                                 </span>
                             </td>
 
@@ -200,7 +200,7 @@
                             <td>
                                 <a href="{{ route('kelas.show', $kelas->id) }}" class="text-decoration-none">
                                     <span class="badge bg-light text-primary border border-primary-subtle px-3 py-2 rounded-3 fw-bold" style="font-size: 0.85rem;">
-                                        <i class="bi bi-people-fill me-1"></i> {{ $kelas->siswa_count ?? 0 }} Siswa
+                                        {{ $kelas->siswa_count ?? 0 }}
                                     </span>
                                 </a>
                             </td>
@@ -286,8 +286,8 @@
                     <!-- NAMA KELAS -->
                     <div class="mb-3">
                         <label class="form-label fw-semibold text-secondary small">NAMA KELAS <span class="text-danger">*</span></label>
-                        <input type="text" name="nama_kelas" value="{{ old('nama_kelas') }}" required class="form-control rounded-3" placeholder="misal: X RPL 1, XI TKJ 2">
-                        <div class="form-text text-muted small">Format umum: [Tingkat] [Kode Jurusan] [Nomor Rombel].</div>
+                        <input type="text" name="nama_kelas" value="{{ old('nama_kelas') }}" required class="form-control rounded-3" placeholder="misal: RPL 1, TKJ 2">
+                        <div class="form-text text-muted small">Isi nama rombel/jurusan tanpa tingkat, misalnya RPL 1.</div>
                     </div>
 
                     <!-- TINGKAT -->
@@ -360,7 +360,7 @@
                     <!-- NAMA KELAS -->
                     <div class="mb-3">
                         <label class="form-label fw-semibold text-secondary small">NAMA KELAS <span class="text-danger">*</span></label>
-                        <input type="text" name="nama_kelas" value="{{ old('nama_kelas', $kelas->nama_kelas) }}" required class="form-control rounded-3">
+                        <input type="text" name="nama_kelas" value="{{ old('nama_kelas', $kelas->nama_kelas) }}" required class="form-control rounded-3" placeholder="misal: RPL 1, TKJ 2">
                     </div>
 
                     <!-- TINGKAT -->

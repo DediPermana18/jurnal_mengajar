@@ -3,18 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\Jurnal;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
+use App\Models\User;
 
 class GuruPiketController extends Controller
 {
     /**
-     * Block akses jika bukan Guru Piket
+    * Akses ditentukan oleh jadwal_piket pada hari berjalan, bukan role user.
      */
     protected function authorizeGuruPiket()
     {
-        $role = auth()->check() ? auth()->user()->role : null;
-        abort_if($role !== 'guru_piket', 403, 'Akses ditolak. Halaman ini khusus untuk Guru Piket.');
+        $user = Auth::user();
+        abort_unless($user instanceof User && $user->isPiketHariIni(), 403, 'Akses ditolak. Anda tidak mendapat jadwal piket hari ini.');
     }
 
     /**
@@ -42,7 +43,7 @@ class GuruPiketController extends Controller
     {
         $this->authorizeGuruPiket();
 
-        $today = Carbon::today()->toDateString();
+        $today = now()->toDateString();
         $tanggal = $request->get('tanggal', $today);
 
         $dataJurnal = Jurnal::with([

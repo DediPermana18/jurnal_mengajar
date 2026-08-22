@@ -21,6 +21,11 @@ class Kelas extends Model
         'id_wali_kelas',
     ];
 
+    public function getNamaLengkapAttribute(): string
+    {
+        return trim($this->tingkat . ' ' . $this->nama_kelas);
+    }
+
     /**
      * Relasi ke Jurusan
      */

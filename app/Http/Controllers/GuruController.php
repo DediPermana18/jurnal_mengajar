@@ -4,29 +4,30 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Kelas;
-use App\Models\MataPelajaran;
 use App\Models\Jurusan;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class GuruController extends Controller
 {
     /**
-     * Proteksi server-side: Hanya admin_tu, admin, dan super_admin yang dapat melihat data
+     * Proteksi server-side: Hanya user dengan role admin yang dapat melihat data
      */
     protected function authorizeAdmin()
     {
-        $role = auth()->check() ? auth()->user()->role : null;
-        abort_if(!in_array($role, ['admin_tu', 'admin', 'super_admin']), 403, 'Akses ditolak. Anda tidak memiliki izin untuk fitur manajemen akun.');
+        $role = Auth::check() ? Auth::user()->role : null;
+        abort_if($role !== 'admin' && !in_array($role, ['admin_tu', 'admin', 'super_admin']), 403, 'Akses ditolak. Anda tidak memiliki izin untuk fitur manajemen akun.');
     }
 
     /**
-     * Proteksi khusus Petugas TU (admin_tu) untuk operasi store & update
+     * Proteksi untuk operasi store & update: Semua user dengan role admin diizinkan
      */
     protected function authorizePetugasTU()
     {
-        $role = auth()->check() ? auth()->user()->role : null;
-        abort_if($role !== 'admin_tu', 403, 'Akses ditolak. Hanya Petugas TU yang dapat menambah/mengubah data guru.');
+        $role = Auth::check() ? Auth::user()->role : null;
+        abort_if($role !== 'admin' && !in_array($role, ['admin_tu', 'admin', 'super_admin']), 403, 'Akses ditolak. Hanya Admin yang dapat menambah/mengubah data guru.');
     }
 
     /**
@@ -36,8 +37,8 @@ class GuruController extends Controller
     {
         $this->authorizeAdmin();
 
-        $query = User::withTrashed()
-            ->whereIn('role', ['guru', 'guru_mapel', 'wali_kelas', 'guru_piket', 'piket_satpam']);
+        $query = User::query()
+            ->where('role', User::ROLE_GURU);
 
         if ($request->filled('search')) {
             $search = trim($request->search);
@@ -52,7 +53,9 @@ class GuruController extends Controller
             if ($request->status === 'Aktif') {
                 $query->whereNull('deleted_at');
             } elseif ($request->status === 'Tidak Aktif') {
-                $query->onlyTrashed();
+                $query = User::withTrashed()
+                    ->where('role', User::ROLE_GURU)
+                    ->onlyTrashed();
             }
         }
 
@@ -66,32 +69,38 @@ class GuruController extends Controller
             }
         }
 
-        if ($request->filled('kejuruan') && $request->kejuruan !== 'Semua Kejuruan') {
-            $kejuruanFilter = $request->kejuruan;
-            $query->where(function ($q) use ($kejuruanFilter) {
-                $q->whereHas('kelasWali.jurusan', function ($jQ) use ($kejuruanFilter) {
-                    $jQ->where('kode_jurusan', $kejuruanFilter)
-                       ->orWhere('nama_jurusan', 'like', "%{$kejuruanFilter}%");
-                })->orWhereHas('kelas.jurusan', function ($jQ) use ($kejuruanFilter) {
-                    $jQ->where('kode_jurusan', $kejuruanFilter)
-                       ->orWhere('nama_jurusan', 'like', "%{$kejuruanFilter}%");
-                })->orWhereHas('jadwalPelajaran.kelas.jurusan', function ($jQ) use ($kejuruanFilter) {
-                    $jQ->where('kode_jurusan', $kejuruanFilter)
-                       ->orWhere('nama_jurusan', 'like', "%{$kejuruanFilter}%");
-                });
-            });
-        }
-
         $dataGuru = $query->with(['kelas.jurusan', 'kelasWali.jurusan', 'jadwalPelajaran.mataPelajaran', 'jadwalPelajaran.kelas.jurusan'])
             ->orderBy('id', 'asc')
             ->paginate(10)
             ->withQueryString();
 
-        $daftarKejuruan = Jurusan::all();
-        $daftarMapel = MataPelajaran::orderBy('nama_mapel')->get();
         $daftarKelas = Kelas::with('jurusan')->orderBy('nama_kelas')->get();
 
-        return view('admin.guru.index', compact('dataGuru', 'daftarKejuruan', 'daftarMapel', 'daftarKelas'));
+        return view('admin.guru.index', compact('dataGuru', 'daftarKelas'));
+    }
+
+    public function create()
+    {
+        $this->authorizePetugasTU();
+
+        return view('admin.guru.create', [
+            'daftarKelas' => Kelas::with('jurusan')->orderBy('nama_kelas')->get(),
+            'currentKelasId' => null,
+        ]);
+    }
+
+    public function edit($id)
+    {
+        $this->authorizePetugasTU();
+
+        $guru = User::where('role', User::ROLE_GURU)
+            ->with(['kelasWali', 'kelas'])
+            ->findOrFail($id);
+        return view('admin.guru.edit', [
+            'guru' => $guru,
+            'daftarKelas' => Kelas::with('jurusan')->orderBy('nama_kelas')->get(),
+            'currentKelasId' => $guru->kelas_id ?: $guru->kelasWali->first()?->id,
+        ]);
     }
 
     /**
@@ -106,9 +115,8 @@ class GuruController extends Controller
             'nip'       => 'nullable|string|max:50|unique:users,nip',
             'username'  => 'required|string|max:100|unique:users,username',
             'password'  => 'nullable|string|min:6',
-            'role'      => 'required|in:guru_mapel,wali_kelas,guru_piket,guru',
-            'mapel_ids' => 'nullable|array',
-            'mapel_ids.*' => 'exists:mata_pelajaran,id',
+            'role'      => 'required|in:guru_mapel,wali_kelas,guru',
+            'kode_aktivasi' => 'nullable|string|max:100|unique:users,kode_aktivasi',
             'kelas_id'  => 'nullable|exists:kelas,id',
         ], [
             'nama.required'   => 'Nama guru wajib diisi.',
@@ -117,9 +125,8 @@ class GuruController extends Controller
             'username.unique' => 'Username sudah terdaftar dalam sistem.',
             'role.required'   => 'Role guru wajib dipilih.',
             'role.in'         => 'Role guru tidak valid.',
-            'mapel_ids.array' => 'Format mata pelajaran tidak valid.',
-            'mapel_ids.*.exists' => 'Mata pelajaran yang dipilih tidak ditemukan.',
             'kelas_id.exists' => 'Kelas yang dipilih tidak ditemukan.',
+            'kode_aktivasi.unique' => 'Kode aktivasi sudah digunakan.',
         ]);
 
         $role = $request->role;
@@ -139,15 +146,6 @@ class GuruController extends Controller
             }
         }
 
-        // Olah mapel_ids menjadi array integer bersih atau null
-        $mapelIds = null;
-        if ($request->filled('mapel_ids') || is_array($request->mapel_ids)) {
-            $mapelIds = array_values(array_filter(array_map('intval', (array)$request->mapel_ids)));
-            if (empty($mapelIds)) {
-                $mapelIds = null;
-            }
-        }
-
         $kelasId = ($role === 'wali_kelas' && $request->filled('kelas_id')) ? (int)$request->kelas_id : null;
 
         // Buat user baru
@@ -156,9 +154,10 @@ class GuruController extends Controller
             'nip'           => $request->nip,
             'username'      => $request->username,
             'password'      => Hash::make($request->password ?? 'password123'),
-            'role'          => $role,
-            'kode_aktivasi' => null,
-            'mapel_ids'     => $mapelIds,
+            'role'          => User::ROLE_GURU,
+            'sub_role'      => $role,
+            'is_active'     => true,
+            'kode_aktivasi' => $request->input('kode_aktivasi') ?: $this->generateActivationCode(),
             'kelas_id'      => $kelasId,
         ]);
 
@@ -177,15 +176,14 @@ class GuruController extends Controller
     {
         $this->authorizePetugasTU();
 
-        $user = User::withTrashed()->findOrFail($id);
+        $user = User::withTrashed()->where('role', User::ROLE_GURU)->findOrFail($id);
 
         $request->validate([
             'nama'      => 'required|string|max:255',
             'nip'       => 'nullable|string|max:50|unique:users,nip,' . $user->id,
             'username'  => 'required|string|max:100|unique:users,username,' . $user->id,
-            'role'      => 'required|in:guru_mapel,wali_kelas,guru_piket,guru',
-            'mapel_ids' => 'nullable|array',
-            'mapel_ids.*' => 'exists:mata_pelajaran,id',
+            'role'      => 'required|in:guru_mapel,wali_kelas,guru',
+            'kode_aktivasi' => 'nullable|string|max:100|unique:users,kode_aktivasi,' . $user->id,
             'kelas_id'  => 'nullable|exists:kelas,id',
         ], [
             'nama.required'   => 'Nama guru wajib diisi.',
@@ -194,9 +192,8 @@ class GuruController extends Controller
             'username.unique' => 'Username sudah terdaftar dalam sistem.',
             'role.required'   => 'Role guru wajib dipilih.',
             'role.in'         => 'Role guru tidak valid.',
-            'mapel_ids.array' => 'Format mata pelajaran tidak valid.',
-            'mapel_ids.*.exists' => 'Mata pelajaran yang dipilih tidak ditemukan.',
             'kelas_id.exists' => 'Kelas yang dipilih tidak ditemukan.',
+            'kode_aktivasi.unique' => 'Kode aktivasi sudah digunakan.',
         ]);
 
         $role = $request->role;
@@ -218,16 +215,7 @@ class GuruController extends Controller
         }
 
         // Simpan role lama untuk perbandingan
-        $oldRole = $user->role;
-
-        // Olah mapel_ids menjadi array integer bersih atau null
-        $mapelIds = null;
-        if ($request->has('mapel_ids') && is_array($request->mapel_ids)) {
-            $mapelIds = array_values(array_filter(array_map('intval', (array)$request->mapel_ids)));
-            if (empty($mapelIds)) {
-                $mapelIds = null;
-            }
-        }
+        $oldRole = $user->sub_role ?: $user->role;
 
         $kelasId = ($role === 'wali_kelas' && $request->filled('kelas_id')) ? (int)$request->kelas_id : null;
 
@@ -236,8 +224,9 @@ class GuruController extends Controller
             'nama'      => $request->nama,
             'nip'       => $request->nip,
             'username'  => $request->username,
-            'role'      => $role,
-            'mapel_ids' => $mapelIds,
+            'role'      => User::ROLE_GURU,
+            'sub_role'  => $role,
+            'kode_aktivasi' => $request->filled('kode_aktivasi') ? $request->kode_aktivasi : $user->kode_aktivasi,
             'kelas_id'  => $kelasId,
         ]);
 
@@ -264,17 +253,31 @@ class GuruController extends Controller
         return redirect()->route('guru.index')->with('success', 'Data Guru berhasil diperbarui!');
     }
 
+    protected function generateActivationCode(): string
+    {
+        do {
+            $code = 'AKT-' . Str::upper(Str::random(8));
+        } while (User::withTrashed()->where('kode_aktivasi', $code)->exists());
+
+        return $code;
+    }
+
     /**
-     * Menghapus data guru (Admin saja)
+     * Soft delete data guru (Admin saja)
      */
     public function destroy($id)
     {
         $this->authorizeAdmin();
 
-        $user = User::withTrashed()->findOrFail($id);
-        $user->forceDelete();
+        $user = User::where('role', User::ROLE_GURU)->findOrFail($id);
 
-        return redirect()->route('guru.index')->with('success', 'Data Guru berhasil dihapus secara permanen!');
+        if ($user->trashed()) {
+            return redirect()->route('guru.index')->with('error', 'Data guru sudah dalam status tidak aktif.');
+        }
+
+        $user->delete();
+
+        return redirect()->route('guru.index')->with('success', 'Data Guru "' . $user->nama . '" berhasil dihapus (soft delete).');
     }
 
     /**
@@ -284,7 +287,7 @@ class GuruController extends Controller
     {
         $this->authorizeAdmin();
 
-        $user = User::withTrashed()->findOrFail($id);
+        $user = User::withTrashed()->where('role', User::ROLE_GURU)->findOrFail($id);
         $user->update([
             'password' => Hash::make('password123'),
         ]);
@@ -316,21 +319,58 @@ class GuruController extends Controller
     }
 
     /**
-     * Toggle Status Aktif / Tidak Aktif (Soft Delete / Restore)
+     * Setujui / Approve akun guru dan aktifkan
+     */
+    public function approve($id)
+    {
+        $this->authorizeAdmin();
+
+        $user = User::findOrFail($id);
+
+        $user->update([
+            'is_active' => true,
+        ]);
+
+        return redirect()->route('guru.index')->with('success', 'Data guru berhasil disetujui dan diaktifkan.');
+    }
+
+    /**
+     * Update status aktif / nonaktif akun guru
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        $this->authorizeAdmin();
+
+        $user = User::findOrFail($id);
+        $isActive = $request->has('is_active') 
+            ? filter_var($request->input('is_active'), FILTER_VALIDATE_BOOLEAN)
+            : ($request->input('status') === 'aktif' || $request->input('status') === '1' || $request->input('status') === true);
+
+        $user->update([
+            'is_active' => $isActive,
+        ]);
+
+        $msg = $user->is_active
+            ? 'Data guru berhasil disetujui dan diaktifkan.'
+            : 'Akun guru ' . $user->nama . ' berhasil dinonaktifkan.';
+
+        return redirect()->route('guru.index')->with('success', $msg);
+    }
+
+    /**
+     * Toggle Status Aktif / Tidak Aktif (is_active)
      */
     public function toggleStatus($id)
     {
         $this->authorizeAdmin();
 
-        $user = User::withTrashed()->findOrFail($id);
+        $user = User::findOrFail($id);
 
-        if ($user->trashed()) {
-            $user->restore();
-            $msg = 'Status akun guru ' . $user->nama . ' berhasil diubah menjadi AKTIF.';
-        } else {
-            $user->delete();
-            $msg = 'Status akun guru ' . $user->nama . ' berhasil diubah menjadi TIDAK AKTIF.';
-        }
+        $user->update(['is_active' => !$user->is_active]);
+
+        $msg = $user->is_active
+            ? 'Data guru berhasil disetujui dan diaktifkan.'
+            : 'Akun guru ' . $user->nama . ' berhasil dinonaktifkan.';
 
         return redirect()->route('guru.index')->with('success', $msg);
     }

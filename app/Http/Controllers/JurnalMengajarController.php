@@ -32,7 +32,7 @@ class JurnalMengajarController extends Controller
         ->map(function ($jurnal) use ($today) {
             // is_editable: Admin selalu bisa edit; Guru hanya bisa edit jurnal hari ini
             $role = auth()->check() ? auth()->user()->role : null;
-            $isGuru = in_array($role, ['guru_mapel', 'guru', 'wali_kelas', 'guru_piket']);
+            $isGuru = in_array($role, ['guru_mapel', 'guru', 'wali_kelas']);
             $jurnal->is_editable = !$isGuru || $jurnal->tanggal === $today;
             return $jurnal;
         });
@@ -142,7 +142,7 @@ class JurnalMengajarController extends Controller
 
         // DATE-LOCK: Guru Piket & Guru Mapel hanya bisa edit jurnal hari ini
         $role = auth()->check() ? auth()->user()->role : null;
-        $isGuru = in_array($role, ['guru_mapel', 'guru', 'wali_kelas', 'guru_piket']);
+        $isGuru = in_array($role, ['guru_mapel', 'guru', 'wali_kelas']);
         if ($isGuru && $jurnal->tanggal !== Carbon::today()->toDateString()) {
             return redirect()->back()->with('error', 'Jurnal tanggal ' . $jurnal->tanggal . ' sudah terkunci dan tidak dapat diedit.');
         }
@@ -169,7 +169,7 @@ class JurnalMengajarController extends Controller
 
         // DATE-LOCK: Guru Piket & Guru Mapel hanya bisa update jurnal hari ini
         $role = auth()->check() ? auth()->user()->role : null;
-        $isGuru = in_array($role, ['guru_mapel', 'guru', 'wali_kelas', 'guru_piket']);
+        $isGuru = in_array($role, ['guru_mapel', 'guru', 'wali_kelas']);
         if ($isGuru && $jurnal->tanggal !== Carbon::today()->toDateString()) {
             abort(403, 'Jurnal ini sudah terkunci. Hanya jurnal hari ini yang dapat diubah.');
         }
@@ -225,9 +225,8 @@ class JurnalMengajarController extends Controller
         $user = auth()->user();
         $role = $user ? $user->role : null;
 
-        // Otorisasi role: Guru Piket, Admin TU, Admin
-        if (!in_array($role, ['guru_piket', 'admin_tu', 'admin', 'superadmin'])) {
-            abort(403, 'Akses ditolak. Fitur ini khusus untuk Guru Piket / Admin TU.');
+        if (!(($user && $user->isPiketHariIni()) || in_array($role, ['admin_tu', 'admin', 'superadmin']))) {
+            abort(403, 'Akses ditolak. Fitur ini khusus untuk guru yang mendapat jadwal piket atau Admin TU.');
         }
 
         $jurnal = Jurnal::findOrFail($id);

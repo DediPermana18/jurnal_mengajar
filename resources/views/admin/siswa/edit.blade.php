@@ -26,18 +26,19 @@
     @endif
 
     <div class="card border-0 shadow-sm rounded-4 bg-white p-4">
-        <form action="{{ route('siswa.update', $siswa->id_siswa) }}" method="POST">
+        <form action="{{ route('siswa.update', $siswa->id) }}" method="POST">
             @csrf
             @method('PUT')
             
             <div class="mb-3">
-                <label class="form-label fw-semibold text-dark">NIS (Nomor Induk Siswa)</label>
+                <label class="form-label fw-semibold text-dark">NISN & NIS</label>
+                <input type="text" name="nisn" class="form-control rounded-3 py-2 mb-2" value="{{ old('nisn', $siswa->nisn) }}" placeholder="Masukkan NISN">
                 <input type="text" name="nis" class="form-control rounded-3 py-2" value="{{ old('nis', $siswa->nis) }}" placeholder="Masukkan NIS">
             </div>
 
             <div class="mb-3">
                 <label class="form-label fw-semibold text-dark">Nama Siswa <span class="text-danger">*</span></label>
-                <input type="text" name="nama_siswa" class="form-control rounded-3 py-2" value="{{ old('nama_siswa', $siswa->nama_siswa) }}" required placeholder="Masukkan Nama Lengkap Siswa">
+                <input type="text" name="nama" class="form-control rounded-3 py-2" value="{{ old('nama', $siswa->nama) }}" required placeholder="Masukkan Nama Lengkap Siswa">
             </div>
 
             <div class="mb-3">
@@ -45,8 +46,20 @@
                 <select name="id_kelas" class="form-select rounded-3 py-2" required>
                     <option value="">-- Pilih Kelas --</option>
                     @foreach ($dataKelas as $kelas)
-                        <option value="{{ $kelas->id_kelas }}" {{ old('id_kelas', $siswa->id_kelas) == $kelas->id_kelas ? 'selected' : '' }}>
+                        <option value="{{ $kelas->id }}" {{ old('id_kelas', $siswa->id_kelas) == $kelas->id ? 'selected' : '' }}>
                             {{ $kelas->nama_kelas }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold text-dark">Jurusan</label>
+                <select name="id_jurusan" class="form-select rounded-3 py-2">
+                    <option value="">-- Pilih Jurusan --</option>
+                    @foreach($jurusans as $jurusan)
+                        <option value="{{ $jurusan->id }}" {{ old('id_jurusan', $siswa->id_jurusan) == $jurusan->id ? 'selected' : '' }}>
+                            {{ $jurusan->kode_jurusan }} - {{ $jurusan->nama_jurusan }}
                         </option>
                     @endforeach
                 </select>

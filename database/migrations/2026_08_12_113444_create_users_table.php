@@ -15,12 +15,10 @@ return new class extends Migration {
             $table->string('kode_aktivasi', 100)->nullable();
             
             // Perbaruan daftar role lengkap
-           // Perbaruan daftar role lengkap
             $table->enum('role', [
                 'super_admin',
                 'admin_tu',
                 'admin_kurikulum',
-                'admin_kesiswaan',
                 'guru_mapel',
                 'wali_kelas',
                 'guru_piket',

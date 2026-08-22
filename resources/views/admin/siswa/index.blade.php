@@ -228,7 +228,7 @@
            class="btn btn-primary rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-2 flex-shrink-0"
            style="background-color: var(--primary-blue, #1677ff); border-color: var(--primary-blue, #1677ff); font-size: 0.9rem;">
             <i class="bi bi-plus-lg"></i>
-            <span>+ Tambah Siswa</span>
+            <span>Tambah Siswa</span>
         </a>
     </div>
 
@@ -262,12 +262,24 @@
                 </div>
 
                 {{-- Dropdown Pilih Kelas --}}
-                <div class="col-6 col-md-3">
+                <div class="col-6 col-md-2">
                     <select name="id_kelas" class="form-select">
                         <option value="">Pilih Kelas</option>
                         @foreach($dataKelas as $kelas)
                             <option value="{{ $kelas->id }}" {{ request('id_kelas') == $kelas->id ? 'selected' : '' }}>
                                 {{ $kelas->nama_kelas }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- Dropdown Pilih Jurusan --}}
+                <div class="col-6 col-md-2">
+                    <select name="id_jurusan" class="form-select">
+                        <option value="">Semua Jurusan</option>
+                        @foreach($jurusans as $jurusan)
+                            <option value="{{ $jurusan->id }}" {{ request('id_jurusan') == $jurusan->id ? 'selected' : '' }}>
+                                {{ $jurusan->kode_jurusan }}
                             </option>
                         @endforeach
                     </select>
@@ -283,12 +295,12 @@
                 </div>
 
                 {{-- Tombol Filter & Reset --}}
-                <div class="col-12 col-md-2 d-flex gap-2">
+                <div class="col-12 col-md-1 d-flex gap-2">
                     <button type="submit" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold flex-grow-1"
                             style="background-color: var(--primary-blue, #1677ff); border-color: var(--primary-blue, #1677ff); font-size: 0.85rem;">
                         <i class="bi bi-funnel me-1"></i> Filter
                     </button>
-                    @if(request()->hasAny(['search','id_kelas','jenis_kelamin']))
+                    @if(request()->hasAny(['search','id_kelas','id_jurusan','jenis_kelamin']))
                         <a href="{{ route('siswa.index') }}" class="btn btn-light border rounded-3 px-2 py-2" title="Reset Filter">
                             <i class="bi bi-x-lg text-muted"></i>
                         </a>
@@ -323,9 +335,9 @@
                             $words   = explode(' ', $siswa->nama ?? '');
                             $inisial = strtoupper(substr($words[0] ?? 'S', 0, 1) . substr($words[1] ?? '', 0, 1));
 
-                            // Warna avatar berdasarkan indeks
+                            // Warna avatar stabil berdasarkan ID siswa
                             $palette = ['#3b82f6','#8b5cf6','#ec4899','#f97316','#10b981','#06b6d4','#f59e0b','#6366f1'];
-                            $bgColor = $palette[$idx % count($palette)];
+                            $bgColor = $palette[$siswa->id % count($palette)];
 
                             // Status siswa
                             $status = $siswa->status_siswa ?? 'Aktif';
@@ -341,7 +353,7 @@
                                         <div class="fw-bold text-dark" style="font-size: 0.9rem; line-height: 1.3;">
                                             {{ $siswa->nama ?? '-' }}
                                         </div>
-                                        <span class="nisn-code mt-1">
+                                        <span class="text-muted small d-block mt-1">
                                             {{ $siswa->nisn ?? 'NISN belum diisi' }}
                                         </span>
                                     </div>
@@ -360,12 +372,7 @@
                             {{-- Kolom 3: Kelas & Jurusan --}}
                             <td>
                                 @if($siswa->kelas)
-                                    <span class="badge-kelas">{{ $siswa->kelas->nama_kelas }}</span>
-                                    @if($siswa->kelas->tingkat)
-                                        <div class="mt-1" style="font-size: 0.75rem; color: #94a3b8; font-weight: 500;">
-                                            Tingkat {{ $siswa->kelas->tingkat }}
-                                        </div>
-                                    @endif
+                                    <span class="badge-kelas">{{ $siswa->kelas->tingkat }} &bull; {{ $siswa->kelas->nama_kelas }}</span>
                                 @else
                                     <span class="text-muted" style="font-size: 0.82rem;">Belum ditentukan</span>
                                 @endif

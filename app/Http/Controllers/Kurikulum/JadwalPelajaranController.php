@@ -10,6 +10,7 @@ use App\Models\MataPelajaran;
 use App\Models\TahunAjaran;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 
 class JadwalPelajaranController extends Controller
@@ -27,7 +28,7 @@ class JadwalPelajaranController extends Controller
 
         $mapelList = MataPelajaran::orderBy('nama_mapel')->get();
 
-        $guruList = User::whereIn('role', ['guru_mapel', 'guru', 'wali_kelas', 'admin_kurikulum'])
+        $guruList = User::where('role', User::ROLE_GURU)
             ->orderBy('nama')
             ->get();
 
@@ -101,7 +102,7 @@ class JadwalPelajaranController extends Controller
             'jam_ke_mulai'   => 'required|integer|min:1|max:20',
             'jam_ke_selesai' => 'required|integer|min:1|max:20|gte:jam_ke_mulai',
             'id_mapel'       => 'required|exists:mata_pelajaran,id',
-            'id_guru'        => 'required|exists:users,id',
+            'id_guru'        => ['required', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_GURU))],
         ]);
 
         $tahunAktif = TahunAjaran::where('status_aktif', true)->first() ?? TahunAjaran::first();
@@ -188,15 +189,18 @@ class JadwalPelajaranController extends Controller
     public function update(Request $request, JadwalPelajaran $jadwalPelajaran)
     {
         $validated = $request->validate([
+            'id_kelas' => 'required|exists:kelas,id',
+            'hari'     => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu',
+            'id_jam'   => 'required|exists:jam_pelajaran,id',
             'id_mapel' => 'required|exists:mata_pelajaran,id',
-            'id_guru'  => 'required|exists:users,id',
+            'id_guru'  => ['required', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_GURU))],
         ]);
 
         // Pengecekan bentrok guru di kelas lain
-        $bentrok = JadwalPelajaran::where('hari', $jadwalPelajaran->hari)
-            ->where('id_jam', $jadwalPelajaran->id_jam)
+        $bentrok = JadwalPelajaran::where('hari', $validated['hari'])
+            ->where('id_jam', $validated['id_jam'])
             ->where('id_guru', $validated['id_guru'])
-            ->where('id_kelas', '!=', $jadwalPelajaran->id_kelas)
+            ->where('id_kelas', '!=', $validated['id_kelas'])
             ->where('id', '!=', $jadwalPelajaran->id)
             ->when($jadwalPelajaran->id_tahun_ajaran, fn($q) => $q->where('id_tahun_ajaran', $jadwalPelajaran->id_tahun_ajaran))
             ->with(['kelas', 'guru', 'jamPelajaran'])
@@ -214,6 +218,9 @@ class JadwalPelajaranController extends Controller
         }
 
         $jadwalPelajaran->update([
+            'id_kelas' => $validated['id_kelas'],
+            'hari'     => $validated['hari'],
+            'id_jam'   => $validated['id_jam'],
             'id_mapel' => $validated['id_mapel'],
             'id_guru'  => $validated['id_guru'],
         ]);

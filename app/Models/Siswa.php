@@ -20,6 +20,7 @@ class Siswa extends Model
         'nama',
         'jenis_kelamin',
         'id_kelas',
+        'id_jurusan',
         'status_siswa',
     ];
 
@@ -29,6 +30,11 @@ class Siswa extends Model
     public function kelas(): BelongsTo
     {
         return $this->belongsTo(Kelas::class, 'id_kelas', 'id');
+    }
+
+    public function jurusan(): BelongsTo
+    {
+        return $this->belongsTo(Jurusan::class, 'id_jurusan', 'id');
     }
 
     /**

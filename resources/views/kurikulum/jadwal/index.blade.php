@@ -379,6 +379,9 @@
                                                                 {{ $jadwal->id }},
                                                                 {{ $jadwal->id_mapel }},
                                                                 {{ $jadwal->id_guru }},
+                                                                {{ $jadwal->id_kelas }},
+                                                                '{{ $jadwal->hari }}',
+                                                                {{ $jadwal->id_jam }},
                                                                 '{{ $slotName }} ({{ $waktuFormatted }})'
                                                             )">
                                                         <i class="bi bi-pencil-fill text-primary me-1"></i> Edit
@@ -423,9 +426,6 @@
         <div class="modal-content border-0 shadow rounded-4">
             <form method="POST" action="{{ route('kurikulum.jadwal.store') }}" id="formPlottingJadwal">
                 @csrf
-                <input type="hidden" name="id_kelas" value="{{ $selectedKelas->id }}">
-                <input type="hidden" name="hari" value="{{ $selectedHari }}">
-
                 <div class="modal-header border-0 pb-0">
                     <h5 class="modal-title fw-bold" id="modalPlottingJadwalTitle">
                         <i class="bi bi-calendar-plus-fill text-primary me-2"></i>Plotting Mata Pelajaran
@@ -434,6 +434,25 @@
                 </div>
 
                 <div class="modal-body pt-3">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-dark">Kelas</label>
+                            <select name="id_kelas" class="form-select rounded-3" required>
+                                @foreach($kelasList as $kelas)
+                                    <option value="{{ $kelas->id }}" {{ $selectedKelas->id === $kelas->id ? 'selected' : '' }}>{{ $kelas->nama_kelas }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-dark">Hari</label>
+                            <select name="hari" class="form-select rounded-3" required>
+                                @foreach($hariList as $hari)
+                                    <option value="{{ $hari }}" {{ $selectedHari === $hari ? 'selected' : '' }}>{{ $hari }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+
                     {{-- Info Banner --}}
                     <div class="p-3 mb-3 rounded-3 bg-light border">
                         <div class="row g-2" style="font-size: 0.85rem;">
@@ -551,6 +570,33 @@
                 </div>
 
                 <div class="modal-body pt-3">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-dark">Kelas</label>
+                            <select name="id_kelas" id="editIdKelas" class="form-select rounded-3" required>
+                                @foreach($kelasList as $kelas)
+                                    <option value="{{ $kelas->id }}">{{ $kelas->nama_kelas }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-dark">Hari</label>
+                            <select name="hari" id="editHari" class="form-select rounded-3" required>
+                                @foreach($hariList as $hari)
+                                    <option value="{{ $hari }}">{{ $hari }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-dark">Jam Pelajaran</label>
+                            <select name="id_jam" id="editIdJam" class="form-select rounded-3" required>
+                                @foreach($jamPelajaranList->where('jenis', '!=', 'istirahat') as $jam)
+                                    <option value="{{ $jam->id }}">Jam {{ $jam->jam_ke }} ({{ substr($jam->jam_mulai, 0, 5) }} - {{ substr($jam->jam_selesai, 0, 5) }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+
                     {{-- Info Banner --}}
                     <div class="p-3 mb-3 rounded-3 bg-light border">
                         <div class="row g-2" style="font-size: 0.85rem;">
@@ -759,13 +805,16 @@
         updateJpInfo();
     }
 
-    function openEditModal(idJadwal, idMapel, idGuru, slotInfo) {
+    function openEditModal(idJadwal, idMapel, idGuru, idKelas, hari, idJam, slotInfo) {
         const routeBase = "{{ url('kurikulum/jadwal') }}";
         document.getElementById('formEditJadwal').action = routeBase + '/' + idJadwal;
 
         document.getElementById('editSlotInfo').textContent = slotInfo;
         document.getElementById('editIdMapel').value = idMapel;
         document.getElementById('editIdGuru').value  = idGuru;
+        document.getElementById('editIdKelas').value = idKelas;
+        document.getElementById('editHari').value = hari;
+        document.getElementById('editIdJam').value = idJam;
 
         const modal = new bootstrap.Modal(document.getElementById('modalEditJadwal'));
         modal.show();

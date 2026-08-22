@@ -3,9 +3,11 @@
 @php
     // State penanda active route (berdasarkan route name, bukan URL)
     $isDashboardActive      = request()->routeIs('kurikulum.dashboard*');
-    $isJadwalActive         = request()->routeIs('kurikulum.jam-pelajaran.*') || request()->routeIs('kurikulum.jadwal.*');
+    $isJadwalActive         = request()->routeIs('kurikulum.jam-pelajaran.*') || request()->routeIs('kurikulum.jadwal.*') || request()->routeIs('kurikulum.jadwal-piket.*');
     $isJamPelajaranActive   = request()->routeIs('kurikulum.jam-pelajaran.*');
     $isPlottingJadwalActive = request()->routeIs('kurikulum.jadwal.*');
+    $isJadwalPiketActive    = request()->routeIs('kurikulum.jadwal-piket.*');
+    $isMapelActive          = request()->routeIs('mapel.*');
     $isIzinActive           = request()->routeIs('kurikulum.izin.*');
     $isLaporanActive        = request()->routeIs('kurikulum.laporan.*');
 @endphp
@@ -61,11 +63,29 @@
                     <span>Plotting Jadwal Kelas</span>
                 </a>
             </li>
+            <li>
+                <a href="{{ Route::has('kurikulum.jadwal-piket.index') ? route('kurikulum.jadwal-piket.index') : '#' }}"
+                   class="submenu-item-link {{ $isJadwalPiketActive ? 'active' : '' }}">
+                    <i class="bi bi-shield-check"></i>
+                    <span>Jadwal Piket Guru</span>
+                </a>
+            </li>
         </ul>
     </div>
 </div>
 
-<!-- 3. Approval Izin Guru -->
+<!-- 3. Data Mata Pelajaran -->
+<div class="nav-item-container">
+    <a href="{{ Route::has('mapel.index') ? route('mapel.index') : '#' }}"
+       class="nav-btn {{ $isMapelActive ? 'active' : '' }}">
+        <span class="btn-left">
+            <i class="bi bi-book"></i>
+            <span>Data Mata Pelajaran</span>
+        </span>
+    </a>
+</div>
+
+<!-- 4. Approval Izin Guru -->
 <div class="nav-item-container">
     <a href="{{ Route::has('kurikulum.izin.index') ? route('kurikulum.izin.index') : '#' }}"
        class="nav-btn d-flex align-items-center justify-content-between {{ $isIzinActive ? 'active' : '' }}">
@@ -85,7 +105,7 @@
     </a>
 </div>
 
-<!-- 4. Laporan KBM -->
+<!-- 5. Laporan KBM -->
 <div class="nav-item-container">
     <a href="{{ Route::has('kurikulum.laporan.index') ? route('kurikulum.laporan.index') : '#' }}"
        class="nav-btn {{ $isLaporanActive ? 'active' : '' }}">

@@ -88,32 +88,32 @@ class DummyDataSeeder extends Seeder
 
         // 4. Seed Kelas
         $kelas10 = Kelas::updateOrCreate(
-            ['nama_kelas' => 'X IPA 1'],
+            ['nama_kelas' => 'IPA 1', 'tingkat' => 'X'],
             ['tingkat' => 'X', 'id_wali_kelas' => $guruBudi?->id, 'id_jurusan' => null]
         );
 
         $kelas11 = Kelas::updateOrCreate(
-            ['nama_kelas' => 'XI IPA 1'],
+            ['nama_kelas' => 'IPA 1', 'tingkat' => 'XI'],
             ['tingkat' => 'XI', 'id_wali_kelas' => $guruSiti?->id, 'id_jurusan' => null]
         );
 
         $kelas12 = Kelas::updateOrCreate(
-            ['nama_kelas' => 'XII IPA 1'],
+            ['nama_kelas' => 'IPA 1', 'tingkat' => 'XII'],
             ['tingkat' => 'XII', 'id_wali_kelas' => $guruAhmad?->id, 'id_jurusan' => null]
         );
 
         $kelas12Rpl = Kelas::updateOrCreate(
-            ['nama_kelas' => 'XII RPL 1'],
+            ['nama_kelas' => 'RPL 1', 'tingkat' => 'XII'],
             ['tingkat' => 'XII', 'id_wali_kelas' => $guruAhmad?->id, 'id_jurusan' => $jurusanRpl?->id]
         );
 
         $kelas11Tkj = Kelas::updateOrCreate(
-            ['nama_kelas' => 'XI TKJ 2'],
+            ['nama_kelas' => 'TKJ 2', 'tingkat' => 'XI'],
             ['tingkat' => 'XI', 'id_wali_kelas' => $guruBudi?->id, 'id_jurusan' => $jurusanTkj?->id]
         );
 
         $kelas10Rpl = Kelas::updateOrCreate(
-            ['nama_kelas' => 'X RPL 2'],
+            ['nama_kelas' => 'RPL 2', 'tingkat' => 'X'],
             ['tingkat' => 'X', 'id_wali_kelas' => $guruBudi?->id, 'id_jurusan' => $jurusanRpl?->id]
         );
 
@@ -137,6 +137,7 @@ class DummyDataSeeder extends Seeder
         ];
 
         foreach ($siswaData as $s) {
+            $s['id_jurusan'] = Kelas::find($s['id_kelas'])?->id_jurusan;
             Siswa::updateOrCreate(['nisn' => $s['nisn']], $s);
         }
 

@@ -471,29 +471,94 @@
         <!-- Navigation Menu -->
         <div class="sidebar-nav">
             @php
-                $userRole = auth()->check() ? auth()->user()->role : null;
+                $user = auth()->user();
+                $userRole = $user ? $user->role : null;
+                $userSubRole = $user ? $user->sub_role : null;
 
-                // Role Kurikulum — role DB: 'admin_kurikulum', aliases: 'waka_kurikulum', 'kurikulum'
-                $isKurikulumRole = in_array($userRole, ['admin_kurikulum', 'waka_kurikulum', 'kurikulum']);
+                // 1. Role Waka Kurikulum (role=admin & sub_role=waka_kurikulum)
+                $isKurikulumRole = ($userRole === 'admin' && $userSubRole === 'waka_kurikulum') 
+                                || in_array($userRole, ['admin_kurikulum', 'waka_kurikulum', 'kurikulum']);
 
-                // Wali Kelas: hanya jika role PERSIS 'wali_kelas'
-                $isWaliKelasRole = ($userRole === 'wali_kelas');
+                // 2. Role Satpam (role=admin & sub_role=satpam)
+                $isSatpamRole = ($userRole === 'admin' && $userSubRole === 'satpam') 
+                             || ($userRole === 'piket_satpam');
 
-                // Guru context: role guru_mapel, guru umum, atau wali_kelas
-                $isGuruRole = in_array($userRole, ['guru_mapel', 'guru', 'wali_kelas']);
+                // 3. Guru Piket ditentukan dari jadwal_piket pada hari berjalan.
+                $isGuruPiketRole = $user ? $user->isPiketHariIni() : false;
 
-                // Aktifkan Guru Piket
-                $isGuruPiketRole = ($userRole === 'guru_piket');
+                // 4. Role Wali Kelas (role=guru & sub_role=wali_kelas)
+                $isWaliKelasRole = ($userRole === 'guru' && $userSubRole === 'wali_kelas') 
+                                || ($userRole === 'wali_kelas');
 
-                // Aktifkan blok navigasi Guru — HANYA dari role, bukan dari URL
-                $isGuruContext = $isGuruRole || (request()->is('guru*') && !$isGuruPiketRole);
+                // 5. Guru Context (Guru Mapel & Wali Kelas)
+                $isGuruRole = ($userRole === 'guru');
+                $isGuruContext = $isGuruRole && !$isGuruPiketRole;
+
+                // 6. Petugas TU & Super Admin
+                $isSuperAdmin = ($userRole === 'admin' && $userSubRole === null);
+                $isPetugasTU = ($userRole === 'admin' && ($userSubRole === 'petugas_tu' || in_array($userRole, ['admin_tu'])));
             @endphp
 
             @if($isKurikulumRole)
                 {{-- ================= NAVIGASI WAKA KURIKULUM ================= --}}
                 <x-sidebar-kurikulum />
-            @elseif($isGuruPiketRole || request()->is('piket*'))
-                <!-- ================= NAVIGASI GURU PIKET ================= -->
+
+            @elseif($isSatpamRole)
+                {{-- ================= NAVIGASI SATPAM / KEAMANAN ================= --}}
+                <div class="nav-item-container mt-2">
+                    <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                        SATPAM / KEAMANAN
+                    </div>
+                </div>
+
+                <!-- Dashboard Piket -->
+                <div class="nav-item-container">
+                    <a href="{{ route('piket.dashboard') }}" class="nav-btn {{ request()->routeIs('piket.dashboard') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-speedometer2"></i>
+                            <span>Dashboard</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Presensi Guru -->
+                <div class="nav-item-container">
+                    <a href="{{ route('piket.presensi-guru') }}" class="nav-btn {{ request()->routeIs('piket.presensi-guru') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-person-check-fill"></i>
+                            <span>Presensi Guru</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Presensi Siswa -->
+                <div class="nav-item-container">
+                    <a href="{{ route('piket.presensi-siswa') }}" class="nav-btn {{ request()->routeIs('piket.presensi-siswa') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-people-fill"></i>
+                            <span>Presensi Siswa</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Jurnal KBM Harian -->
+                <div class="nav-item-container">
+                    <a href="{{ route('piket.jurnal') }}" class="nav-btn {{ request()->routeIs('piket.jurnal') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-journal-text"></i>
+                            <span>Jurnal KBM Harian</span>
+                        </span>
+                    </a>
+                </div>
+
+            @elseif($isGuruPiketRole)
+                {{-- ================= NAVIGASI GURU PIKET ================= --}}
+                <div class="nav-item-container mt-2">
+                    <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                        GURU PIKET
+                    </div>
+                </div>
+
                 <!-- Dashboard Piket -->
                 <div class="nav-item-container">
                     <a href="{{ route('piket.dashboard') }}" class="nav-btn {{ request()->routeIs('piket.dashboard') ? 'active' : '' }}">
@@ -535,8 +600,13 @@
                 </div>
 
             @elseif($isGuruContext)
+                {{-- ================= NAVIGASI GURU (GURU MAPEL & WALI KELAS) ================= --}}
+                <div class="nav-item-container mt-2">
+                    <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                        PORTAL GURU
+                    </div>
+                </div>
 
-                <!-- ================= NAVIGASI GURU (GURU MAPEL & WALI KELAS) ================= -->
                 <!-- Dashboard Guru -->
                 <div class="nav-item-container">
                     <a href="{{ route('guru.dashboard') }}" class="nav-btn {{ request()->routeIs('guru.dashboard') ? 'active' : '' }}">
@@ -557,7 +627,7 @@
                     </a>
                 </div>
 
-                <!-- SECTION KELAS SAYA: HANYA untuk role 'wali_kelas' secara KETAT -->
+                <!-- SECTION KELAS SAYA: HANYA untuk role 'wali_kelas' -->
                 @if($isWaliKelasRole)
                     @php
                         $isKelasSayaActive = request()->routeIs('walikelas.*');
@@ -603,8 +673,15 @@
                         </div>
                     </div>
                 @endif
+
             @else
-                <!-- ================= NAVIGASI ADMIN ================= -->
+                {{-- ================= NAVIGASI ADMIN / PETUGAS TU / SUPER ADMIN ================= --}}
+                <div class="nav-item-container mt-2">
+                    <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                        {{ ($userSubRole === 'petugas_tu' || $userRole === 'admin_tu') ? 'TATA USAHA (TU)' : 'ADMINISTRATOR' }}
+                    </div>
+                </div>
+
                 <!-- Dashboard Link -->
                 <div class="nav-item-container">
                     <a href="{{ route('home') }}" class="nav-btn {{ request()->routeIs('home') || request()->routeIs('jurnal.index') ? 'active' : '' }}">
@@ -615,9 +692,9 @@
                     </a>
                 </div>
 
-                <!-- Dropdown Data Master -->
+                <!-- Dropdown Data Master (Petugas TU: Guru/Pengguna, Siswa, Kelas, Jurusan) -->
                 @php
-                    $isDataMasterActive = request()->routeIs('guru.index') || request()->routeIs('siswa.*') || request()->routeIs('kelas.*') || request()->routeIs('jurusan.*') || request()->routeIs('mapel.*');
+                    $isDataMasterActive = request()->routeIs('guru.index') || request()->routeIs('siswa.*') || request()->routeIs('kelas.*') || request()->routeIs('jurusan.*');
                 @endphp
                 <div class="nav-item-container">
                     <button class="nav-btn {{ $isDataMasterActive ? 'active' : '' }}" 
@@ -638,7 +715,7 @@
                             <li>
                                 <a href="{{ route('guru.index') }}" class="submenu-item-link {{ request()->routeIs('guru.index') ? 'active' : '' }}">
                                     <i class="bi bi-person-badge"></i>
-                                    <span>Data Guru</span>
+                                    <span>Data Pengguna / Guru</span>
                                 </a>
                             </li>
                             <li>
@@ -659,32 +736,52 @@
                                     <span>Data Jurusan</span>
                                 </a>
                             </li>
-                            <li>
-                                <a href="{{ route('mapel.index') }}" class="submenu-item-link {{ request()->routeIs('mapel.*') ? 'active' : '' }}">
-                                    <i class="bi bi-book"></i>
-                                    <span>Data Mata Pelajaran</span>
-                                </a>
-                            </li>
                         </ul>
                     </div>
                 </div>
 
-                @php
-                    $isPetugasTU = in_array(auth()->user()->role ?? 'admin_tu', ['admin_tu', 'admin']);
-                @endphp
-
-                @if(!$isPetugasTU)
-                    <!-- Standalone Menu: Jadwal Pelajaran (Bukan Ranah TU) -->
+                @if($isPetugasTU || $isSuperAdmin)
                     <div class="nav-item-container">
-                        <a href="{{ route('jadwal.index') }}" class="nav-btn {{ request()->routeIs('jadwal.*') ? 'active' : '' }}">
+                        <a href="{{ route('admin.users.index') }}" class="nav-btn {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+                            <span class="btn-left">
+                                <i class="bi bi-person-gear"></i>
+                                <span>Kelola User</span>
+                            </span>
+                        </a>
+                    </div>
+                @endif
+
+                {{-- Menu Tambahan untuk Super Admin --}}
+                @if($isSuperAdmin)
+                    <div class="nav-item-container mt-3">
+                        <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                            KURIKULUM & LAPORAN
+                        </div>
+                    </div>
+                    <div class="nav-item-container">
+                        <a href="{{ route('mapel.index') }}" class="nav-btn {{ request()->routeIs('mapel.*') ? 'active' : '' }}">
+                            <span class="btn-left">
+                                <i class="bi bi-book"></i>
+                                <span>Data Mata Pelajaran</span>
+                            </span>
+                        </a>
+                    </div>
+                    <div class="nav-item-container">
+                        <a href="{{ route('kurikulum.jadwal.index') }}" class="nav-btn {{ request()->routeIs('kurikulum.jadwal.*') || request()->routeIs('kurikulum.jam-pelajaran.*') ? 'active' : '' }}">
                             <span class="btn-left">
                                 <i class="bi bi-calendar3"></i>
                                 <span>Jadwal Pelajaran</span>
                             </span>
                         </a>
                     </div>
-
-                    <!-- Standalone Menu: Laporan (Bukan Ranah TU) -->
+                    <div class="nav-item-container">
+                        <a href="{{ route('kurikulum.jadwal-piket.index') }}" class="nav-btn {{ request()->routeIs('kurikulum.jadwal-piket.*') ? 'active' : '' }}">
+                            <span class="btn-left">
+                                <i class="bi bi-shield-check"></i>
+                                <span>Jadwal Piket Guru</span>
+                            </span>
+                        </a>
+                    </div>
                     <div class="nav-item-container">
                         <a href="{{ route('laporan.index') }}" class="nav-btn {{ request()->routeIs('laporan.*') ? 'active' : '' }}">
                             <span class="btn-left">
@@ -729,10 +826,10 @@
 
             <!-- Actions Right -->
             <div class="topbar-actions">
-                <!-- Notification Bell -->
-                <button type="button" class="notif-bell-btn" title="Notifikasi">
+                <!-- Notifications -->
+                <button class="icon-btn position-relative" type="button">
                     <i class="bi bi-bell"></i>
-                    <span class="notif-dot"></span>
+                    <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
                 </button>
 
                 <!-- Divider -->
@@ -744,7 +841,7 @@
                         <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80" alt="Avatar" class="user-avatar">
                         <div class="user-meta">
                             <div class="user-name">{{ auth()->user()->nama ?? 'Admin Utama' }}</div>
-                            <div class="user-role">{{ ucfirst(str_replace('_', ' ', auth()->user()->role ?? 'Administrator')) }}</div>
+                            <div class="user-role">{{ auth()->user()->role_label ?? 'Administrator' }}</div>
                         </div>
                         <i class="bi bi-chevron-down user-chevron"></i>
                     </div>

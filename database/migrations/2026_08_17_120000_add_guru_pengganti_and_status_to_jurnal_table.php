@@ -18,12 +18,14 @@ return new class extends Migration {
         });
 
         // Backfill id_guru untuk data jurnal lama berdasarkan id_guru di jadwal_pelajaran
-        DB::statement("
-            UPDATE jurnal j 
-            JOIN jadwal_pelajaran jp ON j.id_jadwal = jp.id 
-            SET j.id_guru = jp.id_guru 
-            WHERE j.id_guru IS NULL
-        ");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("
+                UPDATE jurnal j 
+                JOIN jadwal_pelajaran jp ON j.id_jadwal = jp.id 
+                SET j.id_guru = jp.id_guru 
+                WHERE j.id_guru IS NULL
+            ");
+        }
     }
 
     /**

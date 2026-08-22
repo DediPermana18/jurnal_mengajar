@@ -17,12 +17,16 @@ return new class extends Migration {
         });
 
         // Use raw SQL to update enum definition safely in MySQL/MariaDB
-        DB::statement("ALTER TABLE jam_pelajaran MODIFY COLUMN jenis ENUM('kbm', 'upacara', 'pembiasaan', 'istirahat') NOT NULL DEFAULT 'kbm'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE jam_pelajaran MODIFY COLUMN jenis ENUM('kbm', 'upacara', 'pembiasaan', 'istirahat') NOT NULL DEFAULT 'kbm'");
+        }
     }
 
     public function down(): void
     {
-        DB::statement("ALTER TABLE jam_pelajaran MODIFY COLUMN jenis ENUM('kbm', 'istirahat', 'upacara', 'kultum') NOT NULL DEFAULT 'kbm'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE jam_pelajaran MODIFY COLUMN jenis ENUM('kbm', 'istirahat', 'upacara', 'kultum') NOT NULL DEFAULT 'kbm'");
+        }
 
         Schema::table('jam_pelajaran', function (Blueprint $table) {
             $table->integer('jam_ke')->nullable(false)->change();

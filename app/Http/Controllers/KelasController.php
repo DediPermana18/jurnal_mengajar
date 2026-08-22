@@ -12,21 +12,21 @@ use Illuminate\Http\Request;
 class KelasController extends Controller
 {
     /**
-     * Proteksi server-side: Hanya admin_tu, admin, dan super_admin yang dapat melihat data kelas
+     * Proteksi server-side: Hanya user dengan role admin yang dapat melihat data kelas
      */
     protected function authorizeAdmin()
     {
         $role = auth()->check() ? auth()->user()->role : null;
-        abort_if(!in_array($role, ['admin_tu', 'admin', 'super_admin']), 403, 'Akses ditolak. Anda tidak memiliki izin untuk fitur manajemen kelas.');
+        abort_if($role !== 'admin' && !in_array($role, ['admin_tu', 'admin', 'super_admin']), 403, 'Akses ditolak. Anda tidak memiliki izin untuk fitur manajemen kelas.');
     }
 
     /**
-     * Proteksi khusus Petugas TU (admin_tu) untuk operasi create, store, update, destroy
+     * Proteksi untuk operasi create, store, update, destroy: Semua user dengan role admin diizinkan
      */
     protected function authorizePetugasTU()
     {
         $role = auth()->check() ? auth()->user()->role : null;
-        abort_if(!in_array($role, ['admin_tu', 'admin', 'super_admin']), 403, 'Akses ditolak. Hanya Petugas TU / Admin yang dapat menambah/mengubah data kelas.');
+        abort_if($role !== 'admin' && !in_array($role, ['admin_tu', 'admin', 'super_admin']), 403, 'Akses ditolak. Hanya Admin yang dapat menambah/mengubah data kelas.');
     }
 
     /**
@@ -77,7 +77,8 @@ class KelasController extends Controller
             ->withQueryString();
 
         $daftarJurusan = Jurusan::orderBy('nama_jurusan')->get();
-        $daftarWaliKelas = User::whereIn('role', ['wali_kelas', 'guru', 'guru_mapel'])
+        $daftarWaliKelas = User::where('role', 'guru')
+            ->orWhereIn('role', ['wali_kelas', 'guru_mapel'])
             ->with('kelasWali')
             ->orderBy('nama')
             ->get();
@@ -149,7 +150,8 @@ class KelasController extends Controller
         // Sinkronisasi kelas_id pada tabel users
         if (!empty($idWaliKelas)) {
             User::where('id', $idWaliKelas)->update([
-                'role'     => 'wali_kelas',
+                'role'     => 'guru',
+                'sub_role' => 'wali_kelas',
                 'kelas_id' => $kelas->id,
             ]);
         }
@@ -166,40 +168,34 @@ class KelasController extends Controller
 
         $kelas = Kelas::findOrFail($id);
 
-        $idJurusan = $request->id_jurusan ?? $request->jurusan_id;
-        $idWaliKelas = $request->id_wali_kelas ?? $request->wali_kelas_id;
-
-        $request->merge([
-            'id_jurusan'    => $idJurusan,
-            'id_wali_kelas' => $idWaliKelas ?: null,
-        ]);
-
         $request->validate([
-            'nama_kelas'    => 'required|string|max:50|unique:kelas,nama_kelas,' . $kelas->id,
+            'nama_kelas'    => 'required|string|max:50',
             'tingkat'       => 'required|in:X,XI,XII',
-            'id_jurusan'    => 'required|exists:jurusan,id',
+            'id_jurusan'    => 'required|exists:jurusans,id',
             'id_wali_kelas' => 'nullable|exists:users,id',
         ], [
-            'nama_kelas.required'    => 'Nama kelas wajib diisi.',
-            'nama_kelas.unique'      => 'Nama kelas sudah terdaftar dalam sistem.',
-            'tingkat.required'       => 'Tingkat kelas wajib dipilih.',
-            'tingkat.in'             => 'Pilihan tingkat tidak valid (harus X, XI, atau XII).',
-            'id_jurusan.required'    => 'Jurusan wajib dipilih.',
-            'id_jurusan.exists'      => 'Jurusan yang dipilih tidak ditemukan.',
-            'id_wali_kelas.exists'   => 'Wali kelas yang dipilih tidak ditemukan.',
+            'nama_kelas.required' => 'Nama kelas wajib diisi.',
+            'tingkat.required'    => 'Tingkat kelas wajib dipilih.',
+            'tingkat.in'          => 'Tingkat kelas harus X, XI, atau XII.',
+            'id_jurusan.required' => 'Jurusan wajib dipilih.',
+            'id_jurusan.exists'   => 'Jurusan yang dipilih tidak valid.',
+            'id_wali_kelas.exists'=> 'Wali kelas yang dipilih tidak valid.',
         ]);
 
-        // Validasi: 1 Guru hanya boleh menjadi Wali Kelas pada 1 kelas (kecuali kelas ini sendiri)
-        if (!empty($idWaliKelas)) {
-            $isAssigned = Kelas::where('id_wali_kelas', $idWaliKelas)
-                ->where('id', '!=', $kelas->id)
+        $idJurusan = $request->id_jurusan;
+        $idWaliKelas = $request->id_wali_kelas;
+        $oldWaliKelasId = $kelas->id_wali_kelas;
+
+        // Validasi: Cegah guru yang sudah menjadi wali kelas lain dipilih lagi
+        if (!empty($idWaliKelas) && $idWaliKelas != $oldWaliKelasId) {
+            $isAlreadyWali = Kelas::where('id_wali_kelas', $idWaliKelas)
+                ->where('id', '!=', $id)
                 ->exists();
-            if ($isAssigned) {
-                return back()->withErrors(['id_wali_kelas' => 'Guru yang dipilih sudah menjadi Wali Kelas di kelas lain.'])->withInput();
+
+            if ($isAlreadyWali) {
+                return back()->withErrors(['id_wali_kelas' => 'Guru tersebut sudah menjadi Wali Kelas di kelas lain.'])->withInput();
             }
         }
-
-        $oldWaliKelasId = $kelas->id_wali_kelas;
 
         $kelas->update([
             'nama_kelas'    => $request->nama_kelas,
@@ -215,7 +211,8 @@ class KelasController extends Controller
 
         if (!empty($idWaliKelas)) {
             User::where('id', $idWaliKelas)->update([
-                'role'     => 'wali_kelas',
+                'role'     => 'guru',
+                'sub_role' => 'wali_kelas',
                 'kelas_id' => $kelas->id,
             ]);
         }

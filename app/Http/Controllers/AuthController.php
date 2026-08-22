@@ -60,9 +60,14 @@ class AuthController extends Controller
             return back()->withErrors(['login_id' => 'Username atau NIP tidak terdaftar dalam sistem.'])->withInput();
         }
 
-        // Cek jika akun guru/admin sedang dinonaktifkan
-        if ($user->trashed()) {
+        // Cek jika akun sedang non-aktif (dinonaktifkan admin)
+        if (!$user->is_active) {
             return back()->withErrors(['login_id' => 'Akun Anda sedang non-aktif / dinonaktifkan. Silakan hubungi Admin TU.'])->withInput();
+        }
+
+        // Cek jika akun guru/admin sudah di-soft delete
+        if ($user->trashed()) {
+            return back()->withErrors(['login_id' => 'Akun Anda sudah tidak berlaku. Silakan hubungi Admin TU.'])->withInput();
         }
 
         // ================= VALIDASI KODE AKTIVASI ADMIN =================

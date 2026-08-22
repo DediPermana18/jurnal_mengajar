@@ -13,6 +13,9 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
+        // Bersihkan data user kesiswaan atau kepala sekolah jika masih ada
+        User::withTrashed()->whereIn('username', ['kesiswaan', 'kepala_sekolah'])->forceDelete();
+
         // 1. Super Admin
         User::updateOrCreate(
             ['username' => 'superadmin'],
@@ -21,7 +24,9 @@ class UserSeeder extends Seeder
                 'nip'           => '198501012010011001',
                 'password'      => Hash::make('password123'),
                 'kode_aktivasi' => 'SUPER123',
-                'role'          => 'super_admin',
+                'role'          => 'admin',
+                'sub_role'      => null,
+                'is_active'     => true,
             ]
         );
 
@@ -33,7 +38,9 @@ class UserSeeder extends Seeder
                 'nip'           => '198702022012011002',
                 'password'      => Hash::make('password123'),
                 'kode_aktivasi' => 'ADMIN123',
-                'role'          => 'admin_tu',
+                'role'          => 'admin',
+                'sub_role'      => 'petugas_tu',
+                'is_active'     => true,
             ]
         );
 
@@ -44,8 +51,10 @@ class UserSeeder extends Seeder
                 'nama'          => 'Administrator Utama',
                 'nip'           => '198702022012011000',
                 'password'      => Hash::make('password123'),
-                'kode_aktivasi' => 'ADMIN123',
-                'role'          => 'admin_tu',
+                'kode_aktivasi' => 'ADMIN1234',
+                'role'          => 'admin',
+                'sub_role'      => 'petugas_tu',
+                'is_active'     => true,
             ]
         );
 
@@ -57,23 +66,13 @@ class UserSeeder extends Seeder
                 'nip'           => '198803032013011003',
                 'password'      => Hash::make('password123'),
                 'kode_aktivasi' => 'KURIKULUM123',
-                'role'          => 'admin_kurikulum',
+                'role'          => 'admin',
+                'sub_role'      => 'waka_kurikulum',
+                'is_active'     => true,
             ]
         );
 
-        // 4. Waka Kesiswaan
-        User::updateOrCreate(
-            ['username' => 'kesiswaan'],
-            [
-                'nama'          => 'Waka Kesiswaan',
-                'nip'           => '198904042014011004',
-                'password'      => Hash::make('password123'),
-                'kode_aktivasi' => 'KESISWAAN123',
-                'role'          => 'admin_kesiswaan',
-            ]
-        );
-
-        // 5. Guru Mapel
+        // 4. Guru Mapel
         User::updateOrCreate(
             ['username' => 'gurubudi'],
             [
@@ -81,7 +80,9 @@ class UserSeeder extends Seeder
                 'nip'           => '199003032015011005',
                 'password'      => Hash::make('password123'),
                 'kode_aktivasi' => null,
-                'role'          => 'guru_mapel',
+                'role'          => 'guru',
+                'sub_role'      => 'guru_mapel',
+                'is_active'     => true,
             ]
         );
 
@@ -93,11 +94,13 @@ class UserSeeder extends Seeder
                 'nip'           => '199003032015011000',
                 'password'      => Hash::make('password123'),
                 'kode_aktivasi' => null,
-                'role'          => 'guru_mapel',
+                'role'          => 'guru',
+                'sub_role'      => 'guru_mapel',
+                'is_active'     => true,
             ]
         );
 
-        // 6. Wali Kelas
+        // 5. Wali Kelas
         User::updateOrCreate(
             ['username' => 'gurahmad'],
             [
@@ -105,23 +108,27 @@ class UserSeeder extends Seeder
                 'nip'           => '199405052020011006',
                 'password'      => Hash::make('password123'),
                 'kode_aktivasi' => null,
-                'role'          => 'wali_kelas',
+                'role'          => 'guru',
+                'sub_role'      => 'wali_kelas',
+                'is_active'     => true,
             ]
         );
 
-        // 7. Guru Piket
+        // 6. Guru yang dapat ditugaskan piket melalui jadwal_piket
         User::updateOrCreate(
             ['username' => 'gurupiket'],
             [
-                'nama'          => 'Siti Rahma, M.Pd. (Guru Piket)',
+                'nama'          => 'Siti Rahma, M.Pd. (Guru Mapel)',
                 'nip'           => '199206062017011007',
                 'password'      => Hash::make('password123'),
-                'kode_aktivasi' => 'gurupiket123',
-                'role'          => 'guru_piket',
+                'kode_aktivasi' => null,
+                'role'          => 'guru',
+                'sub_role'      => 'guru',
+                'is_active'     => true,
             ]
         );
 
-        // 8. Satpam / Security
+        // 7. Satpam / Security
         User::updateOrCreate(
             ['username' => 'satpam'],
             [
@@ -129,7 +136,9 @@ class UserSeeder extends Seeder
                 'nip'           => '199507072021011008',
                 'password'      => Hash::make('password123'),
                 'kode_aktivasi' => 'satpam123',
-                'role'          => 'piket_satpam',
+                'role'          => 'admin',
+                'sub_role'      => 'satpam',
+                'is_active'     => true,
             ]
         );
     }
