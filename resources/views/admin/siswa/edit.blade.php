@@ -47,7 +47,7 @@
                     <option value="">-- Pilih Kelas --</option>
                     @foreach ($dataKelas as $kelas)
                         <option value="{{ $kelas->id }}" {{ old('id_kelas', $siswa->id_kelas) == $kelas->id ? 'selected' : '' }}>
-                            {{ $kelas->nama_kelas }}
+                            {{ $kelas->tingkat }} &bull; {{ $kelas->nama_kelas }}{{ $kelas->jurusan ? ' (' . $kelas->jurusan->nama_jurusan . ')' : '' }}
                         </option>
                     @endforeach
                 </select>

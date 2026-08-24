@@ -175,38 +175,96 @@
         color: #2563eb;
     }
 
-    /* === Pagination Styling === */
-    .pagination-wrapper .pagination {
-        gap: 4px;
-        margin-bottom: 0;
+    /* === Custom Modern Pagination === */
+    .custom-pagination-wrapper {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.85rem;
+        margin-top: 1.25rem;
+        padding-top: 1rem;
+        border-top: 1px solid #f1f5f9;
     }
 
-    .pagination-wrapper .page-item .page-link {
-        border-radius: 8px;
-        border: 1px solid #e2e8f0;
-        color: #475569;
-        font-size: 0.82rem;
+    @media (min-width: 640px) {
+        .custom-pagination-wrapper {
+            flex-direction: row;
+        }
+    }
+
+    .pagination-info-text {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #64748b;
+    }
+
+    .pagination-info-text strong {
+        color: #0f172a;
+        font-weight: 700;
+    }
+
+    .pagination-controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .pagination-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8125rem;
         font-weight: 600;
-        padding: 0.4rem 0.7rem;
+        color: #475569;
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        text-decoration: none;
         transition: all 0.15s ease;
+        line-height: 1.25;
+        user-select: none;
     }
 
-    .pagination-wrapper .page-item.active .page-link {
-        background-color: var(--primary-blue, #1677ff);
-        border-color: var(--primary-blue, #1677ff);
-        color: #ffffff;
+    .pagination-btn:hover {
+        color: #1677ff;
+        background-color: #f8fafc;
+        border-color: #bfdbfe;
+        box-shadow: 0 2px 5px rgba(22, 119, 255, 0.1);
     }
 
-    .pagination-wrapper .page-item .page-link:hover {
-        background-color: #f1f5f9;
-        border-color: #cbd5e1;
-        color: #1e293b;
-    }
-
-    .pagination-wrapper .page-item.disabled .page-link {
+    .pagination-btn.disabled,
+    .pagination-btn:disabled {
         color: #cbd5e1;
-        border-color: #f1f5f9;
+        background-color: #f8fafc;
+        border-color: #e2e8f0;
+        cursor: not-allowed;
+        box-shadow: none;
+        pointer-events: none;
     }
+
+    .pagination-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.35rem 0.7rem;
+        font-size: 0.775rem;
+        font-weight: 700;
+        color: #475569;
+        background-color: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        letter-spacing: 0.02em;
+    }
+
+    .pagination-svg-icon {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+    }
+
 </style>
 @endpush
 
@@ -263,11 +321,11 @@
 
                 {{-- Dropdown Pilih Kelas --}}
                 <div class="col-6 col-md-2">
-                    <select name="id_kelas" class="form-select">
+                    <select name="id_kelas" class="form-select" onchange="this.form.submit()">
                         <option value="">Pilih Kelas</option>
                         @foreach($dataKelas as $kelas)
                             <option value="{{ $kelas->id }}" {{ request('id_kelas') == $kelas->id ? 'selected' : '' }}>
-                                {{ $kelas->nama_kelas }}
+                                {{ $kelas->tingkat }} &bull; {{ $kelas->nama_kelas }}{{ $kelas->jurusan ? ' (' . $kelas->jurusan->nama_jurusan . ')' : '' }}
                             </option>
                         @endforeach
                     </select>
@@ -275,7 +333,7 @@
 
                 {{-- Dropdown Pilih Jurusan --}}
                 <div class="col-6 col-md-2">
-                    <select name="id_jurusan" class="form-select">
+                    <select name="id_jurusan" class="form-select" onchange="this.form.submit()">
                         <option value="">Semua Jurusan</option>
                         @foreach($jurusans as $jurusan)
                             <option value="{{ $jurusan->id }}" {{ request('id_jurusan') == $jurusan->id ? 'selected' : '' }}>
@@ -287,7 +345,7 @@
 
                 {{-- Dropdown Jenis Kelamin --}}
                 <div class="col-6 col-md-2">
-                    <select name="jenis_kelamin" class="form-select">
+                    <select name="jenis_kelamin" class="form-select" onchange="this.form.submit()">
                         <option value="">Jenis Kelamin</option>
                         <option value="L" {{ request('jenis_kelamin') == 'L' ? 'selected' : '' }}>Laki-laki</option>
                         <option value="P" {{ request('jenis_kelamin') == 'P' ? 'selected' : '' }}>Perempuan</option>
@@ -411,13 +469,6 @@
                             {{-- Kolom 6: Aksi --}}
                             <td>
                                 <div class="d-flex justify-content-end align-items-center gap-1">
-                                    {{-- Detail --}}
-                                    <a href="{{ route('siswa.show', $siswa->id) }}"
-                                       class="btn-aksi btn-aksi-primary"
-                                       title="Lihat Detail">
-                                        <i class="bi bi-eye"></i>
-                                    </a>
-
                                     {{-- Edit --}}
                                     <a href="{{ route('siswa.edit', $siswa->id) }}"
                                        class="btn-aksi"
@@ -426,7 +477,7 @@
                                     </a>
 
                                     {{-- Hapus --}}
-                                    <form action="{{ route('siswa.destroy', $siswa->id) }}" method="POST" class="d-inline"
+                                    <form action="{{ route('siswa.destroy', $siswa->id) }}" method="POST" class="d-inline-flex"
                                           onsubmit="return confirm('Yakin ingin menghapus data siswa {{ addslashes($siswa->nama) }}?')">
                                         @csrf
                                         @method('DELETE')
@@ -445,7 +496,7 @@
                                 </div>
                                 <div class="fw-semibold text-dark mb-1">Tidak ada data siswa</div>
                                 <div class="text-muted" style="font-size: 0.85rem;">
-                                    @if(request()->hasAny(['search','id_kelas','jenis_kelamin']))
+                                    @if(request()->hasAny(['search','id_kelas','id_jurusan','jenis_kelamin']))
                                         Tidak ada siswa yang sesuai dengan filter. <a href="{{ route('siswa.index') }}">Reset filter</a>
                                     @else
                                         Belum ada siswa yang terdaftar. <a href="{{ route('siswa.create') }}">Tambah siswa baru</a>.
@@ -458,31 +509,66 @@
             </table>
         </div>
 
-        {{-- ====================================================== --}}
-        {{-- FOOTER: Info & Pagination                               --}}
-        {{-- ====================================================== --}}
-        @if($dataSiswa->total() > 0)
-            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3 mt-4 pt-3 border-top">
-                {{-- Info jumlah --}}
-                <div class="text-muted" style="font-size: 0.82rem; font-weight: 500;">
-                    Menampilkan
-                    <strong class="text-dark">{{ $dataSiswa->firstItem() }}–{{ $dataSiswa->lastItem() }}</strong>
-                    dari
-                    <strong class="text-dark">{{ number_format($dataSiswa->total()) }}</strong>
-                    siswa
-                    @if(request()->hasAny(['search','id_kelas','jenis_kelamin']))
-                        <span class="ms-1">(difilter dari total <strong class="text-dark">{{ number_format($totalSiswa) }}</strong> siswa)</span>
-                    @endif
-                </div>
+{{-- ====================================================== --}}
+{{-- FOOTER: Info & Pagination                               --}}
+{{-- ====================================================== --}}
+@if($dataSiswa->total() > 0)
+    <div class="custom-pagination-wrapper">
+        {{-- Info jumlah di sebelah KIRI --}}
+        <div class="pagination-info-text">
+            Menampilkan
+            <strong>{{ $dataSiswa->firstItem() }} - {{ $dataSiswa->lastItem() }}</strong>
+            dari
+            <strong>{{ number_format($dataSiswa->total()) }}</strong>
+            siswa
+            @if(request()->hasAny(['search','id_kelas','id_jurusan','jenis_kelamin']))
+                <span class="text-muted ms-1">(difilter dari total <strong>{{ number_format($totalSiswa) }}</strong> siswa)</span>
+            @endif
+        </div>
 
-                {{-- Laravel Pagination --}}
-                <div class="pagination-wrapper">
-                    {{ $dataSiswa->links() }}
-                </div>
-            </div>
-        @endif
+        {{-- Tombol Navigasi Pagination di sebelah KANAN --}}
+        <div class="pagination-controls">
+            {{-- Tombol Prev --}}
+            @if ($dataSiswa->onFirstPage())
+                <span class="pagination-btn disabled" aria-disabled="true">
+                    <svg class="pagination-svg-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                    <span>Prev</span>
+                </span>
+            @else
+                <a href="{{ $dataSiswa->appends(request()->query())->previousPageUrl() }}" class="pagination-btn">
+                    <svg class="pagination-svg-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                    <span>Prev</span>
+                </a>
+            @endif
 
+            {{-- Counter Halaman (Badge) --}}
+            <span class="pagination-badge">
+                {{ $dataSiswa->currentPage() }} / {{ $dataSiswa->lastPage() }}
+            </span>
+
+            {{-- Tombol Next --}}
+            @if ($dataSiswa->hasMorePages())
+                <a href="{{ $dataSiswa->appends(request()->query())->nextPageUrl() }}" class="pagination-btn">
+                    <span>Next</span>
+                    <svg class="pagination-svg-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </a>
+            @else
+                <span class="pagination-btn disabled" aria-disabled="true">
+                    <span>Next</span>
+                    <svg class="pagination-svg-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </span>
+            @endif
+        </div>
     </div>
+@endif
 
 </div>
 @endsection
@@ -490,7 +576,7 @@
 @push('scripts')
 <script>
     // Auto submit filter saat dropdown berubah (opsional UX improvement)
-    document.querySelectorAll('.filter-bar select[name="id_kelas"], .filter-bar select[name="jenis_kelamin"]').forEach(function(el) {
+    document.querySelectorAll('.filter-bar select[name="id_kelas"], .filter-bar select[name="id_jurusan"], .filter-bar select[name="jenis_kelamin"]').forEach(function(el) {
         el.addEventListener('change', function() {
             this.closest('form').submit();
         });

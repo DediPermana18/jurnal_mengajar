@@ -16,6 +16,14 @@ class MataPelajaran extends Model
     protected $fillable = [
         'nama_mapel',
         'kode_mapel',
+        'kelompok',
+        'kkm',
+        'beban_jam',
+    ];
+
+    protected $casts = [
+        'kkm'       => 'integer',
+        'beban_jam' => 'integer',
     ];
 
     /**

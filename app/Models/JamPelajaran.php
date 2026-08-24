@@ -14,7 +14,6 @@ class JamPelajaran extends Model
 
     protected $fillable = [
         'kategori_hari',
-        'tingkat',
         'jam_ke',
         'jam_mulai',
         'jam_selesai',
@@ -24,14 +23,6 @@ class JamPelajaran extends Model
     protected $casts = [
         'jam_ke' => 'integer',
     ];
-
-    /**
-     * Label tingkat kelas ramah tampilan (misal: "Kelas 10")
-     */
-    public function getTingkatLabelAttribute(): string
-    {
-        return $this->tingkat ? "Kelas {$this->tingkat}" : 'Semua Tingkat';
-    }
 
     /**
      * Label jenis KBM yang ramah tampilan

@@ -55,6 +55,59 @@ class JadwalPiketController extends Controller
     }
 
     /**
+     * Form Halaman Terpisah: Tambah Petugas Piket baru
+     */
+    public function create(Request $request)
+    {
+        $this->authorizeKurikulum();
+
+        $hariList = JadwalPiket::HARI_LIST;
+        $selectedHari = $request->get('hari', 'Senin');
+        if (!in_array($selectedHari, $hariList)) {
+            $selectedHari = 'Senin';
+        }
+
+        $guruList = User::where('role', 'guru')
+            ->orderBy('nama', 'asc')
+            ->get();
+
+        $assignedGuruIds = JadwalPiket::where('hari', $selectedHari)
+            ->pluck('user_id')
+            ->toArray();
+
+        return view('kurikulum.jadwal_piket.create', compact(
+            'hariList', 'selectedHari', 'guruList', 'assignedGuruIds'
+        ));
+    }
+
+    /**
+     * Form Halaman Terpisah: Edit Petugas Piket per hari
+     */
+    public function edit($hari)
+    {
+        $this->authorizeKurikulum();
+
+        $hariList = JadwalPiket::HARI_LIST;
+        if (!in_array($hari, $hariList)) {
+            $hari = 'Senin';
+        }
+
+        $selectedHari = $hari;
+
+        $guruList = User::where('role', 'guru')
+            ->orderBy('nama', 'asc')
+            ->get();
+
+        $assignedGuruIds = JadwalPiket::where('hari', $selectedHari)
+            ->pluck('user_id')
+            ->toArray();
+
+        return view('kurikulum.jadwal_piket.edit', compact(
+            'hariList', 'selectedHari', 'guruList', 'assignedGuruIds'
+        ));
+    }
+
+    /**
      * Menyimpan data penugasan piket per hari (sync)
      */
     public function store(Request $request)

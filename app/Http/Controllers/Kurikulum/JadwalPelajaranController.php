@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Kurikulum;
 use App\Http\Controllers\Controller;
 use App\Models\JadwalPelajaran;
 use App\Models\JamPelajaran;
+use App\Models\JamPulang;
+use App\Models\AgendaRutin;
+use App\Models\PengaturanJadwal;
 use App\Models\Kelas;
 use App\Models\MataPelajaran;
 use App\Models\TahunAjaran;
@@ -48,12 +51,8 @@ class JadwalPelajaranController extends Controller
         $kategoriHari = ($selectedHari === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
         $tingkatKelas = $selectedKelas ? match(strtoupper(trim($selectedKelas->tingkat))) { 'X' => '10', 'XI' => '11', 'XII' => '12', default => $selectedKelas->tingkat } : '10';
 
-        // 4. Ambil master jam pelajaran sesuai tingkat kelas
+        // 4. Ambil master jam pelajaran global sekolah
         $jamPelajaranList = JamPelajaran::where('kategori_hari', $kategoriHari)
-            ->where(function ($q) use ($tingkatKelas) {
-                $q->where('tingkat', $tingkatKelas)
-                  ->orWhereNull('tingkat');
-            })
             ->orderBy('jam_mulai')
             ->get();
 
@@ -74,6 +73,22 @@ class JadwalPelajaranController extends Controller
         $totalTerisi = $jadwalList->count();
         $persentase = $totalKbm > 0 ? round(($totalTerisi / $totalKbm) * 100) : 0;
 
+        // 7. Ambil batas jam pulang untuk kelas & hari yang dipilih
+        $maxJamKe = null;
+        if ($selectedKelas) {
+            $maxJamKe = JamPulang::getMaxJamKe($kategoriHari, strtoupper(trim($selectedKelas->tingkat)));
+        }
+
+        // 8. Ambil agenda rutin / upacara aktif untuk hari terpilih
+        $agendaRutinAktif = AgendaRutin::where('hari', $selectedHari)
+            ->where('is_active', true)
+            ->get()
+            ->keyBy('jam_ke');
+
+        // 9. Ambil status sakelar Senin Tanpa Upacara
+        $pengaturanJadwal = PengaturanJadwal::getSetting();
+        $isSeninShift = ($selectedHari === 'Senin') && $pengaturanJadwal->senin_tanpa_upacara && $pengaturanJadwal->tanggal_eksekusi;
+
         return view('kurikulum.jadwal.index', compact(
             'kelasList',
             'mapelList',
@@ -87,7 +102,11 @@ class JadwalPelajaranController extends Controller
             'totalSlot',
             'totalKbm',
             'totalTerisi',
-            'persentase'
+            'persentase',
+            'maxJamKe',
+            'agendaRutinAktif',
+            'pengaturanJadwal',
+            'isSeninShift'
         ));
     }
 
@@ -112,10 +131,6 @@ class JadwalPelajaranController extends Controller
 
         // 1. Ambil semua slot KBM dalam rentang jam_ke_mulai s/d jam_ke_selesai (abaikan jenis istirahat)
         $targetSlots = JamPelajaran::where('kategori_hari', $kategoriHari)
-            ->where(function ($q) use ($tingkatKelas) {
-                $q->where('tingkat', $tingkatKelas)
-                  ->orWhereNull('tingkat');
-            })
             ->whereNotNull('jam_ke')
             ->where('jenis', '!=', 'istirahat')
             ->whereBetween('jam_ke', [$validated['jam_ke_mulai'], $validated['jam_ke_selesai']])
@@ -158,7 +173,7 @@ class JadwalPelajaranController extends Controller
         $groupId = (string) Str::uuid();
 
         foreach ($targetSlots as $slot) {
-            JadwalPelajaran::updateOrCreate(
+            JadwalPelajaran::withTrashed()->updateOrCreate(
                 [
                     'id_kelas'        => $validated['id_kelas'],
                     'hari'            => $validated['hari'],
@@ -166,9 +181,10 @@ class JadwalPelajaranController extends Controller
                     'id_tahun_ajaran' => $tahunAktif?->id,
                 ],
                 [
-                    'group_id' => $groupId,
-                    'id_mapel' => $validated['id_mapel'],
-                    'id_guru'  => $validated['id_guru'],
+                    'group_id'   => $groupId,
+                    'id_mapel'   => $validated['id_mapel'],
+                    'id_guru'    => $validated['id_guru'],
+                    'deleted_at' => null,
                 ]
             );
         }

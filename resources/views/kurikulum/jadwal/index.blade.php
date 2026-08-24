@@ -101,7 +101,7 @@
                             <option value="">-- Pilih Kelas --</option>
                             @foreach($kelasList as $kelas)
                                 <option value="{{ $kelas->id }}" {{ $selectedKelas && $selectedKelas->id == $kelas->id ? 'selected' : '' }}>
-                                    {{ $kelas->nama_kelas }} ({{ $kelas->jurusan->nama_jurusan ?? 'Umum' }})
+                                    {{ $kelas->tingkat }} - {{ $kelas->nama_kelas }} ({{ $kelas->jurusan->nama_jurusan ?? 'Umum' }})
                                 </option>
                             @endforeach
                         </select>
@@ -136,6 +136,52 @@
         </div>
     </div>
 
+    {{-- WIDGET SAKELAR: Mode Khusus Senin (Upacara Ditiadakan / Dimajukan) --}}
+    @if(auth()->user()->role === 'admin' || in_array(auth()->user()->role, ['waka_kurikulum', 'admin_kurikulum', 'kurikulum']))
+        <div class="card border-0 rounded-4 shadow-sm mb-4 bg-white overflow-hidden">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-3 d-flex align-items-center justify-content-center text-white flex-shrink-0"
+                             style="width: 44px; height: 44px; background: linear-gradient(135deg, #e11d48, #be123c);">
+                            <i class="bi bi-lightning-charge-fill fs-4"></i>
+                        </div>
+                        <div>
+                            <div class="d-flex align-items-center gap-2">
+                                <h6 class="fw-bold mb-0 text-dark" style="font-size: 1rem;">
+                                    Sakelar Mode Khusus Hari Senin: Upacara Ditiadakan (KBM Dimajukan)
+                                </h6>
+                                @if(isset($pengaturanJadwal) && $pengaturanJadwal->senin_tanpa_upacara && $pengaturanJadwal->tanggal_eksekusi)
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-1" style="font-size: 0.72rem;">
+                                        <i class="bi bi-circle-fill me-1" style="font-size: 0.45rem;"></i>MODE TANPA UPACARA AKTIF ({{ \Carbon\Carbon::parse($pengaturanJadwal->tanggal_eksekusi)->translatedFormat('d M Y') }})
+                                    </span>
+                                @else
+                                    <span class="badge bg-light text-muted border rounded-pill px-3 py-1" style="font-size: 0.72rem;">
+                                        Normal (Ada Upacara)
+                                    </span>
+                                @endif
+                            </div>
+                            <div class="text-muted" style="font-size: 0.8rem;">
+                                Aktifkan sakelar ini jika upacara ditiadakan pada hari Senin. Seluruh jam KBM bergeser maju 1 JP & siswa/guru pulang lebih awal.
+                            </div>
+                        </div>
+                    </div>
+
+                    <form method="POST" action="{{ route('kurikulum.toggle-senin-tanpa-upacara') }}" id="formToggleSeninShift">
+                        @csrf
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" role="switch" id="toggleSeninShift" name="senin_tanpa_upacara" value="1"
+                                   {{ (isset($pengaturanJadwal) && $pengaturanJadwal->senin_tanpa_upacara) ? 'checked' : '' }}
+                                   onchange="this.form.submit()" style="cursor: pointer; width: 3em; height: 1.5em;">
+                            <label class="form-check-label fw-bold text-dark ms-2" for="toggleSeninShift" style="font-size: 0.85rem; cursor: pointer;">
+                                {{ (isset($pengaturanJadwal) && $pengaturanJadwal->senin_tanpa_upacara) ? 'KBM Dimajukan (Tanpa Upacara)' : 'Senin Normal (Ada Upacara)' }}
+                            </label>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
     @if(!$selectedKelas)
         {{-- ===================== EMPTY STATE (BELUM PILIH KELAS) ===================== --}}
         <div class="card border-0 rounded-4 shadow-sm bg-white text-center p-5 my-3">
@@ -256,9 +302,105 @@
 
                                         // Cek apakah ada jadwal di slot ini
                                         $jadwal = $jadwalList->get($jam->id);
+
+                                        // Cek batas jam pulang: apakah slot ini melewati maxJamKe?
+                                        $isPulang = !$isIstirahat
+                                            && $maxJamKe !== null
+                                            && $jam->jam_ke !== null
+                                            && $jam->jam_ke > $maxJamKe;
+
+                                        // Cek apakah ada Agenda Rutin (misal: Upacara Bendera) di jam ini
+                                        $agendaItem = (!$isIstirahat && $jam->jam_ke !== null && isset($agendaRutinAktif))
+                                            ? $agendaRutinAktif->get($jam->jam_ke)
+                                            : null;
                                     @endphp
 
+                                    @if($agendaItem)
+                                    {{-- BARIS AGENDA RUTIN / UPACARA SEKOLAH — slot terkunci global --}}
+                                    <tr style="background-color: #eff6ff;">
+                                        <td class="ps-4">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
+                                                     style="width: 30px; height: 30px; font-size: 0.78rem; background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+                                                    {{ $jam->jam_ke }}
+                                                </div>
+                                                <span class="fw-bold text-primary">Jam {{ $jam->jam_ke }}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="fw-semibold text-dark" style="font-variant-numeric: tabular-nums; font-family: 'Courier New', monospace; font-size: 0.9rem;">
+                                                {{ $waktuFormatted }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill fw-semibold"
+                                                  style="font-size: 0.75rem; background-color: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe;">
+                                                <i class="bi bi-flag-fill" style="font-size: 0.7rem;"></i> Agenda Rutin
+                                            </span>
+                                        </td>
+                                        <td colspan="2">
+                                            <div class="d-inline-flex align-items-center gap-2 px-3 py-2 rounded-3 shadow-2xs"
+                                                 style="background-color: #ffffff; border: 1px solid #bfdbfe;">
+                                                <span style="font-size: 1.1rem;">🇮🇩</span>
+                                                <div>
+                                                    <div class="fw-bold text-primary" style="font-size: 0.88rem;">{{ $agendaItem->nama_agenda }}</div>
+                                                    <div class="text-muted" style="font-size: 0.75rem;">
+                                                        Slot terkunci untuk seluruh kelas pada hari {{ $selectedHari }} Jam ke-{{ $jam->jam_ke }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="pe-4 text-end">
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 rounded-pill" style="font-size: 0.72rem;">
+                                                <i class="bi bi-lock-fill me-1"></i> Agenda Rutin
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    @elseif($isPulang)
+                                    {{-- BARIS PULANG SEKOLAH — slot melewati batas jam pulang --}}
+                                    <tr style="background-color: #fff5f5; opacity: 0.82;">
+                                        <td class="ps-4">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold"
+                                                     style="width: 30px; height: 30px; font-size: 0.78rem; background-color: #fee2e2; color: #dc2626; border: 1.5px solid #fca5a5;">
+                                                    {{ $jam->jam_ke }}
+                                                </div>
+                                                <span class="fw-semibold text-danger">Jam {{ $jam->jam_ke }}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="text-muted" style="font-variant-numeric: tabular-nums; font-family: 'Courier New', monospace; font-size: 0.9rem;">
+                                                {{ $waktuFormatted }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill fw-semibold"
+                                                  style="font-size: 0.75rem; background-color: #fee2e2; color: #dc2626; border: 1px solid #fca5a5;">
+                                                <i class="bi bi-book-fill" style="font-size: 0.7rem;"></i> KBM
+                                            </span>
+                                        </td>
+                                        <td colspan="2">
+                                            <div class="d-inline-flex align-items-center gap-2 px-3 py-2 rounded-3"
+                                                 style="background-color: #fee2e2; border: 1px dashed #fca5a5;">
+                                                <span style="font-size: 1rem;">🛑</span>
+                                                <div>
+                                                    <div class="fw-bold text-danger" style="font-size: 0.85rem;">Pulang Sekolah</div>
+                                                    <div class="text-muted" style="font-size: 0.75rem;">
+                                                        Kelas {{ $selectedKelas->tingkat }} selesai KBM setelah Jam ke-{{ $maxJamKe }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="pe-4 text-end">
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 rounded-pill" style="font-size: 0.72rem;">
+                                                <i class="bi bi-lock-fill me-1"></i> Terkunci
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    @else
                                     <tr class="{{ $isIstirahat ? 'bg-light-subtle' : '' }}" style="{{ $isIstirahat ? 'background-color: #fafafa;' : '' }}">
+
+
                                         {{-- 1. Jam Ke- --}}
                                         <td class="ps-4">
                                             <div class="d-flex align-items-center gap-2">
@@ -408,6 +550,7 @@
                                             @endif
                                         </td>
                                     </tr>
+                                    @endif
                                 @endforeach
                             </tbody>
                         </table>
@@ -439,7 +582,9 @@
                             <label class="form-label fw-semibold text-dark">Kelas</label>
                             <select name="id_kelas" class="form-select rounded-3" required>
                                 @foreach($kelasList as $kelas)
-                                    <option value="{{ $kelas->id }}" {{ $selectedKelas->id === $kelas->id ? 'selected' : '' }}>{{ $kelas->nama_kelas }}</option>
+                                    <option value="{{ $kelas->id }}" {{ $selectedKelas->id === $kelas->id ? 'selected' : '' }}>
+                                        {{ $kelas->tingkat }} - {{ $kelas->nama_kelas }} ({{ $kelas->jurusan->nama_jurusan ?? 'Umum' }})
+                                    </option>
                                 @endforeach
                             </select>
                         </div>
@@ -465,6 +610,11 @@
                                 <div class="fw-bold text-dark">{{ $selectedHari }}</div>
                             </div>
                         </div>
+                    </div>
+
+                    <div class="alert alert-info border-0 rounded-3 py-2 px-3 mb-3 d-flex align-items-center gap-2" style="font-size: 0.8rem;">
+                        <i class="bi bi-info-circle-fill text-info flex-shrink-0" style="font-size: 1rem;"></i>
+                        <span>Jika slot jam yang dipilih sudah terisi, jadwal lama pada slot tersebut akan otomatis diperbarui / ditimpa (overwrite).</span>
                     </div>
 
                     {{-- Pilihan Rentang Jam Pelajaran (Dari Jam Ke- s/d Sampai Jam Ke-) --}}
@@ -575,7 +725,9 @@
                             <label class="form-label fw-semibold text-dark">Kelas</label>
                             <select name="id_kelas" id="editIdKelas" class="form-select rounded-3" required>
                                 @foreach($kelasList as $kelas)
-                                    <option value="{{ $kelas->id }}">{{ $kelas->nama_kelas }}</option>
+                                    <option value="{{ $kelas->id }}">
+                                        {{ $kelas->tingkat }} - {{ $kelas->nama_kelas }} ({{ $kelas->jurusan->nama_jurusan ?? 'Umum' }})
+                                    </option>
                                 @endforeach
                             </select>
                         </div>

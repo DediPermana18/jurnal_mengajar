@@ -41,8 +41,8 @@ class SiswaController extends Controller
             $query->where('jenis_kelamin', $request->jenis_kelamin);
         }
 
-        $dataSiswa  = $query->orderBy('nama')->paginate(15)->withQueryString();
-        $dataKelas  = Kelas::orderBy('nama_kelas')->get();
+        $dataSiswa  = $query->orderBy('nama')->paginate(10)->withQueryString();
+        $dataKelas  = Kelas::with('jurusan')->orderBy('tingkat')->orderBy('nama_kelas')->get();
         $jurusans   = Jurusan::orderBy('nama_jurusan')->get();
         $totalSiswa = Siswa::count();
 
@@ -54,8 +54,9 @@ class SiswaController extends Controller
      */
     public function create()
     {
-        $dataKelas = Kelas::orderBy('nama_kelas')->get();
-        return view('admin.siswa.create', compact('dataKelas'));
+        $dataKelas = Kelas::with('jurusan')->orderBy('tingkat')->orderBy('nama_kelas')->get();
+        $jurusans  = Jurusan::orderBy('nama_jurusan')->get();
+        return view('admin.siswa.create', compact('dataKelas', 'jurusans'));
     }
 
     /**
@@ -68,18 +69,20 @@ class SiswaController extends Controller
             'nis'           => 'nullable|string|max:20',
             'nama'          => 'required|string|max:100',
             'id_kelas'      => 'nullable|exists:kelas,id',
+            'id_jurusan'    => 'nullable|exists:jurusan,id',
             'jenis_kelamin' => 'required|in:L,P',
             'status_siswa'  => 'nullable|string|max:20',
         ]);
 
         $kelas = $request->filled('id_kelas') ? Kelas::find($request->id_kelas) : null;
+        $idJurusan = $request->filled('id_jurusan') ? $request->id_jurusan : $kelas?->id_jurusan;
 
         Siswa::create([
             'nisn'          => $request->nisn,
             'nis'           => $request->nis,
             'nama'          => $request->nama,
             'id_kelas'      => $request->id_kelas,
-            'id_jurusan'    => $kelas?->id_jurusan,
+            'id_jurusan'    => $idJurusan,
             'jenis_kelamin' => $request->jenis_kelamin,
             'status_siswa'  => $request->status_siswa ?? 'Aktif',
         ]);
@@ -102,7 +105,7 @@ class SiswaController extends Controller
     public function edit($id)
     {
         $siswa     = Siswa::findOrFail($id);
-        $dataKelas = Kelas::orderBy('nama_kelas')->get();
+        $dataKelas = Kelas::with('jurusan')->orderBy('tingkat')->orderBy('nama_kelas')->get();
         $jurusans  = Jurusan::all();
 
         return view('admin.siswa.edit', compact('siswa', 'dataKelas', 'jurusans'));
@@ -118,18 +121,21 @@ class SiswaController extends Controller
             'nis'           => 'nullable|string|max:20',
             'nama'          => 'required|string|max:100',
             'id_kelas'      => 'nullable|exists:kelas,id',
+            'id_jurusan'    => 'nullable|exists:jurusan,id',
             'jenis_kelamin' => 'required|in:L,P',
             'status_siswa'  => 'nullable|string|max:20',
         ]);
 
         $siswa = Siswa::findOrFail($id);
         $kelas = $request->filled('id_kelas') ? Kelas::find($request->id_kelas) : null;
+        $idJurusan = $request->filled('id_jurusan') ? $request->id_jurusan : $kelas?->id_jurusan;
+
         $siswa->update([
             'nisn'          => $request->nisn,
             'nis'           => $request->nis,
             'nama'          => $request->nama,
             'id_kelas'      => $request->id_kelas,
-            'id_jurusan'    => $kelas?->id_jurusan,
+            'id_jurusan'    => $idJurusan,
             'jenis_kelamin' => $request->jenis_kelamin,
             'status_siswa'  => $request->status_siswa ?? 'Aktif',
         ]);

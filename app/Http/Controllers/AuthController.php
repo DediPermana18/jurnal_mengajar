@@ -62,7 +62,7 @@ class AuthController extends Controller
 
         // Cek jika akun sedang non-aktif (dinonaktifkan admin)
         if (!$user->is_active) {
-            return back()->withErrors(['login_id' => 'Akun Anda sedang non-aktif / dinonaktifkan. Silakan hubungi Admin TU.'])->withInput();
+            return back()->withErrors(['login_id' => 'Akun Anda telah dinonaktifkan, silakan hubungi admin.'])->withInput();
         }
 
         // Cek jika akun guru/admin sudah di-soft delete

@@ -1,6 +1,16 @@
 @extends('layouts.app')
 
-@section('title', 'Data Master Kelas - WebJournal Management System')
+@push('styles')
+<style>
+    .table-responsive {
+        min-height: 280px;
+        padding-bottom: 2rem;
+    }
+    .dropdown-menu {
+        z-index: 1060 !important;
+    }
+</style>
+@endpush
 
 @section('content')
 <div class="container-fluid px-0">
@@ -102,8 +112,8 @@
     </div>
 
     <!-- TABEL DATA MASTER KELAS -->
-    <div class="table-card-custom mb-4">
-        <div class="table-responsive">
+    <div class="table-card-custom mb-4" style="overflow: visible;">
+        <div class="table-responsive" style="min-height: 280px; padding-bottom: 2rem;">
             <table class="table table-custom align-middle">
                 <thead>
                     <tr>
@@ -209,10 +219,10 @@
                             @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
                                 <td class="text-end">
                                     <div class="dropdown">
-                                        <button class="btn btn-sm btn-light border rounded-3 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <button class="btn btn-sm btn-light border rounded-3 dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-boundary="window" aria-expanded="false">
                                             <i class="bi bi-three-dots-vertical"></i>
                                         </button>
-                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3">
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3 z-50" style="z-index: 1060;">
                                             <!-- Detail Kelas & Siswa -->
                                             <li>
                                                 <a href="{{ route('kelas.show', $kelas->id) }}" class="dropdown-item py-2">

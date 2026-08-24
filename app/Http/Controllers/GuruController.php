@@ -51,11 +51,9 @@ class GuruController extends Controller
 
         if ($request->filled('status') && $request->status !== 'Semua Status') {
             if ($request->status === 'Aktif') {
-                $query->whereNull('deleted_at');
-            } elseif ($request->status === 'Tidak Aktif') {
-                $query = User::withTrashed()
-                    ->where('role', User::ROLE_GURU)
-                    ->onlyTrashed();
+                $query->where('is_active', true);
+            } elseif ($request->status === 'Tidak Aktif' || $request->status === 'Nonaktif') {
+                $query->where('is_active', false);
             }
         }
 
@@ -66,6 +64,12 @@ class GuruController extends Controller
                 });
             } elseif ($request->wali_kelas === 'Tidak') {
                 $query->doesntHave('kelasWali')->whereNull('kelas_id');
+            } elseif (str_starts_with($request->wali_kelas, 'kelas_')) {
+                $kelasId = (int) str_replace('kelas_', '', $request->wali_kelas);
+                $query->where(function($q) use ($kelasId) {
+                    $q->whereHas('kelasWali', fn($k) => $k->where('id', $kelasId))
+                      ->orWhere('kelas_id', $kelasId);
+                });
             }
         }
 
@@ -74,7 +78,7 @@ class GuruController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        $daftarKelas = Kelas::with('jurusan')->orderBy('nama_kelas')->get();
+        $daftarKelas = Kelas::with('jurusan')->orderBy('tingkat')->orderBy('nama_kelas')->get();
 
         return view('admin.guru.index', compact('dataGuru', 'daftarKelas'));
     }
@@ -116,7 +120,6 @@ class GuruController extends Controller
             'username'  => 'required|string|max:100|unique:users,username',
             'password'  => 'nullable|string|min:6',
             'role'      => 'required|in:guru_mapel,wali_kelas,guru',
-            'kode_aktivasi' => 'nullable|string|max:100|unique:users,kode_aktivasi',
             'kelas_id'  => 'nullable|exists:kelas,id',
         ], [
             'nama.required'   => 'Nama guru wajib diisi.',
@@ -126,7 +129,6 @@ class GuruController extends Controller
             'role.required'   => 'Role guru wajib dipilih.',
             'role.in'         => 'Role guru tidak valid.',
             'kelas_id.exists' => 'Kelas yang dipilih tidak ditemukan.',
-            'kode_aktivasi.unique' => 'Kode aktivasi sudah digunakan.',
         ]);
 
         $role = $request->role;
@@ -157,7 +159,6 @@ class GuruController extends Controller
             'role'          => User::ROLE_GURU,
             'sub_role'      => $role,
             'is_active'     => true,
-            'kode_aktivasi' => $request->input('kode_aktivasi') ?: $this->generateActivationCode(),
             'kelas_id'      => $kelasId,
         ]);
 
@@ -183,7 +184,6 @@ class GuruController extends Controller
             'nip'       => 'nullable|string|max:50|unique:users,nip,' . $user->id,
             'username'  => 'required|string|max:100|unique:users,username,' . $user->id,
             'role'      => 'required|in:guru_mapel,wali_kelas,guru',
-            'kode_aktivasi' => 'nullable|string|max:100|unique:users,kode_aktivasi,' . $user->id,
             'kelas_id'  => 'nullable|exists:kelas,id',
         ], [
             'nama.required'   => 'Nama guru wajib diisi.',
@@ -193,7 +193,6 @@ class GuruController extends Controller
             'role.required'   => 'Role guru wajib dipilih.',
             'role.in'         => 'Role guru tidak valid.',
             'kelas_id.exists' => 'Kelas yang dipilih tidak ditemukan.',
-            'kode_aktivasi.unique' => 'Kode aktivasi sudah digunakan.',
         ]);
 
         $role = $request->role;
@@ -226,7 +225,7 @@ class GuruController extends Controller
             'username'  => $request->username,
             'role'      => User::ROLE_GURU,
             'sub_role'  => $role,
-            'kode_aktivasi' => $request->filled('kode_aktivasi') ? $request->kode_aktivasi : $user->kode_aktivasi,
+            'is_active' => $request->has('is_active') ? $request->boolean('is_active') : $user->is_active,
             'kelas_id'  => $kelasId,
         ]);
 
@@ -273,6 +272,13 @@ class GuruController extends Controller
 
         if ($user->trashed()) {
             return redirect()->route('guru.index')->with('error', 'Data guru sudah dalam status tidak aktif.');
+        }
+
+        // Validasi: Cek apakah guru masih menjabat sebagai Wali Kelas
+        $kelasWali = Kelas::where('id_wali_kelas', $user->id)->first();
+        if ($kelasWali) {
+            $namaKelas = $kelasWali->nama_lengkap ?? $kelasWali->nama_kelas;
+            return redirect()->route('guru.index')->with('error', "Gagal menghapus! Guru ini masih aktif sebagai Wali Kelas di {$namaKelas}. Silakan ganti wali kelas terlebih dahulu.");
         }
 
         $user->delete();

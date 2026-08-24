@@ -140,6 +140,16 @@
                                     <span class="badge border rounded-pill px-2 py-1 small {{ $statusClass }}">
                                         {{ $jurnal->status_kehadiran ?? 'Hadir' }}
                                     </span>
+                                    @php $st = $jurnal->status_info; @endphp
+                                    @if($st && $st['status'] === 'terisi_terlambat')
+                                        <span class="badge rounded-pill px-2 py-1 small fw-semibold" style="background-color: #fff7ed; color: #c05500; border: 1px solid #fed7aa;" title="Diisi pada H+1 dst">
+                                            <i class="bi bi-clock-fill me-1"></i> 🟠 Terisi (Terlambat)
+                                        </span>
+                                    @else
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1 small fw-semibold">
+                                            🟢 Tepat Waktu
+                                        </span>
+                                    @endif
                                     @if($jurnal->guruPengganti)
                                         <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1 small" title="Guru Pengganti">
                                             <i class="bi bi-person-fill-gear me-1"></i> {{ $jurnal->guruPengganti->nama }}

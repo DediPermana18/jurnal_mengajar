@@ -1,58 +1,98 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+Ini dia kodenya dalam format Markdown mentah. Tinggal kamu salin (copy) semua teks di dalam blok kode di bawah ini, lalu tempel (paste) ke file `README.md` project kamu:
+
+```markdown
+<h1 align="center">WebJournal - Management System</h1>
 
 <p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
+  <b>Sistem Presensi & Manajemen Jurnal Mengajar Digital Berbasis Real-Time</b>
 </p>
 
-## About Laravel
+<p align="center">
+  <img src="https://img.shields.io/badge/Laravel-11-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel 11">
+  <img src="https://img.shields.io/badge/PHP-8.2-777BB4?style=for-the-badge&logo=php&logoColor=white" alt="PHP 8.2">
+  <img src="https://img.shields.io/badge/TailwindCSS-3.0-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS">
+  <img src="https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="MySQL">
+</p>
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfillingfgeigesig. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 📌 Tentang WebJournal
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+**WebJournal** adalah platform web modern yang dirancang untuk merelokasi presensi KBM (Kegiatan Belajar Mengajar) dari jurnal kertas konvensional ke sistem digital. Aplikasi ini mempermudah guru dalam mencatat materi dan presensi siswa, mengotomatisasi penyesuaian jadwal khusus, serta memberikan visibilitas penuh kepada Waka Kurikulum secara real-time.
 
-## Learning Laravel
+## ✨ Fitur Utama
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+- ⚡ **Dynamic Special Day Mode:** Penyesuaian jadwal otomatis (seperti *Mode Khusus Hari Senin: Upacara Ditiadakan / KBM Dimajukan 1 JP*) yang sinkron dengan jam dinding real-time.
+- 📝 **Batch Fill Jurnal Mengajar:** Fitur otomatisasi pengisian presensi & materi 1-kali klik untuk slot jam mengajar yang berurutan dalam 1 blok mapel.
+- ⏱️ **Real-Time Keterlambatan Tracking:** Sistem cerdas berbasis waktu server yang memverifikasi status pengisian jurnal secara adil (`Sudah Terisi`, `Terisi (Terlambat)`, dan `Belum Terisi (Terlambat)`).
+- 👥 **Multi-Role Access Control:** 
+  - **Tata Usaha (TU):** Pengelolaan Data Master (Pengguna/Guru, Data Siswa, Data Kelas, dan Data Jurusan).
+  - **Waka Kurikulum:** Plotting Jadwal Pelajaran & Pengaturan Mode Khusus Hari.
+  - **Guru Mapel / Wali Kelas:** Presensi & Pengisian Jurnal Mengajar Harian.
+- 🛡️ **Data Integrity Guard:** Proteksi relasi data ketat (seperti validasi *soft-delete* guru wali kelas dan pencegahan bentrok *unique constraint* pada jadwal).
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## 🛠️ Tech Stack
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+- **Framework:** [Laravel 11](https://laravel.com)
+- **Language:** PHP 8.2+
+- **Database:** MySQL / MariaDB
+- **Frontend:** Blade, Tailwind CSS, Alpine.js
 
-## Agentic Development
+## 🚀 Panduan Instalasi (Getting Started)
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
+### 1. Clone Repository
 ```bash
-composer require laravel/boost --dev
+git clone [https://github.com/username-kamu/webjournal.git](https://github.com/username-kamu/webjournal.git)
+cd webjournal
 
-php artisan boost:install
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### 2. Install Dependensi
 
-## Contributing
+```bash
+composer install
+npm install && npm run build
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```
 
-## Code of Conduct
+### 3. Konfigurasi Environment
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+cp .env.example .env
+php artisan key:generate
 
-## Security Vulnerabilities
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+*Sesuaikan konfigurasi koneksi `DB_DATABASE`, `DB_USERNAME`, dan `DB_PASSWORD` di file `.env`.*
 
-## License
+### 4. Migrate & Seed Database
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+php artisan migrate --seed
+
+```
+
+### 5. Jalankan Local Server
+
+```bash
+php artisan serve
+
+```
+
+Akses aplikasi melalui peramban web di `http://127.0.0.1:8000` (atau port yang ditentukan).
+
+## 🔑 Hak Akses Default (Seeder)
+
+| Role | Username / Email | Password |
+| --- | --- | --- |
+| **Admin / TU** | `admin@school.id` | `password` |
+| **Kurikulum** | `kurikulum@school.id` | `password` |
+| **Guru Mapel** | `guru@school.id` | `password` |
+
+## 📄 Lisensi
+
+Project ini dibuat untuk kepentingan manajemen internal sekolah dan didistribusikan di bawah lisensi [MIT](https://opensource.org/licenses/MIT).
+
+```
+
+```

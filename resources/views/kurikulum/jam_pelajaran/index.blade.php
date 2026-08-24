@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Master Jam Pelajaran - Kurikulum')
+@section('title', 'Master Jam Pelajaran Sekolah - WebJournal Management System')
 
 @section('content')
 <div class="container-fluid px-0">
@@ -9,30 +9,34 @@
     <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
         <div>
             <h2 class="fw-black text-dark mb-1" style="font-weight: 900; font-size: 1.75rem; letter-spacing: -0.02em;">
-                Master Jam Pelajaran
+                Master Jam Pelajaran Sekolah
             </h2>
             <p class="text-muted mb-0" style="font-size: 0.9rem;">
-                Kelola slot jam mengajar harian per tingkat kelas (Kelas 10, 11, 12). Penomoran jam otomatis berurutan.
+                Kelola struktur jam pelajaran KBM dan istirahat berlaku global (Senin – Jumat). Penomoran jam otomatis berurutan.
             </p>
         </div>
         <div class="d-flex gap-2 flex-wrap align-items-center">
-            {{-- Tombol Salin Preset antar Tingkat --}}
-            <button type="button" class="btn btn-outline-primary rounded-3 fw-semibold px-3 d-flex align-items-center gap-2"
-                    style="font-size: 0.875rem;" data-bs-toggle="modal" data-bs-target="#modalSalinTingkat">
-                <i class="bi bi-copy"></i>
-                Salin dari Tingkat Lain
-            </button>
-
-            {{-- Tombol Generate Preset --}}
+            {{-- Tombol Generate Preset Senin-Kamis --}}
             <form method="POST" action="{{ route('kurikulum.jam-pelajaran.generate') }}" class="d-inline"
-                  onsubmit="return confirm('Generate preset akan mengatur ulang data jam Kelas {{ $tingkat }} untuk {{ $tab }}. Lanjutkan?')">
+                  onsubmit="return confirm('Generate preset akan mengosongkan dan membuat ulang slot jam Senin–Kamis. Lanjutkan?')">
                 @csrf
-                <input type="hidden" name="tingkat" value="{{ $tingkat }}">
-                <input type="hidden" name="kategori_hari" value="{{ $tab }}">
+                <input type="hidden" name="kategori_hari" value="Senin-Kamis">
                 <button type="submit" class="btn btn-outline-warning rounded-3 fw-semibold px-3 d-flex align-items-center gap-2"
                         style="font-size: 0.875rem;">
                     <i class="bi bi-lightning-charge-fill"></i>
-                    Generate Preset {{ $tab }}
+                    ⚡ Generate Preset Senin–Kamis
+                </button>
+            </form>
+
+            {{-- Tombol Generate Preset Jumat --}}
+            <form method="POST" action="{{ route('kurikulum.jam-pelajaran.generate') }}" class="d-inline"
+                  onsubmit="return confirm('Generate preset akan mengosongkan dan membuat ulang slot jam Jumat. Lanjutkan?')">
+                @csrf
+                <input type="hidden" name="kategori_hari" value="Jumat">
+                <button type="submit" class="btn btn-outline-warning rounded-3 fw-semibold px-3 d-flex align-items-center gap-2"
+                        style="font-size: 0.875rem;">
+                    <i class="bi bi-lightning-charge-fill"></i>
+                    ⚡ Generate Preset Jumat
                 </button>
             </form>
 
@@ -61,39 +65,16 @@
         </div>
     @endif
 
-    {{-- 1. Tab Filter Tingkat Kelas (Kelas 10, Kelas 11, Kelas 12) --}}
-    <div class="card border-0 rounded-4 shadow-sm mb-3 bg-white p-3">
-        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-                <span class="text-muted fw-bold text-uppercase d-none d-md-inline" style="font-size: 0.78rem; letter-spacing: 0.05em;">
-                    <i class="bi bi-mortarboard-fill text-primary me-1"></i> Tingkat Kelas:
-                </span>
-                <div class="btn-group p-1 bg-light rounded-3" role="group" aria-label="Filter Tingkat Kelas">
-                    @foreach($tingkatList as $t)
-                        <a href="{{ route('kurikulum.jam-pelajaran.index', ['tingkat' => $t, 'tab' => $tab]) }}"
-                           class="btn rounded-3 fw-bold px-4 py-2 {{ $tingkat === $t ? 'btn-primary shadow-sm text-white' : 'btn-light text-dark' }}"
-                           style="font-size: 0.875rem;">
-                            Kelas {{ $t }}
-                        </a>
-                    @endforeach
-                </div>
-            </div>
-            <div class="text-muted" style="font-size: 0.82rem;">
-                Struktur Aktif: <strong class="text-dark">Kelas {{ $tingkat }}</strong> &bull; <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">{{ $tab === 'Senin-Kamis' ? 'Senin – Kamis' : 'Jumat' }}</span>
-            </div>
-        </div>
-    </div>
-
-    {{-- 2. Tab Filter Hari (Senin–Kamis vs Jumat) --}}
+    {{-- Tab Kelompok Hari (Senin–Kamis vs Jumat) --}}
     <div class="mb-4">
         <div class="d-flex gap-2 flex-wrap">
-            <a href="{{ route('kurikulum.jam-pelajaran.index', ['tingkat' => $tingkat, 'tab' => 'Senin-Kamis']) }}"
+            <a href="{{ route('kurikulum.jam-pelajaran.index', ['tab' => 'Senin-Kamis']) }}"
                class="btn rounded-3 fw-semibold px-4 py-2 {{ $tab === 'Senin-Kamis' ? 'btn-primary shadow-sm text-white' : 'btn-light border text-dark' }}"
                style="font-size: 0.875rem;">
                 <i class="bi bi-calendar-week me-1"></i>
                 Senin – Kamis <span class="badge {{ $tab === 'Senin-Kamis' ? 'bg-white text-primary' : 'bg-secondary-subtle text-secondary' }} rounded-pill ms-1">40 menit</span>
             </a>
-            <a href="{{ route('kurikulum.jam-pelajaran.index', ['tingkat' => $tingkat, 'tab' => 'Jumat']) }}"
+            <a href="{{ route('kurikulum.jam-pelajaran.index', ['tab' => 'Jumat']) }}"
                class="btn rounded-3 fw-semibold px-4 py-2 {{ $tab === 'Jumat' ? 'btn-primary shadow-sm text-white' : 'btn-light border text-dark' }}"
                style="font-size: 0.875rem;">
                 <i class="bi bi-calendar2-day me-1"></i>
@@ -102,7 +83,7 @@
         </div>
     </div>
 
-    {{-- 3. Main Data Card --}}
+    {{-- Main Data Card --}}
     <div class="card border-0 rounded-4 shadow-sm">
         <div class="card-header bg-white border-0 pt-4 pb-0 px-4">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -113,15 +94,15 @@
                     </div>
                     <div>
                         <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.95rem;">
-                            Jadwal Kelas {{ $tingkat }} &mdash; {{ $tab === 'Senin-Kamis' ? 'Senin – Kamis' : 'Jumat' }}
+                            Master Jam Sekolah &mdash; {{ $tab === 'Senin-Kamis' ? 'Senin – Kamis' : 'Jumat' }}
                         </h6>
                         <div class="text-muted" style="font-size: 0.75rem;">
-                            {{ ($tab === 'Senin-Kamis' ? $seninKamis : $jumat)->count() }} slot terdaftar
+                            {{ ($tab === 'Senin-Kamis' ? $seninKamis : $jumat)->count() }} slot terdaftar (Berlaku Global)
                         </div>
                     </div>
                 </div>
                 <span class="badge bg-light text-secondary border rounded-pill px-3 py-1" style="font-size: 0.75rem;">
-                    {{ $tab === 'Senin-Kamis' ? 'Durasi per JP: 40 Menit' : 'Durasi per JP: 30 Menit' }}
+                    {{ $tab === 'Senin-Kamis' ? 'Durasi KBM: 40 Menit' : 'Durasi KBM: 30 Menit' }}
                 </span>
             </div>
         </div>
@@ -134,24 +115,17 @@
                     <div class="d-inline-flex align-items-center justify-content-center bg-light rounded-circle mb-3" style="width: 70px; height: 70px;">
                         <i class="bi bi-clock text-muted" style="font-size: 2.2rem;"></i>
                     </div>
-                    <h6 class="fw-bold text-dark mb-1">Belum Ada Data Jam Pelajaran untuk Kelas {{ $tingkat }}</h6>
+                    <h6 class="fw-bold text-dark mb-1">Belum Ada Data Jam Pelajaran ({{ $tab }})</h6>
                     <p class="text-muted mx-auto mb-3" style="max-width: 420px; font-size: 0.85rem;">
-                        Anda dapat menyalin struktur dari tingkat lain atau klik <strong>Generate Preset Otomatis</strong>.
+                        Klik tombol <strong>Generate Preset</strong> di atas atau tambah slot jam secara manual.
                     </p>
-                    <div class="d-flex justify-content-center gap-2">
-                        <button type="button" class="btn btn-outline-primary rounded-3 px-3 py-2 fw-semibold" style="font-size: 0.85rem;"
-                                data-bs-toggle="modal" data-bs-target="#modalSalinTingkat">
-                            <i class="bi bi-copy me-1"></i> Salin dari Tingkat Lain
+                    <form method="POST" action="{{ route('kurikulum.jam-pelajaran.generate') }}" class="d-inline">
+                        @csrf
+                        <input type="hidden" name="kategori_hari" value="{{ $tab }}">
+                        <button type="submit" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold" style="font-size: 0.85rem;">
+                            <i class="bi bi-lightning-charge-fill me-1"></i> Generate Preset {{ $tab }}
                         </button>
-                        <form method="POST" action="{{ route('kurikulum.jam-pelajaran.generate') }}" class="d-inline">
-                            @csrf
-                            <input type="hidden" name="tingkat" value="{{ $tingkat }}">
-                            <input type="hidden" name="kategori_hari" value="{{ $tab }}">
-                            <button type="submit" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold" style="font-size: 0.85rem;">
-                                <i class="bi bi-lightning-charge-fill me-1"></i> Generate Preset
-                            </button>
-                        </form>
-                    </div>
+                    </form>
                 </div>
             @else
                 <div class="table-responsive">
@@ -234,7 +208,6 @@
                                                     title="Edit"
                                                     onclick="openEditModal(
                                                         {{ $jam->id }},
-                                                        '{{ $jam->tingkat ?? $tingkat }}',
                                                         '{{ $jam->kategori_hari }}',
                                                         '{{ substr($jam->jam_mulai, 0, 5) }}',
                                                         '{{ substr($jam->jam_selesai, 0, 5) }}',
@@ -244,7 +217,7 @@
                                             </button>
                                             <form method="POST"
                                                   action="{{ route('kurikulum.jam-pelajaran.destroy', $jam->id) }}"
-                                                  onsubmit="return confirm('Hapus slot {{ $jenisLabel }} ({{ \Carbon\Carbon::parse($jam->jam_mulai)->format('H.i') }}) untuk Kelas {{ $tingkat }}?')"
+                                                  onsubmit="return confirm('Hapus slot {{ $jenisLabel }} ({{ \Carbon\Carbon::parse($jam->jam_mulai)->format('H.i') }})?')"
                                                   class="d-inline">
                                                 @csrf
                                                 @method('DELETE')
@@ -266,71 +239,211 @@
 
 </div>
 
-{{-- ===================== MODAL SALIN DARI TINGKAT LAIN ===================== --}}
-<div class="modal fade" id="modalSalinTingkat" tabindex="-1" aria-labelledby="modalSalinTingkatTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow rounded-4">
-            <form method="POST" action="{{ route('kurikulum.jam-pelajaran.copy') }}" id="formSalinTingkat">
-                @csrf
-                <input type="hidden" name="to_tingkat" value="{{ $tingkat }}">
-
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold" id="modalSalinTingkatTitle">
-                        <i class="bi bi-copy text-primary me-2"></i>Salin Preset antar Tingkat
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-
-                <div class="modal-body pt-3">
-                    <div class="p-3 mb-3 rounded-3 bg-light border">
-                        <div class="row g-2" style="font-size: 0.85rem;">
-                            <div class="col-6">
-                                <span class="text-muted">Tingkat Target:</span>
-                                <div class="fw-bold text-dark">Kelas {{ $tingkat }}</div>
-                            </div>
-                            <div class="col-6">
-                                <span class="text-muted">Hari Aktif:</span>
-                                <div class="fw-bold text-dark">{{ $tab }}</div>
-                            </div>
+{{-- ===================== CARD PENGATURAN JAM PULANG PER TINGKAT ===================== --}}
+<div class="container-fluid px-0 mt-4">
+    <div class="card border-0 rounded-4 shadow-sm">
+        <div class="card-header bg-white border-0 pt-4 pb-3 px-4">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-2 d-flex align-items-center justify-content-center"
+                         style="width: 34px; height: 34px; background: linear-gradient(135deg,#f97316,#ea580c);">
+                        <i class="bi bi-door-closed-fill text-white" style="font-size: 0.95rem;"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.95rem;">
+                            ⚙️ Pengaturan Jam Pulang per Tingkat Kelas
+                        </h6>
+                        <div class="text-muted" style="font-size: 0.75rem;">
+                            Tentukan batas slot KBM terakhir per tingkat. Slot setelahnya otomatis dikunci sebagai "🛑 Pulang Sekolah".
                         </div>
                     </div>
+                </div>
+                <span class="badge bg-orange-subtle text-warning border border-warning-subtle rounded-pill px-3 py-1"
+                      style="font-size: 0.72rem; background-color: #fff7ed; color: #c05500 !important; border-color: #fed7aa !important;">
+                    Berlaku Global per Tingkat
+                </span>
+            </div>
+        </div>
 
-                    {{-- Tingkat Asal --}}
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">
-                            Ambil struktur jam dari Tingkat:
+        <div class="card-body px-4 pb-4 pt-2">
+            <form method="POST" action="{{ route('kurikulum.jam-pulang.upsert') }}" id="formJamPulang">
+                @csrf
+                <input type="hidden" name="redirect_tab" value="{{ $tab }}">
+
+                @php
+                    $tingkatList = ['X', 'XI', 'XII'];
+                    $kategoriList = [
+                        'Senin-Kamis' => ['label' => 'Senin – Kamis', 'icon' => 'bi-calendar-week', 'max' => $maxJamKeSeninKamis],
+                        'Jumat'       => ['label' => 'Jumat',         'icon' => 'bi-calendar2-day',  'max' => $maxJamKeJumat],
+                    ];
+                @endphp
+
+                <div class="row g-4">
+                    @foreach($kategoriList as $kHari => $kMeta)
+                        <div class="col-md-6">
+                            <div class="p-3 rounded-3 border bg-light-subtle" style="background-color: #fafafa;">
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <i class="bi {{ $kMeta['icon'] }} text-primary"></i>
+                                    <span class="fw-bold text-dark" style="font-size: 0.9rem;">{{ $kMeta['label'] }}</span>
+                                    <span class="badge bg-secondary-subtle text-secondary rounded-pill ms-auto px-2 py-1" style="font-size: 0.72rem;">
+                                        Max Jam KBM Tersedia: {{ $kMeta['max'] }}
+                                    </span>
+                                </div>
+                                <div class="d-flex flex-column gap-2">
+                                    @foreach($tingkatList as $tingkat)
+                                        @php
+                                            $key       = "{$kHari}|{$tingkat}";
+                                            $savedMax  = $jamPulangSettings->get($key)?->max_jam_ke;
+                                        @endphp
+                                        <div class="d-flex align-items-center gap-3 p-2 rounded-3 bg-white border">
+                                            <div class="d-flex align-items-center justify-content-center rounded-2 fw-black text-white flex-shrink-0"
+                                                 style="width: 36px; height: 36px; font-size: 0.8rem; background: {{ $tingkat === 'X' ? '#1677ff' : ($tingkat === 'XI' ? '#7c3aed' : '#059669') }};">
+                                                {{ $tingkat }}
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <div class="fw-semibold text-dark mb-1" style="font-size: 0.82rem;">
+                                                    Kelas {{ $tingkat }} — Pulang Setelah:
+                                                </div>
+                                                <select name="jam_pulang[{{ $kHari }}][{{ $tingkat }}]"
+                                                        class="form-select form-select-sm rounded-3"
+                                                        style="font-size: 0.82rem;">
+                                                    <option value="">— Tidak Dibatasi (semua slot aktif) —</option>
+                                                    @for($j = 1; $j <= $kMeta['max']; $j++)
+                                                        <option value="{{ $j }}" {{ $savedMax == $j ? 'selected' : '' }}>
+                                                            Jam Ke-{{ $j }}
+                                                            @if($j == $kMeta['max']) (Jam Terakhir) @endif
+                                                        </option>
+                                                    @endfor
+                                                </select>
+                                            </div>
+                                            @if($savedMax)
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1 flex-shrink-0"
+                                                      style="font-size: 0.72rem;">
+                                                    Batas: Jam {{ $savedMax }}
+                                                </span>
+                                            @else
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1 flex-shrink-0"
+                                                      style="font-size: 0.72rem;">
+                                                    Bebas
+                                                </span>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+
+                <div class="d-flex align-items-center justify-content-between mt-4 pt-3 border-top flex-wrap gap-3">
+                    <div class="text-muted d-flex align-items-center gap-2" style="font-size: 0.8rem;">
+                        <i class="bi bi-info-circle text-primary"></i>
+                        Pilih "Tidak Dibatasi" agar semua slot KBM dapat di-plot tanpa batas jam pulang.
+                    </div>
+                    <button type="submit" class="btn btn-warning fw-bold px-4 rounded-3 d-flex align-items-center gap-2"
+                            style="font-size: 0.875rem; background: #f97316; border-color: #f97316; color: white;">
+                        <i class="bi bi-floppy-fill"></i> Simpan Pengaturan Jam Pulang
+                    </button>
+                </div>
+            </form>
+        </div>
+</div>
+
+{{-- ===================== CARD PENGATURAN AGENDA RUTIN / UPACARA ===================== --}}
+<div class="container-fluid px-0 mt-4">
+    <div class="card border-0 rounded-4 shadow-sm">
+        <div class="card-header bg-white border-0 pt-4 pb-3 px-4">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-2 d-flex align-items-center justify-content-center text-white"
+                         style="width: 34px; height: 34px; background: linear-gradient(135deg,#3b82f6,#1d4ed8);">
+                        <span style="font-size: 1rem;">🇮🇩</span>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.95rem;">
+                            Pengaturan Agenda Rutin / Upacara Sekolah
+                        </h6>
+                        <div class="text-muted" style="font-size: 0.75rem;">
+                            Kunci slot jam tertentu secara global untuk seluruh kelas (misal: Upacara Bendera pada hari Senin Jam 1).
+                        </div>
+                    </div>
+                </div>
+                @if($agendaRutin && $agendaRutin->is_active)
+                    <span class="badge bg-indigo-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1" style="font-size: 0.72rem;">
+                        <i class="bi bi-lock-fill me-1"></i>Agenda Aktif: {{ $agendaRutin->nama_agenda }} ({{ $agendaRutin->hari }} Jam {{ $agendaRutin->jam_ke }})
+                    </span>
+                @else
+                    <span class="badge bg-light text-muted border rounded-pill px-3 py-1" style="font-size: 0.72rem;">
+                        Belum Diaktifkan
+                    </span>
+                @endif
+            </div>
+        </div>
+
+        <div class="card-body px-4 pb-4 pt-2">
+            <form method="POST" action="{{ route('kurikulum.agenda-rutin.upsert') }}" id="formAgendaRutin">
+                @csrf
+                <input type="hidden" name="redirect_tab" value="{{ $tab }}">
+
+                <div class="row g-3 align-items-center">
+                    {{-- 1. Pilih Hari --}}
+                    <div class="col-12 col-md-3">
+                        <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.85rem;">
+                            <i class="bi bi-calendar-day text-primary me-1"></i> Pilih Hari <span class="text-danger">*</span>
                         </label>
-                        <select name="from_tingkat" id="salinFromTingkat" class="form-select rounded-3" required>
-                            @foreach($tingkatList as $t)
-                                @if($t !== $tingkat)
-                                    <option value="{{ $t }}">Kelas {{ $t }}</option>
-                                @endif
+                        <select name="hari" class="form-select rounded-3" required style="font-size: 0.875rem;">
+                            @foreach(['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'] as $hOpt)
+                                <option value="{{ $hOpt }}" {{ old('hari', $agendaRutin->hari ?? 'Senin') === $hOpt ? 'selected' : '' }}>
+                                    Hari {{ $hOpt }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
 
-                    {{-- Hari Acuan --}}
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">
-                            Hari Acuan:
+                    {{-- 2. Pilih Jam Ke --}}
+                    <div class="col-12 col-md-2">
+                        <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.85rem;">
+                            <i class="bi bi-clock-history text-primary me-1"></i> Jam Ke- <span class="text-danger">*</span>
                         </label>
-                        <select name="kategori_hari" id="salinKategoriHari" class="form-select rounded-3" required>
-                            <option value="semua">Semua Hari (Senin–Kamis & Jumat)</option>
-                            <option value="Senin-Kamis" {{ $tab === 'Senin-Kamis' ? 'selected' : '' }}>Hanya Senin – Kamis</option>
-                            <option value="Jumat" {{ $tab === 'Jumat' ? 'selected' : '' }}>Hanya Jumat</option>
+                        <select name="jam_ke" class="form-select rounded-3" required style="font-size: 0.875rem;">
+                            @for($j = 1; $j <= 15; $j++)
+                                <option value="{{ $j }}" {{ old('jam_ke', $agendaRutin->jam_ke ?? 1) == $j ? 'selected' : '' }}>
+                                    Jam Ke-{{ $j }}
+                                </option>
+                            @endfor
                         </select>
                     </div>
 
-                    <div class="alert alert-warning border-0 rounded-3 mb-0" style="font-size: 0.8rem;">
-                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
-                        Seluruh slot jam yang ada pada <strong>Kelas {{ $tingkat }}</strong> untuk hari yang dipilih akan ditimpa dengan struktur dari tingkat acuan.
+                    {{-- 3. Nama Agenda --}}
+                    <div class="col-12 col-md-4">
+                        <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.85rem;">
+                            <i class="bi bi-flag-fill text-primary me-1"></i> Nama Agenda <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" name="nama_agenda" class="form-control rounded-3"
+                               placeholder="Contoh: Upacara Bendera / Pembiasaan Agama"
+                               value="{{ old('nama_agenda', $agendaRutin->nama_agenda ?? 'Upacara Bendera') }}" required style="font-size: 0.875rem;">
+                    </div>
+
+                    {{-- 4. Switch Status Active --}}
+                    <div class="col-12 col-md-3 d-flex align-items-center pt-md-4">
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" role="switch" id="switchAgendaActive" name="is_active" value="1"
+                                   {{ old('is_active', $agendaRutin->is_active ?? true) ? 'checked' : '' }} style="cursor: pointer; width: 2.5em; height: 1.25em;">
+                            <label class="form-check-label fw-semibold text-dark ms-2" for="switchAgendaActive" style="font-size: 0.85rem; cursor: pointer;">
+                                Kunci Slot Ini untuk Seluruh Kelas
+                            </label>
+                        </div>
                     </div>
                 </div>
 
-                <div class="modal-footer border-0 pt-0">
-                    <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold">
-                        <i class="bi bi-check-lg me-1"></i> Terapkan Salin
+                <div class="d-flex align-items-center justify-content-between mt-4 pt-3 border-top flex-wrap gap-3">
+                    <div class="text-muted d-flex align-items-center gap-2" style="font-size: 0.8rem;">
+                        <i class="bi bi-info-circle text-primary"></i>
+                        Slot jam yang dikunci otomatis memblokir pengisian jadwal KBM di semua kelas pada hari & jam tersebut.
+                    </div>
+                    <button type="submit" class="btn btn-primary fw-bold px-4 rounded-3 d-flex align-items-center gap-2"
+                            style="font-size: 0.875rem;">
+                        <i class="bi bi-floppy-fill"></i> Simpan Agenda Rutin
                     </button>
                 </div>
             </form>
@@ -338,7 +451,6 @@
     </div>
 </div>
 
-{{-- ===================== MODAL TAMBAH JAM ===================== --}}
 <div class="modal fade" id="modalTambahJam" tabindex="-1" aria-labelledby="modalTambahJamTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow rounded-4">
@@ -351,23 +463,12 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body pt-3">
-                    {{-- Tingkat Kelas --}}
-                    <div class="row g-3 mb-3">
-                        <div class="col-6">
-                            <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">Tingkat Kelas</label>
-                            <select name="tingkat" id="tambahTingkat" class="form-select rounded-3" required>
-                                @foreach($tingkatList as $t)
-                                    <option value="{{ $t }}" {{ $tingkat === $t ? 'selected' : '' }}>Kelas {{ $t }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">Kategori Hari</label>
-                            <select name="kategori_hari" id="tambahKategoriHari" class="form-select rounded-3" required>
-                                <option value="Senin-Kamis" {{ $tab === 'Senin-Kamis' ? 'selected' : '' }}>Senin – Kamis</option>
-                                <option value="Jumat" {{ $tab === 'Jumat' ? 'selected' : '' }}>Jumat</option>
-                            </select>
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">Kategori Hari</label>
+                        <select name="kategori_hari" id="tambahKategoriHari" class="form-select rounded-3" required>
+                            <option value="Senin-Kamis" {{ $tab === 'Senin-Kamis' ? 'selected' : '' }}>Senin – Kamis</option>
+                            <option value="Jumat" {{ $tab === 'Jumat' ? 'selected' : '' }}>Jumat</option>
+                        </select>
                     </div>
 
                     <div class="row g-3 mb-3">
@@ -389,7 +490,7 @@
                             <option value="istirahat">Istirahat</option>
                         </select>
                         <div class="form-text text-muted" style="font-size: 0.78rem;">
-                            Penomoran Jam Ke- (Jam 1, Jam 2, dst.) dan penamaan Istirahat dihitung otomatis berurutan per tingkat kelas.
+                            Penomoran Jam Ke- (Jam 1, Jam 2, dst.) dan penamaan Istirahat dihitung otomatis berurutan secara global.
                         </div>
                     </div>
                 </div>
@@ -418,22 +519,12 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body pt-3">
-                    <div class="row g-3 mb-3">
-                        <div class="col-6">
-                            <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">Tingkat Kelas</label>
-                            <select name="tingkat" id="editTingkat" class="form-select rounded-3" required>
-                                @foreach($tingkatList as $t)
-                                    <option value="{{ $t }}">Kelas {{ $t }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">Kategori Hari</label>
-                            <select name="kategori_hari" id="editKategoriHari" class="form-select rounded-3" required>
-                                <option value="Senin-Kamis">Senin – Kamis</option>
-                                <option value="Jumat">Jumat</option>
-                            </select>
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">Kategori Hari</label>
+                        <select name="kategori_hari" id="editKategoriHari" class="form-select rounded-3" required>
+                            <option value="Senin-Kamis">Senin – Kamis</option>
+                            <option value="Jumat">Jumat</option>
+                        </select>
                     </div>
                     <div class="row g-3 mb-3">
                         <div class="col-6">
@@ -470,11 +561,9 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // Matikan submit form otomatis saat menekan tombol Enter di input field modal
         const forms = [
             document.getElementById('formTambahJam'),
-            document.getElementById('formEditJam'),
-            document.getElementById('formSalinTingkat')
+            document.getElementById('formEditJam')
         ];
 
         forms.forEach(function (form) {
@@ -484,9 +573,7 @@
             inputs.forEach(function (input, index) {
                 input.addEventListener('keydown', function (e) {
                     if (e.key === 'Enter') {
-                        e.preventDefault(); // Jangan submit form secara otomatis
-
-                        // Pindah fokus ke input berikutnya secara berurutan jika ada
+                        e.preventDefault();
                         if (index < inputs.length - 1) {
                             inputs[index + 1].focus();
                         }
@@ -496,11 +583,10 @@
         });
     });
 
-    function openEditModal(id, tingkat, kategoriHari, jamMulai, jamSelesai, jenis) {
+    function openEditModal(id, kategoriHari, jamMulai, jamSelesai, jenis) {
         const routeBase = "{{ url('kurikulum/jam-pelajaran') }}";
         document.getElementById('formEditJam').action = routeBase + '/' + id;
 
-        document.getElementById('editTingkat').value      = tingkat;
         document.getElementById('editKategoriHari').value = kategoriHari;
         document.getElementById('editJamMulai').value     = jamMulai;
         document.getElementById('editJamSelesai').value   = jamSelesai;

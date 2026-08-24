@@ -30,13 +30,14 @@
             @csrf
             
             <div class="mb-3">
-                <label class="form-label fw-semibold text-dark">NIS (Nomor Induk Siswa)</label>
+                <label class="form-label fw-semibold text-dark">NISN & NIS</label>
+                <input type="text" name="nisn" class="form-control rounded-3 py-2 mb-2" value="{{ old('nisn') }}" placeholder="Masukkan NISN">
                 <input type="text" name="nis" class="form-control rounded-3 py-2" value="{{ old('nis') }}" placeholder="Masukkan NIS">
             </div>
 
             <div class="mb-3">
                 <label class="form-label fw-semibold text-dark">Nama Siswa <span class="text-danger">*</span></label>
-                <input type="text" name="nama_siswa" class="form-control rounded-3 py-2" value="{{ old('nama_siswa') }}" required placeholder="Masukkan Nama Lengkap Siswa">
+                <input type="text" name="nama" class="form-control rounded-3 py-2" value="{{ old('nama') }}" required placeholder="Masukkan Nama Lengkap Siswa">
             </div>
 
             <div class="mb-3">
@@ -44,8 +45,20 @@
                 <select name="id_kelas" class="form-select rounded-3 py-2" required>
                     <option value="">-- Pilih Kelas --</option>
                     @foreach ($dataKelas as $kelas)
-                        <option value="{{ $kelas->id_kelas }}" {{ old('id_kelas') == $kelas->id_kelas ? 'selected' : '' }}>
-                            {{ $kelas->nama_kelas }}
+                        <option value="{{ $kelas->id }}" {{ old('id_kelas') == $kelas->id ? 'selected' : '' }}>
+                            {{ $kelas->tingkat }} &bull; {{ $kelas->nama_kelas }}{{ $kelas->jurusan ? ' (' . $kelas->jurusan->nama_jurusan . ')' : '' }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold text-dark">Jurusan</label>
+                <select name="id_jurusan" class="form-select rounded-3 py-2">
+                    <option value="">-- Pilih Jurusan --</option>
+                    @foreach($jurusans as $jurusan)
+                        <option value="{{ $jurusan->id }}" {{ old('id_jurusan') == $jurusan->id ? 'selected' : '' }}>
+                            {{ $jurusan->kode_jurusan }} - {{ $jurusan->nama_jurusan }}
                         </option>
                     @endforeach
                 </select>
@@ -55,7 +68,7 @@
                 <label class="form-label fw-semibold text-dark d-block">Jenis Kelamin <span class="text-danger">*</span></label>
                 <div class="d-flex gap-4">
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="jenis_kelamin" id="jk_l" value="L" {{ old('jenis_kelamin') == 'L' ? 'checked' : '' }} required>
+                        <input class="form-check-input" type="radio" name="jenis_kelamin" id="jk_l" value="L" {{ old('jenis_kelamin', 'L') == 'L' ? 'checked' : '' }} required>
                         <label class="form-check-label" for="jk_l">Laki-laki</label>
                     </div>
                     <div class="form-check">

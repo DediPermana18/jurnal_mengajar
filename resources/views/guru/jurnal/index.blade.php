@@ -105,6 +105,25 @@
         </div>
     @endif
 
+    @if(isset($isSeninShiftHariIni) && $isSeninShiftHariIni)
+        <div class="alert alert-warning border-0 rounded-4 shadow-sm mb-4 d-flex align-items-center gap-3"
+             style="background: #fffbeeb0; border: 1px solid #fef3c7 !important;">
+            <div class="rounded-3 d-flex align-items-center justify-content-center text-white flex-shrink-0"
+                 style="width: 38px; height: 38px; background: linear-gradient(135deg, #f59e0b, #d97706);">
+                <i class="bi bi-lightning-charge-fill fs-5"></i>
+            </div>
+            <div>
+                <div class="fw-bold text-dark" style="font-size: 0.95rem;">
+                    ⚡ Mode Khusus Hari Senin: Upacara Ditiadakan (KBM Dimajukan)
+                </div>
+                <div class="text-muted" style="font-size: 0.82rem;">
+                    Seluruh jam mengajar Anda hari ini otomatis dimajukan 1 JP & sinkron dengan jam dinding real-time.
+                </div>
+            </div>
+        </div>
+    @endif
+
+
     @if($jadwals->isEmpty())
         <div class="table-card-custom text-center py-5">
             <div class="empty-state-icon">
@@ -135,11 +154,36 @@
                                 <td><span class="badge bg-light text-dark border">{{ $item->kelas }}</span></td>
                                 <td>{{ $item->mapel }}</td>
                                 <td>
-                                    @if($item->is_filled)
+                                    @if($item->is_pulang)
+                                        <span class="badge d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fw-semibold"
+                                              style="font-size: 0.78rem; background-color: #fee2e2; color: #dc2626; border: 1px solid #fca5a5;">
+                                            🛑 Pulang / Selesai KBM
+                                        </span>
+                                    @else
+                                        @php $st = $item->status_info ?? null; @endphp
                                         <div class="d-flex flex-column gap-1 align-items-start">
-                                            <span class="status-badge-terisi">
-                                                <i class="bi bi-check-circle-fill"></i> Sudah Terisi
-                                            </span>
+                                            @if($st && $st['status'] === 'terisi_terlambat')
+                                                <span class="badge d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fw-semibold"
+                                                      style="font-size: 0.78rem; background-color: #fff7ed; color: #c05500; border: 1px solid #fed7aa;">
+                                                    <i class="bi bi-clock-fill"></i> 🟠 Terisi (Terlambat)
+                                                </span>
+                                            @elseif($st && $st['status'] === 'belum_terisi_terlambat')
+                                                <span class="badge d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fw-semibold"
+                                                      style="font-size: 0.78rem; background-color: #fee2e2; color: #dc2626; border: 1px solid #fca5a5;">
+                                                    <i class="bi bi-exclamation-octagon-fill"></i> 🔴 Belum Terisi (Terlambat)
+                                                </span>
+                                            @elseif($st && $st['status'] === 'sudah_terisi')
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fw-semibold"
+                                                      style="font-size: 0.78rem;">
+                                                    <i class="bi bi-check-circle-fill"></i> 🟢 Sudah Terisi
+                                                </span>
+                                            @else
+                                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fw-semibold"
+                                                      style="font-size: 0.78rem;">
+                                                    <i class="bi bi-clock-history"></i> 🟡 Belum Terisi
+                                                </span>
+                                            @endif
+
                                             @if(isset($item->jurnal) && $item->jurnal->status_kehadiran && $item->jurnal->status_kehadiran !== 'Hadir')
                                                 <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-1 small">
                                                     Status: {{ $item->jurnal->status_kehadiran }}
@@ -151,10 +195,6 @@
                                                 </span>
                                             @endif
                                         </div>
-                                    @else
-                                        <span class="status-badge-belum">
-                                            <i class="bi bi-clock-history"></i> Belum Terisi
-                                        </span>
                                     @endif
                                 </td>
                                 <td class="text-end">
@@ -208,13 +248,31 @@
                         <div class="jadwal-card p-4 {{ !$item->can_fill && !$item->can_edit ? 'locked' : '' }}">
                             <div class="d-flex justify-content-between align-items-start mb-3">
                                 <span class="jam-badge">Jam {{ $item->jam_ke }}</span>
-                                @if($item->is_filled)
-                                    <span class="status-badge-terisi">
-                                        <i class="bi bi-check-circle-fill"></i> Sudah Terisi
+                                @php $st = $item->status_info ?? null; @endphp
+                                @if($item->is_pulang)
+                                    <span class="badge d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fw-semibold"
+                                          style="font-size: 0.78rem; background-color: #fee2e2; color: #dc2626; border: 1px solid #fca5a5;">
+                                        🛑 Pulang / Selesai KBM
+                                    </span>
+                                @elseif($st && $st['status'] === 'terisi_terlambat')
+                                    <span class="badge d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fw-semibold"
+                                          style="font-size: 0.78rem; background-color: #fff7ed; color: #c05500; border: 1px solid #fed7aa;">
+                                        <i class="bi bi-clock-fill"></i> 🟠 Terisi (Terlambat)
+                                    </span>
+                                @elseif($st && $st['status'] === 'belum_terisi_terlambat')
+                                    <span class="badge d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fw-semibold"
+                                          style="font-size: 0.78rem; background-color: #fee2e2; color: #dc2626; border: 1px solid #fca5a5;">
+                                        <i class="bi bi-exclamation-octagon-fill"></i> 🔴 Belum Terisi (Terlambat)
+                                    </span>
+                                @elseif($st && $st['status'] === 'sudah_terisi')
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fw-semibold"
+                                          style="font-size: 0.78rem;">
+                                        <i class="bi bi-check-circle-fill"></i> 🟢 Sudah Terisi
                                     </span>
                                 @else
-                                    <span class="status-badge-belum">
-                                        <i class="bi bi-clock-history"></i> Belum Terisi
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fw-semibold"
+                                          style="font-size: 0.78rem;">
+                                        <i class="bi bi-clock-history"></i> 🟡 Belum Terisi
                                     </span>
                                 @endif
                             </div>

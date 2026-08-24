@@ -16,11 +16,12 @@
             </p>
         </div>
         <div>
-            <button type="button" class="btn btn-primary rounded-3 fw-semibold px-3 py-2 d-flex align-items-center gap-2 shadow-sm"
-                    data-bs-toggle="modal" data-bs-target="#modalTambahPiket" style="font-size: 0.875rem;">
+            <a href="{{ route('kurikulum.jadwal-piket.create') }}"
+               class="btn btn-primary rounded-3 fw-semibold px-3 py-2 d-flex align-items-center gap-2 shadow-sm"
+               style="font-size: 0.875rem;">
                 <i class="bi bi-person-plus-fill"></i>
                 <span>Tambah Petugas Piket</span>
-            </button>
+            </a>
         </div>
     </div>
 
@@ -107,13 +108,13 @@
                             </div>
                         </div>
 
-                        {{-- Quick Add Button for this day --}}
-                        <button type="button" class="btn btn-sm btn-light rounded-circle border shadow-none text-secondary"
-                                style="width: 32px; height: 32px; padding: 0;"
-                                title="Tambah Guru ke hari {{ $hari }}"
-                                onclick="openAddModalWithDay('{{ $hari }}')">
-                            <i class="bi bi-plus-lg"></i>
-                        </button>
+                        {{-- Dedicated Page Edit Button for this day --}}
+                        <a href="{{ route('kurikulum.jadwal-piket.create', ['hari' => $hari]) }}"
+                           class="btn btn-sm btn-light rounded-circle border shadow-none text-secondary d-flex align-items-center justify-content-center"
+                           style="width: 32px; height: 32px; padding: 0;"
+                           title="Kelola Guru Piket Hari {{ $hari }}">
+                            <i class="bi bi-pencil-fill text-primary" style="font-size: 0.8rem;"></i>
+                        </a>
                     </div>
 
                     {{-- Card Body: Daftar Guru Piket --}}
@@ -166,86 +167,4 @@
     </div>
 
 </div>
-
-{{-- MODAL TAMBAH PETUGAS PIKET --}}
-<div class="modal fade" id="modalTambahPiket" tabindex="-1" aria-labelledby="modalTambahPiketLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow rounded-4">
-            <div class="modal-header border-0 pb-0 pt-4 px-4">
-                <h5 class="modal-title fw-bold text-dark" id="modalTambahPiketLabel">
-                    <i class="bi bi-person-plus text-primary me-2"></i>Tambah Petugas Piket
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form action="{{ route('kurikulum.jadwal-piket.store') }}" method="POST">
-                @csrf
-                <div class="modal-body py-3 px-4">
-                    {{-- Pilihan Hari --}}
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-secondary small">HARI PIKET <span class="text-danger">*</span></label>
-                        <select name="hari" id="modal_input_hari" class="form-select rounded-3 py-2" required>
-                            <option value="">-- Pilih Hari --</option>
-                            @foreach($hariList as $hariOption)
-                                <option value="{{ $hariOption }}" {{ old('hari') === $hariOption ? 'selected' : '' }}>
-                                    {{ $hariOption }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    {{-- Pilihan Guru --}}
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-secondary small">PILIH GURU PIKET <span class="text-danger">*</span></label>
-                        <select name="guru_ids[]" id="modal_input_user" class="form-select rounded-3 py-2" multiple size="6" required>
-                            @foreach($guruList as $guru)
-                                <option value="{{ $guru->id }}">
-                                    {{ $guru->nama }} {{ $guru->nip ? '(' . $guru->nip . ')' : '' }} - [{{ $guru->role_label }}]
-                                </option>
-                            @endforeach
-                        </select>
-                        <div class="form-text text-muted small mt-1">
-                            <i class="bi bi-info-circle me-1"></i>Tahan tombol <strong>Ctrl</strong> (Windows) atau <strong>Cmd</strong> (Mac) untuk memilih lebih dari 1 guru. Guru yang dipilih akan memiliki hak akses piket pada hari tersebut.
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 pt-0 pb-4 px-4">
-                    <button type="button" class="btn btn-light rounded-3 px-3 fw-medium" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold">
-                        <i class="bi bi-save me-1"></i>Simpan Penugasan
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-@push('scripts')
-<script>
-    const selectedByHari = @json($selectedByHari);
-
-    function syncGuruSelection(hari) {
-        const selectUser = document.getElementById('modal_input_user');
-        if (!selectUser) return;
-
-        const assignedIds = (selectedByHari && selectedByHari[hari]) ? selectedByHari[hari].map(Number) : [];
-        Array.from(selectUser.options).forEach(opt => {
-            opt.selected = assignedIds.includes(Number(opt.value));
-        });
-    }
-
-    document.getElementById('modal_input_hari')?.addEventListener('change', function() {
-        syncGuruSelection(this.value);
-    });
-
-    function openAddModalWithDay(hari) {
-        const selectHari = document.getElementById('modal_input_hari');
-        if (selectHari) {
-            selectHari.value = hari;
-            syncGuruSelection(hari);
-        }
-        const modal = new bootstrap.Modal(document.getElementById('modalTambahPiket'));
-        modal.show();
-    }
-</script>
-@endpush
 @endsection

@@ -35,13 +35,13 @@
 
     <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
         <form action="{{ route('admin.users.index') }}" method="GET" class="row g-3 align-items-end">
-            <div class="col-md-6">
+            <div class="col-md-5">
                 <label class="form-label fw-bold text-secondary text-uppercase small">Cari User</label>
                 <input type="text" name="search" value="{{ request('search') }}" class="form-control bg-light rounded-3" placeholder="Nama, username, atau NIP">
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label class="form-label fw-bold text-secondary text-uppercase small">Sub-Role</label>
-                <select name="sub_role" class="form-select bg-light rounded-3">
+                <select name="sub_role" class="form-select bg-light rounded-3" onchange="this.form.submit()">
                     <option value="">Semua Sub-Role</option>
                     @foreach($subRoles as $value => $label)
                         <option value="{{ $value }}" {{ request('sub_role') === $value ? 'selected' : '' }}>{{ $label }}</option>
@@ -49,7 +49,20 @@
                 </select>
             </div>
             <div class="col-md-2">
-                <button type="submit" class="btn btn-outline-primary rounded-3 w-100"><i class="bi bi-search me-1"></i> Cari</button>
+                <label class="form-label fw-bold text-secondary text-uppercase small">Status</label>
+                <select name="status" class="form-select bg-light rounded-3" onchange="this.form.submit()">
+                    <option value="Semua Status">Semua Status</option>
+                    <option value="Aktif" {{ request('status') === 'Aktif' ? 'selected' : '' }}>Aktif</option>
+                    <option value="Nonaktif" {{ request('status') === 'Nonaktif' || request('status') === 'Tidak Aktif' ? 'selected' : '' }}>Nonaktif</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary rounded-3 flex-grow-1"><i class="bi bi-funnel me-1"></i> Filter</button>
+                @if(request()->hasAny(['search', 'sub_role', 'status']))
+                    <a href="{{ route('admin.users.index') }}" class="btn btn-light border rounded-3" title="Reset Filter">
+                        <i class="bi bi-x-lg text-muted"></i>
+                    </a>
+                @endif
             </div>
         </form>
     </div>
@@ -89,14 +102,20 @@
                             </td>
                             <td><span class="badge {{ $roleClass }} px-2 py-2 rounded-3">{{ $roleLabel }}</span></td>
                             <td><code>{{ $user->kode_aktivasi ?: '-' }}</code></td>
-                            <td><span class="badge {{ $user->is_active ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }} px-2 py-2 rounded-3">{{ $user->is_active ? 'Aktif' : 'Tidak Aktif' }}</span></td>
+                            <td><span class="badge {{ $user->is_active ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }} px-2 py-2 rounded-3">{{ $user->is_active ? 'Aktif' : 'Nonaktif' }}</span></td>
                             <td class="text-end text-nowrap">
                                 <a href="{{ route('admin.users.edit', $user->id) }}" class="btn btn-sm btn-outline-warning rounded-3 me-1" title="Edit user"><i class="bi bi-pencil-square"></i></a>
+                                <form action="{{ route('admin.users.toggle-status', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Ubah status aktif user ini?')">
+                                    @csrf
+                                    <button type="submit" class="btn btn-sm {{ $user->is_active ? 'btn-outline-secondary' : 'btn-outline-success' }} rounded-3 me-1" title="{{ $user->is_active ? 'Nonaktifkan user' : 'Aktifkan user' }}">
+                                        <i class="bi {{ $user->is_active ? 'bi-slash-circle' : 'bi-check-circle' }}"></i>
+                                    </button>
+                                </form>
                                 <form action="{{ route('admin.users.reset-password', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Reset password user ini ke username?')">
                                     @csrf
                                     <button type="submit" class="btn btn-sm btn-outline-info rounded-3 me-1" title="Reset password"><i class="bi bi-key"></i></button>
                                 </form>
-                                <form action="{{ route('admin.users.destroy', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus user ini? Data yang sudah dihapus tidak dapat dipulihkan.')">
+                                <form action="{{ route('admin.users.destroy', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus user ini? Data yang di-soft delete akan disembunyikan dari sistem.')">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="btn btn-sm btn-outline-danger rounded-3" title="Hapus user"><i class="bi bi-trash"></i></button>

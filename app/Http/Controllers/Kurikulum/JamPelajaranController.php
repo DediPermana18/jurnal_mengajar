@@ -4,41 +4,49 @@ namespace App\Http\Controllers\Kurikulum;
 
 use App\Http\Controllers\Controller;
 use App\Models\JamPelajaran;
+use App\Models\JamPulang;
+use App\Models\AgendaRutin;
 use Illuminate\Http\Request;
 
 class JamPelajaranController extends Controller
 {
     /**
-     * Tampilkan daftar Master Jam Pelajaran per Tingkat & Kategori Hari.
+     * Tampilkan daftar Master Jam Pelajaran Sekolah per Kelompok Hari.
      */
     public function index(Request $request)
     {
-        $tingkatList = ['10', '11', '12'];
-        $tingkat = $request->get('tingkat', '10');
-        if (!in_array($tingkat, $tingkatList)) {
-            $tingkat = '10';
-        }
-
         $tab = $request->get('tab', 'Senin-Kamis');
         if (!in_array($tab, ['Senin-Kamis', 'Jumat'])) {
             $tab = 'Senin-Kamis';
         }
 
-        // Pastikan penomoran jam_ke terurut konsisten untuk tingkat ini
-        $this->syncJamKe('Senin-Kamis', $tingkat);
-        $this->syncJamKe('Jumat', $tingkat);
+        // Pastikan penomoran jam_ke terurut konsisten
+        $this->syncJamKe('Senin-Kamis');
+        $this->syncJamKe('Jumat');
 
         $seninKamis = JamPelajaran::where('kategori_hari', 'Senin-Kamis')
-            ->where('tingkat', $tingkat)
             ->orderBy('jam_mulai')
             ->get();
 
         $jumat = JamPelajaran::where('kategori_hari', 'Jumat')
-            ->where('tingkat', $tingkat)
             ->orderBy('jam_mulai')
             ->get();
 
-        return view('kurikulum.jam_pelajaran.index', compact('seninKamis', 'jumat', 'tab', 'tingkat', 'tingkatList'));
+        // Pengaturan jam pulang: lookup['kategori_hari|tingkat'] => JamPulang
+        $jamPulangSettings = JamPulang::getAllAsLookup();
+
+        // Pengaturan Agenda Rutin / Upacara Sekolah
+        $agendaRutin = AgendaRutin::first();
+
+        // Hitung max jam_ke tersedia per kategori (untuk dropdown batas jam pulang)
+        $maxJamKeSeninKamis = $seninKamis->max('jam_ke') ?? 13;
+        $maxJamKeJumat      = $jumat->max('jam_ke') ?? 9;
+
+        return view('kurikulum.jam_pelajaran.index', compact(
+            'seninKamis', 'jumat', 'tab',
+            'jamPulangSettings', 'maxJamKeSeninKamis', 'maxJamKeJumat',
+            'agendaRutin'
+        ));
     }
 
     /**
@@ -47,7 +55,6 @@ class JamPelajaranController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'tingkat'       => 'required|in:10,11,12',
             'kategori_hari' => 'required|in:Senin-Kamis,Jumat',
             'jam_mulai'     => 'required|date_format:H:i',
             'jam_selesai'   => 'required|date_format:H:i|after:jam_mulai',
@@ -55,7 +62,6 @@ class JamPelajaranController extends Controller
         ]);
 
         JamPelajaran::create([
-            'tingkat'       => $validated['tingkat'],
             'kategori_hari' => $validated['kategori_hari'],
             'jam_ke'        => $validated['jenis'] === 'istirahat' ? null : 1,
             'jam_mulai'     => $validated['jam_mulai'],
@@ -63,11 +69,11 @@ class JamPelajaranController extends Controller
             'jenis'         => $validated['jenis'],
         ]);
 
-        $this->syncJamKe($validated['kategori_hari'], $validated['tingkat']);
+        $this->syncJamKe($validated['kategori_hari']);
 
         return redirect()
-            ->route('kurikulum.jam-pelajaran.index', ['tab' => $validated['kategori_hari'], 'tingkat' => $validated['tingkat']])
-            ->with('success', "Jam Pelajaran untuk Kelas {$validated['tingkat']} berhasil ditambahkan.");
+            ->route('kurikulum.jam-pelajaran.index', ['tab' => $validated['kategori_hari']])
+            ->with('success', "Jam Pelajaran ({$validated['kategori_hari']}) berhasil ditambahkan.");
     }
 
     /**
@@ -76,18 +82,15 @@ class JamPelajaranController extends Controller
     public function update(Request $request, JamPelajaran $jamPelajaran)
     {
         $validated = $request->validate([
-            'tingkat'       => 'required|in:10,11,12',
             'kategori_hari' => 'required|in:Senin-Kamis,Jumat',
             'jam_mulai'     => 'required|date_format:H:i',
             'jam_selesai'   => 'required|date_format:H:i|after:jam_mulai',
             'jenis'         => 'required|in:kbm,istirahat,upacara,pembiasaan',
         ]);
 
-        $oldHari    = $jamPelajaran->kategori_hari;
-        $oldTingkat = $jamPelajaran->tingkat ?? '10';
+        $oldHari = $jamPelajaran->kategori_hari;
 
         $jamPelajaran->update([
-            'tingkat'       => $validated['tingkat'],
             'kategori_hari' => $validated['kategori_hari'],
             'jam_ke'        => $validated['jenis'] === 'istirahat' ? null : $jamPelajaran->jam_ke,
             'jam_mulai'     => $validated['jam_mulai'],
@@ -95,14 +98,14 @@ class JamPelajaranController extends Controller
             'jenis'         => $validated['jenis'],
         ]);
 
-        $this->syncJamKe($validated['kategori_hari'], $validated['tingkat']);
-        if ($oldHari !== $validated['kategori_hari'] || $oldTingkat !== $validated['tingkat']) {
-            $this->syncJamKe($oldHari, $oldTingkat);
+        $this->syncJamKe($validated['kategori_hari']);
+        if ($oldHari !== $validated['kategori_hari']) {
+            $this->syncJamKe($oldHari);
         }
 
         return redirect()
-            ->route('kurikulum.jam-pelajaran.index', ['tab' => $validated['kategori_hari'], 'tingkat' => $validated['tingkat']])
-            ->with('success', "Jam Pelajaran untuk Kelas {$validated['tingkat']} berhasil diperbarui.");
+            ->route('kurikulum.jam-pelajaran.index', ['tab' => $validated['kategori_hari']])
+            ->with('success', "Jam Pelajaran ({$validated['kategori_hari']}) berhasil diperbarui.");
     }
 
     /**
@@ -110,29 +113,28 @@ class JamPelajaranController extends Controller
      */
     public function destroy(JamPelajaran $jamPelajaran)
     {
-        $hari    = $jamPelajaran->kategori_hari;
-        $tingkat = $jamPelajaran->tingkat ?? '10';
+        $hari = $jamPelajaran->kategori_hari;
         $jamPelajaran->delete();
 
-        $this->syncJamKe($hari, $tingkat);
+        $this->syncJamKe($hari);
 
         return redirect()
-            ->route('kurikulum.jam-pelajaran.index', ['tab' => $hari, 'tingkat' => $tingkat])
-            ->with('success', "Jam Pelajaran untuk Kelas {$tingkat} berhasil dihapus.");
+            ->route('kurikulum.jam-pelajaran.index', ['tab' => $hari])
+            ->with('success', "Jam Pelajaran ({$hari}) berhasil dihapus.");
     }
 
     /**
-     * Generate preset jam pelajaran otomatis untuk tingkat tertentu.
+     * Generate preset jam pelajaran otomatis (Senin-Kamis atau Jumat).
      */
     public function generatePreset(Request $request)
     {
         $kategori = $request->input('kategori_hari', 'Senin-Kamis');
-        $tingkat  = $request->input('tingkat', '10');
+        if (!in_array($kategori, ['Senin-Kamis', 'Jumat'])) {
+            $kategori = 'Senin-Kamis';
+        }
 
-        // Hapus existing untuk kategori dan tingkat ini
-        JamPelajaran::where('kategori_hari', $kategori)
-            ->where('tingkat', $tingkat)
-            ->delete();
+        // Hapus existing untuk kategori ini
+        JamPelajaran::where('kategori_hari', $kategori)->delete();
 
         if ($kategori === 'Senin-Kamis') {
             $preset = [
@@ -166,7 +168,6 @@ class JamPelajaranController extends Controller
 
         foreach ($preset as $item) {
             JamPelajaran::create([
-                'tingkat'       => $tingkat,
                 'kategori_hari' => $kategori,
                 'jam_ke'        => $item['jenis'] === 'istirahat' ? null : 1,
                 'jam_mulai'     => $item['jam_mulai'],
@@ -175,73 +176,19 @@ class JamPelajaranController extends Controller
             ]);
         }
 
-        $this->syncJamKe($kategori, $tingkat);
+        $this->syncJamKe($kategori);
 
         return redirect()
-            ->route('kurikulum.jam-pelajaran.index', ['tab' => $kategori, 'tingkat' => $tingkat])
-            ->with('success', "Preset jam pelajaran {$kategori} untuk Kelas {$tingkat} berhasil digenerate (" . count($preset) . " slot).");
+            ->route('kurikulum.jam-pelajaran.index', ['tab' => $kategori])
+            ->with('success', "Preset jam pelajaran {$kategori} berhasil digenerate (" . count($preset) . " slot).");
     }
 
     /**
-     * Salin preset struktur jam pelajaran dari tingkat lain.
+     * Sinkronisasi penomoran jam_ke secara otomatis berurutan berdasarkan jam_mulai.
      */
-    public function copyPreset(Request $request)
-    {
-        $validated = $request->validate([
-            'from_tingkat'  => 'required|in:10,11,12',
-            'to_tingkat'    => 'required|in:10,11,12|different:from_tingkat',
-            'kategori_hari' => 'required|in:Senin-Kamis,Jumat,semua',
-        ]);
-
-        $fromTingkat  = $validated['from_tingkat'];
-        $toTingkat    = $validated['to_tingkat'];
-        $kategoriHari = $validated['kategori_hari'];
-
-        $kategoriList = ($kategoriHari === 'semua') ? ['Senin-Kamis', 'Jumat'] : [$kategoriHari];
-        $copiedCount = 0;
-
-        foreach ($kategoriList as $kategori) {
-            $sourceSlots = JamPelajaran::where('tingkat', $fromTingkat)
-                ->where('kategori_hari', $kategori)
-                ->orderBy('jam_mulai')
-                ->get();
-
-            if ($sourceSlots->isNotEmpty()) {
-                // Hapus slot di tingkat target untuk kategori ini
-                JamPelajaran::where('tingkat', $toTingkat)
-                    ->where('kategori_hari', $kategori)
-                    ->delete();
-
-                foreach ($sourceSlots as $slot) {
-                    JamPelajaran::create([
-                        'tingkat'       => $toTingkat,
-                        'kategori_hari' => $kategori,
-                        'jam_ke'        => $slot->jam_ke,
-                        'jam_mulai'     => $slot->jam_mulai,
-                        'jam_selesai'   => $slot->jam_selesai,
-                        'jenis'         => $slot->jenis,
-                    ]);
-                    $copiedCount++;
-                }
-
-                $this->syncJamKe($kategori, $toTingkat);
-            }
-        }
-
-        $activeTab = ($kategoriHari === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
-
-        return redirect()
-            ->route('kurikulum.jam-pelajaran.index', ['tab' => $activeTab, 'tingkat' => $toTingkat])
-            ->with('success', "Berhasil menyalin {$copiedCount} slot jam pelajaran dari Kelas {$fromTingkat} ke Kelas {$toTingkat}.");
-    }
-
-    /**
-     * Sinkronisasi penomoran jam_ke secara otomatis berurutan berdasarkan jam_mulai per tingkat.
-     */
-    private function syncJamKe(string $kategoriHari, string $tingkat): void
+    private function syncJamKe(string $kategoriHari): void
     {
         $items = JamPelajaran::where('kategori_hari', $kategoriHari)
-            ->where('tingkat', $tingkat)
             ->orderBy('jam_mulai')
             ->get();
 

@@ -29,6 +29,16 @@ class JurusanController extends Controller
         return view('admin.jurusan.index', compact('dataJurusan'));
     }
 
+    /**
+     * Menampilkan form tambah jurusan baru
+     */
+    public function create()
+    {
+        $this->authorizePetugasTU();
+
+        return view('admin.jurusan.create');
+    }
+
     public function store(Request $request)
     {
         $this->authorizePetugasTU();
@@ -45,6 +55,18 @@ class JurusanController extends Controller
         Jurusan::create($validated);
 
         return redirect()->route('jurusan.index')->with('success', 'Data Jurusan berhasil ditambahkan.');
+    }
+
+    /**
+     * Menampilkan form edit jurusan
+     */
+    public function edit($id)
+    {
+        $this->authorizePetugasTU();
+
+        $jurusan = Jurusan::findOrFail($id);
+
+        return view('admin.jurusan.edit', compact('jurusan'));
     }
 
     public function update(Request $request, $id)

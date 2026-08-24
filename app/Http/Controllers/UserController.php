@@ -56,6 +56,14 @@ class UserController extends Controller
             $query->where('sub_role', $request->input('sub_role'));
         }
 
+        if ($request->filled('status') && $request->status !== 'Semua Status') {
+            if ($request->status === 'Aktif' || $request->status === '1') {
+                $query->where('is_active', true);
+            } elseif ($request->status === 'Tidak Aktif' || $request->status === 'Nonaktif' || $request->status === '0') {
+                $query->where('is_active', false);
+            }
+        }
+
         $dataUsers = $query->paginate(15)->withQueryString();
 
         return view('admin.users.index', [
@@ -177,6 +185,22 @@ class UserController extends Controller
     protected function findNonGuruUser($id): User
     {
         return User::where('role', '!=', User::ROLE_GURU)->findOrFail($id);
+    }
+
+    public function toggleStatus($id)
+    {
+        $this->authorizePetugasTU();
+
+        $user = $this->findNonGuruUser($id);
+        abort_if(Auth::id() === $user->id, 422, 'Tidak dapat mengubah status akun yang sedang digunakan.');
+
+        $user->update([
+            'is_active' => !$user->is_active,
+        ]);
+
+        $statusLabel = $user->is_active ? 'diaktifkan' : 'dinonaktifkan';
+
+        return redirect()->route('admin.users.index')->with('success', "Status akun {$user->nama} berhasil {$statusLabel}.");
     }
 
     protected function generateActivationCode(): string
