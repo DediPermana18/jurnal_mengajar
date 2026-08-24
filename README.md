@@ -1,6 +1,3 @@
-Ini dia kodenya dalam format Markdown mentah. Tinggal kamu salin (copy) semua teks di dalam blok kode di bawah ini, lalu tempel (paste) ke file `README.md` project kamu:
-
-```markdown
 <h1 align="center">WebJournal - Management System</h1>
 
 <p align="center">
@@ -13,8 +10,6 @@ Ini dia kodenya dalam format Markdown mentah. Tinggal kamu salin (copy) semua te
   <img src="https://img.shields.io/badge/TailwindCSS-3.0-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS">
   <img src="https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="MySQL">
 </p>
-
----
 
 ## 📌 Tentang WebJournal
 
@@ -76,23 +71,5 @@ php artisan migrate --seed
 
 ```bash
 php artisan serve
-
-```
-
-Akses aplikasi melalui peramban web di `http://127.0.0.1:8000` (atau port yang ditentukan).
-
-## 🔑 Hak Akses Default (Seeder)
-
-| Role | Username / Email | Password |
-| --- | --- | --- |
-| **Admin / TU** | `admin@school.id` | `password` |
-| **Kurikulum** | `kurikulum@school.id` | `password` |
-| **Guru Mapel** | `guru@school.id` | `password` |
-
-## 📄 Lisensi
-
-Project ini dibuat untuk kepentingan manajemen internal sekolah dan didistribusikan di bawah lisensi [MIT](https://opensource.org/licenses/MIT).
-
-```
 
 ```
