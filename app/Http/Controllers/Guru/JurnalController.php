@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Guru;
 
 use App\Http\Controllers\Controller;
 use App\Models\AbsensiJurnal;
+use App\Models\DispensasiSiswa;
 use App\Models\JadwalPelajaran;
 use App\Models\JamPelajaran;
 use App\Models\JamPulang;
@@ -99,6 +100,49 @@ class JurnalController extends Controller
     }
 
     /**
+     * Integrasi dispensasi: alasan dispen apabila siswa memiliki dispensa yang
+     * SUDAH DISETUJUI pada tanggal & jam pelajaran tertentu. Null jika tidak ada.
+     */
+    protected function dispensaAlasan(?string $tanggal, int $idSiswa, ?int $jamKe): ?string
+    {
+        if (!$tanggal || !$jamKe) {
+            return null;
+        }
+
+        $dispen = DispensasiSiswa::where('id_siswa', $idSiswa)
+            ->where('status', DispensasiSiswa::STATUS_DISETUJUI)
+            ->whereDate('tanggal', $tanggal)
+            ->get()
+            ->first(fn (DispensasiSiswa $d) => in_array($jamKe, $d->jam_ke_list, true));
+
+        return $dispen?->alasan;
+    }
+
+    /**
+     * Peta dispensa siswa SUDAH DISETUJUI pada tanggal & jam ke- tertentu:
+     * [id_siswa => DispensasiSiswa]. Dipakai untuk penanda "DISPEN" pada form presensi.
+     */
+    protected function dispenMapHariIni(?string $tanggal, ?int $jamKe): array
+    {
+        if (!$tanggal || !$jamKe) {
+            return [];
+        }
+
+        $map = [];
+        foreach (
+            DispensasiSiswa::where('status', DispensasiSiswa::STATUS_DISETUJUI)
+                ->whereDate('tanggal', $tanggal)
+                ->get() as $dispen
+        ) {
+            if (in_array((int) $jamKe, $dispen->jam_ke_list, true)) {
+                $map[(int) $dispen->id_siswa] = $dispen;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
      * Evaluasi hak akses & status locking per jadwal (Mode Produksi Normal).
      */
     protected function evaluateJadwal(JadwalPelajaran $jadwal, ?Jurnal $jurnalHariIni = null, ?JamPelajaran $overrideJam = null): array
@@ -183,23 +227,27 @@ class JurnalController extends Controller
         // Preload jam pulang settings sekali (hindari N+1)
         $jamPulangLookup = JamPulang::getAllAsLookup();
 
-        // Check if Senin Tanpa Upacara shift is active today
-        $isSeninShiftHariIni = ($hari === 'Senin') && PengaturanJadwal::isSeninTanpaUpacaraHariIni();
-        $jamListSeninKamis   = $isSeninShiftHariIni ? JamPelajaran::where('kategori_hari', 'Senin-Kamis')->get()->keyBy('jam_ke') : collect();
+        // Check if mode khusus shift is active today (Senin Tanpa Upacara / Jumat Tanpa Pembiasaan)
+        $isSeninShiftHariIni = ($hari === 'Senin') && PengaturanJadwal::isSeninTanpaUpacaraAktifForDate($today);
+        $isJumatShiftHariIni = ($hari === 'Jumat') && PengaturanJadwal::isJumatTanpaPembiasaanAktifForDate($today);
+        $isModeKhususHariIni = $isSeninShiftHariIni || $isJumatShiftHariIni;
+
+        $kategoriHariShift = ($hari === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
+        $jamListShift      = $isModeKhususHariIni ? JamPelajaran::where('kategori_hari', $kategoriHariShift)->get()->keyBy('jam_ke') : collect();
 
         $jadwals = $query
             ->get()
             ->sortBy(fn ($j) => $j->jamPelajaran?->jam_ke ?? 999)
             ->values()
-            ->map(function ($jadwal) use ($jurnalHariIni, $jamPulangLookup, $hari, $isSeninShiftHariIni, $jamListSeninKamis, $today) {
+            ->map(function ($jadwal) use ($jurnalHariIni, $jamPulangLookup, $hari, $isModeKhususHariIni, $isSeninShiftHariIni, $isJumatShiftHariIni, $jamListShift, $today) {
                 $jamOriginal = $jadwal->jamPelajaran;
                 $overrideJam = null;
                 $displayJamKe = $jamOriginal?->jam_ke ?? '-';
 
-                // Shift 1 JP jika mode Senin Tanpa Upacara aktif
-                if ($isSeninShiftHariIni && $jamOriginal && $jamOriginal->jam_ke && $jamOriginal->jam_ke >= 2) {
+                // Shift 1 JP jika mode khusus (Senin / Jumat) aktif
+                if ($isModeKhususHariIni && $jamOriginal && $jamOriginal->jam_ke && $jamOriginal->jam_ke >= 2) {
                     $shiftedJamKe = $jamOriginal->jam_ke - 1;
-                    $overrideJam = $jamListSeninKamis->get($shiftedJamKe);
+                    $overrideJam = $jamListShift->get($shiftedJamKe);
                     $displayJamKe = "{$shiftedJamKe} (Maju dari Jam {$jamOriginal->jam_ke})";
                 }
 
@@ -216,25 +264,27 @@ class JurnalController extends Controller
                 $statusInfo    = Jurnal::hitungStatusPengisian($eval['jurnal'], $today, $jamSelesaiStr);
 
                 return (object) [
-                    'jadwal'        => $jadwal,
-                    'jam_ke'        => $displayJamKe,
-                    'waktu'         => $eval['waktu'],
-                    'kelas'         => $jadwal->kelas?->nama_kelas ?? '-',
-                    'mapel'         => $jadwal->mapel?->nama_mapel ?? '-',
-                    'is_filled'     => $eval['is_filled'],
-                    'is_today'      => $eval['is_today'],
-                    'can_fill'      => $eval['can_fill'],
-                    'can_edit'      => $eval['can_edit'],
-                    'lock_reason'   => $eval['lock_reason'],
-                    'jurnal'        => $eval['jurnal'],
-                    'is_pulang'     => $isPulang,
-                    'max_jam_ke'    => $maxJamKe,
-                    'is_senin_shift'=> $isSeninShiftHariIni,
-                    'status_info'   => $statusInfo,
+                    'jadwal'          => $jadwal,
+                    'jam_ke'          => $displayJamKe,
+                    'waktu'           => $eval['waktu'],
+                    'kelas'           => $jadwal->kelas?->nama_kelas ?? '-',
+                    'mapel'           => $jadwal->mapel?->nama_mapel ?? '-',
+                    'is_filled'       => $eval['is_filled'],
+                    'is_today'        => $eval['is_today'],
+                    'can_fill'        => $eval['can_fill'],
+                    'can_edit'        => $eval['can_edit'],
+                    'lock_reason'     => $eval['lock_reason'],
+                    'jurnal'          => $eval['jurnal'],
+                    'is_pulang'       => $isPulang,
+                    'max_jam_ke'      => $maxJamKe,
+                    'is_senin_shift'  => $isSeninShiftHariIni,
+                    'is_jumat_shift'  => $isJumatShiftHariIni,
+                    'is_mode_khusus'  => $isModeKhususHariIni,
+                    'status_info'     => $statusInfo,
                 ];
             });
 
-        return view('guru.jurnal.index', compact('jadwals', 'hari', 'today', 'isSeninShiftHariIni'));
+        return view('guru.jurnal.index', compact('jadwals', 'hari', 'today', 'isModeKhususHariIni', 'isSeninShiftHariIni', 'isJumatShiftHariIni'));
     }
 
     /**
@@ -262,7 +312,9 @@ class JurnalController extends Controller
         $today = Carbon::today()->toDateString();
         $waktu = $eval['waktu'];
 
-        return view('guru.jurnal.form', compact('jadwal', 'siswas', 'today', 'waktu'));
+        $dispenMap = $this->dispenMapHariIni($today, $jadwal->jamPelajaran?->jam_ke);
+
+        return view('guru.jurnal.form', compact('jadwal', 'siswas', 'today', 'waktu', 'dispenMap'));
     }
 
     /**
@@ -351,6 +403,14 @@ class JurnalController extends Controller
                     $status     = $isTidakHadir ? ($pData['status'] ?? $statusMap[$siswa->id] ?? 'Sakit') : 'Hadir';
                     $keterangan = $isTidakHadir ? ($pData['keterangan'] ?? $keteranganMap[$siswa->id] ?? null) : null;
                     $fotoSurat  = null;
+
+                    // Integrasi dispensasi: siswa yang dispen tersetujui otomatis berstatus 'Dispen'
+                    $dispenAlasan = $this->dispensaAlasan($todayDate, $siswa->id, $sched->jamPelajaran?->jam_ke);
+                    if ($dispenAlasan !== null) {
+                        $status     = 'Dispen';
+                        $keterangan = 'Dispensasi: ' . $dispenAlasan;
+                        $fotoSurat  = null;
+                    }
 
                     if ($isTidakHadir) {
                         $siswaNisId  = $siswa->nis ?? $siswa->id;
@@ -444,7 +504,9 @@ class JurnalController extends Controller
         $waktu      = $eval['waktu'];
         $absensiMap = $jurnal->absensiJurnal->keyBy('id_siswa');
 
-        return view('guru.jurnal.form', compact('jurnal', 'jadwal', 'siswas', 'today', 'waktu', 'absensiMap'));
+        $dispenMap = $this->dispenMapHariIni($jurnalTanggal, $jadwal->jamPelajaran?->jam_ke);
+
+        return view('guru.jurnal.form', compact('jurnal', 'jadwal', 'siswas', 'today', 'waktu', 'absensiMap', 'dispenMap'));
     }
 
     /**
@@ -506,6 +568,13 @@ class JurnalController extends Controller
 
                 $status     = $isTidakHadir ? ($pData['status'] ?? $request->input("status.{$siswa->id}", 'Sakit')) : 'Hadir';
                 $keterangan = $isTidakHadir ? ($pData['keterangan'] ?? $request->input("keterangan.{$siswa->id}")) : null;
+
+                // Integrasi dispensasi: siswa yang dispen tersetujui otomatis berstatus 'Dispen'
+                $dispenAlasan = $this->dispensaAlasan($jurnal->tanggal?->toDateString(), $siswa->id, $jadwal->jamPelajaran?->jam_ke);
+                if ($dispenAlasan !== null) {
+                    $status     = 'Dispen';
+                    $keterangan = 'Dispensasi: ' . $dispenAlasan;
+                }
 
                 $fotoSurat = null;
                 if ($isTidakHadir) {

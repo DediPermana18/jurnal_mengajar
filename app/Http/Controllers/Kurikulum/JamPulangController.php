@@ -45,7 +45,7 @@ class JamPulangController extends Controller
         $redirectTab = $request->input('redirect_tab', 'Senin-Kamis');
 
         return redirect()
-            ->route('kurikulum.jam-pelajaran.index', ['tab' => $redirectTab])
+            ->route('admin.jam-pelajaran.index', ['tab' => $redirectTab])
             ->with('success', 'Pengaturan jam pulang per tingkat kelas berhasil disimpan.');
     }
 }

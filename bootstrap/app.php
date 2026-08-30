@@ -15,6 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Trust all proxy headers from Ngrok / Localhost.run / Cloudflare Tunnels
         $middleware->trustProxies(at: '*');
+
+        $middleware->alias([
+            'piket' => \App\Http\Middleware\CheckPetugasPiket::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

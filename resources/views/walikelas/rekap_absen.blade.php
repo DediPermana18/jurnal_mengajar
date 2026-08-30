@@ -17,13 +17,14 @@
 
     <div class="table-card-custom mb-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="fw-bold text-dark mb-0">Rekapitulasi Bulanan Kelas XII RPL 1</h5>
-            <button class="btn btn-sm btn-outline-primary rounded-3"><i class="bi bi-download me-1"></i> Export Excel/PDF</button>
+            <h5 class="fw-bold text-dark mb-0">Rekapitulasi Kehadiran {{ $namaKelasSaya ?? 'Kelas Bimbingan' }}</h5>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1">{{ $rekapAbsen->count() }} Siswa</span>
         </div>
         <div class="table-responsive">
             <table class="table table-custom align-middle">
                 <thead>
                     <tr>
+                        <th class="text-center" style="width: 60px;">No</th>
                         <th>NIS/NISN</th>
                         <th>Nama Siswa</th>
                         <th class="text-center">Hadir</th>
@@ -34,24 +35,29 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td>10928371</td>
-                        <td><strong>Ahmad Dahlan</strong></td>
-                        <td class="text-center text-success fw-bold">22</td>
-                        <td class="text-center">1</td>
-                        <td class="text-center">0</td>
-                        <td class="text-center text-danger fw-bold">0</td>
-                        <td class="text-center"><span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">95.6%</span></td>
-                    </tr>
-                    <tr>
-                        <td>10928372</td>
-                        <td><strong>Budi Setiawan</strong></td>
-                        <td class="text-center text-success fw-bold">18</td>
-                        <td class="text-center">2</td>
-                        <td class="text-center">1</td>
-                        <td class="text-center text-danger fw-bold">2</td>
-                        <td class="text-center"><span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill">78.2%</span></td>
-                    </tr>
+                    @forelse($rekapAbsen as $r)
+                        <tr>
+                            <td class="text-center text-muted">{{ $loop->iteration }}</td>
+                            <td>{{ $r['siswa']->nisn ?? $r['siswa']->nis ?? '-' }}</td>
+                            <td><strong>{{ $r['siswa']->nama }}</strong></td>
+                            <td class="text-center text-success fw-bold">{{ $r['hadir'] }}</td>
+                            <td class="text-center">{{ $r['izin'] }}</td>
+                            <td class="text-center">{{ $r['sakit'] }}</td>
+                            <td class="text-center text-danger fw-bold">{{ $r['alpha'] }}</td>
+                            <td class="text-center">
+                                <span class="badge {{ $r['persentase'] >= 90 ? 'bg-success-subtle text-success' : ($r['persentase'] >= 75 ? 'bg-warning-subtle text-warning' : 'bg-danger-subtle text-danger') }} border rounded-pill">
+                                    {{ number_format($r['persentase'], 1) }}%
+                                </span>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                Belum ada data presensi untuk kelas bimbingan Anda.
+                            </td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>

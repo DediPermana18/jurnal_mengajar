@@ -475,16 +475,34 @@
                 $userRole = $user ? $user->role : null;
                 $userSubRole = $user ? $user->sub_role : null;
 
+                // ============ PREVIEW ROLE (Petugas IT - Switch View As) ============
+                $previewRole = $user && $user->hasPreviewRole() ? $user->previewRole() : null;
+
+                if ($previewRole && $previewRole !== 'siswa') {
+                    $previewRoleMap = [
+                        'admin_tu'       => ['role' => 'admin', 'sub_role' => 'petugas_tu'],
+                        'waka_kurikulum' => ['role' => 'admin', 'sub_role' => 'waka_kurikulum'],
+                        'guru_mapel'     => ['role' => 'guru',  'sub_role' => 'guru_mapel'],
+                        'guru_piket'     => ['role' => 'guru',  'sub_role' => 'guru'],
+                    ];
+                    if (isset($previewRoleMap[$previewRole])) {
+                        $userRole    = $previewRoleMap[$previewRole]['role'];
+                        $userSubRole = $previewRoleMap[$previewRole]['sub_role'];
+                    }
+                }
+                // =====================================================================
+
                 // 1. Role Waka Kurikulum (role=admin & sub_role=waka_kurikulum)
                 $isKurikulumRole = ($userRole === 'admin' && $userSubRole === 'waka_kurikulum') 
                                 || in_array($userRole, ['admin_kurikulum', 'waka_kurikulum', 'kurikulum']);
 
-                // 2. Role Satpam (role=admin & sub_role=satpam)
-                $isSatpamRole = ($userRole === 'admin' && $userSubRole === 'satpam') 
-                             || ($userRole === 'piket_satpam');
+                // 2. Role Satpam (role=admin & sub_role=satpam / role lama piket_satpam)
+                $isSatpamRole = $user ? $user->isSatpam() : false;
 
-                // 3. Guru Piket ditentukan dari jadwal_piket pada hari berjalan.
-                $isGuruPiketRole = $user ? $user->isPiketHariIni() : false;
+                // 3. Petugas Piket ditentukan dari jadwal_piket pada hari berjalan (Senin–Jumat).
+                //    Saat preview 'guru_piket', dipaksa aktif agar menu terlihat.
+                $isGuruPiketRole = ($previewRole === 'guru_piket') 
+                                || ($user ? $user->isPetugasPiketHariIni() : false);
 
                 // 4. Role Wali Kelas (role=guru & sub_role=wali_kelas)
                 $isWaliKelasRole = ($userRole === 'guru' && $userSubRole === 'wali_kelas') 
@@ -496,77 +514,74 @@
 
                 // 6. Petugas TU & Super Admin
                 $isSuperAdmin = ($userRole === 'admin' && $userSubRole === null);
-                $isPetugasTU = ($userRole === 'admin' && ($userSubRole === 'petugas_tu' || in_array($userRole, ['admin_tu'])));
+                $isPetugasTU = ($userRole === 'admin' && $userSubRole === 'petugas_tu') || ($userRole === 'admin_tu');
+
+                // Petugas IT / QA Tester (mode asli, tanpa preview)
+                $isPetugasItRole = (!$previewRole && $user && $user->isPetugasIt());
+
+                // Preview role sebagai Siswa (belum ada portal khusus)
+                $isPreviewSiswa = ($previewRole === 'siswa');
             @endphp
 
             @if($isKurikulumRole)
                 {{-- ================= NAVIGASI WAKA KURIKULUM ================= --}}
-                <x-sidebar-kurikulum />
+                <x-sidebar-kurikulum :pendingIzinCount="\App\Models\IzinGuru::whereIn('status', [\App\Models\IzinGuru::STATUS_PENDING_PIKET, \App\Models\IzinGuru::STATUS_PENDING_WAKA, \App\Models\IzinGuru::STATUS_PENDING_KEPSEK])->count()" />
 
             @elseif($isSatpamRole)
-                {{-- ================= NAVIGASI SATPAM / KEAMANAN ================= --}}
+                {{-- ================= NAVIGASI SATPAM / KEAMANAN (portal independen) ================= --}}
                 <div class="nav-item-container mt-2">
                     <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
                         SATPAM / KEAMANAN
                     </div>
                 </div>
 
-                <!-- Dashboard Piket -->
+                <!-- Dashboard Satpam -->
                 <div class="nav-item-container">
-                    <a href="{{ route('piket.dashboard') }}" class="nav-btn {{ request()->routeIs('piket.dashboard') ? 'active' : '' }}">
+                    <a href="{{ route('satpam.dashboard') }}" class="nav-btn {{ request()->routeIs('satpam.dashboard') ? 'active' : '' }}">
                         <span class="btn-left">
-                            <i class="bi bi-speedometer2"></i>
-                            <span>Dashboard</span>
+                            <i class="bi bi-shield-lock"></i>
+                            <span>Dashboard Satpam</span>
                         </span>
                     </a>
                 </div>
 
-                <!-- Presensi Guru -->
+                <!-- Verifikasi Izin Keluar -->
                 <div class="nav-item-container">
-                    <a href="{{ route('piket.presensi-guru') }}" class="nav-btn {{ request()->routeIs('piket.presensi-guru') ? 'active' : '' }}">
+                    <a href="{{ route('satpam.verifikasi') }}" class="nav-btn {{ request()->routeIs('satpam.verifikasi') ? 'active' : '' }}">
                         <span class="btn-left">
-                            <i class="bi bi-person-check-fill"></i>
-                            <span>Presensi Guru</span>
-                        </span>
-                    </a>
-                </div>
-
-                <!-- Presensi Siswa -->
-                <div class="nav-item-container">
-                    <a href="{{ route('piket.presensi-siswa') }}" class="nav-btn {{ request()->routeIs('piket.presensi-siswa') ? 'active' : '' }}">
-                        <span class="btn-left">
-                            <i class="bi bi-people-fill"></i>
-                            <span>Presensi Siswa</span>
-                        </span>
-                    </a>
-                </div>
-
-                <!-- Jurnal KBM Harian -->
-                <div class="nav-item-container">
-                    <a href="{{ route('piket.jurnal') }}" class="nav-btn {{ request()->routeIs('piket.jurnal') ? 'active' : '' }}">
-                        <span class="btn-left">
-                            <i class="bi bi-journal-text"></i>
-                            <span>Jurnal KBM Harian</span>
+                            <i class="bi bi-door-open-fill"></i>
+                            <span>Verifikasi Izin Keluar</span>
                         </span>
                     </a>
                 </div>
 
             @elseif($isGuruPiketRole)
                 {{-- ================= NAVIGASI GURU PIKET ================= --}}
-                <div class="nav-item-container mt-2">
-                    <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
-                        GURU PIKET
-                    </div>
-                </div>
 
                 <!-- Dashboard Piket -->
-                <div class="nav-item-container">
+                <div class="nav-item-container mt-2">
                     <a href="{{ route('piket.dashboard') }}" class="nav-btn {{ request()->routeIs('piket.dashboard') ? 'active' : '' }}">
                         <span class="btn-left">
                             <i class="bi bi-speedometer2"></i>
                             <span>Dashboard</span>
                         </span>
                     </a>
+                </div>
+
+                <!-- Jurnal Mengajar Saya -->
+                <div class="nav-item-container">
+                    <a href="{{ route('guru.jurnal') }}" class="nav-btn {{ request()->routeIs('guru.jurnal*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-journal-bookmark"></i>
+                            <span>Jurnal Mengajar Saya</span>
+                        </span>
+                    </a>
+                </div>
+
+                <div class="nav-item-container mt-2">
+                    <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                        GURU PIKET
+                    </div>
                 </div>
 
                 <!-- Presensi Guru -->
@@ -595,6 +610,36 @@
                         <span class="btn-left">
                             <i class="bi bi-journal-text"></i>
                             <span>Jurnal KBM Harian</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Dispensasi Siswa -->
+                <div class="nav-item-container">
+                    <a href="{{ route('piket.dispensasi.index') }}" class="nav-btn {{ request()->routeIs('piket.dispensasi.index') || request()->routeIs('piket.dispensasi.create') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-clipboard2-check"></i>
+                            <span>Dispensasi Siswa</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Approval Dispen -->
+                <div class="nav-item-container">
+                    <a href="{{ route('piket.dispensasi.pengajuan') }}" class="nav-btn {{ request()->routeIs('piket.dispensasi.pengajuan*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-check2-square"></i>
+                            <span>Approval Dispen</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Approval Izin Guru (Piket) -->
+                <div class="nav-item-container">
+                    <a href="{{ route('piket.izin.index') }}" class="nav-btn {{ request()->routeIs('piket.izin*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-person-check-fill"></i>
+                            <span>Approval Izin Guru</span>
                         </span>
                     </a>
                 </div>
@@ -627,6 +672,16 @@
                     </a>
                 </div>
 
+                <!-- Izin Guru -->
+                <div class="nav-item-container">
+                    <a href="{{ route('guru.izin.index') }}" class="nav-btn {{ request()->routeIs('guru.izin*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-person-dash"></i>
+                            <span>Izin Guru</span>
+                        </span>
+                    </a>
+                </div>
+
                 <!-- SECTION KELAS SAYA: HANYA untuk role 'wali_kelas' -->
                 @if($isWaliKelasRole)
                     @php
@@ -652,6 +707,12 @@
                         <div class="collapse {{ $isKelasSayaActive ? 'show' : '' }}" id="dropdownKelasSaya">
                             <ul class="submenu-list">
                                 <li>
+                                    <a href="{{ route('walikelas.dashboard') }}" class="submenu-item-link {{ request()->routeIs('walikelas.dashboard') ? 'active' : '' }}">
+                                        <i class="bi bi-speedometer2"></i>
+                                        <span>Dashboard Dispen</span>
+                                    </a>
+                                </li>
+                                <li>
                                     <a href="{{ route('walikelas.rekap-absen') }}" class="submenu-item-link {{ request()->routeIs('walikelas.rekap-absen') ? 'active' : '' }}">
                                         <i class="bi bi-clipboard-data"></i>
                                         <span>Rekap Absen Siswa</span>
@@ -674,6 +735,64 @@
                     </div>
                 @endif
 
+            @elseif($isPetugasItRole)
+                {{-- ================= NAVIGASI PETUGAS IT / QA TESTER ================= --}}
+                <div class="nav-item-container mt-2">
+                    <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                        QA / PETUGAS IT
+                    </div>
+                </div>
+
+                <!-- Dashboard -->
+                <div class="nav-item-container">
+                    <a href="{{ route('home') }}" class="nav-btn {{ request()->routeIs('home') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-grid-fill"></i>
+                            <span>Dashboard</span>
+                        </span>
+                    </a>
+                </div>
+
+                <div class="nav-item-container">
+                    <div class="px-2 mb-2 mt-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                        PENGUJIAN
+                    </div>
+                </div>
+
+                <!-- Switch View As -->
+                <div class="nav-item-container">
+                    <a href="#switchViewAs" class="nav-btn {{ session('preview_role') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-arrows-fullscreen"></i>
+                            <span>Switch View As</span>
+                        </span>
+                    </a>
+                </div>
+
+            @elseif($isPreviewSiswa)
+                {{-- ================= NAVIGASI SISWA (Preview) ================= --}}
+                <div class="nav-item-container mt-2">
+                    <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                        PORTAL SISWA
+                    </div>
+                </div>
+
+                <!-- Dashboard Siswa -->
+                <div class="nav-item-container">
+                    <a href="{{ route('home') }}" class="nav-btn {{ request()->routeIs('home') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-grid-fill"></i>
+                            <span>Dashboard</span>
+                        </span>
+                    </a>
+                </div>
+
+                <div class="nav-item-container">
+                    <div class="px-2 mb-2 mt-3 text-muted" style="font-size: 0.72rem;">
+                        <i class="bi bi-eye me-1"></i> Mode preview (Siswa). Gunakan tombol "Kembali ke Mode IT" untuk keluar.
+                    </div>
+                </div>
+
             @else
                 {{-- ================= NAVIGASI ADMIN / PETUGAS TU / SUPER ADMIN ================= --}}
                 <div class="nav-item-container mt-2">
@@ -694,7 +813,7 @@
 
                 <!-- Dropdown Data Master (Petugas TU: Guru/Pengguna, Siswa, Kelas, Jurusan) -->
                 @php
-                    $isDataMasterActive = request()->routeIs('guru.index') || request()->routeIs('siswa.*') || request()->routeIs('kelas.*') || request()->routeIs('jurusan.*');
+                    $isDataMasterActive = request()->routeIs('guru.index') || request()->routeIs('siswa.*') || request()->routeIs('kelas.*') || request()->routeIs('jurusan.*') || request()->routeIs('ruangan.*');
                 @endphp
                 <div class="nav-item-container">
                     <button class="nav-btn {{ $isDataMasterActive ? 'active' : '' }}" 
@@ -736,6 +855,12 @@
                                     <span>Data Jurusan</span>
                                 </a>
                             </li>
+                            <li>
+                                <a href="{{ route('ruangan.index') }}" class="submenu-item-link {{ request()->routeIs('ruangan.*') ? 'active' : '' }}">
+                                    <i class="bi bi-building"></i>
+                                    <span>Data Ruangan</span>
+                                </a>
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -748,6 +873,32 @@
                                 <span>Kelola User</span>
                             </span>
                         </a>
+                    </div>
+                @endif
+
+                @if($isPetugasTU || $isSuperAdmin)
+                    @php
+                        $isJadwalAdminActive = request()->routeIs('admin.jam-pelajaran.*') || request()->routeIs('admin.jadwal.*');
+                    @endphp
+                    <div class="nav-item-container">
+                        <button class="nav-btn {{ $isJadwalAdminActive ? 'active' : '' }}"
+                                type="button"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#dropdownJadwalAdmin"
+                                aria-expanded="{{ $isJadwalAdminActive ? 'true' : 'false' }}"
+                                aria-controls="dropdownJadwalAdmin">
+                            <span class="btn-left">
+                                <i class="bi bi-calendar3"></i>
+                                <span>Jadwal Pelajaran</span>
+                            </span>
+                            <i class="bi bi-chevron-down chevron-icon"></i>
+                        </button>
+                        <div class="collapse {{ $isJadwalAdminActive ? 'show' : '' }}" id="dropdownJadwalAdmin">
+                            <ul class="submenu-list">
+                                <li><a href="{{ route('admin.jam-pelajaran.index') }}" class="submenu-item-link {{ request()->routeIs('admin.jam-pelajaran.*') ? 'active' : '' }}"><i class="bi bi-clock-history"></i><span>Master Jam Pelajaran</span></a></li>
+                                <li><a href="{{ route('admin.jadwal.index') }}" class="submenu-item-link {{ request()->routeIs('admin.jadwal.*') ? 'active' : '' }}"><i class="bi bi-calendar-range"></i><span>Plotting Jadwal Kelas</span></a></li>
+                            </ul>
+                        </div>
                     </div>
                 @endif
 
@@ -767,26 +918,22 @@
                         </a>
                     </div>
                     <div class="nav-item-container">
-                        <a href="{{ route('kurikulum.jadwal.index') }}" class="nav-btn {{ request()->routeIs('kurikulum.jadwal.*') || request()->routeIs('kurikulum.jam-pelajaran.*') ? 'active' : '' }}">
+                        <a href="{{ route('laporan.index') }}" class="nav-btn {{ request()->routeIs('laporan.*', 'kurikulum.laporan.*') ? 'active' : '' }}">
                             <span class="btn-left">
-                                <i class="bi bi-calendar3"></i>
-                                <span>Jadwal Pelajaran</span>
+                                <i class="bi bi-file-earmark-text"></i>
+                                <span>Laporan</span>
                             </span>
                         </a>
                     </div>
+                @endif
+
+                {{-- Jadwal Piket Guru: Super Admin & Petugas TU --}}
+                @if($isSuperAdmin || $isPetugasTU)
                     <div class="nav-item-container">
                         <a href="{{ route('kurikulum.jadwal-piket.index') }}" class="nav-btn {{ request()->routeIs('kurikulum.jadwal-piket.*') ? 'active' : '' }}">
                             <span class="btn-left">
                                 <i class="bi bi-shield-check"></i>
                                 <span>Jadwal Piket Guru</span>
-                            </span>
-                        </a>
-                    </div>
-                    <div class="nav-item-container">
-                        <a href="{{ route('laporan.index') }}" class="nav-btn {{ request()->routeIs('laporan.*') ? 'active' : '' }}">
-                            <span class="btn-left">
-                                <i class="bi bi-file-earmark-text"></i>
-                                <span>Laporan</span>
                             </span>
                         </a>
                     </div>
@@ -826,6 +973,50 @@
 
             <!-- Actions Right -->
             <div class="topbar-actions">
+                @if(auth()->user() && auth()->user()->isPetugasIt())
+                    @php
+                        $itPreviewRole = $previewRole ?? (auth()->user()->hasPreviewRole() ? auth()->user()->previewRole() : null);
+                        $itPreviewLabel = $itPreviewRole ? (\App\Models\User::PREVIEW_ROLES[$itPreviewRole] ?? ucfirst($itPreviewRole)) : null;
+                    @endphp
+
+                    @if($itPreviewRole)
+                        <!-- Kembali ke Mode IT -->
+                        <form action="{{ route('it.reset-view') }}" method="POST" class="d-inline">
+                            @csrf
+                            <button type="submit" class="btn btn-sm btn-outline-warning rounded-3 d-flex align-items-center gap-2 me-2">
+                                <i class="bi bi-arrow-counterclockwise"></i>
+                                <span class="d-none d-sm-inline">Kembali ke Mode IT</span>
+                            </button>
+                        </form>
+                    @endif
+
+                    <!-- Switch View As -->
+                    <div class="dropdown me-2">
+                        <button class="btn btn-sm btn-dark rounded-3 d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-arrows-fullscreen"></i>
+                            <span class="d-none d-md-inline">
+                                {{ $itPreviewRole ? 'View: ' . $itPreviewLabel : 'Switch View As' }}
+                            </span>
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-4 mt-2">
+                            @foreach(\App\Models\User::PREVIEW_ROLES as $previewKey => $previewName)
+                                <li>
+                                    <form action="{{ route('it.switch-view') }}" method="POST" class="d-inline">
+                                        @csrf
+                                        <input type="hidden" name="role" value="{{ $previewKey }}">
+                                        <button type="submit" class="dropdown-item py-2 {{ $itPreviewRole === $previewKey ? 'active' : '' }}">
+                                            <i class="bi bi-person-circle me-2 text-muted"></i>
+                                            {{ $previewName }}
+                                        </button>
+                                    </form>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
                 <!-- Notifications -->
                 <button class="icon-btn position-relative" type="button">
                     <i class="bi bi-bell"></i>
@@ -838,16 +1029,22 @@
                 <!-- Profile Dropdown -->
                 <div class="dropdown">
                     <div class="user-dropdown-btn" data-bs-toggle="dropdown" aria-expanded="false">
-                        <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80" alt="Avatar" class="user-avatar">
+                        @php
+                            $navUser    = auth()->user();
+                            $navAvatar  = ($navUser && $navUser->foto_profil && \Illuminate\Support\Facades\Storage::disk('public')->exists($navUser->foto_profil))
+                                ? asset('storage/' . $navUser->foto_profil)
+                                : 'https://ui-avatars.com/api/?name=' . urlencode($navUser?->nama ?? 'User') . '&background=1677ff&color=fff&size=128&bold=true';
+                        @endphp
+                        <img src="{{ $navAvatar }}" alt="Avatar" class="user-avatar">
                         <div class="user-meta">
-                            <div class="user-name">{{ auth()->user()->nama ?? 'Admin Utama' }}</div>
-                            <div class="user-role">{{ auth()->user()->role_label ?? 'Administrator' }}</div>
+                            <div class="user-name">{{ $navUser?->nama ?? 'Admin Utama' }}</div>
+                            <div class="user-role">{{ $navUser?->role_label ?? 'Administrator' }}</div>
                         </div>
                         <i class="bi bi-chevron-down user-chevron"></i>
                     </div>
 
                     <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-4 mt-2">
-                        <li><a class="dropdown-item py-2" href="#"><i class="bi bi-person me-2 text-primary"></i> Profil Saya</a></li>
+                        <li><a class="dropdown-item py-2" href="{{ route('profil.index') }}"><i class="bi bi-person me-2 text-primary"></i> Profil Saya</a></li>
                         <li><a class="dropdown-item py-2" href="{{ route('pengaturan.index') }}"><i class="bi bi-sliders me-2 text-warning"></i> Pengaturan Akun</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li>

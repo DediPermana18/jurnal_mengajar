@@ -87,24 +87,6 @@
                         <input type="text" name="nama_mapel" class="form-control rounded-3 py-2"
                                value="{{ old('nama_mapel', $mapel->nama_mapel) }}" required autocomplete="off">
                     </div>
-
-                    {{-- KKM Min --}}
-                    <div class="col-12 col-md-6">
-                        <label class="form-label fw-bold text-dark" style="font-size: 0.875rem;">
-                            KKM Min. (Kriteria Ketuntasan Minimal)
-                        </label>
-                        <input type="number" name="kkm" class="form-control rounded-3 py-2"
-                               value="{{ old('kkm', $mapel->kkm ?? 75) }}" min="0" max="100">
-                    </div>
-
-                    {{-- Beban Jam --}}
-                    <div class="col-12 col-md-6">
-                        <label class="form-label fw-bold text-dark" style="font-size: 0.875rem;">
-                            Beban Jam (JP per Minggu)
-                        </label>
-                        <input type="number" name="beban_jam" class="form-control rounded-3 py-2"
-                               value="{{ old('beban_jam', $mapel->beban_jam ?? 2) }}" min="1" max="40">
-                    </div>
                 </div>
             </div>
 

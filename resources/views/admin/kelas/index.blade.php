@@ -120,6 +120,7 @@
                         <th style="width: 22%;">NAMA KELAS</th>
                         <th style="width: 14%;">TINGKAT</th>
                         <th style="width: 24%;">JURUSAN</th>
+                        <th style="width: 18%;">RUANGAN</th>
                         <th style="width: 24%;">WALI KELAS</th>
                         <th style="width: 16%;">TOTAL SISWA</th>
                         @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
@@ -179,6 +180,19 @@
                                     </div>
                                 @else
                                     <span class="text-muted" style="font-size: 0.85rem;">-</span>
+                                @endif
+                            </td>
+
+                            <!-- Kolom RUANGAN -->
+                            <td>
+                                @if($kelas->ruangan)
+                                    <span class="badge bg-light text-dark border px-3 py-2 rounded-3" style="font-size: 0.8rem;">
+                                        <i class="bi bi-building me-1"></i>{{ $kelas->ruangan->kode_ruangan }} — {{ $kelas->ruangan->nama_ruangan }}
+                                    </span>
+                                @else
+                                    <span class="badge bg-light text-muted border px-2 py-1 rounded-pill" style="font-size: 0.78rem;">
+                                        <i class="bi bi-dash-circle me-1"></i>Belum ditentukan
+                                    </span>
                                 @endif
                             </td>
 
@@ -256,7 +270,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) ? 6 : 5 }}" class="text-center py-5 text-muted">
+                            <td colspan="{{ in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) ? 7 : 6 }}" class="text-center py-5 text-muted">
                                 <i class="bi bi-door-closed fs-1 d-block mb-2 text-secondary"></i>
                                 Belum ada data kelas yang sesuai dengan kriteria pencarian/filter.
                             </td>
@@ -322,6 +336,20 @@
                                 </option>
                             @endforeach
                         </select>
+                    </div>
+
+                    <!-- RUANGAN HOMEBASE -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary small">RUANGAN HOMEBASE (OPSIONAL)</label>
+                        <select name="ruangan_id" class="form-select rounded-3">
+                            <option value="">-- Belum Ditentukan --</option>
+                            @foreach($daftarRuangan as $ruangan)
+                                <option value="{{ $ruangan->id }}" {{ old('ruangan_id') == $ruangan->id ? 'selected' : '' }}>
+                                    {{ $ruangan->kode_ruangan }} — {{ $ruangan->nama_ruangan }} @if($ruangan->lokasi) ({{ $ruangan->lokasi }}) @endif
+                                </option>
+                            @endforeach
+                        </select>
+                        <div class="form-text text-muted small">Ruangan fisik tempat kelas ini berada/homespace.</div>
                     </div>
 
                     <!-- WALI KELAS -->
@@ -391,6 +419,19 @@
                             @foreach($daftarJurusan as $jurusan)
                                 <option value="{{ $jurusan->id }}" {{ old('id_jurusan', $kelas->id_jurusan) == $jurusan->id ? 'selected' : '' }}>
                                     {{ $jurusan->kode_jurusan }} - {{ $jurusan->nama_jurusan }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <!-- RUANGAN HOMEBASE -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary small">RUANGAN HOMEBASE (OPSIONAL)</label>
+                        <select name="ruangan_id" class="form-select rounded-3">
+                            <option value="">-- Belum Ditentukan --</option>
+                            @foreach($daftarRuangan as $ruangan)
+                                <option value="{{ $ruangan->id }}" {{ old('ruangan_id', $kelas->ruangan_id) == $ruangan->id ? 'selected' : '' }}>
+                                    {{ $ruangan->kode_ruangan }} — {{ $ruangan->nama_ruangan }} @if($ruangan->lokasi) ({{ $ruangan->lokasi }}) @endif
                                 </option>
                             @endforeach
                         </select>

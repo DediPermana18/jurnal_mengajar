@@ -74,7 +74,7 @@
                     <tr>
                         <th>NO</th>
                         <th>NAMA LENGKAP</th>
-                        <th>USERNAME / NIP</th>
+                        <th>USERNAME</th>
                         <th>SUB-ROLE</th>
                         <th>KODE AKTIVASI</th>
                         <th>STATUS</th>
@@ -98,7 +98,9 @@
                             <td class="fw-semibold text-dark">{{ $user->nama }}</td>
                             <td>
                                 <div class="fw-semibold text-dark">{{ $user->username }}</div>
-                                <div class="text-muted small">NIP/NIK: {{ $user->nip ?: '-' }}</div>
+                                @if($user->nip)
+                                    <div class="text-muted small">NIP/NIK: {{ $user->nip }}</div>
+                                @endif
                             </td>
                             <td><span class="badge {{ $roleClass }} px-2 py-2 rounded-3">{{ $roleLabel }}</span></td>
                             <td><code>{{ $user->kode_aktivasi ?: '-' }}</code></td>

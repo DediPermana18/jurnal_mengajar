@@ -141,5 +141,20 @@ class UserSeeder extends Seeder
                 'is_active'     => true,
             ]
         );
+
+        // 8. Petugas IT / QA Tester
+        User::updateOrCreate(
+            ['email' => 'it@school.id'],
+            [
+                'nama'          => 'Petugas IT / QA Tester',
+                'nip'           => '199808082022011009',
+                'username'      => 'petugasit',
+                'password'      => Hash::make('password'),
+                'kode_aktivasi' => null,
+                'role'          => 'petugas_it',
+                'sub_role'      => null,
+                'is_active'     => true,
+            ]
+        );
     }
 }

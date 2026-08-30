@@ -18,24 +18,6 @@
         display: inline-block;
     }
 
-    .badge-jenis-umum {
-        background-color: #eff6ff;
-        color: #1d4ed8;
-        border: 1px solid #bfdbfe;
-    }
-
-    .badge-jenis-kejuruan {
-        background-color: #f0fdf4;
-        color: #15803d;
-        border: 1px solid #bbf7d0;
-    }
-
-    .badge-jenis-mulok {
-        background-color: #fefce8;
-        color: #a16207;
-        border: 1px solid #fef08a;
-    }
-
     .btn-aksi {
         display: inline-flex;
         align-items: center;
@@ -163,7 +145,7 @@
                 Data Mata Pelajaran
             </h2>
             <p class="text-muted mb-0" style="font-size: 0.9rem;">
-                Kelola daftar mata pelajaran, kode mapel, jenis kurikulum, KKM, dan beban jam harian.
+                Kelola daftar mata pelajaran dan kode mapel sekolah.
             </p>
         </div>
         <div>
@@ -253,21 +235,11 @@
                             <th class="ps-4 py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 60px;">No</th>
                             <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 140px;">Kode Mapel</th>
                             <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b;">Nama Mata Pelajaran</th>
-                            <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 220px;">Jenis Mapel</th>
-                            <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 180px;">KKM / Beban Jam</th>
                             <th class="py-3 pe-4 text-end" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 120px;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($dataMapel as $mapel)
-                            @php
-                                $jenisVal = $mapel->kelompok ?? 'Umum';
-                                $badgeClass = match(true) {
-                                    str_contains($jenisVal, 'Kejuruan') => 'badge-jenis-kejuruan',
-                                    str_contains($jenisVal, 'Lokal') || str_contains($jenisVal, 'Ekstra') => 'badge-jenis-mulok',
-                                    default => 'badge-jenis-umum',
-                                };
-                            @endphp
                             <tr>
                                 {{-- 1. No --}}
                                 <td class="ps-4 fw-semibold text-muted" style="font-size: 0.85rem;">
@@ -293,26 +265,7 @@
                                     </div>
                                 </td>
 
-                                {{-- 4. Jenis Mapel --}}
-                                <td>
-                                    <span class="badge px-3 py-2 rounded-pill fw-semibold {{ $badgeClass }}" style="font-size: 0.78rem;">
-                                        {{ $jenisVal }}
-                                    </span>
-                                </td>
-
-                                {{-- 5. KKM / Beban Jam --}}
-                                <td>
-                                    <div class="d-flex flex-column">
-                                        <span class="fw-semibold text-dark" style="font-size: 0.85rem;">
-                                            KKM: <strong class="text-primary">{{ $mapel->kkm ?? 75 }}</strong>
-                                        </span>
-                                        <span class="text-muted" style="font-size: 0.75rem;">
-                                            Beban: <strong>{{ $mapel->beban_jam ?? 2 }} JP</strong> / minggu
-                                        </span>
-                                    </div>
-                                </td>
-
-                                {{-- 6. Aksi --}}
+                                {{-- 4. Aksi --}}
                                 <td class="pe-4 text-end">
                                     <div class="d-flex justify-content-end align-items-center gap-1">
                                         {{-- Dedicated Edit Page Button --}}
@@ -334,7 +287,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center py-5">
+                                <td colspan="4" class="text-center py-5">
                                     <div style="color: #cbd5e1;">
                                         <i class="bi bi-journal-x" style="font-size: 2.75rem; display: block; margin-bottom: 0.75rem;"></i>
                                     </div>

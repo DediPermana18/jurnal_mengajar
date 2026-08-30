@@ -53,19 +53,25 @@
             </p>
         </div>
         <div class="d-flex align-items-center gap-2">
-            @if(!$isHariSenin)
+            @if(!($isHariSenin ?? false))
                 <a href="{{ route('kurikulum.dashboard', ['dev_mode_senin' => 1]) }}"
                    class="btn btn-outline-warning btn-sm rounded-3 fw-semibold d-flex align-items-center gap-1"
-                   title="Aktifkan Tampilan Simulasi Hari Senin">
-                    <i class="bi bi-bug-fill"></i> Simulasi Hari Senin (Dev)
+                   title="Simulasi Tampilan Sakelar Senin">
+                    <i class="bi bi-bug-fill"></i> Simulasi Senin (Dev)
                 </a>
-            @else
-                @if(request()->has('dev_mode_senin'))
-                    <a href="{{ route('kurikulum.dashboard') }}"
-                       class="btn btn-light btn-sm border rounded-3 text-muted">
-                        <i class="bi bi-x-circle me-1"></i>Tutup Simulasi
-                    </a>
-                @endif
+            @endif
+            @if(!($isHariJumat ?? false))
+                <a href="{{ route('kurikulum.dashboard', ['dev_mode_jumat' => 1]) }}"
+                   class="btn btn-outline-info btn-sm rounded-3 fw-semibold d-flex align-items-center gap-1"
+                   title="Simulasi Tampilan Sakelar Jumat">
+                    <i class="bi bi-bug-fill"></i> Simulasi Jumat (Dev)
+                </a>
+            @endif
+            @if(request()->has('dev_mode_senin') || request()->has('dev_mode_jumat'))
+                <a href="{{ route('kurikulum.dashboard') }}"
+                   class="btn btn-light btn-sm border rounded-3 text-muted">
+                    <i class="bi bi-x-circle me-1"></i>Tutup Simulasi
+                </a>
             @endif
             <span class="badge bg-white text-dark border shadow-2xs rounded-pill px-3 py-2 fw-semibold" style="font-size: 0.82rem;">
                 <i class="bi bi-calendar-event me-1 text-primary"></i>
@@ -84,66 +90,97 @@
     @endif
 
     {{-- ============================================================== --}}
-    {{-- 1. WIDGET BANNER KHUSUS (MODE KHUSUS SENIN)                     --}}
-    {{--    Tampil HANYA jika hari ini Senin (atau dev_mode_senin)       --}}
+    {{-- 1. QUICK CONTROL / PENGATURAN KBM HARI INI                     --}}
+    {{--    Tampil HANYA jika $hariAktif == 'Senin' atau 'Jumat'        --}}
     {{-- ============================================================== --}}
-    @if($isHariSenin)
+    @if((auth()->user()->role === 'admin' || in_array(auth()->user()->role, ['waka_kurikulum', 'admin_kurikulum', 'kurikulum'])) && in_array($hariAktif, ['Senin', 'Jumat']))
         @php
-            $isTanpaUpacara = $pengaturanJadwal->senin_tanpa_upacara && $pengaturanJadwal->tanggal_eksekusi;
+            $isSeninTanpaUpacara = $pengaturanJadwal->senin_tanpa_upacara && $pengaturanJadwal->tanggal_eksekusi;
+            $isJumatTanpaPembiasaan = $pengaturanJadwal->jumat_tanpa_pembiasaan && $pengaturanJadwal->tanggal_eksekusi_jumat;
         @endphp
-        <div class="card border-0 rounded-4 shadow-sm mb-4 overflow-hidden"
-             style="background: {{ $isTanpaUpacara ? 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)' : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)' }}; border: 1.5px solid {{ $isTanpaUpacara ? '#fed7aa' : '#bbf7d0' }} !important;">
-            <div class="card-body p-4">
-                <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-3 d-flex align-items-center justify-content-center text-white flex-shrink-0"
-                             style="width: 48px; height: 48px; background: {{ $isTanpaUpacara ? 'linear-gradient(135deg, #ea580c, #c2410c)' : 'linear-gradient(135deg, #16a34a, #15803d)' }};">
-                            <i class="bi {{ $isTanpaUpacara ? 'bi-lightning-charge-fill' : 'bi-flag-fill' }} fs-4"></i>
-                        </div>
-                        <div>
-                            <div class="d-flex align-items-center gap-2 mb-1">
-                                <h5 class="fw-bold mb-0 text-dark" style="font-size: 1.1rem;">
-                                    Pengaturan Penyesuaian Upacara Senin
-                                </h5>
-                                @if($isTanpaUpacara)
-                                    <span class="badge bg-warning text-dark border border-warning-subtle rounded-pill px-3 py-1 fw-bold" style="font-size: 0.78rem;">
-                                        <i class="bi bi-clock-history me-1"></i>KBM Dimajukan 1 JP (Upacara Ditiadakan)
-                                    </span>
-                                @else
-                                    <span class="badge bg-success text-white border border-success-subtle rounded-pill px-3 py-1 fw-bold" style="font-size: 0.78rem;">
-                                        <i class="bi bi-check-circle-fill me-1"></i>Jadwal Normal (Ada Upacara Bendera)
-                                    </span>
-                                @endif
-                            </div>
-                            <div class="text-muted" style="font-size: 0.85rem;">
-                                @if($isTanpaUpacara)
-                                    Upacara ditiadakan hari ini. Slot Jam 1 ditiadakan, seluruh jam KBM bergeser maju 1 JP & siswa/guru pulang 1 JP lebih awal.
-                                @else
-                                    Kegiatan upacara bendera dilaksanakan seperti biasa di Jam ke-1. Pembelajaran KBM dimulai sesuai jadwal standar.
-                                @endif
-                            </div>
-                        </div>
-                    </div>
 
-                    {{-- Switch / Toggle Form --}}
-                    @if(auth()->user()->role === 'admin' || in_array(auth()->user()->role, ['waka_kurikulum', 'admin_kurikulum', 'kurikulum']))
-                        <form method="POST" action="{{ route('kurikulum.toggle-senin-tanpa-upacara') }}" id="formToggleDashboardSenin">
-                            @csrf
-                            <div class="d-flex align-items-center gap-2 p-2 rounded-3 bg-white border shadow-2xs">
-                                <span class="fw-semibold text-muted small ms-1">Status Kegiatan:</span>
-                                <div class="form-check form-switch mb-0 me-2">
-                                    <input class="form-check-input" type="checkbox" role="switch" id="toggleDashboardSenin" name="senin_tanpa_upacara" value="1"
-                                           {{ $isTanpaUpacara ? 'checked' : '' }}
-                                           onchange="this.form.submit()" style="cursor: pointer; width: 3em; height: 1.5em;">
-                                    <label class="form-check-label fw-bold text-dark ms-2" for="toggleDashboardSenin" style="font-size: 0.875rem; cursor: pointer;">
-                                        {{ $isTanpaUpacara ? 'Upacara Ditiadakan' : 'Mode Normal (Upacara)' }}
-                                    </label>
+        <div class="mb-4">
+            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                <h5 class="fw-bold text-dark mb-0" style="font-size: 1.05rem;">
+                    <i class="bi bi-sliders text-danger me-1"></i> Quick Control / Pengaturan KBM Hari Ini
+                </h5>
+                <span class="badge bg-light text-muted border rounded-pill px-3 py-1" style="font-size: 0.75rem;">
+                    <i class="bi bi-clock-history me-1"></i>Hari Aktif: {{ $hariAktif }} @if($isSimulasiSenin || $isSimulasiJumat) (Mode Simulasi) @endif
+                </span>
+            </div>
+
+            @if($hariAktif === 'Senin')
+                {{-- CARD SAKELAR HARI SENIN --}}
+                <div class="card border-0 rounded-4 shadow-sm overflow-hidden"
+                     style="background: {{ $isSeninTanpaUpacara ? 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)' : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)' }}; border: 1.5px solid {{ $isSeninTanpaUpacara ? '#fed7aa' : '#bbf7d0' }} !important;">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-3 d-flex align-items-center justify-content-center text-white flex-shrink-0"
+                                     style="width: 48px; height: 48px; background: {{ $isSeninTanpaUpacara ? 'linear-gradient(135deg, #ea580c, #c2410c)' : 'linear-gradient(135deg, #16a34a, #15803d)' }};">
+                                    <i class="bi {{ $isSeninTanpaUpacara ? 'bi-lightning-charge-fill' : 'bi-flag-fill' }} fs-4"></i>
+                                </div>
+                                <div>
+                                    <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                        <h5 class="fw-bold mb-0 text-dark" style="font-size: 1.05rem;">
+                                            Sakelar Khusus Hari Senin: Upacara Ditiadakan
+                                        </h5>
+                                        @if($isSeninTanpaUpacara)
+                                            <span class="badge bg-warning text-dark border border-warning-subtle rounded-pill px-3 py-1 fw-bold" style="font-size: 0.78rem;">
+                                                <i class="bi bi-clock-history me-1"></i>Mode Maju 1 JP
+                                            </span>
+                                        @else
+                                            <span class="badge bg-success text-white border border-success-subtle rounded-pill px-3 py-1 fw-bold" style="font-size: 0.78rem;">
+                                                <i class="bi bi-check-circle-fill me-1"></i>Senin Normal (Ada Upacara)
+                                            </span>
+                                        @endif
+                                    </div>
+                                    <div class="text-muted" style="font-size: 0.85rem;">
+                                        Aktifkan jika Upacara Bendera ditiadakan. Seluruh jam KBM dimajukan 1 JP & siswa/guru pulang 1 JP lebih awal.
+                                    </div>
                                 </div>
                             </div>
-                        </form>
-                    @endif
+
+                        </div>
+                    </div>
                 </div>
-            </div>
+
+            @elseif($hariAktif === 'Jumat')
+                {{-- CARD SAKELAR HARI JUMAT --}}
+                <div class="card border-0 rounded-4 shadow-sm overflow-hidden"
+                     style="background: {{ $isJumatTanpaPembiasaan ? 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)' : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)' }}; border: 1.5px solid {{ $isJumatTanpaPembiasaan ? '#fed7aa' : '#bbf7d0' }} !important;">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-3 d-flex align-items-center justify-content-center text-white flex-shrink-0"
+                                     style="width: 48px; height: 48px; background: {{ $isJumatTanpaPembiasaan ? 'linear-gradient(135deg, #ea580c, #c2410c)' : 'linear-gradient(135deg, #0284c7, #0369a1)' }};">
+                                    <i class="bi {{ $isJumatTanpaPembiasaan ? 'bi-lightning-charge-fill' : 'bi-heart-pulse-fill' }} fs-4"></i>
+                                </div>
+                                <div>
+                                    <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                        <h5 class="fw-bold mb-0 text-dark" style="font-size: 1.05rem;">
+                                            Sakelar Khusus Hari Jumat: Pembiasaan Ditiadakan
+                                        </h5>
+                                        @if($isJumatTanpaPembiasaan)
+                                            <span class="badge bg-warning text-dark border border-warning-subtle rounded-pill px-3 py-1 fw-bold" style="font-size: 0.78rem;">
+                                                <i class="bi bi-clock-history me-1"></i>Mode Maju 1 JP
+                                            </span>
+                                        @else
+                                            <span class="badge bg-success text-white border border-success-subtle rounded-pill px-3 py-1 fw-bold" style="font-size: 0.78rem;">
+                                                <i class="bi bi-check-circle-fill me-1"></i>Jumat Normal (Ada Pembiasaan)
+                                            </span>
+                                        @endif
+                                    </div>
+                                    <div class="text-muted" style="font-size: 0.85rem;">
+                                        Aktifkan jika Kegiatan Pembiasaan Jumat ditiadakan. Seluruh jam KBM dimajukan 1 JP & KBM dimulai lebih awal.
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            @endif
         </div>
     @endif
 
@@ -243,40 +280,6 @@
             <i class="bi bi-lightning-fill text-warning me-1"></i> Akses Cepat Modul Kurikulum
         </h5>
         <div class="row g-3">
-            {{-- Link 1: Master Jam Pelajaran --}}
-            <div class="col-12 col-md-4">
-                <a href="{{ route('kurikulum.jam-pelajaran.index') }}" class="quick-link-card shadow-2xs">
-                    <div class="rounded-3 d-flex align-items-center justify-content-center bg-primary-subtle text-primary flex-shrink-0"
-                         style="width: 46px; height: 46px;">
-                        <i class="bi bi-clock-history fs-4"></i>
-                    </div>
-                    <div class="overflow-hidden flex-grow-1">
-                        <h6 class="fw-bold mb-1 text-dark" style="font-size: 0.95rem;">Master Jam Pelajaran</h6>
-                        <div class="text-muted text-truncate" style="font-size: 0.78rem;">
-                            Preset slot KBM, Istirahat, Jam Pulang & Agenda Rutin.
-                        </div>
-                    </div>
-                    <i class="bi bi-chevron-right text-muted"></i>
-                </a>
-            </div>
-
-            {{-- Link 2: Plotting Jadwal Kelas --}}
-            <div class="col-12 col-md-4">
-                <a href="{{ route('kurikulum.jadwal.index') }}" class="quick-link-card shadow-2xs">
-                    <div class="rounded-3 d-flex align-items-center justify-content-center bg-success-subtle text-success flex-shrink-0"
-                         style="width: 46px; height: 46px;">
-                        <i class="bi bi-calendar-grid fs-4"></i>
-                    </div>
-                    <div class="overflow-hidden flex-grow-1">
-                        <h6 class="fw-bold mb-1 text-dark" style="font-size: 0.95rem;">Plotting Jadwal Kelas</h6>
-                        <div class="text-muted text-truncate" style="font-size: 0.78rem;">
-                            Atur penugasan Mapel & Guru Pengajar per kelas.
-                        </div>
-                    </div>
-                    <i class="bi bi-chevron-right text-muted"></i>
-                </a>
-            </div>
-
             {{-- Link 3: Jadwal Piket Guru --}}
             <div class="col-12 col-md-4">
                 <a href="{{ route('kurikulum.jadwal-piket.index') }}" class="quick-link-card shadow-2xs">

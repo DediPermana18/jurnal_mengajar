@@ -22,35 +22,78 @@ class PengaturanJadwalController extends Controller
     }
 
     /**
-     * Sakelar / Toggle Mode Khusus Senin: Upacara Ditiadakan (Jam KBM Dimajukan).
+     * Toggle Mode Khusus Dinamis (Senin: Upacara Ditiadakan / Jumat: Pembiasaan Ditiadakan).
      */
-    public function toggleSeninTanpaUpacara(Request $request)
+    public function toggleModeKhusus(Request $request)
     {
         $this->authorizeKurikulum();
 
-        $status  = $request->boolean('senin_tanpa_upacara');
         $setting = PengaturanJadwal::getSetting();
+        $now     = Carbon::now();
 
-        if ($status) {
-            // Tentukan tanggal hari Senin (hari ini jika Senin, atau Senin terdekat berikutnya)
-            $now = Carbon::now();
-            $seninDate = $now->isMonday() ? $now->toDateString() : $now->next(Carbon::MONDAY)->toDateString();
-
-            $setting->update([
-                'senin_tanpa_upacara' => true,
-                'tanggal_eksekusi'    => $seninDate,
-            ]);
-
-            $tglFormatted = Carbon::parse($seninDate)->translatedFormat('l, d F Y');
-
-            return redirect()->back()->with('success', "⚡ Mode Khusus \"Senin Tanpa Upacara\" DIAKTIFKAN untuk {$tglFormatted}. Seluruh jam KBM bergeser maju 1 JP.");
-        } else {
-            $setting->update([
-                'senin_tanpa_upacara' => false,
-                'tanggal_eksekusi'    => null,
-            ]);
-
-            return redirect()->back()->with('success', 'Mode Hari Senin dikembalikan ke NORMAL (Ada Upacara Bendera).');
+        // Tentukan jenis mode yang dipicu
+        $modeType = $request->input('mode_type');
+        if (!$modeType) {
+            if ($request->has('jumat_tanpa_pembiasaan') || $now->isFriday()) {
+                $modeType = 'jumat';
+            } else {
+                $modeType = 'senin';
+            }
         }
+
+        if ($modeType === 'jumat') {
+            $status = $request->has('jumat_tanpa_pembiasaan')
+                ? $request->boolean('jumat_tanpa_pembiasaan')
+                : $request->boolean('status');
+
+            if ($status) {
+                $jumatDate = $now->isFriday() ? $now->toDateString() : $now->next(Carbon::FRIDAY)->toDateString();
+                $setting->update([
+                    'jumat_tanpa_pembiasaan' => true,
+                    'tanggal_eksekusi_jumat' => $jumatDate,
+                ]);
+
+                $tglFormatted = Carbon::parse($jumatDate)->translatedFormat('l, d F Y');
+                return redirect()->back()->with('success', "⚡ Mode Khusus \"Jumat Tanpa Pembiasaan\" DIAKTIFKAN untuk {$tglFormatted}. Seluruh jam KBM dimajukan 1 JP.");
+            } else {
+                $setting->update([
+                    'jumat_tanpa_pembiasaan' => false,
+                    'tanggal_eksekusi_jumat' => null,
+                ]);
+
+                return redirect()->back()->with('success', 'Mode Hari Jumat dikembalikan ke NORMAL (Ada Pembiasaan).');
+            }
+        } else {
+            // Mode Senin
+            $status = $request->has('senin_tanpa_upacara')
+                ? $request->boolean('senin_tanpa_upacara')
+                : $request->boolean('status');
+
+            if ($status) {
+                $seninDate = $now->isMonday() ? $now->toDateString() : $now->next(Carbon::MONDAY)->toDateString();
+                $setting->update([
+                    'senin_tanpa_upacara' => true,
+                    'tanggal_eksekusi'    => $seninDate,
+                ]);
+
+                $tglFormatted = Carbon::parse($seninDate)->translatedFormat('l, d F Y');
+                return redirect()->back()->with('success', "⚡ Mode Khusus \"Senin Tanpa Upacara\" DIAKTIFKAN untuk {$tglFormatted}. Seluruh jam KBM dimajukan 1 JP.");
+            } else {
+                $setting->update([
+                    'senin_tanpa_upacara' => false,
+                    'tanggal_eksekusi'    => null,
+                ]);
+
+                return redirect()->back()->with('success', 'Mode Hari Senin dikembalikan ke NORMAL (Ada Upacara Bendera).');
+            }
+        }
+    }
+
+    /**
+     * Alias method untuk kelangsungan route terdahulu.
+     */
+    public function toggleSeninTanpaUpacara(Request $request)
+    {
+        return $this->toggleModeKhusus($request);
     }
 }

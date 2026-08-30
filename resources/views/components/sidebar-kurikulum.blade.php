@@ -3,9 +3,6 @@
 @php
     // State penanda active route (berdasarkan route name, bukan URL)
     $isDashboardActive      = request()->routeIs('kurikulum.dashboard*');
-    $isJadwalActive         = request()->routeIs('kurikulum.jam-pelajaran.*') || request()->routeIs('kurikulum.jadwal.*') || request()->routeIs('kurikulum.jadwal-piket.*');
-    $isJamPelajaranActive   = request()->routeIs('kurikulum.jam-pelajaran.*');
-    $isPlottingJadwalActive = request()->routeIs('kurikulum.jadwal.*');
     $isJadwalPiketActive    = request()->routeIs('kurikulum.jadwal-piket.*');
     $isMapelActive          = request()->routeIs('mapel.*');
     $isIzinActive           = request()->routeIs('kurikulum.izin.*');
@@ -32,46 +29,15 @@
     </a>
 </div>
 
-<!-- 2. Jadwal Pelajaran (Dropdown / Submenu) -->
+<!-- 2. Jadwal Piket Guru -->
 <div class="nav-item-container">
-    <button class="nav-btn {{ $isJadwalActive ? 'active' : '' }}"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#dropdownJadwalKurikulum"
-            aria-expanded="{{ $isJadwalActive ? 'true' : 'false' }}"
-            aria-controls="dropdownJadwalKurikulum">
+    <a href="{{ Route::has('kurikulum.jadwal-piket.index') ? route('kurikulum.jadwal-piket.index') : '#' }}"
+       class="nav-btn {{ $isJadwalPiketActive ? 'active' : '' }}">
         <span class="btn-left">
-            <i class="bi bi-calendar3"></i>
-            <span>Jadwal Pelajaran</span>
+            <i class="bi bi-shield-check"></i>
+            <span>Jadwal Piket Guru</span>
         </span>
-        <i class="bi bi-chevron-down chevron-icon"></i>
-    </button>
-
-    <div class="collapse {{ $isJadwalActive ? 'show' : '' }}" id="dropdownJadwalKurikulum">
-        <ul class="submenu-list">
-            <li>
-                <a href="{{ Route::has('kurikulum.jam-pelajaran.index') ? route('kurikulum.jam-pelajaran.index') : '#' }}"
-                   class="submenu-item-link {{ $isJamPelajaranActive ? 'active' : '' }}">
-                    <i class="bi bi-clock-history"></i>
-                    <span>Master Jam Pelajaran</span>
-                </a>
-            </li>
-            <li>
-                <a href="{{ Route::has('kurikulum.jadwal.index') ? route('kurikulum.jadwal.index') : '#' }}"
-                   class="submenu-item-link {{ $isPlottingJadwalActive ? 'active' : '' }}">
-                    <i class="bi bi-calendar-range"></i>
-                    <span>Plotting Jadwal Kelas</span>
-                </a>
-            </li>
-            <li>
-                <a href="{{ Route::has('kurikulum.jadwal-piket.index') ? route('kurikulum.jadwal-piket.index') : '#' }}"
-                   class="submenu-item-link {{ $isJadwalPiketActive ? 'active' : '' }}">
-                    <i class="bi bi-shield-check"></i>
-                    <span>Jadwal Piket Guru</span>
-                </a>
-            </li>
-        </ul>
-    </div>
+    </a>
 </div>
 
 <!-- 3. Data Mata Pelajaran -->
@@ -102,6 +68,17 @@
                 0
             </span>
         @endif
+    </a>
+</div>
+
+<!-- 4b. Pengaturan Alur Approval Izin -->
+<div class="nav-item-container">
+    <a href="{{ Route::has('kurikulum.izin.setting') ? route('kurikulum.izin.setting') : '#' }}"
+       class="nav-btn {{ request()->routeIs('kurikulum.izin.setting*') ? 'active' : '' }}">
+        <span class="btn-left">
+            <i class="bi bi-diagram-3"></i>
+            <span>Pengaturan Alur Izin</span>
+        </span>
     </a>
 </div>
 

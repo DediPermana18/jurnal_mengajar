@@ -17,8 +17,16 @@ class JadwalPiketController extends Controller
         $user = auth()->user();
         $role = $user ? $user->role : null;
 
-        $isAllowed = ($role === 'admin') || in_array($role, ['admin_kurikulum', 'waka_kurikulum', 'kurikulum']);
+        $isAllowed = in_array($role, ['admin', 'admin_kurikulum', 'waka_kurikulum', 'kurikulum', 'admin_tu']);
         abort_unless($isAllowed, 403, 'Akses ditolak. Anda tidak memiliki izin untuk mengelola Jadwal Piket.');
+    }
+
+    protected function authorizeManage()
+    {
+        $user = auth()->user();
+        $isAllowed = $user && in_array($user->role, ['admin', 'admin_kurikulum', 'waka_kurikulum', 'admin_tu']);
+
+        abort_unless($isAllowed, 403, 'Akses ditolak. Anda tidak memiliki izin untuk mengubah Jadwal Piket.');
     }
 
     /**
@@ -43,6 +51,9 @@ class JadwalPiketController extends Controller
             ->orderBy('nama', 'asc')
             ->get();
 
+        $user = auth()->user();
+        $canManage = $user && in_array($user->role, ['admin', 'admin_kurikulum', 'waka_kurikulum', 'admin_tu']);
+
         // ID guru yang sudah terpilih per hari (untuk pre-check checkbox)
         $selectedByHari = [];
         foreach ($hariList as $hari) {
@@ -50,7 +61,7 @@ class JadwalPiketController extends Controller
         }
 
         return view('kurikulum.jadwal_piket.index', compact(
-            'hariList', 'jadwalByHari', 'guruList', 'allJadwal', 'selectedByHari'
+            'hariList', 'jadwalByHari', 'guruList', 'allJadwal', 'selectedByHari', 'canManage'
         ));
     }
 
@@ -59,7 +70,7 @@ class JadwalPiketController extends Controller
      */
     public function create(Request $request)
     {
-        $this->authorizeKurikulum();
+        $this->authorizeManage();
 
         $hariList = JadwalPiket::HARI_LIST;
         $selectedHari = $request->get('hari', 'Senin');
@@ -85,7 +96,7 @@ class JadwalPiketController extends Controller
      */
     public function edit($hari)
     {
-        $this->authorizeKurikulum();
+        $this->authorizeManage();
 
         $hariList = JadwalPiket::HARI_LIST;
         if (!in_array($hari, $hariList)) {
@@ -112,7 +123,7 @@ class JadwalPiketController extends Controller
      */
     public function store(Request $request)
     {
-        $this->authorizeKurikulum();
+        $this->authorizeManage();
 
         // Harmonize guru_ids / user_ids / user_id
         if (!$request->has('guru_ids') && $request->has('user_ids')) {
@@ -157,7 +168,7 @@ class JadwalPiketController extends Controller
      */
     public function destroy($id)
     {
-        $this->authorizeKurikulum();
+        $this->authorizeManage();
 
         $jadwal   = JadwalPiket::with('user')->findOrFail($id);
         $namaGuru = $jadwal->user ? $jadwal->user->nama : 'Petugas Piket';

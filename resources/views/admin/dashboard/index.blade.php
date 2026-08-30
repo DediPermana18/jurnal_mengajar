@@ -36,9 +36,9 @@
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="stat-card-custom h-100">
-                <div class="stat-card-title">Akun Belum Aktivasi</div>
-                <div class="stat-number-large text-warning">{{ number_format($akunBelumAktivasi) }}</div>
-                <div class="stat-card-label">Kode aktivasi masih tersedia</div>
+                <div class="stat-card-title">Akun Tidak Aktif</div>
+                <div class="stat-number-large text-secondary">{{ number_format($akunTidakAktif) }}</div>
+                <div class="stat-card-label">Akun yang dinonaktifkan</div>
             </div>
         </div>
     </div>
@@ -64,8 +64,8 @@
                         <tbody>
                             @forelse($userTerbaru as $user)
                                 @php
-                                    $statusAktivasi = $user->kode_aktivasi ? 'Belum Aktivasi' : 'Aktif';
-                                    $statusClass = $user->kode_aktivasi ? 'bg-warning-subtle text-warning-emphasis' : 'bg-success-subtle text-success';
+                                    $statusAktivasi = $user->is_active ? 'Aktif' : 'Nonaktif';
+                                    $statusClass = $user->is_active ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary';
                                 @endphp
                                 <tr>
                                     <td class="fw-semibold text-dark">{{ $user->nama }}</td>

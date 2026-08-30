@@ -34,10 +34,22 @@ class KurikulumDashboardController extends Controller
 
         $hariIniStr = $mapHariIni[$now->format('l')] ?? 'Senin';
 
-        // Developer / Testing Override: ?dev_mode_senin=1 untuk memicu tampilan widget Senin di luar hari Senin
-        $isHariSenin = $now->isMonday() || $request->has('dev_mode_senin');
+        // Developer / Testing Simulation Check
+        $isSimulasiSenin = $request->has('dev_mode_senin') && $request->boolean('dev_mode_senin');
+        $isSimulasiJumat = $request->has('dev_mode_jumat') && $request->boolean('dev_mode_jumat');
 
-        // Pengaturan Sakelar Senin Tanpa Upacara
+        if ($isSimulasiSenin) {
+            $hariAktif = 'Senin';
+        } elseif ($isSimulasiJumat) {
+            $hariAktif = 'Jumat';
+        } else {
+            $hariAktif = $hariIniStr;
+        }
+
+        $isHariSenin = ($hariAktif === 'Senin');
+        $isHariJumat = ($hariAktif === 'Jumat');
+
+        // Pengaturan Sakelar Mode Khusus (Senin / Jumat)
         $pengaturanJadwal = PengaturanJadwal::getSetting();
 
         // 1. Stat Card 1: Total Kelas
@@ -70,7 +82,12 @@ class KurikulumDashboardController extends Controller
         $totalGuru = User::where('role', 'guru')->count();
 
         return view('kurikulum.dashboard', compact(
+            'hariAktif',
+            'hariIniStr',
             'isHariSenin',
+            'isHariJumat',
+            'isSimulasiSenin',
+            'isSimulasiJumat',
             'pengaturanJadwal',
             'totalKelas',
             'totalMapel',
@@ -79,7 +96,6 @@ class KurikulumDashboardController extends Controller
             'totalSlotIdeal',
             'guruMengajarHariIni',
             'totalGuru',
-            'hariIniStr',
             'tahunAktif'
         ));
     }

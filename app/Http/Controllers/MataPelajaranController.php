@@ -87,8 +87,6 @@ class MataPelajaranController extends Controller
             ],
             'nama_mapel' => 'required|string|max:100',
             'kelompok'   => 'required|string|max:100',
-            'kkm'        => 'nullable|integer|min:0|max:100',
-            'beban_jam'  => 'nullable|integer|min:1|max:40',
         ], [
             'kode_mapel.unique'   => 'Kode Mata Pelajaran sudah digunakan.',
             'kode_mapel.required' => 'Kode Mata Pelajaran wajib diisi.',
@@ -100,8 +98,6 @@ class MataPelajaranController extends Controller
             'kode_mapel' => strtoupper(trim($validated['kode_mapel'])),
             'nama_mapel' => trim($validated['nama_mapel']),
             'kelompok'   => $validated['kelompok'],
-            'kkm'        => $validated['kkm'] ?? 75,
-            'beban_jam'  => $validated['beban_jam'] ?? 2,
         ]);
 
         return redirect()
@@ -125,8 +121,6 @@ class MataPelajaranController extends Controller
             ],
             'nama_mapel' => 'required|string|max:100',
             'kelompok'   => 'required|string|max:100',
-            'kkm'        => 'nullable|integer|min:0|max:100',
-            'beban_jam'  => 'nullable|integer|min:1|max:40',
         ], [
             'kode_mapel.unique'   => 'Kode Mata Pelajaran sudah digunakan.',
             'kode_mapel.required' => 'Kode Mata Pelajaran wajib diisi.',
@@ -138,8 +132,6 @@ class MataPelajaranController extends Controller
             'kode_mapel' => strtoupper(trim($validated['kode_mapel'])),
             'nama_mapel' => trim($validated['nama_mapel']),
             'kelompok'   => $validated['kelompok'],
-            'kkm'        => $validated['kkm'] ?? 75,
-            'beban_jam'  => $validated['beban_jam'] ?? 2,
         ]);
 
         return redirect()

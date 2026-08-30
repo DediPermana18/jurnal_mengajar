@@ -16,6 +16,10 @@
     </div>
 
     <div class="table-card-custom mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold text-dark mb-0">Riwayat Jurnal Mengajar {{ $namaKelasSaya ?? 'Kelas Bimbingan' }}</h5>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1">{{ $daftarJurnal->count() }} Jurnal</span>
+        </div>
         <div class="table-responsive">
             <table class="table table-custom align-middle">
                 <thead>
@@ -28,20 +32,26 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td>15 Agu 2026</td>
-                        <td><strong>Pemrograman Web</strong></td>
-                        <td>Budi Santoso, S.Kom.</td>
-                        <td>Membuat Layout Dashboard Laravel dengan Blade</td>
-                        <td><span class="badge bg-success">32/34 Siswa</span></td>
-                    </tr>
-                    <tr>
-                        <td>14 Agu 2026</td>
-                        <td><strong>Matematika</strong></td>
-                        <td>Siti Aminah, M.Pd.</td>
-                        <td>Matriks dan Transformasi Geometri</td>
-                        <td><span class="badge bg-success">34/34 Siswa</span></td>
-                    </tr>
+                    @forelse($daftarJurnal as $j)
+                        <tr>
+                            <td>{{ \Carbon\Carbon::parse($j['tanggal'])->translatedFormat('d M Y') }}</td>
+                            <td><strong>{{ $j['mapel'] }}</strong></td>
+                            <td>{{ $j['guru_pengajar'] }}</td>
+                            <td class="text-muted">{{ $j['materi'] }}</td>
+                            <td>
+                                <span class="badge {{ $j['hadir'] > 0 ? 'bg-success' : 'bg-secondary' }} rounded-pill px-3 py-1">
+                                    {{ $j['ratio_label'] }}
+                                </span>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <i class="bi bi-journal-x fs-1 d-block mb-2"></i>
+                                Belum ada jurnal mengajar untuk kelas bimbingan Anda.
+                            </td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>

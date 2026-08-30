@@ -18,7 +18,6 @@ class JadwalPiket extends Model
         'Rabu',
         'Kamis',
         'Jumat',
-        'Sabtu',
     ];
 
     protected $fillable = [

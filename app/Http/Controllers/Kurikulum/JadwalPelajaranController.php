@@ -67,11 +67,11 @@ class JadwalPelajaranController extends Controller
                 ->keyBy('id_jam');
         }
 
-        // 6. Hitung statistik plotting
+        // 6. Ambil status sakelar Senin Tanpa Upacara (dipakai widget Sakelar Mode Khusus di view)
+        $pengaturanJadwal = PengaturanJadwal::getSetting();
+
+        // Total slot jam (kategori hari terpilih) untuk badge ringkasan di header matriks.
         $totalSlot = $jamPelajaranList->count();
-        $totalKbm = $jamPelajaranList->where('jenis', '!=', 'istirahat')->count();
-        $totalTerisi = $jadwalList->count();
-        $persentase = $totalKbm > 0 ? round(($totalTerisi / $totalKbm) * 100) : 0;
 
         // 7. Ambil batas jam pulang untuk kelas & hari yang dipilih
         $maxJamKe = null;
@@ -85,11 +85,7 @@ class JadwalPelajaranController extends Controller
             ->get()
             ->keyBy('jam_ke');
 
-        // 9. Ambil status sakelar Senin Tanpa Upacara
-        $pengaturanJadwal = PengaturanJadwal::getSetting();
-        $isSeninShift = ($selectedHari === 'Senin') && $pengaturanJadwal->senin_tanpa_upacara && $pengaturanJadwal->tanggal_eksekusi;
-
-        return view('kurikulum.jadwal.index', compact(
+        return view('admin.jadwal.index', compact(
             'kelasList',
             'mapelList',
             'guruList',
@@ -100,13 +96,120 @@ class JadwalPelajaranController extends Controller
             'jamPelajaranList',
             'jadwalList',
             'totalSlot',
-            'totalKbm',
-            'totalTerisi',
-            'persentase',
             'maxJamKe',
             'agendaRutinAktif',
-            'pengaturanJadwal',
-            'isSeninShift'
+            'pengaturanJadwal'
+        ));
+    }
+
+    /**
+     * Monitoring Slot Jadwal Kosong: cari kelas & slot KBM yang belum di-plot.
+     * Menampilkan halaman penuh berisi ringkasan per Kelas -> per Hari -> daftar Jam Ke- kosong.
+     */
+    public function monitoringSlotKosong(Request $request)
+    {
+        $tahunAktif = TahunAjaran::where('status_aktif', true)->first() ?? TahunAjaran::first();
+        $hariList = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+
+        $kelasList = Kelas::with('jurusan')
+            ->orderBy('tingkat')
+            ->orderBy('nama_kelas')
+            ->get();
+
+        // Semua jadwal ter-plot pada tahun ajaran aktif.
+        $jadwalTerplot = JadwalPelajaran::with('jamPelajaran')
+            ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
+            ->get();
+
+        // Bucket jam_ke yang sudah ter-plot per (kelas, hari).
+        $plotted = [];
+        foreach ($jadwalTerplot as $j) {
+            $jamKe = $j->jamPelajaran->jam_ke ?? null;
+            if ($jamKe !== null) {
+                $plotted[$j->id_kelas][$j->hari][$jamKe] = true;
+            }
+        }
+
+        // Master slot KBM (bukan Istirahat/Upacara) per kategori hari.
+        $slotsSeninKamis = JamPelajaran::where('kategori_hari', 'Senin-Kamis')
+            ->whereNotIn('jenis', ['istirahat', 'upacara'])
+            ->whereNotNull('jam_ke')
+            ->get();
+        $slotsJumat = JamPelajaran::where('kategori_hari', 'Jumat')
+            ->whereNotIn('jenis', ['istirahat', 'upacara'])
+            ->whereNotNull('jam_ke')
+            ->get();
+
+        // Agenda rutin aktif dikunci per hari -> jam_ke.
+        $agendaAktif = AgendaRutin::where('is_active', true)
+            ->get()
+            ->groupBy('hari')
+            ->mapWithKeys(fn ($items, $hari) => [$hari => $items->keyBy('jam_ke')]);
+
+        $rows = [];
+        $totalSlotKosong = 0;
+        $jumlahKelasLengkap = 0;
+
+        foreach ($kelasList as $kelas) {
+            $tingkatSlug = match (strtoupper(trim($kelas->tingkat))) {
+                'X'    => '10',
+                'XI'   => '11',
+                'XII'  => '12',
+                default => $kelas->tingkat,
+            };
+
+            $punyaKosong = false;
+
+            foreach ($hariList as $hari) {
+                $kategori = ($hari === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
+                $slots = ($hari === 'Jumat') ? $slotsJumat : $slotsSeninKamis;
+                $agendaHari = $agendaAktif->get($hari, collect());
+                $maxJamKe = JamPulang::getMaxJamKe($kategori, $tingkatSlug);
+
+                $kosong = [];
+                foreach ($slots as $slot) {
+                    // Lewati slot yang dikunci Agenda Rutin (misal Upacara).
+                    if ($agendaHari->has($slot->jam_ke)) {
+                        continue;
+                    }
+                    // Lewati slot yang melewati batas jam pulang kelas.
+                    if ($maxJamKe !== null && $slot->jam_ke > $maxJamKe) {
+                        continue;
+                    }
+                    // Kosong bila belum ada mapel ter-plot.
+                    if (!isset($plotted[$kelas->id][$hari][$slot->jam_ke])) {
+                        $kosong[] = $slot->jam_ke;
+                    }
+                }
+
+                if (!empty($kosong)) {
+                    $punyaKosong = true;
+                    $totalSlotKosong += count($kosong);
+                    $rows[] = [
+                        'kelas_id'   => $kelas->id,
+                        'kelas_nama' => $kelas->nama_kelas,
+                        'tingkat'    => $kelas->tingkat,
+                        'jurusan'    => $kelas->jurusan->nama_jurusan ?? 'Umum',
+                        'hari'       => $hari,
+                        'jam_kosong' => array_values($kosong),
+                        'jumlah'     => count($kosong),
+                    ];
+                }
+            }
+
+            if (!$punyaKosong) {
+                $jumlahKelasLengkap++;
+            }
+        }
+
+        $totalKelas = $kelasList->count();
+
+        return view('admin.jadwal.monitoring', compact(
+            'rows',
+            'totalKelas',
+            'jumlahKelasLengkap',
+            'totalSlotKosong',
+            'hariList'
         ));
     }
 
@@ -139,7 +242,7 @@ class JadwalPelajaranController extends Controller
 
         if ($targetSlots->isEmpty()) {
             return redirect()
-                ->route('kurikulum.jadwal.index', ['id_kelas' => $validated['id_kelas'], 'hari' => $validated['hari']])
+                ->route('admin.jadwal.index', ['id_kelas' => $validated['id_kelas'], 'hari' => $validated['hari']])
                 ->withInput()
                 ->with('error', 'Tidak ditemukan slot KBM pada rentang Jam ke-' . $validated['jam_ke_mulai'] . ' s/d Jam ke-' . $validated['jam_ke_selesai'] . '.');
         }
@@ -164,7 +267,7 @@ class JadwalPelajaranController extends Controller
             })->implode(', ');
 
             return redirect()
-                ->route('kurikulum.jadwal.index', ['id_kelas' => $validated['id_kelas'], 'hari' => $validated['hari']])
+                ->route('admin.jadwal.index', ['id_kelas' => $validated['id_kelas'], 'hari' => $validated['hari']])
                 ->withInput()
                 ->with('error', "Bentrok Jadwal! {$namaGuru} sudah memiliki jadwal mengajar pada: {$bentrokList}.");
         }
@@ -195,7 +298,7 @@ class JadwalPelajaranController extends Controller
             : "Jam ke-{$validated['jam_ke_mulai']} s/d Jam ke-{$validated['jam_ke_selesai']}";
 
         return redirect()
-            ->route('kurikulum.jadwal.index', ['id_kelas' => $validated['id_kelas'], 'hari' => $validated['hari']])
+            ->route('admin.jadwal.index', ['id_kelas' => $validated['id_kelas'], 'hari' => $validated['hari']])
             ->with('success', "Plotting jadwal berhasil disimpan untuk {$totalJp} JP ({$pesanRentang}).");
     }
 
@@ -229,7 +332,7 @@ class JadwalPelajaranController extends Controller
             $infoJam   = $jamKe ? "Jam ke-{$jamKe}" : 'slot jam tersebut';
 
             return redirect()
-                ->route('kurikulum.jadwal.index', ['id_kelas' => $jadwalPelajaran->id_kelas, 'hari' => $jadwalPelajaran->hari])
+                ->route('admin.jadwal.index', ['id_kelas' => $jadwalPelajaran->id_kelas, 'hari' => $jadwalPelajaran->hari])
                 ->with('error', "Bentrok Jadwal! {$namaGuru} sudah memiliki jadwal mengajar di {$namaKelas} pada {$infoJam}.");
         }
 
@@ -242,7 +345,7 @@ class JadwalPelajaranController extends Controller
         ]);
 
         return redirect()
-            ->route('kurikulum.jadwal.index', ['id_kelas' => $jadwalPelajaran->id_kelas, 'hari' => $jadwalPelajaran->hari])
+            ->route('admin.jadwal.index', ['id_kelas' => $jadwalPelajaran->id_kelas, 'hari' => $jadwalPelajaran->hari])
             ->with('success', 'Jadwal pelajaran berhasil diperbarui.');
     }
 
@@ -257,7 +360,7 @@ class JadwalPelajaranController extends Controller
         $jadwalPelajaran->delete();
 
         return redirect()
-            ->route('kurikulum.jadwal.index', ['id_kelas' => $idKelas, 'hari' => $hari])
+            ->route('admin.jadwal.index', ['id_kelas' => $idKelas, 'hari' => $hari])
             ->with('success', 'Plotting jadwal pada slot tersebut berhasil dikosongkan.');
     }
 }

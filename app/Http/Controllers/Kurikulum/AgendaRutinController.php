@@ -16,30 +16,37 @@ class AgendaRutinController extends Controller
         $validated = $request->validate([
             'hari'         => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu',
             'jam_ke'       => 'required|integer|min:1|max:20',
-            'nama_agenda'  => 'required|string|max:100',
             'is_active'    => 'nullable|boolean',
             'redirect_tab' => 'nullable|string|in:Senin-Kamis,Jumat',
         ]);
+
+        $hari = $validated['hari'];
+
+        // Tentukan nama agenda secara otomatis berdasarkan hari
+        $namaAgenda = match ($hari) {
+            'Senin' => 'Upacara Bendera',
+            'Jumat' => 'Pembiasaan Jumat',
+            default => 'Agenda Rutin',
+        };
 
         $isActive = $request->has('is_active') ? (bool) $request->input('is_active') : false;
 
         AgendaRutin::updateOrCreate(
             [
-                'hari'   => $validated['hari'],
+                'hari'   => $hari,
                 'jam_ke' => $validated['jam_ke'],
             ],
             [
-                'nama_agenda' => trim($validated['nama_agenda']),
+                'nama_agenda' => $namaAgenda,
                 'is_active'   => $isActive,
             ]
         );
 
-        $redirectTab = $request->input('redirect_tab', ($validated['hari'] === 'Jumat' ? 'Jumat' : 'Senin-Kamis'));
-
-        $statusText = $isActive ? 'diaktifkan & dikunci' : 'dinonaktifkan';
+        $redirectTab = $request->input('redirect_tab', ($hari === 'Jumat' ? 'Jumat' : 'Senin-Kamis'));
+        $statusText  = $isActive ? 'diaktifkan & dikunci' : 'dinonaktifkan';
 
         return redirect()
-            ->route('kurikulum.jam-pelajaran.index', ['tab' => $redirectTab])
-            ->with('success', "Agenda Rutin \"{$validated['nama_agenda']}\" ({$validated['hari']} Jam ke-{$validated['jam_ke']}) berhasil {$statusText}.");
+            ->route('admin.jam-pelajaran.index', ['tab' => $redirectTab])
+            ->with('success', "Agenda Rutin \"{$namaAgenda}\" (Hari {$hari} Jam ke-{$validated['jam_ke']}) berhasil {$statusText}.");
     }
 }

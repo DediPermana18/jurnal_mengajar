@@ -121,6 +121,22 @@
                 </div>
             </div>
         </div>
+    @elseif(isset($isJumatShiftHariIni) && $isJumatShiftHariIni)
+        <div class="alert alert-info border-0 rounded-4 shadow-sm mb-4 d-flex align-items-center gap-3"
+             style="background: #f0f9ff; border: 1px solid #bae6fd !important;">
+            <div class="rounded-3 d-flex align-items-center justify-content-center text-white flex-shrink-0"
+                 style="width: 38px; height: 38px; background: linear-gradient(135deg, #0284c7, #0369a1);">
+                <i class="bi bi-lightning-charge-fill fs-5"></i>
+            </div>
+            <div>
+                <div class="fw-bold text-dark" style="font-size: 0.95rem;">
+                    ⚡ Mode Khusus Hari Jumat: Pembiasaan Ditiadakan (KBM Dimajukan)
+                </div>
+                <div class="text-muted" style="font-size: 0.82rem;">
+                    Seluruh jam mengajar Anda hari ini otomatis dimajukan 1 JP & sinkron dengan jam dinding real-time.
+                </div>
+            </div>
+        </div>
     @endif
 
 

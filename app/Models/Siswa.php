@@ -44,4 +44,20 @@ class Siswa extends Model
     {
         return $this->hasMany(AbsensiJurnal::class, 'id_siswa', 'id');
     }
+
+    /**
+     * Relasi ke catatan keterlambatan (input Satpam)
+     */
+    public function catatanTerlambat(): HasMany
+    {
+        return $this->hasMany(CatatanTerlambat::class, 'id_siswa', 'id');
+    }
+
+    /**
+     * Relasi ke catatan siswa bermasalah (tindak lanjut Wali Kelas)
+     */
+    public function catatanBermasalah(): HasMany
+    {
+        return $this->hasMany(CatatanSiswaBermasalah::class, 'id_siswa', 'id');
+    }
 }

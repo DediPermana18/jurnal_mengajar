@@ -35,8 +35,10 @@ class JamPelajaranController extends Controller
         // Pengaturan jam pulang: lookup['kategori_hari|tingkat'] => JamPulang
         $jamPulangSettings = JamPulang::getAllAsLookup();
 
-        // Pengaturan Agenda Rutin / Upacara Sekolah
-        $agendaRutin = AgendaRutin::first();
+        // Pengaturan Agenda Rutin / Upacara Sekolah (Senin & Jumat)
+        $agendaSenin = AgendaRutin::where('hari', 'Senin')->first();
+        $agendaJumat = AgendaRutin::where('hari', 'Jumat')->first();
+        $agendaRutin = $agendaSenin ?? AgendaRutin::first();
 
         // Hitung max jam_ke tersedia per kategori (untuk dropdown batas jam pulang)
         $maxJamKeSeninKamis = $seninKamis->max('jam_ke') ?? 13;
@@ -45,7 +47,7 @@ class JamPelajaranController extends Controller
         return view('kurikulum.jam_pelajaran.index', compact(
             'seninKamis', 'jumat', 'tab',
             'jamPulangSettings', 'maxJamKeSeninKamis', 'maxJamKeJumat',
-            'agendaRutin'
+            'agendaRutin', 'agendaSenin', 'agendaJumat'
         ));
     }
 
@@ -72,7 +74,7 @@ class JamPelajaranController extends Controller
         $this->syncJamKe($validated['kategori_hari']);
 
         return redirect()
-            ->route('kurikulum.jam-pelajaran.index', ['tab' => $validated['kategori_hari']])
+            ->route('admin.jam-pelajaran.index', ['tab' => $validated['kategori_hari']])
             ->with('success', "Jam Pelajaran ({$validated['kategori_hari']}) berhasil ditambahkan.");
     }
 
@@ -104,7 +106,7 @@ class JamPelajaranController extends Controller
         }
 
         return redirect()
-            ->route('kurikulum.jam-pelajaran.index', ['tab' => $validated['kategori_hari']])
+            ->route('admin.jam-pelajaran.index', ['tab' => $validated['kategori_hari']])
             ->with('success', "Jam Pelajaran ({$validated['kategori_hari']}) berhasil diperbarui.");
     }
 
@@ -119,7 +121,7 @@ class JamPelajaranController extends Controller
         $this->syncJamKe($hari);
 
         return redirect()
-            ->route('kurikulum.jam-pelajaran.index', ['tab' => $hari])
+            ->route('admin.jam-pelajaran.index', ['tab' => $hari])
             ->with('success', "Jam Pelajaran ({$hari}) berhasil dihapus.");
     }
 
@@ -179,7 +181,7 @@ class JamPelajaranController extends Controller
         $this->syncJamKe($kategori);
 
         return redirect()
-            ->route('kurikulum.jam-pelajaran.index', ['tab' => $kategori])
+            ->route('admin.jam-pelajaran.index', ['tab' => $kategori])
             ->with('success', "Preset jam pelajaran {$kategori} berhasil digenerate (" . count($preset) . " slot).");
     }
 

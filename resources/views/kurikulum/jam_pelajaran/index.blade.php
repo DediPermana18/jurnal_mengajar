@@ -17,7 +17,7 @@
         </div>
         <div class="d-flex gap-2 flex-wrap align-items-center">
             {{-- Tombol Generate Preset Senin-Kamis --}}
-            <form method="POST" action="{{ route('kurikulum.jam-pelajaran.generate') }}" class="d-inline"
+            <form method="POST" action="{{ route('admin.jam-pelajaran.generate') }}" class="d-inline"
                   onsubmit="return confirm('Generate preset akan mengosongkan dan membuat ulang slot jam Senin–Kamis. Lanjutkan?')">
                 @csrf
                 <input type="hidden" name="kategori_hari" value="Senin-Kamis">
@@ -29,7 +29,7 @@
             </form>
 
             {{-- Tombol Generate Preset Jumat --}}
-            <form method="POST" action="{{ route('kurikulum.jam-pelajaran.generate') }}" class="d-inline"
+            <form method="POST" action="{{ route('admin.jam-pelajaran.generate') }}" class="d-inline"
                   onsubmit="return confirm('Generate preset akan mengosongkan dan membuat ulang slot jam Jumat. Lanjutkan?')">
                 @csrf
                 <input type="hidden" name="kategori_hari" value="Jumat">
@@ -68,13 +68,13 @@
     {{-- Tab Kelompok Hari (Senin–Kamis vs Jumat) --}}
     <div class="mb-4">
         <div class="d-flex gap-2 flex-wrap">
-            <a href="{{ route('kurikulum.jam-pelajaran.index', ['tab' => 'Senin-Kamis']) }}"
+            <a href="{{ route('admin.jam-pelajaran.index', ['tab' => 'Senin-Kamis']) }}"
                class="btn rounded-3 fw-semibold px-4 py-2 {{ $tab === 'Senin-Kamis' ? 'btn-primary shadow-sm text-white' : 'btn-light border text-dark' }}"
                style="font-size: 0.875rem;">
                 <i class="bi bi-calendar-week me-1"></i>
                 Senin – Kamis <span class="badge {{ $tab === 'Senin-Kamis' ? 'bg-white text-primary' : 'bg-secondary-subtle text-secondary' }} rounded-pill ms-1">40 menit</span>
             </a>
-            <a href="{{ route('kurikulum.jam-pelajaran.index', ['tab' => 'Jumat']) }}"
+            <a href="{{ route('admin.jam-pelajaran.index', ['tab' => 'Jumat']) }}"
                class="btn rounded-3 fw-semibold px-4 py-2 {{ $tab === 'Jumat' ? 'btn-primary shadow-sm text-white' : 'btn-light border text-dark' }}"
                style="font-size: 0.875rem;">
                 <i class="bi bi-calendar2-day me-1"></i>
@@ -119,7 +119,7 @@
                     <p class="text-muted mx-auto mb-3" style="max-width: 420px; font-size: 0.85rem;">
                         Klik tombol <strong>Generate Preset</strong> di atas atau tambah slot jam secara manual.
                     </p>
-                    <form method="POST" action="{{ route('kurikulum.jam-pelajaran.generate') }}" class="d-inline">
+                    <form method="POST" action="{{ route('admin.jam-pelajaran.generate') }}" class="d-inline">
                         @csrf
                         <input type="hidden" name="kategori_hari" value="{{ $tab }}">
                         <button type="submit" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold" style="font-size: 0.85rem;">
@@ -216,7 +216,7 @@
                                                 <i class="bi bi-pencil-fill text-primary me-1"></i> Edit
                                             </button>
                                             <form method="POST"
-                                                  action="{{ route('kurikulum.jam-pelajaran.destroy', $jam->id) }}"
+                                                  action="{{ route('admin.jam-pelajaran.destroy', $jam->id) }}"
                                                   onsubmit="return confirm('Hapus slot {{ $jenisLabel }} ({{ \Carbon\Carbon::parse($jam->jam_mulai)->format('H.i') }})?')"
                                                   class="d-inline">
                                                 @csrf
@@ -266,7 +266,7 @@
         </div>
 
         <div class="card-body px-4 pb-4 pt-2">
-            <form method="POST" action="{{ route('kurikulum.jam-pulang.upsert') }}" id="formJamPulang">
+            <form method="POST" action="{{ route('admin.jam-pulang.upsert') }}" id="formJamPulang">
                 @csrf
                 <input type="hidden" name="redirect_tab" value="{{ $tab }}">
 
@@ -349,104 +349,165 @@
         </div>
 </div>
 
-{{-- ===================== CARD PENGATURAN AGENDA RUTIN / UPACARA ===================== --}}
+{{-- ===================== 2 CARD TERPISAH: PENGATURAN AGENDA RUTIN ===================== --}}
 <div class="container-fluid px-0 mt-4">
-    <div class="card border-0 rounded-4 shadow-sm">
-        <div class="card-header bg-white border-0 pt-4 pb-3 px-4">
-            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <div class="d-flex align-items-center gap-2">
-                    <div class="rounded-2 d-flex align-items-center justify-content-center text-white"
-                         style="width: 34px; height: 34px; background: linear-gradient(135deg,#3b82f6,#1d4ed8);">
-                        <span style="font-size: 1rem;">🇮🇩</span>
-                    </div>
-                    <div>
-                        <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.95rem;">
-                            Pengaturan Agenda Rutin / Upacara Sekolah
-                        </h6>
-                        <div class="text-muted" style="font-size: 0.75rem;">
-                            Kunci slot jam tertentu secara global untuk seluruh kelas (misal: Upacara Bendera pada hari Senin Jam 1).
+    <div class="row g-4">
+        {{-- CARD 1: Pengaturan Upacara Bendera (Khusus Hari Senin) --}}
+        <div class="col-12 col-lg-6">
+            <div class="card border-0 rounded-4 shadow-sm h-100">
+                <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="rounded-2 d-flex align-items-center justify-content-center text-white"
+                                 style="width: 36px; height: 36px; background: linear-gradient(135deg,#3b82f6,#1d4ed8);">
+                                <span style="font-size: 1.1rem;">🇮🇩</span>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.95rem;">
+                                    Pengaturan Upacara Bendera (Khusus Hari Senin)
+                                </h6>
+                                <div class="text-muted" style="font-size: 0.75rem;">
+                                    Hari Senin (Locked Global)
+                                </div>
+                            </div>
                         </div>
+                        @if(isset($agendaSenin) && $agendaSenin->is_active)
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1" style="font-size: 0.72rem;">
+                                <i class="bi bi-lock-fill me-1"></i>Slot Terkunci: Jam ke-{{ $agendaSenin->jam_ke }}
+                            </span>
+                        @else
+                            <span class="badge bg-light text-muted border rounded-pill px-3 py-1" style="font-size: 0.72rem;">
+                                Belum Diaktifkan
+                            </span>
+                        @endif
                     </div>
                 </div>
-                @if($agendaRutin && $agendaRutin->is_active)
-                    <span class="badge bg-indigo-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1" style="font-size: 0.72rem;">
-                        <i class="bi bi-lock-fill me-1"></i>Agenda Aktif: {{ $agendaRutin->nama_agenda }} ({{ $agendaRutin->hari }} Jam {{ $agendaRutin->jam_ke }})
-                    </span>
-                @else
-                    <span class="badge bg-light text-muted border rounded-pill px-3 py-1" style="font-size: 0.72rem;">
-                        Belum Diaktifkan
-                    </span>
-                @endif
+
+                <div class="card-body px-4 pb-4 pt-2 d-flex flex-column justify-content-between">
+                    <form method="POST" action="{{ route('admin.agenda-rutin.upsert') }}" id="formAgendaSenin">
+                        @csrf
+                        <input type="hidden" name="hari" value="Senin">
+                        <input type="hidden" name="redirect_tab" value="Senin-Kamis">
+
+                        <div class="row g-3 align-items-center mb-3">
+                            {{-- Dropdown Jam Ke- --}}
+                            <div class="col-12 col-sm-5">
+                                <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.85rem;">
+                                    <i class="bi bi-clock-history text-primary me-1"></i> Jam Ke- <span class="text-danger">*</span>
+                                </label>
+                                <select name="jam_ke" class="form-select rounded-3" required style="font-size: 0.875rem;">
+                                    @for($j = 1; $j <= 15; $j++)
+                                        <option value="{{ $j }}" {{ old('jam_ke', $agendaSenin->jam_ke ?? 1) == $j ? 'selected' : '' }}>
+                                            Jam Ke-{{ $j }}
+                                        </option>
+                                    @endfor
+                                </select>
+                            </div>
+
+                            {{-- Toggle Switch --}}
+                            <div class="col-12 col-sm-7 pt-sm-4">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="switchAgendaSenin" name="is_active" value="1"
+                                           {{ old('is_active', $agendaSenin->is_active ?? true) ? 'checked' : '' }} style="cursor: pointer; width: 2.5em; height: 1.25em;">
+                                    <label class="form-check-label fw-semibold text-dark ms-2" for="switchAgendaSenin" style="font-size: 0.85rem; cursor: pointer;">
+                                        Kunci Slot Upacara Bendera
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-muted small mb-3 p-2.5 rounded-3 bg-light border" style="font-size: 0.78rem;">
+                            <i class="bi bi-info-circle text-primary me-1"></i>
+                            Mengunci slot jam ini secara otomatis di seluruh kelas untuk Upacara Bendera pada hari Senin.
+                        </div>
+
+                        <div class="d-flex justify-content-end pt-2 border-top">
+                            <button type="submit" class="btn btn-primary fw-bold px-4 rounded-3 d-flex align-items-center gap-2" style="font-size: 0.85rem;">
+                                <i class="bi bi-floppy-fill"></i> Simpan Upacara Senin
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
 
-        <div class="card-body px-4 pb-4 pt-2">
-            <form method="POST" action="{{ route('kurikulum.agenda-rutin.upsert') }}" id="formAgendaRutin">
-                @csrf
-                <input type="hidden" name="redirect_tab" value="{{ $tab }}">
-
-                <div class="row g-3 align-items-center">
-                    {{-- 1. Pilih Hari --}}
-                    <div class="col-12 col-md-3">
-                        <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.85rem;">
-                            <i class="bi bi-calendar-day text-primary me-1"></i> Pilih Hari <span class="text-danger">*</span>
-                        </label>
-                        <select name="hari" class="form-select rounded-3" required style="font-size: 0.875rem;">
-                            @foreach(['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'] as $hOpt)
-                                <option value="{{ $hOpt }}" {{ old('hari', $agendaRutin->hari ?? 'Senin') === $hOpt ? 'selected' : '' }}>
-                                    Hari {{ $hOpt }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    {{-- 2. Pilih Jam Ke --}}
-                    <div class="col-12 col-md-2">
-                        <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.85rem;">
-                            <i class="bi bi-clock-history text-primary me-1"></i> Jam Ke- <span class="text-danger">*</span>
-                        </label>
-                        <select name="jam_ke" class="form-select rounded-3" required style="font-size: 0.875rem;">
-                            @for($j = 1; $j <= 15; $j++)
-                                <option value="{{ $j }}" {{ old('jam_ke', $agendaRutin->jam_ke ?? 1) == $j ? 'selected' : '' }}>
-                                    Jam Ke-{{ $j }}
-                                </option>
-                            @endfor
-                        </select>
-                    </div>
-
-                    {{-- 3. Nama Agenda --}}
-                    <div class="col-12 col-md-4">
-                        <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.85rem;">
-                            <i class="bi bi-flag-fill text-primary me-1"></i> Nama Agenda <span class="text-danger">*</span>
-                        </label>
-                        <input type="text" name="nama_agenda" class="form-control rounded-3"
-                               placeholder="Contoh: Upacara Bendera / Pembiasaan Agama"
-                               value="{{ old('nama_agenda', $agendaRutin->nama_agenda ?? 'Upacara Bendera') }}" required style="font-size: 0.875rem;">
-                    </div>
-
-                    {{-- 4. Switch Status Active --}}
-                    <div class="col-12 col-md-3 d-flex align-items-center pt-md-4">
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input" type="checkbox" role="switch" id="switchAgendaActive" name="is_active" value="1"
-                                   {{ old('is_active', $agendaRutin->is_active ?? true) ? 'checked' : '' }} style="cursor: pointer; width: 2.5em; height: 1.25em;">
-                            <label class="form-check-label fw-semibold text-dark ms-2" for="switchAgendaActive" style="font-size: 0.85rem; cursor: pointer;">
-                                Kunci Slot Ini untuk Seluruh Kelas
-                            </label>
+        {{-- CARD 2: Pengaturan Pembiasaan (Khusus Hari Jumat) --}}
+        <div class="col-12 col-lg-6">
+            <div class="card border-0 rounded-4 shadow-sm h-100">
+                <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="rounded-2 d-flex align-items-center justify-content-center text-white"
+                                 style="width: 36px; height: 36px; background: linear-gradient(135deg,#0284c7,#0369a1);">
+                                <span style="font-size: 1.1rem;">🤲</span>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.95rem;">
+                                    Pengaturan Pembiasaan (Khusus Hari Jumat)
+                                </h6>
+                                <div class="text-muted" style="font-size: 0.75rem;">
+                                    Hari Jumat (Locked Global)
+                                </div>
+                            </div>
                         </div>
+                        @if(isset($agendaJumat) && $agendaJumat->is_active)
+                            <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-3 py-1" style="font-size: 0.72rem;">
+                                <i class="bi bi-lock-fill me-1"></i>Slot Terkunci: Jam ke-{{ $agendaJumat->jam_ke }}
+                            </span>
+                        @else
+                            <span class="badge bg-light text-muted border rounded-pill px-3 py-1" style="font-size: 0.72rem;">
+                                Belum Diaktifkan
+                            </span>
+                        @endif
                     </div>
                 </div>
 
-                <div class="d-flex align-items-center justify-content-between mt-4 pt-3 border-top flex-wrap gap-3">
-                    <div class="text-muted d-flex align-items-center gap-2" style="font-size: 0.8rem;">
-                        <i class="bi bi-info-circle text-primary"></i>
-                        Slot jam yang dikunci otomatis memblokir pengisian jadwal KBM di semua kelas pada hari & jam tersebut.
-                    </div>
-                    <button type="submit" class="btn btn-primary fw-bold px-4 rounded-3 d-flex align-items-center gap-2"
-                            style="font-size: 0.875rem;">
-                        <i class="bi bi-floppy-fill"></i> Simpan Agenda Rutin
-                    </button>
+                <div class="card-body px-4 pb-4 pt-2 d-flex flex-column justify-content-between">
+                    <form method="POST" action="{{ route('admin.agenda-rutin.upsert') }}" id="formAgendaJumat">
+                        @csrf
+                        <input type="hidden" name="hari" value="Jumat">
+                        <input type="hidden" name="redirect_tab" value="Jumat">
+
+                        <div class="row g-3 align-items-center mb-3">
+                            {{-- Dropdown Jam Ke- --}}
+                            <div class="col-12 col-sm-5">
+                                <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.85rem;">
+                                    <i class="bi bi-clock-history text-info me-1"></i> Jam Ke- <span class="text-danger">*</span>
+                                </label>
+                                <select name="jam_ke" class="form-select rounded-3" required style="font-size: 0.875rem;">
+                                    @for($j = 1; $j <= 15; $j++)
+                                        <option value="{{ $j }}" {{ old('jam_ke', $agendaJumat->jam_ke ?? 1) == $j ? 'selected' : '' }}>
+                                            Jam Ke-{{ $j }}
+                                        </option>
+                                    @endfor
+                                </select>
+                            </div>
+
+                            {{-- Toggle Switch --}}
+                            <div class="col-12 col-sm-7 pt-sm-4">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="switchAgendaJumat" name="is_active" value="1"
+                                           {{ old('is_active', $agendaJumat->is_active ?? true) ? 'checked' : '' }} style="cursor: pointer; width: 2.5em; height: 1.25em;">
+                                    <label class="form-check-label fw-semibold text-dark ms-2" for="switchAgendaJumat" style="font-size: 0.85rem; cursor: pointer;">
+                                        Kunci Slot Pembiasaan Jumat
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-muted small mb-3 p-2.5 rounded-3 bg-light border" style="font-size: 0.78rem;">
+                            <i class="bi bi-info-circle text-info me-1"></i>
+                            Mengunci slot jam ini secara otomatis di seluruh kelas untuk Pembiasaan (Yasinan/Senam/Jumat Bersih) pada hari Jumat.
+                        </div>
+
+                        <div class="d-flex justify-content-end pt-2 border-top">
+                            <button type="submit" class="btn btn-info text-white fw-bold px-4 rounded-3 d-flex align-items-center gap-2" style="font-size: 0.85rem;">
+                                <i class="bi bi-floppy-fill"></i> Simpan Pembiasaan Jumat
+                            </button>
+                        </div>
+                    </form>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 </div>
@@ -454,7 +515,7 @@
 <div class="modal fade" id="modalTambahJam" tabindex="-1" aria-labelledby="modalTambahJamTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow rounded-4">
-            <form method="POST" action="{{ route('kurikulum.jam-pelajaran.store') }}" id="formTambahJam">
+            <form method="POST" action="{{ route('admin.jam-pelajaran.store') }}" id="formTambahJam">
                 @csrf
                 <div class="modal-header border-0 pb-0">
                     <h5 class="modal-title fw-bold" id="modalTambahJamTitle">
@@ -561,6 +622,7 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+
         const forms = [
             document.getElementById('formTambahJam'),
             document.getElementById('formEditJam')
@@ -584,7 +646,7 @@
     });
 
     function openEditModal(id, kategoriHari, jamMulai, jamSelesai, jenis) {
-        const routeBase = "{{ url('kurikulum/jam-pelajaran') }}";
+        const routeBase = "{{ url('admin/jam-pelajaran') }}";
         document.getElementById('formEditJam').action = routeBase + '/' + id;
 
         document.getElementById('editKategoriHari').value = kategoriHari;
@@ -595,5 +657,6 @@
         const modal = new bootstrap.Modal(document.getElementById('modalEditJam'));
         modal.show();
     }
+
 </script>
 @endpush

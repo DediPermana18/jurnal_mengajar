@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
 
@@ -49,10 +50,12 @@ class AuthController extends Controller
         $loginId = trim($request->input('login_id'));
         $password = $request->input('password');
 
-        // Cari user berdasarkan Username atau NIP (termasuk yang dinonaktifkan)
+        // Cari user berdasarkan Username, NIP, atau Email (termasuk yang dinonaktifkan)
         $user = User::withTrashed()
                     ->where(function($q) use ($loginId) {
-                        $q->where('username', $loginId)->orWhere('nip', $loginId);
+                        $q->where('username', $loginId)
+                          ->orWhere('nip', $loginId)
+                          ->orWhere('email', $loginId);
                     })
                     ->first();
 
@@ -102,15 +105,18 @@ class AuthController extends Controller
         }
 
         // ================= PROSES AUTENTIKASI PASSWORD =================
-        $attemptSuccess = Auth::attempt(['username' => $user->username, 'password' => $password]) ||
-                         Auth::attempt(['nip' => $user->nip, 'password' => $password]);
-
-        if ($attemptSuccess) {
-            $request->session()->regenerate();
-            return $this->redirectBasedOnRole(Auth::user());
+        // Verifikasi password LANGSUNG terhadap user yang sudah di-resolve di atas
+        // (berdasarkan identifier unik: username/nip/email). Tidak menggunakan
+        // Auth::attempt() ulang agar tidak terjadi 'crossover' role bila ada
+        // username/nip/email yang kembar antar user.
+        if (!Hash::check($password, $user->password)) {
+            return back()->withErrors(['password' => 'Password yang Anda masukkan salah.'])->withInput();
         }
 
-        return back()->withErrors(['password' => 'Password yang Anda masukkan salah.'])->withInput();
+        Auth::login($user);
+        $request->session()->regenerate();
+
+        return $this->redirectBasedOnRole(Auth::user());
     }
 
     /**
@@ -118,6 +124,11 @@ class AuthController extends Controller
      */
     protected function redirectBasedOnRole($user)
     {
+        // Satpam / Petugas Keamanan → portal satpam (independen), bukan portal piket/TU.
+        if ($user->isSatpam()) {
+            return redirect()->route('satpam.dashboard')->with('success', 'Selamat datang kembali, ' . $user->nama . '!');
+        }
+
         if (in_array($user->role, ['admin', 'super_admin', 'epic_admin', 'absolute_admin', 'warden'])) {
             return redirect()->route('home')->with('success', 'Selamat datang kembali, Admin ' . $user->nama . '!');
         }

@@ -2,6 +2,37 @@
 
 @section('title', 'Jadwal Piket Guru - Kurikulum')
 
+@push('styles')
+<style>
+    /* Mengubah layout jadi 3 kolom di baris atas dan 2 kolom di baris bawah */
+    .jadwal-piket-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1.25rem;
+    }
+
+    /* Membuat card Kamis & Jumat di baris kedua melebar rapi */
+    .jadwal-piket-grid > div:nth-child(4),
+    .jadwal-piket-grid > div:nth-child(5) {
+        grid-column: span 1;
+    }
+
+    /* Tablet/Laptop sedang: 2 Kolom */
+    @media (max-width: 991.98px) {
+        .jadwal-piket-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    /* HP/Mobile: 1 Kolom Full */
+    @media (max-width: 575.98px) {
+        .jadwal-piket-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+@endpush
+
 @section('content')
 <div class="container-fluid px-0">
 
@@ -12,9 +43,11 @@
                 Jadwal Piket Guru
             </h2>
             <p class="text-muted mb-0" style="font-size: 0.9rem;">
-                Atur dan jadwalkan penugasan piket guru harian (Senin s.d. Sabtu) untuk pemantauan KBM & presensi.
+                Atur dan jadwalkan penugasan piket guru harian (Senin s.d. Jumat) untuk pemantauan KBM & presensi.
             </p>
         </div>
+
+        @if($canManage)
         <div>
             <a href="{{ route('kurikulum.jadwal-piket.create') }}"
                class="btn btn-primary rounded-3 fw-semibold px-3 py-2 d-flex align-items-center gap-2 shadow-sm"
@@ -23,6 +56,7 @@
                 <span>Tambah Petugas Piket</span>
             </a>
         </div>
+        @endif
     </div>
 
     {{-- Alert Messages --}}
@@ -50,8 +84,8 @@
         </div>
     @endif
 
-    {{-- Grid Jadwal Hari (Senin - Sabtu) --}}
-    <div class="row g-4 mb-4">
+    {{-- Grid Jadwal Hari (Senin - Jumat) --}}
+    <div class="jadwal-piket-grid mb-4">
         @php
             $dayColors = [
                 'Senin'  => ['bg' => '#eff6ff', 'badge' => 'primary',   'border' => '#bfdbfe', 'icon' => 'bi-calendar-event'],
@@ -59,7 +93,6 @@
                 'Rabu'   => ['bg' => '#fefce8', 'badge' => 'warning',   'border' => '#fef08a', 'icon' => 'bi-calendar-event'],
                 'Kamis'  => ['bg' => '#faf5ff', 'badge' => 'secondary', 'border' => '#e9d5ff', 'icon' => 'bi-calendar-event'],
                 'Jumat'  => ['bg' => '#ecfeff', 'badge' => 'info',      'border' => '#a5f3fc', 'icon' => 'bi-calendar-event'],
-                'Sabtu'  => ['bg' => '#fff1f2', 'badge' => 'danger',    'border' => '#fecdd3', 'icon' => 'bi-calendar-event'],
             ];
 
             // Cek hari ini
@@ -69,7 +102,6 @@
                 'Wednesday' => 'Rabu',
                 'Thursday'  => 'Kamis',
                 'Friday'    => 'Jumat',
-                'Saturday'  => 'Sabtu',
                 'Sunday'    => 'Minggu',
             ];
             $hariIni = $mapHariIni[\Carbon\Carbon::now()->format('l')] ?? '';
@@ -81,7 +113,7 @@
                 $color = $dayColors[$hari] ?? ['bg' => '#f8fafc', 'badge' => 'secondary', 'border' => '#e2e8f0', 'icon' => 'bi-calendar-event'];
                 $isToday = ($hari === $hariIni);
             @endphp
-            <div class="col-12 col-md-6 col-xl-4">
+            <div>
                 <div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden position-relative {{ $isToday ? 'ring-active' : '' }}"
                      style="background: #ffffff; border: 1px solid {{ $isToday ? '#3b82f6' : '#e2e8f0' }} !important;">
                     
@@ -109,12 +141,14 @@
                         </div>
 
                         {{-- Dedicated Page Edit Button for this day --}}
+                        @if($canManage)
                         <a href="{{ route('kurikulum.jadwal-piket.create', ['hari' => $hari]) }}"
                            class="btn btn-sm btn-light rounded-circle border shadow-none text-secondary d-flex align-items-center justify-content-center"
                            style="width: 32px; height: 32px; padding: 0;"
                            title="Kelola Guru Piket Hari {{ $hari }}">
                             <i class="bi bi-pencil-fill text-primary" style="font-size: 0.8rem;"></i>
                         </a>
+                        @endif
                     </div>
 
                     {{-- Card Body: Daftar Guru Piket --}}
@@ -147,6 +181,7 @@
                                         </div>
 
                                         {{-- Delete Action --}}
+                                        @if($canManage)
                                         <form action="{{ route('kurikulum.jadwal-piket.destroy', $item->id) }}" method="POST"
                                               onsubmit="return confirm('Hapus penugasan piket {{ $user->nama ?? 'Guru ini' }} pada hari {{ $hari }}?')">
                                             @csrf
@@ -156,6 +191,7 @@
                                                 <i class="bi bi-trash3"></i>
                                             </button>
                                         </form>
+                                        @endif
                                     </div>
                                 @endforeach
                             </div>

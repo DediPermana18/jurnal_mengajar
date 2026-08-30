@@ -67,7 +67,7 @@
                     <i class="bi bi-calendar-check me-1"></i> T.A. {{ $tahunAktif->tahun_ajaran }} (Semester {{ $tahunAktif->semester }})
                 </span>
             @endif
-            <a href="{{ route('kurikulum.jam-pelajaran.index') }}" class="btn btn-outline-secondary rounded-3 fw-semibold px-3 d-flex align-items-center gap-2" style="font-size: 0.875rem;">
+            <a href="{{ route('admin.jam-pelajaran.index') }}" class="btn btn-outline-secondary rounded-3 fw-semibold px-3 d-flex align-items-center gap-2" style="font-size: 0.875rem;">
                 <i class="bi bi-clock-history"></i> Master Jam
             </a>
         </div>
@@ -90,7 +90,7 @@
     {{-- Filter Card (Pilih Kelas & Pilih Hari) --}}
     <div class="card border-0 rounded-4 shadow-sm mb-4 bg-white">
         <div class="card-body p-4">
-            <form method="GET" action="{{ route('kurikulum.jadwal.index') }}" id="filterForm">
+            <form method="GET" action="{{ route('admin.jadwal.index') }}" id="filterForm">
                 <div class="row g-4">
                     {{-- Baris Atas: Pilih Kelas (Full Width) --}}
                     <div class="col-12">
@@ -119,14 +119,9 @@
                                 @endphp
                                 <button type="submit" name="hari" value="{{ $hari }}"
                                         class="btn flex-fill rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 {{ $isActive ? 'btn-primary shadow-sm text-white' : 'btn-light border text-dark' }}"
-                                        style="font-size: 0.875rem; min-width: fit-content; white-space: nowrap;">
-                                    <i class="bi {{ $hari === 'Jumat' ? 'bi-calendar2-day' : 'bi-calendar-day' }}"></i>
+                                        style="font-size: 0.9rem; min-width: fit-content; white-space: nowrap;">
+                                    <i class="bi {{ $hari === 'Jumat' ? 'bi-calendar2-day' : 'bi-calendar-day' }} fs-5"></i>
                                     <span>{{ $hari }}</span>
-                                    @if($hari === 'Jumat')
-                                        <span class="badge {{ $isActive ? 'bg-white text-primary' : 'bg-warning-subtle text-warning-emphasis' }} rounded-pill ms-1" style="font-size: 0.68rem;">30m</span>
-                                    @else
-                                        <span class="badge {{ $isActive ? 'bg-white text-primary' : 'bg-secondary-subtle text-secondary' }} rounded-pill ms-1" style="font-size: 0.68rem;">40m</span>
-                                    @endif
                                 </button>
                             @endforeach
                         </div>
@@ -167,7 +162,7 @@
                         </div>
                     </div>
 
-                    <form method="POST" action="{{ route('kurikulum.toggle-senin-tanpa-upacara') }}" id="formToggleSeninShift">
+                    <form method="POST" action="{{ route('admin.toggle-senin-tanpa-upacara') }}" id="formToggleSeninShift">
                         @csrf
                         <div class="form-check form-switch mb-0">
                             <input class="form-check-input" type="checkbox" role="switch" id="toggleSeninShift" name="senin_tanpa_upacara" value="1"
@@ -219,26 +214,16 @@
                         </div>
                     </div>
 
-                    {{-- Progress Bar --}}
-                    <div class="d-flex align-items-center gap-3" style="min-width: 240px;">
-                        <div class="flex-grow-1">
-                            <div class="d-flex justify-content-between mb-1 text-muted" style="font-size: 0.78rem;">
-                                <span>Progress Plotting</span>
-                                <strong class="text-dark">{{ $totalTerisi }}/{{ $totalKbm }} KBM ({{ $persentase }}%)</strong>
-                            </div>
-                            <div class="progress rounded-pill" style="height: 8px; background-color: #f1f5f9;">
-                                <div class="progress-bar rounded-pill {{ $persentase === 100 ? 'bg-success' : 'bg-primary' }}"
-                                     role="progressbar" style="width: {{ $persentase }}%;" aria-valuenow="{{ $persentase }}" aria-valuemin="0" aria-valuemax="100"></div>
-                            </div>
-                        </div>
-                        @if($jamPelajaranList->where('jenis', '!=', 'istirahat')->count() > $totalTerisi)
-                            <button type="button" class="btn btn-sm btn-primary rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-1 shadow-sm"
-                                    data-bs-toggle="modal" data-bs-target="#modalPlottingJadwal"
-                                    data-jam-ke="1"
-                                    onclick="preparePlotModal(1)">
-                                <i class="bi bi-plus-lg"></i> Plot Mapel
-                            </button>
-                        @endif
+                    <div class="d-flex align-items-center gap-2">
+                        <a href="{{ route('admin.jadwal.monitoring') }}" class="btn btn-sm btn-outline-primary rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-1 shadow-sm">
+                            <i class="bi bi-search"></i> Cek Slot Kosong
+                        </a>
+                        <button type="button" class="btn btn-sm btn-primary rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-1 shadow-sm"
+                                data-bs-toggle="modal" data-bs-target="#modalPlottingJadwal"
+                                data-jam-ke="1"
+                                onclick="preparePlotModal(1)">
+                            <i class="bi bi-plus-lg"></i> Plot Mapel
+                        </button>
                     </div>
                 </div>
             </div>
@@ -265,7 +250,7 @@
                         <p class="text-muted mb-3" style="font-size: 0.85rem;">
                             Silakan buka modul Master Jam Pelajaran lalu klik <strong>Generate Preset</strong>.
                         </p>
-                        <a href="{{ route('kurikulum.jam-pelajaran.index', ['tab' => ($selectedHari === 'Jumat' ? 'Jumat' : 'Senin-Kamis')]) }}" class="btn btn-primary rounded-3 px-4 py-2 fw-semibold">
+                        <a href="{{ route('admin.jam-pelajaran.index', ['tab' => ($selectedHari === 'Jumat' ? 'Jumat' : 'Senin-Kamis')]) }}" class="btn btn-primary rounded-3 px-4 py-2 fw-semibold">
                             <i class="bi bi-lightning-charge-fill me-1"></i> Buka Master Jam Pelajaran
                         </a>
                     </div>
@@ -274,7 +259,7 @@
                         <table class="table table-hover align-middle mb-0" style="font-size: 0.9rem;">
                             <thead style="background: #f8fafc;">
                                 <tr>
-                                    <th class="ps-4 py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 110px;">Jam Ke-</th>
+                                    <th class="py-3 text-center" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 110px;">Jam Ke-</th>
                                     <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 170px;">Rentang Waktu</th>
                                     <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 130px;">Jenis Slot</th>
                                     <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b;">Mata Pelajaran</th>
@@ -318,13 +303,12 @@
                                     @if($agendaItem)
                                     {{-- BARIS AGENDA RUTIN / UPACARA SEKOLAH — slot terkunci global --}}
                                     <tr style="background-color: #eff6ff;">
-                                        <td class="ps-4">
-                                            <div class="d-flex align-items-center gap-2">
+                                        <td class="text-center">
+                                            <div class="d-inline-flex align-items-center justify-content-center">
                                                 <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
                                                      style="width: 30px; height: 30px; font-size: 0.78rem; background: linear-gradient(135deg, #2563eb, #1d4ed8);">
                                                     {{ $jam->jam_ke }}
                                                 </div>
-                                                <span class="fw-bold text-primary">Jam {{ $jam->jam_ke }}</span>
                                             </div>
                                         </td>
                                         <td>
@@ -359,13 +343,12 @@
                                     @elseif($isPulang)
                                     {{-- BARIS PULANG SEKOLAH — slot melewati batas jam pulang --}}
                                     <tr style="background-color: #fff5f5; opacity: 0.82;">
-                                        <td class="ps-4">
-                                            <div class="d-flex align-items-center gap-2">
+                                        <td class="text-center">
+                                            <div class="d-inline-flex align-items-center justify-content-center">
                                                 <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold"
                                                      style="width: 30px; height: 30px; font-size: 0.78rem; background-color: #fee2e2; color: #dc2626; border: 1.5px solid #fca5a5;">
                                                     {{ $jam->jam_ke }}
                                                 </div>
-                                                <span class="fw-semibold text-danger">Jam {{ $jam->jam_ke }}</span>
                                             </div>
                                         </td>
                                         <td>
@@ -402,20 +385,18 @@
 
 
                                         {{-- 1. Jam Ke- --}}
-                                        <td class="ps-4">
-                                            <div class="d-flex align-items-center gap-2">
+                                        <td class="text-center">
+                                            <div class="d-inline-flex align-items-center justify-content-center">
                                                 @if(!$isIstirahat && $jam->jam_ke)
                                                     <div class="rounded-circle d-flex align-items-center justify-content-center fw-black text-white"
                                                          style="width: 30px; height: 30px; font-size: 0.78rem; background: {{ $jam->jenis === 'kbm' ? '#1677ff' : ($jam->jenis === 'upacara' ? '#2563eb' : '#7c3aed') }};">
                                                         {{ $jam->jam_ke }}
                                                     </div>
-                                                    <span class="fw-bold text-dark">Jam {{ $jam->jam_ke }}</span>
                                                 @else
                                                     <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-muted bg-light border"
                                                          style="width: 30px; height: 30px; font-size: 0.78rem;">
                                                         -
                                                     </div>
-                                                    <span class="text-muted fw-semibold">-</span>
                                                 @endif
                                             </div>
                                         </td>
@@ -528,7 +509,7 @@
                                                             )">
                                                         <i class="bi bi-pencil-fill text-primary me-1"></i> Edit
                                                     </button>
-                                                    <form method="POST" action="{{ route('kurikulum.jadwal.destroy', $jadwal->id) }}"
+                                                    <form method="POST" action="{{ route('admin.jadwal.destroy', $jadwal->id) }}"
                                                           onsubmit="return confirm('Hapus plotting jadwal {{ $jadwal->mataPelajaran->nama_mapel ?? '' }} pada {{ $slotName }}?')"
                                                           class="d-inline">
                                                         @csrf
@@ -567,8 +548,11 @@
 <div class="modal fade" id="modalPlottingJadwal" tabindex="-1" aria-labelledby="modalPlottingJadwalTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow rounded-4">
-            <form method="POST" action="{{ route('kurikulum.jadwal.store') }}" id="formPlottingJadwal">
+            <form method="POST" action="{{ route('admin.jadwal.store') }}" id="formPlottingJadwal">
                 @csrf
+                <input type="hidden" name="id_kelas" value="{{ $selectedKelas->id }}">
+                <input type="hidden" name="hari" value="{{ $selectedHari }}">
+
                 <div class="modal-header border-0 pb-0">
                     <h5 class="modal-title fw-bold" id="modalPlottingJadwalTitle">
                         <i class="bi bi-calendar-plus-fill text-primary me-2"></i>Plotting Mata Pelajaran
@@ -577,44 +561,14 @@
                 </div>
 
                 <div class="modal-body pt-3">
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold text-dark">Kelas</label>
-                            <select name="id_kelas" class="form-select rounded-3" required>
-                                @foreach($kelasList as $kelas)
-                                    <option value="{{ $kelas->id }}" {{ $selectedKelas->id === $kelas->id ? 'selected' : '' }}>
-                                        {{ $kelas->tingkat }} - {{ $kelas->nama_kelas }} ({{ $kelas->jurusan->nama_jurusan ?? 'Umum' }})
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold text-dark">Hari</label>
-                            <select name="hari" class="form-select rounded-3" required>
-                                @foreach($hariList as $hari)
-                                    <option value="{{ $hari }}" {{ $selectedHari === $hari ? 'selected' : '' }}>{{ $hari }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
-
-                    {{-- Info Banner --}}
-                    <div class="p-3 mb-3 rounded-3 bg-light border">
-                        <div class="row g-2" style="font-size: 0.85rem;">
-                            <div class="col-6">
-                                <span class="text-muted">Kelas:</span>
-                                <div class="fw-bold text-dark">{{ $selectedKelas->nama_kelas }}</div>
-                            </div>
-                            <div class="col-6">
-                                <span class="text-muted">Hari:</span>
-                                <div class="fw-bold text-dark">{{ $selectedHari }}</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="alert alert-info border-0 rounded-3 py-2 px-3 mb-3 d-flex align-items-center gap-2" style="font-size: 0.8rem;">
-                        <i class="bi bi-info-circle-fill text-info flex-shrink-0" style="font-size: 1rem;"></i>
-                        <span>Jika slot jam yang dipilih sudah terisi, jadwal lama pada slot tersebut akan otomatis diperbarui / ditimpa (overwrite).</span>
+                    {{-- Info Kelas & Hari (ringkas sebagai badge) --}}
+                    <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+                        <span class="badge bg-primary-subtle text-primary border rounded-pill px-3 py-2" style="font-size: 0.85rem;">
+                            <i class="bi bi-mortarboard-fill me-1"></i>{{ $selectedKelas->nama_kelas }}
+                        </span>
+                        <span class="badge bg-light text-dark border rounded-pill px-3 py-2" style="font-size: 0.85rem;">
+                            <i class="bi bi-calendar-week me-1"></i>Hari {{ $selectedHari }}
+                        </span>
                     </div>
 
                     {{-- Pilihan Rentang Jam Pelajaran (Dari Jam Ke- s/d Sampai Jam Ke-) --}}
@@ -661,6 +615,11 @@
                             <span id="labelJpInfo">Terpilih: <strong>1 JP</strong> (Jam 1)</span>
                         </div>
                         <span class="badge bg-primary rounded-pill px-2 py-1" id="badgeJpTotal" style="font-size: 0.78rem;">1 JP</span>
+                    </div>
+
+                    <div class="alert alert-info border-0 rounded-3 py-2 px-3 mb-3 d-flex align-items-center gap-2" style="font-size: 0.8rem;">
+                        <i class="bi bi-info-circle-fill text-info flex-shrink-0" style="font-size: 1rem;"></i>
+                        <span>Jika slot jam yang dipilih sudah terisi, jadwal lama pada slot tersebut akan otomatis diperbarui / ditimpa (overwrite).</span>
                     </div>
 
                     {{-- Pilih Mata Pelajaran --}}
@@ -720,49 +679,37 @@
                 </div>
 
                 <div class="modal-body pt-3">
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label fw-semibold text-dark">Kelas</label>
-                            <select name="id_kelas" id="editIdKelas" class="form-select rounded-3" required>
-                                @foreach($kelasList as $kelas)
-                                    <option value="{{ $kelas->id }}">
-                                        {{ $kelas->tingkat }} - {{ $kelas->nama_kelas }} ({{ $kelas->jurusan->nama_jurusan ?? 'Umum' }})
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-semibold text-dark">Hari</label>
-                            <select name="hari" id="editHari" class="form-select rounded-3" required>
-                                @foreach($hariList as $hari)
-                                    <option value="{{ $hari }}">{{ $hari }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-semibold text-dark">Jam Pelajaran</label>
-                            <select name="id_jam" id="editIdJam" class="form-select rounded-3" required>
-                                @foreach($jamPelajaranList->where('jenis', '!=', 'istirahat') as $jam)
-                                    <option value="{{ $jam->id }}">Jam {{ $jam->jam_ke }} ({{ substr($jam->jam_mulai, 0, 5) }} - {{ substr($jam->jam_selesai, 0, 5) }})</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
+                    {{-- Info Kelas / Hari / Slot Jam (read-only, tidak dapat diubah) --}}
+                    <input type="hidden" name="id_kelas" id="editIdKelas" value="">
+                    <input type="hidden" name="hari" id="editHari" value="">
+                    <input type="hidden" name="id_jam" id="editIdJam" value="">
 
-                    {{-- Info Banner --}}
-                    <div class="p-3 mb-3 rounded-3 bg-light border">
-                        <div class="row g-2" style="font-size: 0.85rem;">
-                            <div class="col-4">
-                                <span class="text-muted">Kelas:</span>
-                                <div class="fw-bold text-dark">{{ $selectedKelas->nama_kelas }}</div>
+                    <div class="d-flex flex-column flex-sm-row align-items-stretch gap-2 mb-4">
+                        <div class="flex-fill d-flex align-items-center gap-2 bg-white border rounded-3 px-3 py-2">
+                            <span class="badge bg-primary text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 34px; height: 34px;">
+                                <i class="bi bi-building"></i>
+                            </span>
+                            <div>
+                                <div class="text-muted text-uppercase" style="font-size: 0.68rem; letter-spacing: 0.05em;">Kelas</div>
+                                <div class="fw-bold text-dark" style="font-size: 0.9rem;">{{ $selectedKelas->tingkat }} - {{ $selectedKelas->nama_kelas }} ({{ $selectedKelas->jurusan->nama_jurusan ?? 'Umum' }})</div>
                             </div>
-                            <div class="col-4">
-                                <span class="text-muted">Hari:</span>
-                                <div class="fw-bold text-dark">{{ $selectedHari }}</div>
+                        </div>
+                        <div class="flex-fill d-flex align-items-center gap-2 bg-white border rounded-3 px-3 py-2">
+                            <span class="badge bg-success text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 34px; height: 34px;">
+                                <i class="bi bi-calendar-week"></i>
+                            </span>
+                            <div>
+                                <div class="text-muted text-uppercase" style="font-size: 0.68rem; letter-spacing: 0.05em;">Hari</div>
+                                <div class="fw-bold text-dark" id="editSlotHari" style="font-size: 0.9rem;">{{ $selectedHari }}</div>
                             </div>
-                            <div class="col-4">
-                                <span class="text-muted">Slot Jam:</span>
-                                <div class="fw-bold text-dark" id="editSlotInfo">-</div>
+                        </div>
+                        <div class="flex-fill d-flex align-items-center gap-2 bg-white border rounded-3 px-3 py-2">
+                            <span class="badge bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 34px; height: 34px;">
+                                <i class="bi bi-clock"></i>
+                            </span>
+                            <div>
+                                <div class="text-muted text-uppercase" style="font-size: 0.68rem; letter-spacing: 0.05em;">Slot Jam</div>
+                                <div class="fw-bold text-dark" id="editSlotInfo" style="font-size: 0.9rem;">-</div>
                             </div>
                         </div>
                     </div>
@@ -957,13 +904,17 @@
         updateJpInfo();
     }
 
-    function openEditModal(idJadwal, idMapel, idGuru, idKelas, hari, idJam, slotInfo) {
-        const routeBase = "{{ url('kurikulum/jadwal') }}";
+    function openEditModal(idJadwal, mapelId, guruId, idKelas, hari, idJam, slotInfo) {
+        const routeBase = "{{ url('admin/jadwal') }}";
         document.getElementById('formEditJadwal').action = routeBase + '/' + idJadwal;
 
         document.getElementById('editSlotInfo').textContent = slotInfo;
-        document.getElementById('editIdMapel').value = idMapel;
-        document.getElementById('editIdGuru').value  = idGuru;
+        const editSlotHariEl = document.getElementById('editSlotHari');
+        if (editSlotHariEl && hari) {
+            editSlotHariEl.textContent = hari;
+        }
+        document.getElementById('editIdMapel').value = mapelId;
+        document.getElementById('editIdGuru').value = guruId;
         document.getElementById('editIdKelas').value = idKelas;
         document.getElementById('editHari').value = hari;
         document.getElementById('editIdJam').value = idJam;

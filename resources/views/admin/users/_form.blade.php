@@ -9,7 +9,7 @@
         <input type="text" name="name" value="{{ old('name', $isEdit ? $user->nama : '') }}" class="form-control rounded-3" required maxlength="255">
     </div>
     <div class="col-md-6">
-        <label class="form-label fw-semibold text-secondary small">USERNAME / NIP / NIK <span class="text-danger">*</span></label>
+        <label class="form-label fw-semibold text-secondary small">USERNAME <span class="text-danger">*</span></label>
         <input type="text" name="username" value="{{ old('username', $isEdit ? $user->username : '') }}" class="form-control rounded-3" required maxlength="100">
     </div>
     <div class="col-md-6">
@@ -29,7 +29,7 @@
         </select>
     </div>
     <div class="col-md-6">
-        <label class="form-label fw-semibold text-secondary small">KODE AKTIVASI (OPSIONAL)</label>
+        <label class="form-label fw-semibold text-secondary small">KODE AKTIVASI <span class="text-danger">*</span></label>
         <input type="text" name="kode_aktivasi" value="{{ old('kode_aktivasi', $isEdit ? $user->kode_aktivasi : '') }}" class="form-control rounded-3" maxlength="100" placeholder="Kosongkan untuk dibuat otomatis">
     </div>
     @if($isEdit)

@@ -13,7 +13,7 @@ class DashboardController extends Controller
         $totalGuru = User::where('role', User::ROLE_GURU)->count();
         $totalSiswa = Siswa::count();
         $totalKelas = Kelas::count();
-        $akunBelumAktivasi = User::whereNotNull('kode_aktivasi')->count();
+        $akunTidakAktif = User::where('is_active', false)->count();
 
         $userTerbaru = User::latest()->take(5)->get();
 
@@ -21,7 +21,7 @@ class DashboardController extends Controller
             'totalGuru',
             'totalSiswa',
             'totalKelas',
-            'akunBelumAktivasi',
+            'akunTidakAktif',
             'userTerbaru'
         ));
     }

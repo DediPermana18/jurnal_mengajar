@@ -183,6 +183,12 @@
             <p class="text-muted small mb-3">
                 Centang hanya siswa yang <strong>tidak hadir</strong>. Siswa yang tidak dicentang otomatis tercatat sebagai <strong>Hadir</strong>.
             </p>
+            @if(isset($dispenMap) && count($dispenMap) > 0)
+                <div class="alert alert-info border-0 rounded-3 py-2 px-3 small mb-3 d-flex align-items-center gap-2">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <span><strong>{{ count($dispenMap) }} siswa</strong> memiliki dispensasi <strong>disetujui</strong> pada jam ini. Status mereka otomatis dicatat <strong>Dispen</strong> dan dikunci.</span>
+                </div>
+            @endif
 
             <div class="table-responsive">
                 <table class="table table-custom align-middle mb-0" id="tabelPresensi">
@@ -208,12 +214,30 @@
                                 if ($currentStatus === 'Hadir') { $currentStatus = 'Sakit'; }
 
                                 $currentKeterangan = old("presensi.{$siswa->id}.keterangan", old("keterangan.{$siswa->id}", $existingAbsensi ? $existingAbsensi->keterangan : ''));
+
+                                // Penanda DISPEN otomatis dari dispensasi yang sudah disetujui
+                                $dispen = isset($dispenMap) ? ($dispenMap[$siswa->id] ?? null) : null;
+                                if ($dispen) {
+                                    $isTidakHadir = true;
+                                    $currentStatus  = 'Dispen';
+                                    $currentKeterangan = 'Dispensasi: ' . $dispen->alasan;
+                                }
                             @endphp
 
                             <tr class="presensi-row {{ $isTidakHadir ? 'tidak-hadir' : 'hadir-default' }}" id="main_row_{{ $siswa->id }}">
                                 <td>{{ $index + 1 }}</td>
                                 <td>{{ $siswa->nis }}</td>
-                                <td class="fw-semibold">{{ $siswa->nama }}</td>
+                                <td class="fw-semibold">
+                                    {{ $siswa->nama }}
+                                    @if($dispen)
+                                        <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-2 py-1 ms-1" style="font-size: 0.7rem;">
+                                            <i class="bi bi-person-check-fill me-1"></i>DISPEN
+                                        </span>
+                                        <div class="text-muted small mt-1">
+                                            <small><i class="bi bi-info-circle me-1"></i>Auto: sudah disetujui (Jam {{ implode(', ', $dispen->jam_ke_list) }})</small>
+                                        </div>
+                                    @endif
+                                </td>
                                 <td class="text-center">
                                     <div class="form-check d-flex justify-content-center">
                                         <input type="checkbox"
