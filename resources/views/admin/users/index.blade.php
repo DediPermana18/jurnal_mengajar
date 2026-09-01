@@ -68,17 +68,17 @@
     </div>
 
     <div class="table-card-custom mb-4">
-        <div class="table-responsive">
-            <table class="table table-custom align-middle">
+        <div class="table-responsive w-full overflow-x-auto">
+            <table class="table table-custom align-middle min-w-full">
                 <thead>
                     <tr>
-                        <th>NO</th>
+                        <th class="whitespace-nowrap">NO</th>
                         <th>NAMA LENGKAP</th>
-                        <th>USERNAME</th>
-                        <th>SUB-ROLE</th>
-                        <th>KODE AKTIVASI</th>
-                        <th>STATUS</th>
-                        <th class="text-end">AKSI</th>
+                        <th class="whitespace-nowrap">USERNAME</th>
+                        <th class="whitespace-nowrap">SUB-ROLE</th>
+                        <th class="whitespace-nowrap">KODE AKTIVASI</th>
+                        <th class="whitespace-nowrap">STATUS</th>
+                        <th class="text-end whitespace-nowrap">AKSI</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -94,34 +94,36 @@
                             ][$roleValue] ?? 'bg-secondary-subtle text-secondary';
                         @endphp
                         <tr>
-                            <td>{{ $dataUsers->firstItem() + $loop->index }}</td>
+                            <td class="whitespace-nowrap">{{ $dataUsers->firstItem() + $loop->index }}</td>
                             <td class="fw-semibold text-dark">{{ $user->nama }}</td>
-                            <td>
+                            <td class="whitespace-nowrap">
                                 <div class="fw-semibold text-dark">{{ $user->username }}</div>
                                 @if($user->nip)
                                     <div class="text-muted small">NIP/NIK: {{ $user->nip }}</div>
                                 @endif
                             </td>
-                            <td><span class="badge {{ $roleClass }} px-2 py-2 rounded-3">{{ $roleLabel }}</span></td>
-                            <td><code>{{ $user->kode_aktivasi ?: '-' }}</code></td>
-                            <td><span class="badge {{ $user->is_active ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }} px-2 py-2 rounded-3">{{ $user->is_active ? 'Aktif' : 'Nonaktif' }}</span></td>
-                            <td class="text-end text-nowrap">
-                                <a href="{{ route('admin.users.edit', $user->id) }}" class="btn btn-sm btn-outline-warning rounded-3 me-1" title="Edit user"><i class="bi bi-pencil-square"></i></a>
+                            <td class="whitespace-nowrap"><span class="badge {{ $roleClass }} px-2 py-2 rounded-3">{{ $roleLabel }}</span></td>
+                            <td class="whitespace-nowrap"><code>{{ $user->kode_aktivasi ?: '-' }}</code></td>
+                            <td class="whitespace-nowrap"><span class="badge {{ $user->is_active ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }} px-2 py-2 rounded-3">{{ $user->is_active ? 'Aktif' : 'Nonaktif' }}</span></td>
+                            <td class="text-end whitespace-nowrap">
+                                <div class="flex items-center justify-center gap-2 whitespace-nowrap">
+                                <a href="{{ route('admin.users.edit', $user->id) }}" class="btn btn-sm btn-outline-warning rounded-3" title="Edit user"><i class="bi bi-pencil-square"></i></a>
                                 <form action="{{ route('admin.users.toggle-status', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Ubah status aktif user ini?')">
                                     @csrf
-                                    <button type="submit" class="btn btn-sm {{ $user->is_active ? 'btn-outline-secondary' : 'btn-outline-success' }} rounded-3 me-1" title="{{ $user->is_active ? 'Nonaktifkan user' : 'Aktifkan user' }}">
+                                    <button type="submit" class="btn btn-sm {{ $user->is_active ? 'btn-outline-secondary' : 'btn-outline-success' }} rounded-3" title="{{ $user->is_active ? 'Nonaktifkan user' : 'Aktifkan user' }}">
                                         <i class="bi {{ $user->is_active ? 'bi-slash-circle' : 'bi-check-circle' }}"></i>
                                     </button>
                                 </form>
                                 <form action="{{ route('admin.users.reset-password', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Reset password user ini ke username?')">
                                     @csrf
-                                    <button type="submit" class="btn btn-sm btn-outline-info rounded-3 me-1" title="Reset password"><i class="bi bi-key"></i></button>
+                                    <button type="submit" class="btn btn-sm btn-outline-info rounded-3" title="Reset password"><i class="bi bi-key"></i></button>
                                 </form>
                                 <form action="{{ route('admin.users.destroy', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus user ini? Data yang di-soft delete akan disembunyikan dari sistem.')">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="btn btn-sm btn-outline-danger rounded-3" title="Hapus user"><i class="bi bi-trash"></i></button>
                                 </form>
+                                </div>
                             </td>
                         </tr>
                     @empty

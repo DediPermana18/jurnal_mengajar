@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Kurikulum;
 
 use App\Http\Controllers\Controller;
+use App\Models\IzinGuru;
 use App\Models\JadwalPelajaran;
-use App\Models\JamPelajaran;
+use App\Models\Jurnal;
 use App\Models\Kelas;
 use App\Models\MataPelajaran;
 use App\Models\PengaturanJadwal;
@@ -58,28 +59,39 @@ class KurikulumDashboardController extends Controller
         // 2. Stat Card 2: Total Mata Pelajaran
         $totalMapel = MataPelajaran::count();
 
-        // 3. Stat Card 3: Progress Plotting Jadwal
-        $tahunAktif = TahunAjaran::where('status_aktif', true)->first() ?? TahunAjaran::first();
-
-        $totalJadwalPlotted = JadwalPelajaran::when($tahunAktif, function ($q) use ($tahunAktif) {
-            $q->where('id_tahun_ajaran', $tahunAktif->id);
-        })->count();
-
-        $slotKbmSeninKamis = JamPelajaran::where('kategori_hari', 'Senin-Kamis')->where('jenis', '!=', 'istirahat')->count();
-        $slotKbmJumat      = JamPelajaran::where('kategori_hari', 'Jumat')->where('jenis', '!=', 'istirahat')->count();
-        $totalSlotIdeal    = $totalKelas * (($slotKbmSeninKamis * 4) + $slotKbmJumat);
-
-        $progressPlotting = ($totalSlotIdeal > 0)
-            ? min(100, round(($totalJadwalPlotted / $totalSlotIdeal) * 100))
-            : 85;
+        // 3. Stat Card 3: Izin Menunggu Approval Waka
+        $izinMenungguApproval = IzinGuru::where('status', IzinGuru::STATUS_PENDING_WAKA)->count();
 
         // 4. Stat Card 4: Guru Mengajar Hari Ini
+        $tahunAktif = TahunAjaran::where('status_aktif', true)->first() ?? TahunAjaran::first();
+
         $guruMengajarHariIni = JadwalPelajaran::where('hari', $hariIniStr)
             ->when($tahunAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
             ->distinct('id_guru')
             ->count('id_guru');
 
         $totalGuru = User::where('role', 'guru')->count();
+
+        // 5. Daftar izin guru menunggu approval (Pending Waka)
+        $daftarIzinPending = IzinGuru::with('user')
+            ->where('status', IzinGuru::STATUS_PENDING_WAKA)
+            ->latest()
+            ->take(10)
+            ->get();
+
+        // 6. Ringkasan KBM Hari Ini (jurnal terisi vs total sesi jadwal)
+        $totalSesiHariIni = JadwalPelajaran::where('hari', $hariIniStr)
+            ->when($tahunAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
+            ->count();
+
+        $jurnalTerisiHariIni = Jurnal::whereDate('tanggal', $now->toDateString())
+            ->whereNotNull('materi')
+            ->where('materi', '!=', '')
+            ->count();
+
+        $persentaseKbmHariIni = $totalSesiHariIni > 0
+            ? min(100, round(($jurnalTerisiHariIni / $totalSesiHariIni) * 100))
+            : 0;
 
         return view('kurikulum.dashboard', compact(
             'hariAktif',
@@ -91,12 +103,14 @@ class KurikulumDashboardController extends Controller
             'pengaturanJadwal',
             'totalKelas',
             'totalMapel',
-            'progressPlotting',
-            'totalJadwalPlotted',
-            'totalSlotIdeal',
+            'izinMenungguApproval',
             'guruMengajarHariIni',
             'totalGuru',
-            'tahunAktif'
+            'tahunAktif',
+            'daftarIzinPending',
+            'totalSesiHariIni',
+            'jurnalTerisiHariIni',
+            'persentaseKbmHariIni'
         ));
     }
 }

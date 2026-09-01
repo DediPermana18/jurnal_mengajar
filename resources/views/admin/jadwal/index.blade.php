@@ -49,7 +49,7 @@
 @endpush
 
 @section('content')
-<div class="container-fluid px-0">
+<div class="container-fluid px-0" x-data="{ activeHari: '{{ $selectedHari ?? 'Senin' }}' }">
 
     {{-- Page Header --}}
     <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
@@ -118,6 +118,7 @@
                                     $isActive = ($selectedHari === $hari);
                                 @endphp
                                 <button type="submit" name="hari" value="{{ $hari }}"
+                                        @click="activeHari = '{{ $hari }}'"
                                         class="btn flex-fill rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 {{ $isActive ? 'btn-primary shadow-sm text-white' : 'btn-light border text-dark' }}"
                                         style="font-size: 0.9rem; min-width: fit-content; white-space: nowrap;">
                                     <i class="bi {{ $hari === 'Jumat' ? 'bi-calendar2-day' : 'bi-calendar-day' }} fs-5"></i>
@@ -131,52 +132,6 @@
         </div>
     </div>
 
-    {{-- WIDGET SAKELAR: Mode Khusus Senin (Upacara Ditiadakan / Dimajukan) --}}
-    @if(auth()->user()->role === 'admin' || in_array(auth()->user()->role, ['waka_kurikulum', 'admin_kurikulum', 'kurikulum']))
-        <div class="card border-0 rounded-4 shadow-sm mb-4 bg-white overflow-hidden">
-            <div class="card-body p-4">
-                <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-3 d-flex align-items-center justify-content-center text-white flex-shrink-0"
-                             style="width: 44px; height: 44px; background: linear-gradient(135deg, #e11d48, #be123c);">
-                            <i class="bi bi-lightning-charge-fill fs-4"></i>
-                        </div>
-                        <div>
-                            <div class="d-flex align-items-center gap-2">
-                                <h6 class="fw-bold mb-0 text-dark" style="font-size: 1rem;">
-                                    Sakelar Mode Khusus Hari Senin: Upacara Ditiadakan (KBM Dimajukan)
-                                </h6>
-                                @if(isset($pengaturanJadwal) && $pengaturanJadwal->senin_tanpa_upacara && $pengaturanJadwal->tanggal_eksekusi)
-                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-1" style="font-size: 0.72rem;">
-                                        <i class="bi bi-circle-fill me-1" style="font-size: 0.45rem;"></i>MODE TANPA UPACARA AKTIF ({{ \Carbon\Carbon::parse($pengaturanJadwal->tanggal_eksekusi)->translatedFormat('d M Y') }})
-                                    </span>
-                                @else
-                                    <span class="badge bg-light text-muted border rounded-pill px-3 py-1" style="font-size: 0.72rem;">
-                                        Normal (Ada Upacara)
-                                    </span>
-                                @endif
-                            </div>
-                            <div class="text-muted" style="font-size: 0.8rem;">
-                                Aktifkan sakelar ini jika upacara ditiadakan pada hari Senin. Seluruh jam KBM bergeser maju 1 JP & siswa/guru pulang lebih awal.
-                            </div>
-                        </div>
-                    </div>
-
-                    <form method="POST" action="{{ route('admin.toggle-senin-tanpa-upacara') }}" id="formToggleSeninShift">
-                        @csrf
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input" type="checkbox" role="switch" id="toggleSeninShift" name="senin_tanpa_upacara" value="1"
-                                   {{ (isset($pengaturanJadwal) && $pengaturanJadwal->senin_tanpa_upacara) ? 'checked' : '' }}
-                                   onchange="this.form.submit()" style="cursor: pointer; width: 3em; height: 1.5em;">
-                            <label class="form-check-label fw-bold text-dark ms-2" for="toggleSeninShift" style="font-size: 0.85rem; cursor: pointer;">
-                                {{ (isset($pengaturanJadwal) && $pengaturanJadwal->senin_tanpa_upacara) ? 'KBM Dimajukan (Tanpa Upacara)' : 'Senin Normal (Ada Upacara)' }}
-                            </label>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    @endif
     @if(!$selectedKelas)
         {{-- ===================== EMPTY STATE (BELUM PILIH KELAS) ===================== --}}
         <div class="card border-0 rounded-4 shadow-sm bg-white text-center p-5 my-3">
@@ -255,16 +210,17 @@
                         </a>
                     </div>
                 @else
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0" style="font-size: 0.9rem;">
+                    <div class="table-responsive w-full overflow-x-auto">
+                        <table class="table table-hover align-middle mb-0 min-w-full" style="font-size: 0.9rem;">
                             <thead style="background: #f8fafc;">
                                 <tr>
-                                    <th class="py-3 text-center" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 110px;">Jam Ke-</th>
-                                    <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 170px;">Rentang Waktu</th>
-                                    <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 130px;">Jenis Slot</th>
+                                    <th class="py-3 text-center whitespace-nowrap" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 100px;">Jam Ke-</th>
+                                    <th class="py-3 whitespace-nowrap" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 160px;">Rentang Waktu</th>
+                                    <th class="py-3 whitespace-nowrap" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 120px;">Jenis Slot</th>
                                     <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b;">Mata Pelajaran</th>
                                     <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b;">Guru Pengajar</th>
-                                    <th class="py-3 pe-4 text-end" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 140px;">Aksi</th>
+                                    <th class="py-3 whitespace-nowrap" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 150px;">Ruangan</th>
+                                    <th class="py-3 pe-4 text-end whitespace-nowrap" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 130px;">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -322,7 +278,7 @@
                                                 <i class="bi bi-flag-fill" style="font-size: 0.7rem;"></i> Agenda Rutin
                                             </span>
                                         </td>
-                                        <td colspan="2">
+                                        <td colspan="3">
                                             <div class="d-inline-flex align-items-center gap-2 px-3 py-2 rounded-3 shadow-2xs"
                                                  style="background-color: #ffffff; border: 1px solid #bfdbfe;">
                                                 <span style="font-size: 1.1rem;">🇮🇩</span>
@@ -362,7 +318,7 @@
                                                 <i class="bi bi-book-fill" style="font-size: 0.7rem;"></i> KBM
                                             </span>
                                         </td>
-                                        <td colspan="2">
+                                        <td colspan="3">
                                             <div class="d-inline-flex align-items-center gap-2 px-3 py-2 rounded-3"
                                                  style="background-color: #fee2e2; border: 1px dashed #fca5a5;">
                                                 <span style="font-size: 1rem;">🛑</span>
@@ -488,20 +444,38 @@
                                             @endif
                                         </td>
 
-                                        {{-- 6. Aksi --}}
-                                        <td class="pe-4 text-end">
+                                        {{-- 6. Ruangan --}}
+                                        <td>
+                                            @if($isIstirahat)
+                                                <span class="text-muted" style="font-size: 0.85rem;">-</span>
+                                            @elseif($jadwal && $jadwal->ruangan)
+                                                <span class="badge bg-light text-dark border px-2 py-1 rounded-2" style="font-size: 0.8rem;">
+                                                    <i class="bi bi-building me-1 text-secondary"></i>{{ $jadwal->ruangan->kode_ruangan }}
+                                                </span>
+                                            @elseif($jadwal)
+                                                <span class="badge bg-light text-muted border px-2 py-1 rounded-pill" style="font-size: 0.75rem;">
+                                                    <i class="bi bi-dash-circle me-1"></i>Belum set
+                                                </span>
+                                            @else
+                                                <span class="text-muted" style="font-size: 0.85rem;">-</span>
+                                            @endif
+                                        </td>
+
+                                        {{-- 7. Aksi --}}
+                                        <td class="pe-4 text-end whitespace-nowrap">
                                             @if($isIstirahat)
                                                 <span class="badge bg-light text-muted border px-2 py-1" style="font-size: 0.75rem;">
                                                     <i class="bi bi-lock-fill me-1"></i>Terkunci
                                                 </span>
                                             @elseif($jadwal)
-                                                <div class="d-flex gap-1 justify-content-end">
+                                                <div class="flex items-center justify-end gap-2 whitespace-nowrap">
                                                     <button type="button" class="btn btn-sm btn-light border rounded-3 px-2 py-1"
                                                             style="font-size: 0.78rem;" title="Edit Plotting"
                                                             onclick="openEditModal(
                                                                 {{ $jadwal->id }},
                                                                 {{ $jadwal->id_mapel }},
                                                                 {{ $jadwal->id_guru }},
+                                                                {{ $jadwal->id_ruangan ?? 'null' }},
                                                                 {{ $jadwal->id_kelas }},
                                                                 '{{ $jadwal->hari }}',
                                                                 {{ $jadwal->id_jam }},
@@ -650,6 +624,19 @@
                             <i class="bi bi-shield-check text-success me-1"></i>Sistem akan otomatis mengecek bentrok jadwal guru di kelas lain untuk seluruh jam yang dipilih.
                         </div>
                     </div>
+
+                    {{-- Pilih Ruangan (Moving Class) --}}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">Ruangan (Moving Class)</label>
+                        <select name="id_ruangan" id="plotIdRuangan" class="form-select rounded-3">
+                            <option value="">-- Pilih Ruangan (Opsional) --</option>
+                            @foreach($ruanganList as $ruangan)
+                                <option value="{{ $ruangan->id }}">
+                                    {{ $ruangan->kode_ruangan }} — {{ $ruangan->nama_ruangan }} @if($ruangan->lokasi) ({{ $ruangan->lokasi }}) @endif
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
                 </div>
 
                 <div class="modal-footer border-0 pt-0">
@@ -733,6 +720,19 @@
                             @foreach($guruList as $guru)
                                 <option value="{{ $guru->id }}">
                                     {{ $guru->nama }} {{ !empty($guru->nip) ? '— NIP: ' . $guru->nip : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- Pilih Ruangan (Moving Class) --}}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">Ruangan (Moving Class)</label>
+                        <select name="id_ruangan" id="editIdRuangan" class="form-select rounded-3">
+                            <option value="">-- Pilih Ruangan (Opsional) --</option>
+                            @foreach($ruanganList as $ruangan)
+                                <option value="{{ $ruangan->id }}">
+                                    {{ $ruangan->kode_ruangan }} — {{ $ruangan->nama_ruangan }} @if($ruangan->lokasi) ({{ $ruangan->lokasi }}) @endif
                                 </option>
                             @endforeach
                         </select>
@@ -904,7 +904,7 @@
         updateJpInfo();
     }
 
-    function openEditModal(idJadwal, mapelId, guruId, idKelas, hari, idJam, slotInfo) {
+    function openEditModal(idJadwal, mapelId, guruId, ruanganId, idKelas, hari, idJam, slotInfo) {
         const routeBase = "{{ url('admin/jadwal') }}";
         document.getElementById('formEditJadwal').action = routeBase + '/' + idJadwal;
 
@@ -915,6 +915,7 @@
         }
         document.getElementById('editIdMapel').value = mapelId;
         document.getElementById('editIdGuru').value = guruId;
+        document.getElementById('editIdRuangan').value = ruanganId ? ruanganId : '';
         document.getElementById('editIdKelas').value = idKelas;
         document.getElementById('editHari').value = hari;
         document.getElementById('editIdJam').value = idJam;

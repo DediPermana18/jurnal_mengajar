@@ -374,16 +374,16 @@
     <div class="table-card-custom">
 
         {{-- Table --}}
-        <div class="table-responsive">
-            <table class="table table-custom align-middle">
+        <div class="table-responsive w-full overflow-x-auto">
+            <table class="table table-custom align-middle min-w-full">
                 <thead>
                     <tr>
                         <th style="width: 30%;">NISN & NAMA SISWA</th>
-                        <th style="width: 12%;">NIS</th>
+                        <th class="whitespace-nowrap" style="width: 12%;">NIS</th>
                         <th style="width: 20%;">KELAS & JURUSAN</th>
-                        <th style="width: 13%;">JENIS KELAMIN</th>
-                        <th style="width: 12%;">STATUS</th>
-                        <th style="width: 13%; text-align: right;">AKSI</th>
+                        <th class="whitespace-nowrap" style="width: 13%;">JENIS KELAMIN</th>
+                        <th class="whitespace-nowrap" style="width: 12%;">STATUS</th>
+                        <th class="whitespace-nowrap" style="width: 13%; text-align: right;">AKSI</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -419,7 +419,7 @@
                             </td>
 
                             {{-- Kolom 2: NIS --}}
-                            <td>
+                            <td class="whitespace-nowrap">
                                 @if($siswa->nis)
                                     <span class="nisn-code">{{ $siswa->nis }}</span>
                                 @else
@@ -467,8 +467,8 @@
                             </td>
 
                             {{-- Kolom 6: Aksi --}}
-                            <td>
-                                <div class="d-flex justify-content-end align-items-center gap-1">
+                            <td class="whitespace-nowrap">
+                                <div class="flex items-center justify-end gap-2 whitespace-nowrap">
                                     {{-- Edit --}}
                                     <a href="{{ route('siswa.edit', $siswa->id) }}"
                                        class="btn-aksi"

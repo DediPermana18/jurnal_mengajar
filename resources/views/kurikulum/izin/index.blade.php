@@ -106,8 +106,8 @@
             <h5 class="fw-bold text-dark mb-0">Daftar Pengajuan Izin Guru</h5>
             <span class="text-muted small">Menampilkan {{ number_format($daftarIzin->total()) }} pengajuan</span>
         </div>
-        <div class="table-responsive">
-            <table class="table table-custom align-middle mb-0">
+        <div class="table-responsive w-full overflow-x-auto">
+            <table class="table table-custom align-middle mb-0 min-w-full">
                 <thead>
                     <tr>
                         <th>TANGGAL</th>
@@ -115,7 +115,7 @@
                         <th>ALASAN</th>
                         <th>LAMPIRAN</th>
                         <th>STATUS</th>
-                        <th class="text-end" style="min-width: 290px;">AKSI</th>
+                        <th class="text-end whitespace-nowrap" style="min-width: 290px;">AKSI</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -144,64 +144,76 @@
                                     <span class="text-muted">-</span>
                                 @endif
                             </td>
-                            <td>
+                            <td class="whitespace-nowrap">
                                 <span class="badge {{ $izin->status_badge }} rounded-pill px-2 py-2">{{ $izin->status_label }}</span>
                             </td>
-                            <td class="text-end text-nowrap">
-                                @if($izin->status === \App\Models\IzinGuru::STATUS_PENDING_WAKA || $izin->status === \App\Models\IzinGuru::STATUS_PENDING_KEPSEK)
-                                    @if($izin->approval_url)
+                            <td class="text-end text-nowrap whitespace-nowrap">
+                                @if($izin->status === \App\Models\IzinGuru::STATUS_PENDING_WAKA)
+                                    @if($izin->waka_approval_url)
                                         @php
-                                            $tujuanIzin = $izin->status === \App\Models\IzinGuru::STATUS_PENDING_WAKA ? 'Waka' : 'Kepala Sekolah';
-                                            $noTujuanIzin = $izin->status === \App\Models\IzinGuru::STATUS_PENDING_WAKA ? $noWaWaka : $noWaKepsek;
+                                            $tujuanIzin = 'Waka';
+                                            $noTujuanIzin = $noWaWaka;
                                         @endphp
-                                        <a href="#" class="btn btn-sm btn-wa rounded-3 mb-1"
+                                        <div class="flex items-center justify-center gap-2 whitespace-nowrap">
+                                        <a href="#" class="btn btn-sm btn-wa rounded-3"
                                            title="Kirim Link Approval ke {{ $tujuanIzin }} via WhatsApp"
-                                           data-wa-approval="{{ $izin->approval_url }}"
+                                           data-wa-approval="{{ $izin->waka_approval_url }}"
                                            data-nama="{{ addslashes($izin->user?->nama ?? 'Guru') }}"
                                            data-tanggal="{{ $izin->tanggal->translatedFormat('d/m/Y') }}"
                                            data-alasan="{{ addslashes($izin->alasan) }}"
                                            data-tujuan="{{ $tujuanIzin }}"
                                            data-no="{{ $noTujuanIzin }}">
-                                            <i class="bi bi-whatsapp me-1"></i>Kirim WA ke {{ $tujuanIzin }}
+                                            <i class="bi bi-whatsapp me-1"></i>Kirim WA ke Waka
                                         </a>
-                                        <button type="button" class="btn btn-sm btn-outline-success rounded-3 mb-1"
+                                        <button type="button" class="btn btn-sm btn-outline-success rounded-3"
                                                 title="Salin Link Approval"
-                                                data-salin-link="{{ $izin->approval_url }}">
+                                                data-salin-link="{{ $izin->waka_approval_url }}">
                                             <i class="bi bi-clipboard me-1"></i>Salin
                                         </button>
-                                        @php $qrSvgIzin = \App\Support\QrCodeHelper::svg($izin->approval_url, 6); @endphp
-                                        <button type="button" class="btn btn-sm btn-outline-dark rounded-3 mb-1"
+                                        @php $qrSvgIzin = \App\Support\QrCodeHelper::svg($izin->waka_approval_url, 6); @endphp
+                                        <button type="button" class="btn btn-sm btn-outline-dark rounded-3"
                                                 title="Tampilkan QR Approval"
                                                 data-bs-toggle="modal" data-bs-target="#modalApprovalQr"
                                                 data-qr-target="qr-izin-{{ $izin->id }}"
-                                                data-link="{{ $izin->approval_url }}">
+                                                data-link="{{ $izin->waka_approval_url }}">
                                             <i class="bi bi-qr-code me-1"></i>QR
                                         </button>
                                         <div class="d-none" id="qr-izin-{{ $izin->id }}">{!! $qrSvgIzin !!}</div>
                                         <form action="{{ route('kurikulum.izin.approve', $izin->id) }}" method="POST" class="d-inline"
-                                              onsubmit="return confirm('Lanjutkan izin {{ addslashes($izin->user?->nama ?? 'guru ini') }} ke langkah berikutnya?')">
+                                              onsubmit="return confirm('Setujui izin {{ addslashes($izin->user?->nama ?? 'guru ini') }}?')">
                                             @csrf
-                                            <button type="submit" class="btn btn-sm btn-success rounded-3 mb-1" title="Maju satu langkah approval">
-                                                <i class="bi bi-arrow-right-circle me-1"></i>Lanjut
+                                            <button type="submit" class="btn btn-sm btn-success rounded-3" title="Setujui izin ini">
+                                                <i class="bi bi-check-circle me-1"></i>Setujui
                                             </button>
                                         </form>
-                                        <button type="button" class="btn btn-sm btn-danger rounded-3 mb-1"
+                                        <button type="button" class="btn btn-sm btn-danger rounded-3"
                                                 data-bs-toggle="modal" data-bs-target="#modalTolak{{ $izin->id }}" title="Tolak izin">
                                             <i class="bi bi-x-lg me-1"></i>Tolak
                                         </button>
+                                        </div>
                                     @endif
-                                @elseif($izin->isPending())
-                                    <form action="{{ route('kurikulum.izin.approve', $izin->id) }}" method="POST" class="d-inline"
-                                          onsubmit="return confirm('Lanjutkan izin {{ addslashes($izin->user?->nama ?? 'guru ini') }} ke langkah berikutnya?')">
-                                        @csrf
-                                        <button type="submit" class="btn btn-sm btn-success rounded-3 mb-1" title="Maju satu langkah approval">
-                                            <i class="bi bi-arrow-right-circle me-1"></i>Lanjut
-                                        </button>
-                                    </form>
-                                    <button type="button" class="btn btn-sm btn-danger rounded-3 mb-1"
-                                            data-bs-toggle="modal" data-bs-target="#modalTolak{{ $izin->id }}" title="Tolak izin">
-                                        <i class="bi bi-x-lg me-1"></i>Tolak
-                                    </button>
+                                @elseif($izin->status === \App\Models\IzinGuru::STATUS_PENDING_KEPSEK)
+                                    @if($izin->kepsek_approval_url)
+                                        <div class="flex items-center justify-center gap-2 whitespace-nowrap">
+                                            <a href="#" class="btn btn-sm btn-wa rounded-3"
+                                               title="Kirim Link Approval ke Kepala Sekolah via WhatsApp"
+                                               data-wa-approval="{{ $izin->kepsek_approval_url }}"
+                                               data-nama="{{ addslashes($izin->user?->nama ?? 'Guru') }}"
+                                               data-tanggal="{{ $izin->tanggal->translatedFormat('d/m/Y') }}"
+                                               data-alasan="{{ addslashes($izin->alasan) }}"
+                                               data-tujuan="Kepala Sekolah"
+                                               data-no="{{ $noWaKepsek }}">
+                                                <i class="bi bi-whatsapp me-1"></i>Kirim WA ke Kepsek
+                                            </a>
+                                        </div>
+                                        <span class="text-muted small d-block pt-1">Menunggu verifikasi Kepala Sekolah</span>
+                                    @else
+                                        <span class="text-muted small">-</span>
+                                    @endif
+                                @elseif($izin->status === \App\Models\IzinGuru::STATUS_PENDING_PIKET)
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-1">
+                                        <i class="bi bi-hourglass-split me-1"></i>Menunggu Verifikasi Piket
+                                    </span>
                                 @else
                                     <span class="text-muted small">-</span>
                                 @endif

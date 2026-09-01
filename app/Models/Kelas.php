@@ -19,7 +19,6 @@ class Kelas extends Model
         'tingkat',
         'id_jurusan',
         'id_wali_kelas',
-        'ruangan_id',
     ];
 
     public function getNamaLengkapAttribute(): string
@@ -57,13 +56,5 @@ class Kelas extends Model
     public function jadwalPelajaran(): HasMany
     {
         return $this->hasMany(JadwalPelajaran::class, 'id_kelas', 'id');
-    }
-
-    /**
-     * Relasi ke Ruangan
-     */
-    public function ruangan(): BelongsTo
-    {
-        return $this->belongsTo(Ruangan::class, 'ruangan_id');
     }
 }

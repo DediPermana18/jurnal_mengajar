@@ -72,15 +72,15 @@
             <i class="bi bi-info-circle"></i>
             <span>Keterlambatan bersumber dari catatan Satpam yang diteruskan ke Wali Kelas; Alpha dari presensi Jurnal Guru Mapel.</span>
         </div>
-        <div class="table-responsive">
-            <table class="table table-custom align-middle mb-0">
+        <div class="table-responsive w-full overflow-x-auto">
+            <table class="table table-custom align-middle mb-0 min-w-full">
                 <thead>
                     <tr>
                         <th>Siswa</th>
                         <th>Kategori</th>
                         <th>Riwayat Terlambat (Satpam)</th>
                         <th>Tindak Lanjut Wali Kelas</th>
-                        <th class="text-end">Aksi</th>
+                        <th class="text-end whitespace-nowrap">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -152,7 +152,8 @@
                                     <span class="text-muted small">Belum ada tindak lanjut</span>
                                 @endif
                             </td>
-                            <td class="text-end">
+                            <td class="text-end whitespace-nowrap">
+                                <div class="flex items-center justify-center gap-2 whitespace-nowrap">
                                 @if($item['total_terlambat'] > 0 || $item['total_alpha'] > 0 || $item['total_dispen'] > 0)
                                     <button type="button" class="btn btn-sm btn-outline-primary rounded-2"
                                             data-bs-toggle="modal" data-bs-target="#tindakLanjutModal{{ $siswa->id }}">
@@ -161,6 +162,7 @@
                                 @else
                                     <span class="text-muted small">-</span>
                                 @endif
+                                </div>
                             </td>
                         </tr>
 

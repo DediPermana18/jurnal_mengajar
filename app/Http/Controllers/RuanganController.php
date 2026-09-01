@@ -23,7 +23,7 @@ class RuanganController extends Controller
     {
         $this->authorizePetugasTU();
 
-        $dataRuangan = Ruangan::with(['pengurus', 'kelas'])
+        $dataRuangan = Ruangan::with(['pengurus', 'jadwalPelajaran.kelas'])
             ->orderBy('kode_ruangan')
             ->get();
 
@@ -92,11 +92,11 @@ class RuanganController extends Controller
     {
         $this->authorizePetugasTU();
 
-        $ruangan = Ruangan::withCount('kelas')->findOrFail($id);
+        $ruangan = Ruangan::withCount('jadwalPelajaran')->findOrFail($id);
 
-        if ($ruangan->kelas_count > 0) {
+        if ($ruangan->jadwal_pelajaran_count > 0) {
             return back()->withErrors([
-                'error' => 'Ruangan "' . $ruangan->nama_ruangan . '" tidak dapat dihapus karena masih digunakan oleh ' . $ruangan->kelas_count . ' kelas.',
+                'error' => 'Ruangan "' . $ruangan->nama_ruangan . '" tidak dapat dihapus karena masih dipakai di ' . $ruangan->jadwal_pelajaran_count . ' slot jadwal pelajaran.',
             ]);
         }
 

@@ -53,7 +53,7 @@
                     <option value="">Semua Kelas</option>
                     @foreach($kelasList as $kelas)
                         <option value="{{ $kelas->id }}" {{ $idKelasInput == $kelas->id ? 'selected' : '' }}>
-                            {{ $kelas->nama_lengkap }}
+                            {{ $kelas->nama_kelas }}
                         </option>
                     @endforeach
                 </select>
@@ -129,17 +129,17 @@
             <h5 class="fw-bold text-dark mb-0">Rekapitulasi KBM</h5>
             <span class="text-muted small">Menampilkan {{ $daftarJurnal->total() }} sesi jurnal</span>
         </div>
-        <div class="table-responsive">
-            <table class="table table-custom align-middle mb-0">
+        <div class="table-responsive w-full overflow-x-auto">
+            <table class="table table-custom align-middle mb-0 min-w-full">
                 <thead>
                     <tr>
                         <th>TANGGAL</th>
-                        <th>JAM KE-</th>
+                        <th class="whitespace-nowrap">JAM KE-</th>
                         <th>KELAS</th>
                         <th>GURU</th>
                         <th>MATA PELAJARAN</th>
                         <th>MATERI / JURNAL</th>
-                        <th class="text-center">STATUS KEHADIRAN</th>
+                        <th class="text-center whitespace-nowrap">STATUS KEHADIRAN</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -193,7 +193,7 @@
                                     <span class="text-muted">Belum diisi materi</span>
                                 @endif
                             </td>
-                            <td class="text-center">
+                            <td class="text-center whitespace-nowrap">
                                 <span class="badge border rounded-pill px-2 py-1 small {{ $statusClass }}">
                                     {{ $jurnal->status_kehadiran ?? 'Hadir' }}
                                 </span>

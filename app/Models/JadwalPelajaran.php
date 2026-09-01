@@ -21,8 +21,17 @@ class JadwalPelajaran extends Model
         'id_kelas',
         'id_mapel',
         'id_guru',
+        'id_ruangan',
         'id_tahun_ajaran',
     ];
+
+    /**
+     * Relasi ke Ruangan
+     */
+    public function ruangan(): BelongsTo
+    {
+        return $this->belongsTo(Ruangan::class, 'id_ruangan');
+    }
 
     /**
      * Relasi ke Jam Pelajaran

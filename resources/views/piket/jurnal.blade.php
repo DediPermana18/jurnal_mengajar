@@ -61,8 +61,8 @@
 
     <!-- TABEL JURNAL -->
     <div class="table-card-custom mb-4">
-        <div class="table-responsive">
-            <table class="table table-custom align-middle">
+        <div class="table-responsive w-full overflow-x-auto">
+            <table class="table table-custom align-middle min-w-full">
                 <thead>
                     <tr>
                         <th style="width: 12%;">WAKTU</th>
@@ -71,7 +71,7 @@
                         <th style="width: 12%;">KELAS</th>
                         <th style="width: 16%;">MATA PELAJARAN</th>
                         <th style="width: 14%;">MATERI / CATATAN</th>
-                        <th style="width: 8%; text-align: center;">AKSI</th>
+                        <th style="width: 8%; text-align: center;" class="whitespace-nowrap">AKSI</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -108,7 +108,7 @@
                                     {{ $jurnal->guru->nama ?? $jurnal->jadwal->guru->nama ?? '-' }}
                                 </div>
                                 <div class="mt-1">
-                                    <span class="badge border rounded-pill px-2 py-1 small {{ $statusClass }}">
+                                    <span class="badge border rounded-pill px-2 py-1 small whitespace-nowrap {{ $statusClass }}">
                                         <i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i> {{ $jurnal->status_kehadiran ?? 'Hadir' }}
                                     </span>
                                 </div>
@@ -160,19 +160,21 @@
                             </td>
 
                             <!-- Kolom Aksi / Status Edit Piket -->
-                            <td class="text-center">
+                            <td class="text-center whitespace-nowrap">
+                                <div class="flex items-center justify-center gap-2 whitespace-nowrap">
                                 @if($jurnal->is_editable)
                                     <button type="button"
                                             class="btn btn-sm btn-primary rounded-3 px-2 py-1 shadow-sm fw-semibold"
                                             style="font-size: 0.78rem;"
                                             onclick="openModalEditPiket({{ $jurnal->id }}, '{{ addslashes($jurnal->guru->nama ?? $jurnal->jadwal->guru->nama ?? '') }}', '{{ $jurnal->status_kehadiran ?? 'Hadir' }}', '{{ $jurnal->id_guru_pengganti ?? '' }}', '{{ addslashes($jurnal->catatan_kejadian ?? '') }}')">
-                                        <i class="bi bi-pencil-square me-1"></i> Edit Piket
+                                        <i class="bi bi-pencil-square"></i> Edit Piket
                                     </button>
                                 @else
                                     <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2 py-1 small">
-                                        <i class="bi bi-lock-fill me-1"></i> Terkunci
+                                        <i class="bi bi-lock-fill"></i> Terkunci
                                     </span>
                                 @endif
+                                </div>
                             </td>
 
                         </tr>

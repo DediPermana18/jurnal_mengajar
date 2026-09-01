@@ -55,9 +55,8 @@ class DispensasiSiswa extends Model
         'approved_by',
         'catatan_penolakan',
         'ttd_siswa',
-        'bukti_surat',
+        'ttd_guru',
         'approval_token',
-        'ttd_waka',
         'keluar_gerbang_at',
         'keluar_gerbang_by',
     ];
@@ -178,11 +177,40 @@ class DispensasiSiswa extends Model
     }
 
     /**
-     * Label ringkas jam ke, mis. "Jam 3, 4, 5".
+     * Format ringkas jam ke, merangkum rentang berurutan.
+     * Mis. [1,2,3,4,11] -> "Jam 1 - 4, 11"; [3,5,6] -> "Jam 3, 5 - 6".
+     */
+    public static function formatJamKeList(array $jamKeList): string
+    {
+        $list = array_values(array_unique(array_filter(array_map('intval', $jamKeList), fn ($j) => $j > 0)));
+        sort($list);
+
+        if (empty($list)) {
+            return '-';
+        }
+
+        $segments = [];
+        $start = $prev = $list[0];
+
+        foreach (array_slice($list, 1) as $j) {
+            if ($j === $prev + 1) {
+                $prev = $j;
+                continue;
+            }
+            $segments[] = ($start === $prev) ? (string) $start : "{$start} - {$prev}";
+            $start = $prev = $j;
+        }
+        $segments[] = ($start === $prev) ? (string) $start : "{$start} - {$prev}";
+
+        return implode(', ', $segments);
+    }
+
+    /**
+     * Label ringkas jam ke, mis. [1,2,3,4,11] -> "Jam 1 - 4, 11".
      */
     public function getJamKeLabelAttribute(): string
     {
-        return 'Jam ' . implode(', ', $this->jam_ke_list);
+        return 'Jam ' . self::formatJamKeList($this->jam_ke_list);
     }
 
     /**
@@ -210,11 +238,11 @@ class DispensasiSiswa extends Model
     }
 
     /**
-     * URL tampilan tanda tangan Waka Kesiswaan / Penyetuju (base64 data URL) atau null.
+     * URL tampilan tanda tangan Guru Piket (penyetuju) atau null.
      */
-    public function getTtdWakaUrlAttribute(): ?string
+    public function getTtdGuruUrlAttribute(): ?string
     {
-        $ttd = $this->ttd_waka ? trim((string) $this->ttd_waka) : null;
+        $ttd = $this->ttd_guru ? trim((string) $this->ttd_guru) : null;
 
         if (!$ttd) {
             return null;
@@ -226,50 +254,11 @@ class DispensasiSiswa extends Model
     }
 
     /**
-     * Apakah Waka Kesiswaan / Penyetuju sudah menandatangani melalui link approval publik?
+     * Apakah Guru Piket sudah menandatangani (canvas TTD) saat membuat (ACC) pengajuan?
      */
-    public function getHasTtdWakaAttribute(): bool
+    public function getHasTtdGuruAttribute(): bool
     {
-        return (bool) $this->ttd_waka_url;
-    }
-
-    /**
-     * URL publik link approval (tanpa login) untuk Waka Kesiswaan / Penyetuju.
-     */
-    public function getApprovalUrlAttribute(): ?string
-    {
-        return $this->approval_token ? url('/approve-dispen/' . $this->approval_token) : null;
-    }
-
-    /**
-     * Path file bukti surat dispen hasil upload (JPG/PNG/PDF),
-     * disimpan pada kolom bukti_surat (storage/app/public/dispensasi/).
-     */
-    public function getBuktiPathAttribute(): ?string
-    {
-        return $this->bukti_surat ? trim((string) $this->bukti_surat) : null;
-    }
-
-    /**
-     * URL publik untuk mengakses file bukti surat dispen.
-     */
-    public function getBuktiUrlAttribute(): ?string
-    {
-        return $this->bukti_path ? Storage::disk('public')->url($this->bukti_path) : null;
-    }
-
-    /**
-     * Tipe file bukti surat: 'pdf', 'image', atau null jika tidak ada.
-     */
-    public function getBuktiTypeAttribute(): ?string
-    {
-        if (!$this->bukti_path) {
-            return null;
-        }
-
-        $ext = strtolower(pathinfo($this->bukti_path, PATHINFO_EXTENSION));
-
-        return in_array($ext, ['jpg', 'jpeg', 'png'], true) ? 'image' : 'pdf';
+        return (bool) $this->ttd_guru_url;
     }
 
     /**
@@ -319,7 +308,6 @@ class DispensasiSiswa extends Model
                 [
                     'status'     => 'Dispen',
                     'keterangan' => 'Dispensasi: ' . $alasan,
-                    'foto_surat' => $this->bukti_path,
                 ]
             );
             $count++;

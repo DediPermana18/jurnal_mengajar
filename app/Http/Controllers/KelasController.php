@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Kelas;
 use App\Models\Jurusan;
-use App\Models\Ruangan;
 use App\Models\User;
 use App\Models\Siswa;
 use App\Models\JadwalPelajaran;
@@ -37,7 +36,7 @@ class KelasController extends Controller
     {
         $this->authorizeAdmin();
 
-        $query = Kelas::with(['jurusan', 'waliKelas', 'ruangan'])->withCount('siswa');
+        $query = Kelas::with(['jurusan', 'waliKelas'])->withCount('siswa');
 
         // Pencarian Nama Kelas, Tingkat, Jurusan, atau Wali Kelas
         if ($request->filled('search')) {
@@ -83,9 +82,8 @@ class KelasController extends Controller
             ->with('kelasWali')
             ->orderBy('nama')
             ->get();
-        $daftarRuangan = Ruangan::orderBy('kode_ruangan')->get();
 
-        return view('admin.kelas.index', compact('dataKelas', 'daftarJurusan', 'daftarWaliKelas', 'daftarRuangan'));
+        return view('admin.kelas.index', compact('dataKelas', 'daftarJurusan', 'daftarWaliKelas'));
     }
 
     /**
@@ -95,7 +93,7 @@ class KelasController extends Controller
     {
         $this->authorizeAdmin();
 
-        $kelas = Kelas::with(['jurusan', 'waliKelas', 'ruangan'])->withCount('siswa')->findOrFail($id);
+        $kelas = Kelas::with(['jurusan', 'waliKelas'])->withCount('siswa')->findOrFail($id);
         $siswa = Siswa::where('id_kelas', $id)->orderBy('nama')->get();
         $jadwals = JadwalPelajaran::with(['guru', 'mataPelajaran', 'jamPelajaran'])
             ->where('id_kelas', $id)
@@ -124,7 +122,6 @@ class KelasController extends Controller
             'tingkat'       => 'required|in:X,XI,XII',
             'id_jurusan'    => 'required|exists:jurusan,id',
             'id_wali_kelas' => 'nullable|exists:users,id',
-            'ruangan_id'    => 'nullable|exists:ruangans,id',
         ], [
             'nama_kelas.required'    => 'Nama kelas wajib diisi.',
             'nama_kelas.unique'      => 'Nama kelas sudah terdaftar dalam sistem.',
@@ -133,7 +130,6 @@ class KelasController extends Controller
             'id_jurusan.required'    => 'Jurusan wajib dipilih.',
             'id_jurusan.exists'      => 'Jurusan yang dipilih tidak ditemukan.',
             'id_wali_kelas.exists'   => 'Wali kelas yang dipilih tidak ditemukan.',
-            'ruangan_id.exists'      => 'Ruangan yang dipilih tidak ditemukan.',
         ]);
 
         // Validasi: 1 Guru hanya boleh menjadi Wali Kelas pada 1 kelas
@@ -149,7 +145,6 @@ class KelasController extends Controller
             'tingkat'       => $request->tingkat,
             'id_jurusan'    => $idJurusan,
             'id_wali_kelas' => $idWaliKelas ?: null,
-            'ruangan_id'    => $request->ruangan_id ?: null,
         ]);
 
         // Sinkronisasi kelas_id pada tabel users
@@ -178,7 +173,6 @@ class KelasController extends Controller
             'tingkat'       => 'required|in:X,XI,XII',
             'id_jurusan'    => 'required|exists:jurusans,id',
             'id_wali_kelas' => 'nullable|exists:users,id',
-            'ruangan_id'    => 'nullable|exists:ruangans,id',
         ], [
             'nama_kelas.required' => 'Nama kelas wajib diisi.',
             'tingkat.required'    => 'Tingkat kelas wajib dipilih.',
@@ -186,7 +180,6 @@ class KelasController extends Controller
             'id_jurusan.required' => 'Jurusan wajib dipilih.',
             'id_jurusan.exists'   => 'Jurusan yang dipilih tidak valid.',
             'id_wali_kelas.exists'=> 'Wali kelas yang dipilih tidak valid.',
-            'ruangan_id.exists'   => 'Ruangan yang dipilih tidak ditemukan.',
         ]);
 
         $idJurusan = $request->id_jurusan;
@@ -209,7 +202,6 @@ class KelasController extends Controller
             'tingkat'       => $request->tingkat,
             'id_jurusan'    => $idJurusan,
             'id_wali_kelas' => $idWaliKelas ?: null,
-            'ruangan_id'    => $request->ruangan_id ?: null,
         ]);
 
         // Sinkronisasi kelas_id pada tabel users

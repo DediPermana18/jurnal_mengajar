@@ -27,6 +27,13 @@ Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+// Notifikasi navbar
+use App\Http\Controllers\NotificationController;
+Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
+Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
+
 // Halaman utama mengarah ke Dashboard Admin
 Route::get('/', [DashboardController::class, 'index'])->name('home');
 
@@ -114,14 +121,9 @@ Route::prefix('walikelas')->group(function () {
     Route::post('/siswa-bermasalah/tindak-lanjut', [WaliKelasController::class, 'siswaBermasalahStore'])->name('walikelas.siswa-bermasalah.store');
 });
 
-// ================= ROUTE PORTAL GURU PIKET =================
+// ================= PORTAL GURU PIKET =================
 use App\Http\Controllers\GuruPiketController;
 use App\Http\Controllers\DispensasiController;
-
-// ================= APPROVAL DISPEN PUBLIK (tanpa login, via link/QR unik) =================
-// Link dikirim Guru Piket ke Waka Kesiswaan / Penyetuju melalui WhatsApp.
-Route::get('/approve-dispen/{token}', [DispensasiController::class, 'showApproval'])->name('approval.show');
-Route::post('/approve-dispen/{token}', [DispensasiController::class, 'approvePublic'])->name('approval.submit');
 
 // ================= APPROVAL IZIN GURU PUBLIK (tanpa login, via link/QR unik) =================
 // Link dikirim ke Waka & Kepala Sekolah melalui WhatsApp. Satu token menangani
@@ -133,8 +135,9 @@ Route::post('/approve-izin/{token}', [IzinApprovalController::class, 'submit'])-
 
 Route::prefix('piket')->group(function () {
     Route::get('/dashboard', [GuruPiketController::class, 'dashboard'])->name('piket.dashboard');
-    Route::get('/presensi-guru', [GuruPiketController::class, 'presensiGuru'])->name('piket.presensi-guru');
+    // Route::get('/presensi-guru', [GuruPiketController::class, 'presensiGuru'])->name('piket.presensi-guru');
     Route::get('/presensi-siswa', [GuruPiketController::class, 'presensiSiswa'])->name('piket.presensi-siswa');
+    Route::post('/presensi-siswa', [GuruPiketController::class, 'storePresensiSiswa'])->name('piket.presensi-siswa.store');
     Route::get('/jurnal', [GuruPiketController::class, 'jurnalKBM'])->name('piket.jurnal');
     Route::put('/jurnal/{id}/update-piket', [JurnalMengajarController::class, 'updateByPiket'])->name('piket.jurnal.updateByPiket');
 
@@ -142,11 +145,9 @@ Route::prefix('piket')->group(function () {
     Route::get('/dispensasi',                    [DispensasiController::class, 'index'])->name('piket.dispensasi.index');
     Route::get('/dispensasi/create',             [DispensasiController::class, 'create'])->name('piket.dispensasi.create');
     Route::post('/dispensasi',                   [DispensasiController::class, 'store'])->name('piket.dispensasi.store');
-    Route::get('/dispensasi/pengajuan',          [DispensasiController::class, 'pengajuan'])->name('piket.dispensasi.pengajuan');
-    Route::post('/dispensasi/{id}/approve',      [DispensasiController::class, 'approve'])->name('piket.dispensasi.approve');
-    Route::post('/dispensasi/{id}/reject',       [DispensasiController::class, 'tolak'])->name('piket.dispensasi.reject');
     Route::get('/dispensasi/{id}/surat',         [DispensasiController::class, 'showSurat'])->name('piket.dispensasi.surat');
-    Route::get('/dispensasi/validasi/{id}',      [DispensasiController::class, 'validasi'])->name('piket.dispensasi.validasi');
+    Route::get('/dispensasi/{id}/ttd',           [DispensasiController::class, 'showTtd'])->name('piket.dispensasi.ttd');
+    Route::post('/dispensasi/{id}/ttd',          [DispensasiController::class, 'saveTtd'])->name('piket.dispensasi.ttd-save');
 
     // Izin Guru oleh Guru Piket (verifikasi Step 1)
     Route::get('/izin',                          [IzinPiketController::class, 'index'])->name('piket.izin.index');

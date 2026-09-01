@@ -40,34 +40,40 @@
 
     {{-- Table --}}
     <div class="table-card-custom mb-4">
-        <div class="table-responsive">
-            <table class="table table-custom align-middle">
+        <div class="table-responsive w-full overflow-x-auto">
+            <table class="table table-custom align-middle min-w-full">
                 <thead>
                     <tr>
-                        <th style="width: 5%;">NO</th>
-                        <th style="width: 12%;">KODE</th>
-                        <th style="width: 20%;">NAMA RUANGAN</th>
+                        <th class="whitespace-nowrap" style="width: 5%;">NO</th>
+                        <th class="whitespace-nowrap" style="width: 12%;">KODE</th>
+                        <th class="whitespace-nowrap" style="width: 20%;">NAMA RUANGAN</th>
                         <th style="width: 20%;">LOKASI / GEDUNG</th>
-                        <th style="width: 18%;">KELAS HOMEBASE</th>
+                        <th style="width: 18%;">KELAS / JADWAL</th>
                         <th style="width: 18%;">PENGURUS</th>
-                        <th class="text-center" style="width: 10%;">AKSI</th>
+                        <th class="text-center whitespace-nowrap" style="width: 10%;">AKSI</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($dataRuangan as $ruangan)
                         <tr>
-                            <td>{{ $loop->iteration }}</td>
-                            <td>
+                            <td class="whitespace-nowrap">{{ $loop->iteration }}</td>
+                            <td class="whitespace-nowrap">
                                 <span class="badge bg-light text-dark border px-3 py-2 rounded-3 font-monospace">{{ $ruangan->kode_ruangan }}</span>
                             </td>
                             <td class="fw-semibold text-dark">{{ $ruangan->nama_ruangan }}</td>
                             <td class="text-muted">{{ $ruangan->lokasi ?? '-' }}</td>
                             <td>
-                                @if($ruangan->kelas->isEmpty())
+                                @php
+                                    $kelasDipakai = $ruangan->jadwalPelajaran
+                                        ->map(fn($jp) => $jp->kelas)
+                                        ->filter()
+                                        ->unique('id');
+                                @endphp
+                                @if($kelasDipakai->isEmpty())
                                     <span class="text-muted small">-</span>
                                 @else
                                     <div class="d-flex flex-wrap gap-1">
-                                        @foreach($ruangan->kelas as $kelas)
+                                        @foreach($kelasDipakai as $kelas)
                                             <span class="badge bg-light text-dark border rounded-pill px-2 py-1" style="font-size: 0.75rem;">
                                                 {{ $kelas->nama_kelas }}
                                             </span>
@@ -88,9 +94,9 @@
                                     </div>
                                 @endif
                             </td>
-                            <td>
+                            <td class="whitespace-nowrap">
                                 @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
-                                    <div class="d-flex align-items-center gap-1 justify-content-center">
+                                    <div class="flex items-center justify-center gap-2 whitespace-nowrap">
                                         <button type="button" class="btn btn-sm btn-warning text-white rounded-3 px-2 py-1" title="Edit ruangan"
                                                 data-bs-toggle="modal" data-bs-target="#modalEditRuangan"
                                                 onclick="openEditModal({{ $ruangan->id }}, '{{ addslashes($ruangan->kode_ruangan) }}', '{{ addslashes($ruangan->nama_ruangan) }}', '{{ addslashes($ruangan->lokasi) }}', {{ $ruangan->pengurus->pluck('id') }})">

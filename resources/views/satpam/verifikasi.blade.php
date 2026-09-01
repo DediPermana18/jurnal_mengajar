@@ -103,8 +103,8 @@
                     <div>{{ $dispen->guruPiket?->nama ?? '-' }}</div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <div class="text-muted small text-uppercase fw-bold">Kode Surat</div>
-                    <div><code>{{ $dispen->approval_token ?? '-' }}</code></div>
+                    <div class="text-muted small text-uppercase fw-bold">Nomor Surat</div>
+                    <div><code>{{ $dispen->nomor_surat }}</code></div>
                 </div>
                 <div class="col-12">
                     <div class="text-muted small text-uppercase fw-bold">Alasan</div>
@@ -152,24 +152,24 @@
                     <h5 class="fw-bold text-dark mb-0">Riwayat Dispensasi Lainnya</h5>
                     <span class="text-muted small">{{ $daftarDispen->count() - 1 }} record</span>
                 </div>
-                <div class="table-responsive">
-                    <table class="table table-custom align-middle mb-0">
+                <div class="table-responsive w-full overflow-x-auto">
+                    <table class="table table-custom align-middle mb-0 min-w-full">
                         <thead>
                             <tr>
-                                <th>TANGGAL</th>
-                                <th>JAM KE</th>
+                                <th class="whitespace-nowrap">TANGGAL</th>
+                                <th class="whitespace-nowrap">JAM KE</th>
                                 <th>ALASAN</th>
-                                <th class="text-end">STATUS</th>
+                                <th class="text-end whitespace-nowrap">STATUS</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach($daftarDispen as $d)
                                 @if($d->id === $dispen->id) @continue @endif
                                 <tr>
-                                    <td>{{ $d->tanggal->translatedFormat('d M Y') }} @if($d->tanggal->toDateString() === now()->toDateString())<span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill ms-1">HARI INI</span>@endif</td>
-                                    <td>{{ $d->jam_ke ?? '-' }}</td>
+                                    <td class="whitespace-nowrap">{{ $d->tanggal->translatedFormat('d M Y') }} @if($d->tanggal->toDateString() === now()->toDateString())<span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill ms-1">HARI INI</span>@endif</td>
+                                    <td class="whitespace-nowrap">{{ $d->jam_ke ?? '-' }}</td>
                                     <td>{{ \Illuminate\Support\Str::limit($d->alasan, 50) }}</td>
-                                    <td class="text-end">
+                                    <td class="text-end whitespace-nowrap">
                                         @if($d->isKeluarGerbang())
                                             <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">Sudah Keluar</span>
                                         @else

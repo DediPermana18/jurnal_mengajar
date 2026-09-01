@@ -6,17 +6,22 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class IzinGuru extends Model
 {
     use HasFactory;
 
     // Status-step alur approval bertingkat
-    public const STATUS_PENDING_PIKET  = 'pending_piket';
-    public const STATUS_PENDING_WAKA   = 'pending_waka';
+    public const STATUS_PENDING_PIKET = 'pending_piket';
+
+    public const STATUS_PENDING_WAKA = 'pending_waka';
+
     public const STATUS_PENDING_KEPSEK = 'pending_kepsek';
-    public const STATUS_DISETUJUI      = 'disetujui';
-    public const STATUS_DITOLAK        = 'ditolak';
+
+    public const STATUS_DISETUJUI = 'disetujui';
+
+    public const STATUS_DITOLAK = 'ditolak';
 
     public const STATUSES = [
         self::STATUS_PENDING_PIKET,
@@ -27,19 +32,19 @@ class IzinGuru extends Model
     ];
 
     public const STATUS_LABELS = [
-        self::STATUS_PENDING_PIKET  => 'Pending Piket',
-        self::STATUS_PENDING_WAKA   => 'Pending Waka',
+        self::STATUS_PENDING_PIKET => 'Pending Piket',
+        self::STATUS_PENDING_WAKA => 'Pending Waka',
         self::STATUS_PENDING_KEPSEK => 'Pending Kepsek',
-        self::STATUS_DISETUJUI      => 'Disetujui',
-        self::STATUS_DITOLAK        => 'Ditolak',
+        self::STATUS_DISETUJUI => 'Disetujui',
+        self::STATUS_DITOLAK => 'Ditolak',
     ];
 
     public const STATUS_BADGES = [
-        self::STATUS_PENDING_PIKET  => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle',
-        self::STATUS_PENDING_WAKA   => 'bg-info-subtle text-info-emphasis border border-info-subtle',
+        self::STATUS_PENDING_PIKET => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle',
+        self::STATUS_PENDING_WAKA => 'bg-info-subtle text-info-emphasis border border-info-subtle',
         self::STATUS_PENDING_KEPSEK => 'bg-primary-subtle text-primary border border-primary-subtle',
-        self::STATUS_DISETUJUI      => 'bg-success-subtle text-success border border-success-subtle',
-        self::STATUS_DITOLAK        => 'bg-danger-subtle text-danger border border-danger-subtle',
+        self::STATUS_DISETUJUI => 'bg-success-subtle text-success border border-success-subtle',
+        self::STATUS_DITOLAK => 'bg-danger-subtle text-danger border border-danger-subtle',
     ];
 
     protected $table = 'izin_guru';
@@ -60,12 +65,33 @@ class IzinGuru extends Model
         'ttd_waka',
         'ttd_kepsek',
         'approval_token',
+        'token_waka',
+        'token_kepsek',
     ];
 
     protected $casts = [
-        'tanggal'     => 'date',
+        'tanggal' => 'date',
         'approved_at' => 'datetime',
     ];
+
+    /**
+     * Auto-generasi token tahap:
+     * - token_waka   selalu tersedia untuk tiap pengajuan izin.
+     * - token_kepsek baru dibuat saat status berubah menjadi Pending Kepsek,
+     *   sehingga link Kepala Sekolah belum pernah ada sebelumnya.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (IzinGuru $izin) {
+            if (! $izin->token_waka) {
+                $izin->token_waka = (string) Str::uuid();
+            }
+
+            if ($izin->status === self::STATUS_PENDING_KEPSEK && ! $izin->token_kepsek) {
+                $izin->token_kepsek = (string) Str::uuid();
+            }
+        });
+    }
 
     public function user(): BelongsTo
     {
@@ -118,9 +144,10 @@ class IzinGuru extends Model
     protected function ttdUrlValue(?string $ttd): ?string
     {
         $ttd = $ttd ? trim((string) $ttd) : null;
-        if (!$ttd) {
+        if (! $ttd) {
             return null;
         }
+
         return preg_match('/^data:/i', $ttd)
             ? $ttd
             : Storage::disk('public')->url($ttd);
@@ -156,8 +183,23 @@ class IzinGuru extends Model
         return (bool) $this->ttd_kepsek_url;
     }
 
+    public function getWakaApprovalUrlAttribute(): ?string
+    {
+        return $this->token_waka ? url('/approve-izin/'.$this->token_waka) : null;
+    }
+
+    public function getKepsekApprovalUrlAttribute(): ?string
+    {
+        return $this->token_kepsek ? url('/approve-izin/'.$this->token_kepsek) : null;
+    }
+
     public function getApprovalUrlAttribute(): ?string
     {
-        return $this->approval_token ? url('/approve-izin/' . $this->approval_token) : null;
+        // Link yang sedang berlaku sesuai tahap terakhir pengajuan.
+        if ($this->status === self::STATUS_PENDING_KEPSEK && $this->token_kepsek) {
+            return $this->kepsek_approval_url;
+        }
+
+        return $this->waka_approval_url;
     }
 }

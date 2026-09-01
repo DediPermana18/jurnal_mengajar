@@ -96,11 +96,14 @@ class ProfilController extends Controller
     }
 
     /**
-     * Generate kode aktivasi baru (PIN Token).
+     * Generate kode aktivasi baru (PIN Token) - Hanya untuk Admin.
      */
     public function generateKodeAktivasi()
     {
         $user = Auth::user();
+
+        // Hanya Admin yang boleh generate kode aktivasi
+        abort_unless($user->role === 'admin', 403, 'Akses ditolak. Hanya Administrator yang dapat menggenerate kode aktivasi.');
 
         // Generate kode unik 8 karakter alphanumeric uppercase
         do {

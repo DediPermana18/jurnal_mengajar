@@ -161,15 +161,15 @@
             <i class="bi bi-people-fill text-primary me-2"></i> Rekap Presensi Siswa Kelas {{ $jadwal->kelas?->nama_kelas }}
         </h5>
 
-        <div class="table-responsive">
-            <table class="table table-custom align-middle mb-0">
+        <div class="table-responsive w-full overflow-x-auto">
+            <table class="table table-custom align-middle mb-0 min-w-full">
                 <thead>
                     <tr>
-                        <th style="width: 50px;">No</th>
-                        <th style="width: 120px;">NIS</th>
-                        <th>Nama Siswa</th>
-                        <th style="width: 140px;" class="text-center">Status</th>
-                        <th>Keterangan / Foto Surat</th>
+                        <th class="whitespace-nowrap" style="width: 50px;">No</th>
+                        <th class="whitespace-nowrap" style="width: 120px;">NIS</th>
+                        <th class="whitespace-nowrap">Nama Siswa</th>
+                        <th style="width: 140px;" class="text-center whitespace-nowrap">Status</th>
+                        <th class="whitespace-nowrap">Keterangan / Foto Surat</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -179,10 +179,10 @@
                             $status = $abs ? $abs->status : 'Hadir';
                         @endphp
                         <tr>
-                            <td>{{ $index + 1 }}</td>
-                            <td>{{ $siswa->nis }}</td>
+                            <td class="whitespace-nowrap">{{ $index + 1 }}</td>
+                            <td class="whitespace-nowrap">{{ $siswa->nis }}</td>
                             <td class="fw-semibold">{{ $siswa->nama }}</td>
-                            <td class="text-center">
+                            <td class="text-center whitespace-nowrap">
                                 @if($status === 'Hadir')
                                     <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1 fw-bold">
                                         <i class="bi bi-check-circle-fill me-1"></i> Hadir

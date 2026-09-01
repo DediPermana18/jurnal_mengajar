@@ -29,14 +29,26 @@
                 <div class="accordion accordion-flush" id="accPanduan">
 
                     {{-- 1. Panduan Guru --}}
-                    <div class="accordion-item border-0 mb-3">
+                    <div class="accordion-item border-0 mb-3" x-data="{ open: true }">
                         <h2 class="accordion-header">
-                            <button class="accordion-button rounded-3 shadow-sm fw-bold text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#panduanGuru" aria-expanded="true" aria-controls="panduanGuru" style="font-size: 1rem;">
+                            <button class="accordion-button rounded-3 shadow-sm fw-bold text-dark" 
+                                    type="button" 
+                                    :class="{ 'collapsed': !open }"
+                                    :aria-expanded="open"
+                                    @click.prevent="open = !open" 
+                                    style="font-size: 1rem;">
                                 <i class="bi bi-person-video3 me-2 text-primary" style="font-size: 1.15rem;"></i> Panduan Guru (Guru Mapel)
                             </button>
                         </h2>
-                        <div id="panduanGuru" class="accordion-collapse collapse show" data-bs-parent="#accPanduan">
-                            <div class="accordion-body px-2 py-3">
+                        <div x-show="open" 
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 transform -translate-y-2"
+                             x-transition:enter-end="opacity-100 transform translate-y-0"
+                             x-transition:leave="transition ease-in duration-150"
+                             x-transition:leave-start="opacity-100 transform translate-y-0"
+                             x-transition:leave-end="opacity-0 transform -translate-y-2"
+                             id="panduanGuru">
+                            <div class="accordion-body px-3 py-3 bg-white rounded-bottom-3 border border-top-0">
                                 <div class="row g-4">
                                     <div class="col-12 col-md-6">
                                         <div class="d-flex gap-2 mb-2 align-items-center">
@@ -68,14 +80,26 @@
                     </div>
 
                     {{-- 2. Panduan Guru Piket --}}
-                    <div class="accordion-item border-0 mb-3">
+                    <div class="accordion-item border-0 mb-3" x-data="{ open: false }">
                         <h2 class="accordion-header">
-                            <button class="accordion-button collapsed rounded-3 shadow-sm fw-bold text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#panduanPiket" aria-expanded="false" aria-controls="panduanPiket" style="font-size: 1rem;">
+                            <button class="accordion-button rounded-3 shadow-sm fw-bold text-dark" 
+                                    type="button" 
+                                    :class="{ 'collapsed': !open }"
+                                    :aria-expanded="open"
+                                    @click.prevent="open = !open" 
+                                    style="font-size: 1rem;">
                                 <i class="bi bi-shield-check me-2 text-success" style="font-size: 1.15rem;"></i> Panduan Guru Piket
                             </button>
                         </h2>
-                        <div id="panduanPiket" class="accordion-collapse collapse" data-bs-parent="#accPanduan">
-                            <div class="accordion-body px-2 py-3">
+                        <div x-show="open" 
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 transform -translate-y-2"
+                             x-transition:enter-end="opacity-100 transform translate-y-0"
+                             x-transition:leave="transition ease-in duration-150"
+                             x-transition:leave-start="opacity-100 transform translate-y-0"
+                             x-transition:leave-end="opacity-0 transform -translate-y-2"
+                             id="panduanPiket">
+                            <div class="accordion-body px-3 py-3 bg-white rounded-bottom-3 border border-top-0">
                                 <div class="row g-4">
                                     <div class="col-12 col-md-6">
                                         <div class="d-flex gap-2 mb-2 align-items-center">
@@ -107,21 +131,33 @@
                     </div>
 
                     {{-- 3. Panduan Waka / Kepsek --}}
-                    <div class="accordion-item border-0">
+                    <div class="accordion-item border-0" x-data="{ open: false }">
                         <h2 class="accordion-header">
-                            <button class="accordion-button collapsed rounded-3 shadow-sm fw-bold text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#panduanApproval" aria-expanded="false" aria-controls="panduanApproval" style="font-size: 1rem;">
+                            <button class="accordion-button rounded-3 shadow-sm fw-bold text-dark" 
+                                    type="button" 
+                                    :class="{ 'collapsed': !open }"
+                                    :aria-expanded="open"
+                                    @click.prevent="open = !open" 
+                                    style="font-size: 1rem;">
                                 <i class="bi bi-eyeglasses me-2 text-danger" style="font-size: 1.15rem;"></i> Panduan Waka Kesiswaan / Kepala Sekolah
                             </button>
                         </h2>
-                        <div id="panduanApproval" class="accordion-collapse collapse" data-bs-parent="#accPanduan">
-                            <div class="accordion-body px-2 py-3">
+                        <div x-show="open" 
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 transform -translate-y-2"
+                             x-transition:enter-end="opacity-100 transform translate-y-0"
+                             x-transition:leave="transition ease-in duration-150"
+                             x-transition:leave-start="opacity-100 transform translate-y-0"
+                             x-transition:leave-end="opacity-0 transform -translate-y-2"
+                             id="panduanApproval">
+                            <div class="accordion-body px-3 py-3 bg-white rounded-bottom-3 border border-top-0">
                                 <div class="d-flex gap-2 mb-3 align-items-center">
                                     <i class="bi bi-whatsapp text-success" style="font-size: 1.1rem;"></i>
                                     <h6 class="fw-bold text-dark mb-0">Menyetujui Izin via Link WhatsApp & TTD Canvas</h6>
                                 </div>
                                 <ol class="help-steps mb-3" style="padding-left: 1.1rem;">
-                                    <li>Guru Piket / Waka mengirim tautan persetujuan lewat tombol <strong>"Kirim WA ke Waka / Kepala Sekolah"</strong> pada menu Approval Izin Guru, atau tombol <strong>"Kirim WA ke Waka"</strong> pada halaman Dispensasi.</li>
-                                    <li>Anda menerima pesan WhatsApp berisi link persetujuan unik (<code>/approve-izin/…</code> atau <code>/approve-dispen/…</code>); buka link tersebut — <strong>tanpa perlu login</strong>.</li>
+                                    <li>Guru Piket / Waka mengirim tautan persetujuan lewat tombol <strong>"Kirim WA ke Waka / Kepala Sekolah"</strong> pada menu Approval Izin Guru.</li>
+                                    <li>Anda menerima pesan WhatsApp berisi link persetujuan unik (<code>/approve-izin/…</code>); buka link tersebut — <strong>tanpa perlu login</strong>.</li>
                                     <li>Tinjau <strong>detail pengajuan</strong> dan status langkah persetujuan pada halaman.</li>
                                     <li>Buat <strong>tanda tangan digital di kanvas TTD</strong> (tekan & geser dengan jari/stylus), lalu pilih <strong>Setujui</strong> — atau <strong>Tolak</strong> serta isi catatan penolakan.</li>
                                     <li>Status otomatis maju: <em>Waka → Kepala Sekolah → Disetujui final</em>. Link yang sudah diproses akan menampilkan notifikasi <strong>"Pengajuan ini sudah diproses"</strong>.</li>

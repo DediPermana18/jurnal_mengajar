@@ -216,15 +216,15 @@
             </div>
         </div>
 
-        <div class="table-responsive">
-            <table class="table table-custom align-middle" id="tableSiswa">
+        <div class="table-responsive w-full overflow-x-auto">
+            <table class="table table-custom align-middle min-w-full" id="tableSiswa">
                 <thead>
                     <tr>
-                        <th style="width: 5%;">NO</th>
+                        <th class="whitespace-nowrap" style="width: 5%;">NO</th>
                         <th style="width: 35%;">NAMA SISWA</th>
-                        <th style="width: 20%;">NIS</th>
-                        <th style="width: 20%;">NISN</th>
-                        <th style="width: 20%;">JENIS KELAMIN</th>
+                        <th class="whitespace-nowrap" style="width: 20%;">NIS</th>
+                        <th class="whitespace-nowrap" style="width: 20%;">NISN</th>
+                        <th class="whitespace-nowrap" style="width: 20%;">JENIS KELAMIN</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -240,7 +240,7 @@
                             $color = $colors[$idx % count($colors)];
                         @endphp
                         <tr>
-                            <td>
+                            <td class="whitespace-nowrap">
                                 <div class="siswa-no-badge">{{ $idx + 1 }}</div>
                             </td>
                             <td>
@@ -251,17 +251,17 @@
                                     </div>
                                 </div>
                             </td>
-                            <td>
+                            <td class="whitespace-nowrap">
                                 <code class="text-dark fw-semibold" style="background: #f1f5f9; padding: 0.2rem 0.55rem; border-radius: 6px; font-size: 0.85rem;">
                                     {{ $s->nis ?? '-' }}
                                 </code>
                             </td>
-                            <td>
+                            <td class="whitespace-nowrap">
                                 <code class="text-dark fw-semibold" style="background: #f1f5f9; padding: 0.2rem 0.55rem; border-radius: 6px; font-size: 0.85rem;">
                                     {{ $s->nisn ?? '-' }}
                                 </code>
                             </td>
-                            <td>
+                            <td class="whitespace-nowrap">
                                 @if(($s->jenis_kelamin ?? '') == 'L' || strtolower($s->jenis_kelamin ?? '') == 'laki-laki')
                                     <span class="badge badge-laki px-3 py-1 rounded-pill fw-semibold small">
                                         <i class="bi bi-gender-male me-1"></i> Laki-laki

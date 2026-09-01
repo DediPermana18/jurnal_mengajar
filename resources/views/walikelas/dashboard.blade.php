@@ -4,17 +4,17 @@
 
 @section('content')
 <div class="container-fluid px-0">
-    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 md:mb-4 gap-2 md:gap-3">
         <div>
-            <h2 class="fw-black text-dark mb-1" style="letter-spacing: -0.02em; font-weight: 800; font-size: 1.75rem;">
+            <h2 class="fw-black text-dark mb-1" style="letter-spacing: -0.02em; font-weight: 800; font-size: 1.5rem;">
                 Dashboard Wali Kelas
             </h2>
-            <p class="text-muted mb-0" style="font-size: 0.9rem;">
+            <p class="text-muted mb-0" style="font-size: 0.85rem;">
                 Ringkasan kegiatan & dispensasi siswa kelas bimbingan Anda.
             </p>
         </div>
-        <div>
-            <a href="{{ route('walikelas.rekap-absen') }}" class="btn btn-outline-secondary rounded-3 px-3 py-2 fw-semibold">
+        <div class="flex-shrink-0 mt-2 mt-md-0">
+            <a href="{{ route('walikelas.rekap-absen') }}" class="btn btn-outline-secondary rounded-3 px-3 py-2 fw-semibold text-xs md:text-sm">
                 <i class="bi bi-clipboard-data me-1"></i> Rekap Absen
             </a>
         </div>
@@ -30,37 +30,37 @@
         </div>
     @else
         <!-- Stat Cards -->
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
-                <div class="stat-card-custom h-100">
-                    <div class="stat-card-title text-uppercase">Total Siswa Bimbingan</div>
-                    <div class="stat-number-large text-primary">{{ $totalSiswa }}</div>
-                    <div class="stat-card-label">Siswa</div>
-                    <p class="stat-card-subtext text-truncate" title="{{ $namaKelasSaya }}">{{ $namaKelasSaya }}</p>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-3 md:mb-4">
+            <div>
+                <div class="stat-card-custom p-3 md:p-4 h-100">
+                    <div class="stat-card-title text-uppercase text-xs md:text-sm truncate mb-1 md:mb-2" title="Total Siswa Bimbingan">Total Siswa Bimbingan</div>
+                    <div class="stat-number-large text-2xl md:text-4xl text-primary mb-1">{{ $totalSiswa }}</div>
+                    <div class="stat-card-label text-xs md:text-sm truncate" title="Siswa">Siswa</div>
+                    <p class="stat-card-subtext text-xs truncate mb-0 mt-1" title="{{ $namaKelasSaya }}">{{ $namaKelasSaya }}</p>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="stat-card-custom h-100">
-                    <div class="stat-card-title text-uppercase">Siswa Terlambat</div>
-                    <div class="stat-number-large text-danger">{{ $terlambatHariIni }}</div>
-                    <div class="stat-card-label">Hari Ini</div>
-                    <p class="stat-card-subtext">Dari catatan Satpam di gerbang</p>
+            <div>
+                <div class="stat-card-custom p-3 md:p-4 h-100">
+                    <div class="stat-card-title text-uppercase text-xs md:text-sm truncate mb-1 md:mb-2" title="Siswa Terlambat">Siswa Terlambat</div>
+                    <div class="stat-number-large text-2xl md:text-4xl text-danger mb-1">{{ $terlambatHariIni }}</div>
+                    <div class="stat-card-label text-xs md:text-sm truncate" title="Hari Ini">Hari Ini</div>
+                    <p class="stat-card-subtext text-xs truncate mb-0 mt-1">Dari catatan Satpam di gerbang</p>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="stat-card-custom h-100">
-                    <div class="stat-card-title text-uppercase">Siswa Perlu Perhatian</div>
-                    <div class="stat-number-large text-warning">{{ $perluPerhatian }}</div>
-                    <div class="stat-card-label">Terlambat >3x / Berkasus</div>
-                    <p class="stat-card-subtext text-truncate" title="{{ $namaKelasSaya }}">{{ $namaKelasSingkat }}</p>
+            <div>
+                <div class="stat-card-custom p-3 md:p-4 h-100">
+                    <div class="stat-card-title text-uppercase text-xs md:text-sm truncate mb-1 md:mb-2" title="Siswa Perlu Perhatian">Siswa Perlu Perhatian</div>
+                    <div class="stat-number-large text-2xl md:text-4xl text-warning mb-1">{{ $perluPerhatian }}</div>
+                    <div class="stat-card-label text-xs md:text-sm truncate" title="Terlambat >3x / Berkasus">Terlambat >3x / Berkasus</div>
+                    <p class="stat-card-subtext text-xs truncate mb-0 mt-1" title="{{ $namaKelasSaya }}">{{ $namaKelasSingkat }}</p>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="stat-card-custom h-100">
-                    <div class="stat-card-title text-uppercase">Siswa Dispen</div>
-                    <div class="stat-number-large text-info">{{ $jumlahDispen }}</div>
-                    <div class="stat-card-label">Hari Ini</div>
-                    <p class="stat-card-subtext">{{ $jumlahDisetujui }} disetujui</p>
+            <div>
+                <div class="stat-card-custom p-3 md:p-4 h-100">
+                    <div class="stat-card-title text-uppercase text-xs md:text-sm truncate mb-1 md:mb-2" title="Siswa Dispen">Siswa Dispen</div>
+                    <div class="stat-number-large text-2xl md:text-4xl text-info mb-1">{{ $jumlahDispen }}</div>
+                    <div class="stat-card-label text-xs md:text-sm truncate" title="Hari Ini">Hari Ini</div>
+                    <p class="stat-card-subtext text-xs truncate mb-0 mt-1">{{ $jumlahDisetujui }} disetujui</p>
                 </div>
             </div>
         </div>
@@ -88,25 +88,25 @@
                             <span class="fw-bold text-dark">{{ $namaKelas }}</span>
                             <span class="badge bg-light text-dark border rounded-pill px-2">{{ $items->count() }} siswa</span>
                         </div>
-                        <div class="table-responsive">
-                            <table class="table table-custom align-middle mb-0">
+                        <div class="overflow-x-auto w-full rounded-lg">
+                            <table class="table table-custom align-middle mb-0 min-w-full">
                                 <thead>
                                     <tr>
-                                        <th>Nama Siswa</th>
-                                        <th>Jam Ke-</th>
-                                        <th>Alasan</th>
-                                        <th>Guru Piket</th>
-                                        <th>Status</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">Nama Siswa</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">Jam Ke-</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">Alasan</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">Guru Piket</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach($items as $dispen)
                                         <tr>
-                                            <td class="fw-semibold">{{ $dispen->siswa?->nama ?? '-' }}</td>
-                                            <td>{{ $dispen->jam_ke_label }}</td>
-                                            <td class="text-muted">{{ $dispen->alasan }}</td>
-                                            <td>{{ $dispen->guruPiket?->nama ?? '-' }}</td>
-                                            <td><span class="badge {{ $dispen->status_badge }} rounded-pill px-3 py-1">{{ $dispen->status_label }}</span></td>
+                                            <td class="fw-semibold whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $dispen->siswa?->nama ?? '-' }}</td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $dispen->jam_ke_label }}</td>
+                                            <td class="text-muted whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $dispen->alasan }}</td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $dispen->guruPiket?->nama ?? '-' }}</td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm"><span class="badge {{ $dispen->status_badge }} rounded-pill px-2.5 py-1.5 text-xs md:text-sm">{{ $dispen->status_label }}</span></td>
                                         </tr>
                                     @endforeach
                                 </tbody>

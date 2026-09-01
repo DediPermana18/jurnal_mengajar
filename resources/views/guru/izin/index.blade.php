@@ -76,15 +76,15 @@
             <h5 class="fw-bold text-dark mb-0">Riwayat Izin</h5>
             <span class="text-muted small">Menampilkan {{ number_format($daftarIzin->total()) }} pengajuan</span>
         </div>
-        <div class="table-responsive">
-            <table class="table table-custom align-middle mb-0">
+        <div class="table-responsive w-full overflow-x-auto">
+            <table class="table table-custom align-middle mb-0 min-w-full">
                 <thead>
                     <tr>
-                        <th>TANGGAL</th>
+                        <th class="whitespace-nowrap">TANGGAL</th>
                         <th>ALASAN</th>
                         <th>TUGAS SISWA</th>
-                        <th>STATUS</th>
-                        <th class="text-end">AKSI</th>
+                        <th class="whitespace-nowrap">STATUS</th>
+                        <th class="text-end whitespace-nowrap">AKSI</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -110,9 +110,11 @@
                                 <span class="badge {{ $izin->status_badge }} rounded-pill px-2 py-2">{{ $izin->status_label }}</span>
                             </td>
                             <td class="text-end text-nowrap">
+                                <div class="flex items-center justify-center gap-2 whitespace-nowrap">
                                 <a href="{{ route('guru.izin.show', $izin->id) }}" class="btn btn-sm btn-outline-secondary rounded-3">
                                     <i class="bi bi-eye me-1"></i>Detail
                                 </a>
+                                </div>
                             </td>
                         </tr>
                     @empty

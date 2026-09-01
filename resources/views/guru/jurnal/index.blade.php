@@ -150,25 +150,25 @@
         </div>
     @else
         <div class="table-card-custom mb-4 d-none d-lg-block">
-            <div class="table-responsive">
-                <table class="table table-custom align-middle mb-0">
+            <div class="table-responsive w-full overflow-x-auto">
+                <table class="table table-custom align-middle mb-0 min-w-full">
                     <thead>
                         <tr>
-                            <th>Jam Ke-</th>
-                            <th>Waktu</th>
-                            <th>Kelas</th>
-                            <th>Mata Pelajaran</th>
-                            <th>Status Jurnal</th>
-                            <th class="text-end">Aksi</th>
+                            <th class="whitespace-nowrap">Jam Ke-</th>
+                            <th class="whitespace-nowrap">Waktu</th>
+                            <th class="whitespace-nowrap">Kelas</th>
+                            <th class="whitespace-nowrap">Mata Pelajaran</th>
+                            <th class="whitespace-nowrap">Status Jurnal</th>
+                            <th class="text-end whitespace-nowrap">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($jadwals as $item)
                             <tr class="{{ !$item->can_fill && !$item->can_edit ? 'text-muted' : '' }}">
-                                <td><span class="jam-badge">Jam {{ $item->jam_ke }}</span></td>
-                                <td>{{ $item->waktu }}</td>
-                                <td><span class="badge bg-light text-dark border">{{ $item->kelas }}</span></td>
-                                <td>{{ $item->mapel }}</td>
+                                <td class="whitespace-nowrap"><span class="jam-badge">Jam {{ $item->jam_ke }}</span></td>
+                                <td class="whitespace-nowrap">{{ $item->waktu }}</td>
+                                <td class="whitespace-nowrap"><span class="badge bg-light text-dark border">{{ $item->kelas }}</span></td>
+                                <td class="whitespace-nowrap">{{ $item->mapel }}</td>
                                 <td>
                                     @if($item->is_pulang)
                                         <span class="badge d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fw-semibold"
@@ -213,9 +213,9 @@
                                         </div>
                                     @endif
                                 </td>
-                                <td class="text-end">
+                                <td class="text-end whitespace-nowrap">
                                     @if($item->is_filled && isset($item->jurnal))
-                                        <div class="d-flex justify-content-end gap-2">
+                                        <div class="flex items-center justify-center gap-2 whitespace-nowrap">
                                             <!-- Tombol 1: Lihat Detail (Selalu Tampil Jika Sudah Terisi) -->
                                             <a href="{{ route('guru.jurnal.show', $item->jurnal->id) }}"
                                                class="btn btn-outline-secondary btn-sm rounded-3 px-3 fw-semibold shadow-sm">
@@ -232,18 +232,22 @@
                                         </div>
                                     @elseif($item->can_fill)
                                         <!-- INPUT BARU BISA DIISI -->
+                                        <div class="flex items-center justify-center gap-2 whitespace-nowrap">
                                         <a href="{{ route('guru.jurnal.form', $item->jadwal->id) }}"
                                            class="btn btn-primary btn-sm rounded-3 px-3 fw-semibold shadow-sm">
                                             <i class="bi bi-pencil-square me-1"></i> Isi Jurnal
                                         </a>
+                                        </div>
                                     @else
                                         <!-- TERKUNCI -->
+                                        <div class="flex items-center justify-center gap-2 whitespace-nowrap">
                                         <button type="button"
                                                 class="btn btn-secondary btn-sm rounded-3 px-3 fw-semibold"
                                                 disabled
                                                 title="{{ $item->lock_reason }}">
                                             <i class="bi bi-lock-fill me-1"></i> Isi Jurnal
                                         </button>
+                                        </div>
                                         @if($item->lock_reason)
                                             <div class="small text-muted mt-1">{{ $item->lock_reason }}</div>
                                         @endif

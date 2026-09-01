@@ -128,15 +128,15 @@
                     </form>
                 </div>
             @else
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0" style="font-size: 0.9rem;">
+                <div class="table-responsive w-full overflow-x-auto">
+                    <table class="table table-hover align-middle mb-0 min-w-full" style="font-size: 0.9rem;">
                         <thead style="background: #f8fafc;">
                             <tr>
                                 <th class="ps-4 py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; white-space: nowrap; width: 130px;">Jam Ke-</th>
                                 <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 180px;">Rentang Waktu</th>
                                 <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 120px;">Durasi</th>
                                 <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b;">Jenis / Keterangan</th>
-                                <th class="py-3 pe-4 text-end" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 140px;">Aksi</th>
+                                <th class="py-3 pe-4 text-end whitespace-nowrap" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 140px;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -168,7 +168,7 @@
                                     };
                                 @endphp
                                 <tr>
-                                    <td class="ps-4">
+                                    <td class="ps-4 whitespace-nowrap">
                                         <div class="d-flex align-items-center gap-2">
                                             @if($jam->jenis !== 'istirahat' && $jam->jam_ke)
                                                 <div class="rounded-circle d-flex align-items-center justify-content-center fw-black text-white"
@@ -200,8 +200,8 @@
                                             {{ $jenisLabel }}
                                         </span>
                                     </td>
-                                    <td class="pe-4 text-end">
-                                        <div class="d-flex gap-1 justify-content-end">
+                                    <td class="pe-4 text-end whitespace-nowrap">
+                                        <div class="flex items-center justify-center gap-2 whitespace-nowrap">
                                             <button type="button"
                                                     class="btn btn-sm btn-light border rounded-3 px-2 py-1"
                                                     style="font-size: 0.78rem;"

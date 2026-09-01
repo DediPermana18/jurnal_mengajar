@@ -224,9 +224,9 @@
     </div>
 
     <div class="table-card-custom mb-4">
-        <div class="table-responsive">
-            <table class="table table-custom align-middle">
-                <thead><tr><th style="width: 28%;">GURU</th><th style="width: 28%;">MATA PELAJARAN</th><th style="width: 18%;">WALI KELAS</th><th style="width: 10%;">STATUS</th><th class="text-end" style="width: 16%;">AKSI</th></tr></thead>
+        <div class="table-responsive w-full overflow-x-auto">
+            <table class="table table-custom align-middle min-w-full">
+                <thead><tr><th class="whitespace-nowrap" style="width: 28%;">GURU</th><th style="width: 28%;">MATA PELAJARAN</th><th style="width: 18%;">WALI KELAS</th><th class="whitespace-nowrap" style="width: 10%;">STATUS</th><th class="text-end whitespace-nowrap" style="width: 16%;">AKSI</th></tr></thead>
                 <tbody>
                     @forelse($dataGuru as $guru)
                         @php
@@ -240,20 +240,47 @@
                             $namaKelasWali = $guru->kelasWali?->pluck('nama_kelas')->join(', ') ?: $guru->kelas?->nama_kelas;
                         @endphp
                         <tr>
-                            <td><div class="d-flex align-items-center gap-3"><div class="rounded-circle bg-secondary-subtle text-secondary fw-bold d-flex align-items-center justify-content-center shrink-0" style="width: 44px; height: 44px;">{{ $initials }}</div><div><div class="fw-bold text-dark">{{ $guru->nama }}</div><div class="text-muted small">NIP: {{ $guru->nip ?: '-' }}</div></div></div></td>
-                            <td>{{ $mapelNames->unique()->join(', ') ?: '-' }}</td>
+                            {{-- 1. Guru Info (Nama & NIP) --}}
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="rounded-circle bg-secondary-subtle text-secondary fw-bold d-flex align-items-center justify-content-center shrink-0" style="width: 44px; height: 44px;">
+                                        {{ $initials }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold text-dark">{{ $guru->nama }}</div>
+                                        <div class="text-muted small">NIP: {{ $guru->nip ?: '-' }}</div>
+                                    </div>
+                                </div>
+                            </td>
+
+                            {{-- 2. Mata Pelajaran Pengampu --}}
+                            <td>
+                                @if($mapelNames->unique()->isNotEmpty())
+                                    @foreach($mapelNames->unique() as $namaMapel)
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 rounded-2 me-1 mb-1" style="font-size: 0.78rem; font-weight: 600;">
+                                            <i class="bi bi-journal-bookmark me-1"></i>{{ $namaMapel }}
+                                        </span>
+                                    @endforeach
+                                @else
+                                    <span class="badge bg-light text-muted border px-2 py-1 rounded-pill" style="font-size: 0.78rem;">
+                                        <i class="bi bi-dash-circle me-1"></i>Belum set
+                                    </span>
+                                @endif
+                            </td>
                             <td>{{ $namaKelasWali ? 'Wali Kelas ' . $namaKelasWali : '-' }}</td>
-                            <td><span class="badge {{ $guru->is_active ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis' }} rounded-pill px-3 py-2">{{ $guru->is_active ? 'Aktif' : 'Nonaktif' }}</span></td>
-                            <td class="text-end text-nowrap">
+                            <td class="whitespace-nowrap"><span class="badge {{ $guru->is_active ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis' }} rounded-pill px-3 py-2">{{ $guru->is_active ? 'Aktif' : 'Nonaktif' }}</span></td>
+                            <td class="text-end whitespace-nowrap">
                                 @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
-                                    <a href="{{ route('admin.guru.edit', $guru->id) }}" class="btn btn-sm btn-outline-warning rounded-3 me-1" title="Edit guru"><i class="bi bi-pencil-square"></i></a>
-                                    <form action="{{ route('guru.reset-password', $guru->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Reset password guru ini ke password default?')">@csrf<button type="submit" class="btn btn-sm btn-outline-info rounded-3 me-1" title="Reset password"><i class="bi bi-key"></i></button></form>
+                                    <div class="flex items-center justify-center gap-2 whitespace-nowrap">
+                                    <a href="{{ route('admin.guru.edit', $guru->id) }}" class="btn btn-sm btn-outline-warning rounded-3" title="Edit guru"><i class="bi bi-pencil-square"></i></a>
+                                    <form action="{{ route('guru.reset-password', $guru->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Reset password guru ini ke password default?')">@csrf<button type="submit" class="btn btn-sm btn-outline-info rounded-3" title="Reset password"><i class="bi bi-key"></i></button></form>
                                     @if(!$guru->is_active)
-                                        <form action="{{ route('guru.approve', $guru->id) }}" method="POST" class="d-inline">@csrf<button type="submit" class="btn btn-sm btn-outline-success rounded-3 me-1" title="Aktifkan guru"><i class="bi bi-check-circle"></i></button></form>
+                                        <form action="{{ route('guru.approve', $guru->id) }}" method="POST" class="d-inline">@csrf<button type="submit" class="btn btn-sm btn-outline-success rounded-3" title="Aktifkan guru"><i class="bi bi-check-circle"></i></button></form>
                                     @else
-                                        <form action="{{ route('guru.toggle-status', $guru->id) }}" method="POST" class="d-inline">@csrf<button type="submit" class="btn btn-sm btn-outline-secondary rounded-3 me-1" title="Nonaktifkan guru"><i class="bi bi-slash-circle"></i></button></form>
+                                        <form action="{{ route('guru.toggle-status', $guru->id) }}" method="POST" class="d-inline">@csrf<button type="submit" class="btn btn-sm btn-outline-secondary rounded-3" title="Nonaktifkan guru"><i class="bi bi-slash-circle"></i></button></form>
                                     @endif
                                     <form action="{{ route('guru.destroy', $guru->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus data guru ini?')">@csrf @method('DELETE')<button type="submit" class="btn btn-sm btn-outline-danger rounded-3" title="Hapus guru"><i class="bi bi-trash"></i></button></form>
+                                    </div>
                                 @endif
                             </td>
                         </tr>

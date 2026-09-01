@@ -29,10 +29,10 @@ class Ruangan extends Model
     }
 
     /**
-     * Kelas yang menggunakan ruangan ini
+     * Slot jadwal pelajaran yang memakai ruangan ini (ruangan bersifat dinamis per slot).
      */
-    public function kelas(): HasMany
+    public function jadwalPelajaran(): HasMany
     {
-        return $this->hasMany(Kelas::class, 'ruangan_id');
+        return $this->hasMany(JadwalPelajaran::class, 'id_ruangan');
     }
 }

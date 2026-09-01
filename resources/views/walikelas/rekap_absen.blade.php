@@ -20,11 +20,11 @@
             <h5 class="fw-bold text-dark mb-0">Rekapitulasi Kehadiran {{ $namaKelasSaya ?? 'Kelas Bimbingan' }}</h5>
             <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1">{{ $rekapAbsen->count() }} Siswa</span>
         </div>
-        <div class="table-responsive">
-            <table class="table table-custom align-middle">
+        <div class="table-responsive w-full overflow-x-auto">
+            <table class="table table-custom align-middle min-w-full">
                 <thead>
                     <tr>
-                        <th class="text-center" style="width: 60px;">No</th>
+                        <th class="text-center whitespace-nowrap" style="width: 60px;">No</th>
                         <th>NIS/NISN</th>
                         <th>Nama Siswa</th>
                         <th class="text-center">Hadir</th>
@@ -37,14 +37,14 @@
                 <tbody>
                     @forelse($rekapAbsen as $r)
                         <tr>
-                            <td class="text-center text-muted">{{ $loop->iteration }}</td>
+                            <td class="text-center text-muted whitespace-nowrap">{{ $loop->iteration }}</td>
                             <td>{{ $r['siswa']->nisn ?? $r['siswa']->nis ?? '-' }}</td>
                             <td><strong>{{ $r['siswa']->nama }}</strong></td>
                             <td class="text-center text-success fw-bold">{{ $r['hadir'] }}</td>
                             <td class="text-center">{{ $r['izin'] }}</td>
                             <td class="text-center">{{ $r['sakit'] }}</td>
                             <td class="text-center text-danger fw-bold">{{ $r['alpha'] }}</td>
-                            <td class="text-center">
+                            <td class="text-center whitespace-nowrap">
                                 <span class="badge {{ $r['persentase'] >= 90 ? 'bg-success-subtle text-success' : ($r['persentase'] >= 75 ? 'bg-warning-subtle text-warning' : 'bg-danger-subtle text-danger') }} border rounded-pill">
                                     {{ number_format($r['persentase'], 1) }}%
                                 </span>

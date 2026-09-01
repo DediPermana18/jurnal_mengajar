@@ -10,6 +10,7 @@ use App\Models\AgendaRutin;
 use App\Models\PengaturanJadwal;
 use App\Models\Kelas;
 use App\Models\MataPelajaran;
+use App\Models\Ruangan;
 use App\Models\TahunAjaran;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -30,6 +31,8 @@ class JadwalPelajaranController extends Controller
             ->get();
 
         $mapelList = MataPelajaran::orderBy('nama_mapel')->get();
+
+        $ruanganList = Ruangan::orderBy('kode_ruangan')->get();
 
         $guruList = User::where('role', User::ROLE_GURU)
             ->orderBy('nama')
@@ -59,7 +62,7 @@ class JadwalPelajaranController extends Controller
         // 5. Ambil data jadwal pelajaran yang sudah di-plot
         $jadwalList = collect();
         if ($selectedKelas) {
-            $jadwalList = JadwalPelajaran::with(['mataPelajaran', 'guru', 'jamPelajaran'])
+            $jadwalList = JadwalPelajaran::with(['mataPelajaran', 'guru', 'jamPelajaran', 'ruangan'])
                 ->where('id_kelas', $selectedKelas->id)
                 ->where('hari', $selectedHari)
                 ->when($tahunAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
@@ -88,6 +91,7 @@ class JadwalPelajaranController extends Controller
         return view('admin.jadwal.index', compact(
             'kelasList',
             'mapelList',
+            'ruanganList',
             'guruList',
             'tahunAktif',
             'hariList',
@@ -225,6 +229,7 @@ class JadwalPelajaranController extends Controller
             'jam_ke_selesai' => 'required|integer|min:1|max:20|gte:jam_ke_mulai',
             'id_mapel'       => 'required|exists:mata_pelajaran,id',
             'id_guru'        => ['required', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_GURU))],
+            'id_ruangan'     => 'nullable|exists:ruangans,id',
         ]);
 
         $tahunAktif = TahunAjaran::where('status_aktif', true)->first() ?? TahunAjaran::first();
@@ -287,6 +292,7 @@ class JadwalPelajaranController extends Controller
                     'group_id'   => $groupId,
                     'id_mapel'   => $validated['id_mapel'],
                     'id_guru'    => $validated['id_guru'],
+                    'id_ruangan' => $validated['id_ruangan'] ?? null,
                     'deleted_at' => null,
                 ]
             );
@@ -308,11 +314,12 @@ class JadwalPelajaranController extends Controller
     public function update(Request $request, JadwalPelajaran $jadwalPelajaran)
     {
         $validated = $request->validate([
-            'id_kelas' => 'required|exists:kelas,id',
-            'hari'     => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu',
-            'id_jam'   => 'required|exists:jam_pelajaran,id',
-            'id_mapel' => 'required|exists:mata_pelajaran,id',
-            'id_guru'  => ['required', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_GURU))],
+            'id_kelas'   => 'required|exists:kelas,id',
+            'hari'       => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu',
+            'id_jam'     => 'required|exists:jam_pelajaran,id',
+            'id_mapel'   => 'required|exists:mata_pelajaran,id',
+            'id_guru'    => ['required', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_GURU))],
+            'id_ruangan' => 'nullable|exists:ruangans,id',
         ]);
 
         // Pengecekan bentrok guru di kelas lain
@@ -337,11 +344,12 @@ class JadwalPelajaranController extends Controller
         }
 
         $jadwalPelajaran->update([
-            'id_kelas' => $validated['id_kelas'],
-            'hari'     => $validated['hari'],
-            'id_jam'   => $validated['id_jam'],
-            'id_mapel' => $validated['id_mapel'],
-            'id_guru'  => $validated['id_guru'],
+            'id_kelas'   => $validated['id_kelas'],
+            'hari'       => $validated['hari'],
+            'id_jam'     => $validated['id_jam'],
+            'id_mapel'   => $validated['id_mapel'],
+            'id_guru'    => $validated['id_guru'],
+            'id_ruangan' => $validated['id_ruangan'] ?? null,
         ]);
 
         return redirect()

@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title>Persetujuan Izin Guru</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -91,13 +91,51 @@
             </div>
         @endif
 
-        {{-- ===== SOON (belum tiba langkah publik) ===== --}}
+        {{-- ===== SOON (belum tiba langkah publik / belum giliran) ===== --}}
         @if($state === 'soon')
             <div class="card border-0 shadow-sm rounded-4 border-start border-5 border-warning">
                 <div class="card-body p-4 text-center">
                     <i class="bi bi-hourglass-split fs-2 text-warning"></i>
                     <h5 class="fw-bold mt-2 mb-1">Masih Menunggu Langkah Sebelumnya</h5>
-                    <p class="text-muted mb-0">Pengajuan izin ini belum sampai pada langkah persetujuan publik. Silakan kembali lagi setelah diverifikasi Guru Piket.</p>
+                    <p class="text-muted mb-0">Pengajuan izin ini belum sampai atau belum waktunya pada langkah yang ditujukan tautan ini. Silakan kembali lagi setelah langkah sebelumnya diselesaikan.</p>
+                </div>
+            </div>
+        @endif
+
+        {{-- ===== WAKA DONE (setelah Waka menandatangani, tanpa form) ===== --}}
+        @if($state === 'waka_done')
+            <div class="card border-0 shadow-sm rounded-4 border-start border-5 border-success mb-4">
+                <div class="card-body p-4">
+                    <div class="text-center mb-3">
+                        <span class="d-inline-flex align-items-center justify-content-center mb-2" style="width: 64px; height: 64px; border-radius: 50%; background: #dcfce7; color: #166534;"><i class="bi bi-check2-circle fs-2"></i></span>
+                        <h5 class="fw-bold text-success mb-1">Sukses Verifikasi Waka Kurikulum</h5>
+                        <p class="text-muted mb-0">Pengajuan izin atas nama <strong>{{ $guru->nama ?? '-' }}</strong> pada {{ $izin->tanggal->translatedFormat('d F Y') }} telah diverifikasi dan ditandatangani Waka Kurikulum.<br>Langkah tanda tangan Waka selesai &mdash; tidak dapat diubah lagi.</p>
+                    </div>
+
+                    <hr>
+
+                    <p class="text-muted small mb-3"><i class="bi bi-send me-1"></i>Tahap terakhir menunggu persetujuan Kepala Sekolah. Teruskan tautan unik (token khusus Kepala Sekolah) melalui WhatsApp:</p>
+
+                    @if($kepsek_wa_url && $kepsek_link)
+                        <div class="d-flex flex-column flex-md-row align-items-stretch gap-2">
+                            <a href="{{ $kepsek_wa_url }}" target="_blank" rel="noopener" class="btn btn-success rounded-3 px-4 py-2 fw-semibold flex-fill">
+                                <i class="bi bi-whatsapp me-1"></i> Teruskan ke Kepala Sekolah via WhatsApp
+                            </a>
+                            <button type="button" class="btn btn-outline-success rounded-3 px-4 py-2 fw-semibold"
+                                    data-salin-link="{{ $kepsek_link }}" id="btnSalinLinkKepsek">
+                                <i class="bi bi-clipboard me-1"></i> Salin Tautan Kepsek
+                            </button>
+                        </div>
+                        {{-- Fallback manual tanpa JavaScript --}}
+                        <noscript>
+                            <div class="mt-3 p-3 border rounded-3 bg-light-subtle">
+                                <div class="text-muted small mb-1">Salin tautan Kepala Sekolah:</div>
+                                <code class="text-break">{{ $kepsek_link }}</code>
+                            </div>
+                        </noscript>
+                    @else
+                        <div class="alert alert-warning rounded-3 mb-0"><i class="bi bi-exclamation-triangle me-1"></i>Tautan Kepala Sekolah belum tersedia. Silakan hubungi Guru Piket / admin untuk membuat tautan tersebut.</div>
+                    @endif
                 </div>
             </div>
         @endif
@@ -106,8 +144,8 @@
         @if($state === 'waka')
             <div class="card border-0 shadow-sm rounded-4 mb-4">
                 <div class="card-body p-4">
-                    <h6 class="fw-bold mb-1"><i class="bi bi-signature me-1"></i>Tanda Tangan Waka</h6>
-                    <p class="text-muted small mb-3">Goreskan tanda tangan pada area di bawah, lalu pilih <strong>Setujui</strong> untuk melanjutkan ke Kepala Sekolah, atau <strong>Tolak</strong> beserta catatannya.</p>
+                    <h6 class="fw-bold mb-1"><i class="bi bi-signature me-1"></i>Tanda Tangan Waka Kurikulum</h6>
+                    <p class="text-muted small mb-3">Goreskan tanda tangan Waka Kurikulum pada area di bawah, lalu pilih <strong>Setujui</strong> untuk melanjutkan ke Kepala Sekolah, atau <strong>Tolak</strong> beserta catatannya.</p>
                     <form method="POST" action="{{ route('izin.approval.submit', $token) }}" id="formApproval">
                         @csrf
                         <canvas id="canvasTtd" width="600" height="220">Browser tidak mendukung Canvas.</canvas>
@@ -224,6 +262,21 @@
                         const val = state === 'waka' ? ttdWakaHidden.value : ttdKepsekHidden.value;
                         if (!val) { e.preventDefault(); alert('Silakan goreskan tanda tangan terlebih dahulu.'); }
                     }
+                });
+            }
+
+            // Salin tautan Kepala Sekolah dari halaman Sukses Verifikasi Waka.
+            const btnSalinLinkKepsek = document.getElementById('btnSalinLinkKepsek');
+            if (btnSalinLinkKepsek) {
+                btnSalinLinkKepsek.addEventListener('click', function () {
+                    const link = this.dataset.salinLink || '';
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(link).then(function () {
+                            const old = btnSalinLinkKepsek.innerHTML;
+                            btnSalinLinkKepsek.innerHTML = '<i class="bi bi-check-lg me-1"></i>Tersalin!';
+                            setTimeout(function () { btnSalinLinkKepsek.innerHTML = old; }, 1600);
+                        }, function () { window.prompt('Salin tautan Kepala Sekolah:', link); });
+                    } else { window.prompt('Salin tautan Kepala Sekolah:', link); }
                 });
             }
         });

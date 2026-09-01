@@ -13,7 +13,8 @@
                 Form Dispensasi Siswa
             </h2>
             <p class="text-muted mb-0" style="font-size: 0.9rem;">
-                Ajukan dispensasi siswa. Pengajuan berstatus <strong>pending</strong> menunggu persetujuan Guru Piket / Kesiswaan sebelum surat resmi diterbitkan.
+                Guru Piket mengisi detail dispensasi dan langsung menyetujui (ACC). Setelah disetujui,
+                Tanda Tangan Siswa (Pemohon) dilengkapi sebagai konfirmasi akhir.
             </p>
         </div>
     </div>
@@ -105,44 +106,36 @@
                               placeholder="Contoh: Mengikuti lomba Paskibraka tingkat kabupaten..." required>{{ old('alasan') }}</textarea>
                 </div>
 
-                {{-- Foto Bukti Surat Dispen (kamera saja) --}}
+                {{-- Tanda Tangan Guru Piket (wajib digambar) --}}
                 <div class="col-12">
-                    <label class="form-label fw-bold text-secondary text-uppercase small">Foto / Bukti Surat Dispen <span class="text-muted fw-normal">(opsional)</span></label>
-                    <div class="d-flex flex-column flex-md-row align-items-start gap-3">
-                        <div>
-                            <button type="button" id="btnBukaWebcam" class="btn btn-outline-dark rounded-3 px-4 py-2 fw-semibold"
-                                    data-bs-toggle="modal" data-bs-target="#modalWebcam">
-                                📷 Ambil Foto via Kamera / Webcam
-                            </button>
-                            <div class="form-text mt-2">
-                                Di HP/Tablet otomatis membuka kamera; di PC/Laptop memakai webcam.
-                                Foto dijepret langsung (tanpa pilih file galeri) dan menjadi lampiran bukti surat.
+                    <label class="form-label fw-bold text-secondary text-uppercase small">
+                        Tanda Tangan Guru Piket (Penyetuju) <span class="text-danger">*</span>
+                    </label>
+                    <div class="border rounded-3 p-3 bg-light-subtle">
+                        <div class="d-flex flex-column flex-md-row align-items-start gap-3">
+                            <div class="flex-grow-1">
+                                <canvas id="canvasTtdGuru" width="520" height="180"
+                                        class="border rounded-3 bg-white w-100"
+                                        style="touch-action: none; cursor: crosshair; max-width: 100%; height: auto;"></canvas>
+                                <div class="form-text mt-2">
+                                    Gambar tanda tangan Guru Piket pada kotak di atas menggunakan mouse, stylus, atau jari (layar sentuh).
+                                    Tanda tangan ini menjadi tanda ACC otomatis pada surat.
+                                </div>
+                            </div>
+                            <div class="d-flex flex-column gap-2 text-center">
+                                <button type="button" id="btnBersihTtd" class="btn btn-sm btn-outline-danger rounded-3">
+                                    <i class="bi bi-eraser me-1"></i>Bersihkan
+                                </button>
+                                <div id="ttdGuruStatus" class="d-none text-success small fw-semibold">
+                                    <i class="bi bi-check-circle-fill me-1"></i>Tanda tangan tersimpan
+                                </div>
                             </div>
                         </div>
-                        <div id="previewBukti" class="text-end flex-grow-1"></div>
-                    </div>
-                    <input type="hidden" name="bukti_surat" id="buktiSuratBase64" value="">
-                </div>
-
-                {{-- Tanda Tangan Digital Siswa --}}
-                <div class="col-12">
-                    <label class="form-label fw-bold text-secondary text-uppercase small">Tanda Tangan Siswa <span class="text-muted fw-normal">(opsional)</span></label>
-                    <div class="border rounded-3 overflow-hidden" style="max-width: 520px;">
-                        <canvas id="canvasTtd" width="600" height="220"
-                                style="width: 100%; height: auto; display: block; background: #fff; touch-action: none; cursor: crosshair;">
-                            Browser Anda tidak mendukung Canvas.
-                        </canvas>
-                        <div class="d-flex justify-content-between align-items-center bg-light-subtle px-3 py-2">
-                            <span class="text-muted small"><i class="bi bi-pencil me-1"></i>Goreskan tanda tangan di area di atas (mouse / layar sentuh).</span>
-                            <button type="button" id="btnClearTtd" class="btn btn-sm btn-outline-danger rounded-3">
-                                <i class="bi bi-eraser me-1"></i> Hapus / Clear
-                            </button>
+                        <div id="ttdGuruError" class="text-danger small mt-2 d-none">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i>Tanda tangan Guru Piket wajib digambar sebelum menyimpan.
                         </div>
                     </div>
-                    <input type="hidden" name="ttd_siswa" id="ttdSiswa" value="">
-                    <div class="form-text">
-                        TTD berupa goresan tangan siswa/pemohon, otomatis tercantum pada surat dispen setelah pengajuan disetujui.
-                    </div>
+                    <input type="hidden" name="ttd_guru" id="ttdGuruBase64" value="">
                 </div>
             </div>
 
@@ -150,55 +143,13 @@
             <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
                 <a href="{{ route('piket.dispensasi.index') }}" class="btn btn-light rounded-3 px-4">Batal</a>
                 <button type="submit" class="btn btn-success rounded-3 px-4 fw-semibold shadow-sm">
-                    <i class="bi bi-send me-1"></i> Kirim Pengajuan Dispen
+                    <i class="bi bi-check2-circle me-1"></i> Buat & Setujui Dispen (ACC)
                 </button>
             </div>
         </form>
     </div>
 </div>
 
-{{-- Modal Ambil Foto via Kamera/Webcam --}}
-<div class="modal fade" id="modalWebcam" tabindex="-1" aria-labelledby="modalWebcamLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4">
-            <div class="modal-header border-0 pb-0">
-                <h5 class="modal-title fw-bold text-dark" id="modalWebcamLabel">
-                    <i class="bi bi-camera-video me-1"></i> Ambil Foto Bukti via Kamera
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body px-4 py-3">
-                <p class="text-muted small mb-3">
-                    Arahkan kamera ke surat bukti fisik, lalu klik <strong>Ambil Foto</strong> untuk menjepret.
-                </p>
-                <div class="text-center bg-dark rounded-3 overflow-hidden"
-                     style="min-height: 260px; display: flex; align-items: center; justify-content: center;">
-                    <video id="webcamVideo" autoplay playsinline muted
-                           style="width: 100%; max-height: 55vh; object-fit: contain;"></video>
-                    <div id="webcamPlaceholder" class="text-light">
-                        <i class="bi bi-camera-video-off fs-1 d-block mb-2"></i>
-                        Memuat kamera... izinkan akses kamera bila browser meminta.
-                    </div>
-                    <canvas id="webcamCanvas" class="d-none" width="1280" height="720"></canvas>
-                </div>
-                <div id="webcamHasil" class="text-center mt-3 d-none">
-                    <img id="webcamHasilImg" alt="Hasil foto kamera" class="rounded-3 border shadow-sm"
-                         style="max-height: 320px; max-width: 100%; object-fit: contain;">
-                </div>
-            </div>
-            <div class="modal-footer border-0">
-                <button type="button" class="btn btn-light rounded-3" data-bs-dismiss="modal">Batal</button>
-                <button type="button" id="btnAmbilFoto" class="btn btn-primary rounded-3 fw-semibold">
-                    <i class="bi bi-camera me-1"></i>Ambil Foto
-                </button>
-                <button type="button" id="btnPakaiFoto" class="btn btn-success rounded-3 fw-semibold d-none"
-                        data-bs-dismiss="modal">
-                    <i class="bi bi-check-lg me-1"></i>Pakai Foto Ini
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 @endsection
 
 @push('scripts')
@@ -271,169 +222,97 @@
         jamCheckboxes.forEach(function (cb) { cb.addEventListener('change', onFilterChanged); });
         filterJadwalOptions();
 
-        // ===== Canvas Tanda Tangan Digital =====
-        const canvasTtd = document.getElementById('canvasTtd');
-        const ttdHidden = document.getElementById('ttdSiswa');
-        const btnClearTtd = document.getElementById('btnClearTtd');
+        // ===== Tanda Tangan Guru Piket (canvas, wajib digambar) =====
+        const ttdCanvas     = document.getElementById('canvasTtdGuru');
+        const ttdHidden     = document.getElementById('ttdGuruBase64');
+        const ttdStatus     = document.getElementById('ttdGuruStatus');
+        const ttdError      = document.getElementById('ttdGuruError');
+        const btnBersihTtd  = document.getElementById('btnBersihTtd');
+        const formDispen    = document.getElementById('formDispen');
 
-        if (canvasTtd) {
-            const ctx = canvasTtd.getContext('2d');
-            let drawing = false;
-            let inked = false;
-            let lastX = 0;
-            let lastY = 0;
-
-            // Latar putih agar hasil PNG bersih
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvasTtd.width, canvasTtd.height);
-            ctx.strokeStyle = '#0f172a';
-            ctx.lineWidth = 2.5;
+        if (ttdCanvas) {
+            const ctx = ttdCanvas.getContext('2d');
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = '#0f172a';
+
+            let drawing = false;
+            let filled  = false;
 
             function getPos(e) {
-                const rect = canvasTtd.getBoundingClientRect();
+                const rect = ttdCanvas.getBoundingClientRect();
+                const scaleX = ttdCanvas.width / rect.width;
+                const scaleY = ttdCanvas.height / rect.height;
+                const clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
+                const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
                 return {
-                    x: (e.clientX - rect.left) * (canvasTtd.width / rect.width),
-                    y: (e.clientY - rect.top) * (canvasTtd.height / rect.height),
+                    x: (clientX - rect.left) * scaleX,
+                    y: (clientY - rect.top) * scaleY,
                 };
             }
 
-            function startStroke(e) {
-                e.preventDefault();
-                drawing = true;
-                inked = true;
-                const p = getPos(e);
-                lastX = p.x;
-                lastY = p.y;
-                ctx.beginPath();
-                ctx.moveTo(lastX, lastY);
-                if (canvasTtd.setPointerCapture) {
-                    canvasTtd.setPointerCapture(e.pointerId);
+            function isBlank() {
+                const data = ctx.getImageData(0, 0, ttdCanvas.width, ttdCanvas.height).data;
+                for (let i = 3; i < data.length; i += 4) {
+                    if (data[i] !== 0) return false;
+                }
+                return true;
+            }
+
+            function refreshState() {
+                filled = !isBlank();
+                ttdHidden.value = filled ? ttdCanvas.toDataURL('image/png') : '';
+                if (filled) {
+                    ttdStatus.classList.remove('d-none');
+                    ttdError.classList.add('d-none');
+                } else {
+                    ttdStatus.classList.add('d-none');
                 }
             }
 
-            function moveStroke(e) {
+            function start(e) {
+                e.preventDefault();
+                drawing = true;
+                const p = getPos(e);
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+            }
+
+            function move(e) {
                 if (!drawing) return;
                 e.preventDefault();
                 const p = getPos(e);
                 ctx.lineTo(p.x, p.y);
                 ctx.stroke();
-                lastX = p.x;
-                lastY = p.y;
             }
 
-            function endStroke(e) {
+            function end() {
                 if (!drawing) return;
                 drawing = false;
-                ctx.closePath();
-                ttdHidden.value = inked ? canvasTtd.toDataURL('image/png') : '';
+                refreshState();
             }
 
-            canvasTtd.addEventListener('pointerdown', startStroke);
-            canvasTtd.addEventListener('pointermove', moveStroke);
-            canvasTtd.addEventListener('pointerup', endStroke);
-            canvasTtd.addEventListener('pointercancel', endStroke);
-            canvasTtd.addEventListener('touchstart', function (e) { e.preventDefault(); }, { passive: false });
+            ttdCanvas.addEventListener('mousedown', start);
+            ttdCanvas.addEventListener('mousemove', move);
+            window.addEventListener('mouseup', end);
+            ttdCanvas.addEventListener('touchstart', start, { passive: false });
+            ttdCanvas.addEventListener('touchmove', move, { passive: false });
+            ttdCanvas.addEventListener('touchend', end);
 
-            btnClearTtd.addEventListener('click', function () {
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvasTtd.width, canvasTtd.height);
-                inked = false;
-                ttdHidden.value = '';
+            btnBersihTtd.addEventListener('click', function () {
+                ctx.clearRect(0, 0, ttdCanvas.width, ttdCanvas.height);
+                refreshState();
             });
-        }
 
-        // ===== Kamera Foto Bukti Surat (camera only, bukan galeri) =====
-        const modalWebcam  = document.getElementById('modalWebcam');
-        const video        = document.getElementById('webcamVideo');
-        const canvasWc     = document.getElementById('webcamCanvas');
-        const placeholderc = document.getElementById('webcamPlaceholder');
-        const hasilWrap    = document.getElementById('webcamHasil');
-        const hasilImg     = document.getElementById('webcamHasilImg');
-        const btnAmbilFoto = document.getElementById('btnAmbilFoto');
-        const btnPakaiFoto = document.getElementById('btnPakaiFoto');
-        const buktiHidden  = document.getElementById('buktiSuratBase64');
-        const previewEl    = document.getElementById('previewBukti');
-
-        let mediaStream = null;
-
-        function drawPreview(dataUrl) {
-            previewEl.innerHTML = '';
-            if (!dataUrl) return;
-            const box = document.createElement('div');
-            box.className = 'd-inline-block text-start';
-            box.innerHTML =
-                '<div class="text-muted small mb-1"><i class="bi bi-check-circle-fill text-success me-1"></i>Foto tersimpan (lampiran)</div>' +
-                '<img src="' + dataUrl + '" alt="Pratinjau foto bukti" class="rounded-3 border shadow-sm" style="height: 110px; max-width: 100%; object-fit: cover;">' +
-                '<div class="mt-2"><button type="button" id="btnHapusFoto" class="btn btn-sm btn-outline-danger rounded-3">' +
-                '<i class="bi bi-trash me-1"></i>Hapus Foto</button></div>';
-            previewEl.appendChild(box);
-
-            const btnHapus = document.getElementById('btnHapusFoto');
-            if (btnHapus) {
-                btnHapus.addEventListener('click', function () {
-                    buktiHidden.value = '';
-                    previewEl.innerHTML = '<span class="text-muted small">Belum ada foto.</span>';
-                });
-            }
-        }
-
-        async function startWebcam() {
-            hasilWrap.classList.add('d-none');
-            btnPakaiFoto.classList.add('d-none');
-            btnAmbilFoto.classList.remove('d-none');
-            placeholderc.style.display = '';
-            placeholderc.innerHTML =
-                '<i class="bi bi-camera-video-off fs-1 d-block mb-2"></i>' +
-                'Memuat kamera... izinkan akses kamera bila browser meminta.';
-
-            try {
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    throw new Error('MediaDevices tidak didukung');
+            formDispen.addEventListener('submit', function (e) {
+                refreshState();
+                if (!filled) {
+                    e.preventDefault();
+                    ttdError.classList.remove('d-none');
+                    ttdCanvas.classList.add('border-danger');
+                    ttdCanvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
-                mediaStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-                    audio: false,
-                });
-                video.srcObject = mediaStream;
-                await video.play();
-                placeholderc.style.display = 'none';
-            } catch (err) {
-                placeholderc.style.display = '';
-                placeholderc.innerHTML =
-                    '<i class="bi bi-camera-video-off fs-1 d-block mb-2"></i>' +
-                    'Tidak dapat mengakses kamera. Pastikan izin kamera diizinkan dan perangkat memiliki kamera/webcam.';
-            }
-        }
-
-        function stopWebcam() {
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(function (t) { t.stop(); });
-                mediaStream = null;
-            }
-            video.srcObject = null;
-        }
-
-        if (modalWebcam) {
-            modalWebcam.addEventListener('shown.bs.modal', startWebcam);
-            modalWebcam.addEventListener('hidden.bs.modal', stopWebcam);
-
-            btnAmbilFoto.addEventListener('click', function () {
-                if (!video.srcObject) return;
-                canvasWc.width  = video.videoWidth  || 1280;
-                canvasWc.height = video.videoHeight || 720;
-                canvasWc.getContext('2d').drawImage(video, 0, 0, canvasWc.width, canvasWc.height);
-                hasilImg.src = canvasWc.toDataURL('image/png');
-                hasilWrap.classList.remove('d-none');
-                btnAmbilFoto.classList.add('d-none');
-                btnPakaiFoto.classList.remove('d-none');
-            });
-
-            btnPakaiFoto.addEventListener('click', function () {
-                const dataUrl = canvasWc.toDataURL('image/png');
-                buktiHidden.value = dataUrl;
-                drawPreview(dataUrl);
             });
         }
     });

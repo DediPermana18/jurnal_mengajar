@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kelas;
+use App\Models\PengaturanJadwal;
 use App\Models\Siswa;
 use App\Models\User;
 
@@ -17,12 +18,15 @@ class DashboardController extends Controller
 
         $userTerbaru = User::latest()->take(5)->get();
 
+        $pengaturanJadwal = PengaturanJadwal::getSetting();
+
         return view('admin.dashboard.index', compact(
             'totalGuru',
             'totalSiswa',
             'totalKelas',
             'akunTidakAktif',
-            'userTerbaru'
+            'userTerbaru',
+            'pengaturanJadwal'
         ));
     }
 }

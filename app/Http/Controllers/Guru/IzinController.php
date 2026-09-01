@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Guru;
 
 use App\Http\Controllers\Controller;
 use App\Models\IzinGuru;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -33,15 +34,15 @@ class IzinController extends Controller
             ->where('user_id', Auth::id())
             ->latest();
 
-        if (!in_array($filter, ['Semua'], true) && in_array($filter, IzinGuru::STATUSES, true)) {
+        if (! in_array($filter, ['Semua'], true) && in_array($filter, IzinGuru::STATUSES, true)) {
             $query->where('status', $filter);
         }
 
         $daftarIzin = $query->paginate(15)->withQueryString();
 
-        $totalPending  = IzinGuru::where('user_id', Auth::id())->whereIn('status', [IzinGuru::STATUS_PENDING_PIKET, IzinGuru::STATUS_PENDING_WAKA, IzinGuru::STATUS_PENDING_KEPSEK])->count();
+        $totalPending = IzinGuru::where('user_id', Auth::id())->whereIn('status', [IzinGuru::STATUS_PENDING_PIKET, IzinGuru::STATUS_PENDING_WAKA, IzinGuru::STATUS_PENDING_KEPSEK])->count();
         $totalDisetujui = IzinGuru::where('user_id', Auth::id())->where('status', IzinGuru::STATUS_DISETUJUI)->count();
-        $totalDitolak  = IzinGuru::where('user_id', Auth::id())->where('status', IzinGuru::STATUS_DITOLAK)->count();
+        $totalDitolak = IzinGuru::where('user_id', Auth::id())->where('status', IzinGuru::STATUS_DITOLAK)->count();
 
         return view('guru.izin.index', compact('daftarIzin', 'filter', 'totalPending', 'totalDisetujui', 'totalDitolak'));
     }
@@ -58,18 +59,18 @@ class IzinController extends Controller
         $this->authorizeGuru();
 
         $validated = $request->validate([
-            'tanggal'      => 'required|date',
-            'alasan'       => 'required|string|max:1000',
-            'lampiran'     => 'nullable|string|max:7000000',
-            'tugas_siswa'  => 'nullable|string|max:1000',
-            'ttd_guru'     => 'nullable|string|max:150000',
+            'tanggal' => 'required|date',
+            'alasan' => 'required|string|max:1000',
+            'lampiran' => 'nullable|string|max:7000000',
+            'tugas_siswa' => 'nullable|string|max:1000',
+            'ttd_guru' => 'nullable|string|max:150000',
         ], [
-            'tanggal.required'     => 'Tanggal izin wajib diisi.',
-            'tanggal.date'         => 'Format tanggal tidak valid.',
-            'alasan.required'      => 'Alasan izin wajib diisi.',
-            'alasan.max'           => 'Alasan maksimal :max karakter.',
-            'lampiran.max'         => 'Ukuran lampiran terlalu besar.',
-            'tugas_siswa.max'      => 'Tugas siswa maksimal :max karakter.',
+            'tanggal.required' => 'Tanggal izin wajib diisi.',
+            'tanggal.date' => 'Format tanggal tidak valid.',
+            'alasan.required' => 'Alasan izin wajib diisi.',
+            'alasan.max' => 'Alasan maksimal :max karakter.',
+            'lampiran.max' => 'Ukuran lampiran terlalu besar.',
+            'tugas_siswa.max' => 'Tugas siswa maksimal :max karakter.',
         ]);
 
         $ttdGuru = isset($validated['ttd_guru']) && preg_match('/^data:image\/png;base64,/i', trim($validated['ttd_guru']))
@@ -78,17 +79,17 @@ class IzinController extends Controller
 
         // Lampiran / bukti surat (data URL base64) -> simpan sebagai file.
         $lampiranPath = null;
-        $lampiranRaw  = (string) $request->input('lampiran');
-        if (!empty($lampiranRaw) && str_contains($lampiranRaw, ',')) {
-            @list(, $base64Data) = explode(',', $lampiranRaw, 2);
-            if (!empty($base64Data)) {
+        $lampiranRaw = (string) $request->input('lampiran');
+        if (! empty($lampiranRaw) && str_contains($lampiranRaw, ',')) {
+            @[, $base64Data] = explode(',', $lampiranRaw, 2);
+            if (! empty($base64Data)) {
                 $decoded = base64_decode($base64Data, true);
                 if ($decoded !== false && strlen($decoded) <= (5 * 1024 * 1024)) {
-                    $ext      = preg_match('/^data:image\/(png|jpeg|jpg)/i', $lampiranRaw, $mImg)
+                    $ext = preg_match('/^data:image\/(png|jpeg|jpg)/i', $lampiranRaw, $mImg)
                         ? (strtolower($mImg[1]) === 'png' ? 'png' : 'jpg')
                         : 'png';
-                    $filename = 'izin-' . $validated['tanggal'] . '-' . strtolower(Str::random(8)) . '.' . $ext;
-                    $savePath = 'lampiran_izin/' . $filename;
+                    $filename = 'izin-'.$validated['tanggal'].'-'.strtolower(Str::random(8)).'.'.$ext;
+                    $savePath = 'lampiran_izin/'.$filename;
                     if (Storage::disk('public')->put($savePath, $decoded)) {
                         $lampiranPath = $savePath;
                     }
@@ -97,15 +98,17 @@ class IzinController extends Controller
         }
 
         $izin = IzinGuru::create([
-            'user_id'         => Auth::id(),
-            'tanggal'         => $validated['tanggal'],
-            'alasan'          => $validated['alasan'],
-            'lampiran'        => $lampiranPath,
-            'tugas_siswa'     => $validated['tugas_siswa'] ?? null,
-            'status'          => IzinGuru::STATUS_PENDING_PIKET,
-            'ttd_guru'        => $ttdGuru,
-            'approval_token'  => (string) Str::uuid(),
+            'user_id' => Auth::id(),
+            'tanggal' => $validated['tanggal'],
+            'alasan' => $validated['alasan'],
+            'lampiran' => $lampiranPath,
+            'tugas_siswa' => $validated['tugas_siswa'] ?? null,
+            'status' => IzinGuru::STATUS_PENDING_PIKET,
+            'ttd_guru' => $ttdGuru,
+            'token_waka' => (string) Str::uuid(),
         ]);
+
+        NotificationService::izinBaruDiajukan($izin);
 
         return redirect()->route('guru.izin.index')
             ->with('success', 'Pengajuan izin berhasil dikirim. Menunggu verifikasi Guru Piket, lalu persetujuan Waka/Kepsek.');
@@ -137,7 +140,7 @@ class IzinController extends Controller
 
         abort_unless($allowed, 403, 'Akses ditolak.');
 
-        if (!$izin->lampiran) {
+        if (! $izin->lampiran) {
             abort(404, 'Lampiran tidak ditemukan.');
         }
 

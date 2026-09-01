@@ -228,26 +228,27 @@
 
         {{-- Table Content --}}
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0" style="font-size: 0.9rem;">
+            <div class="table-responsive w-full overflow-x-auto">
+                <table class="table table-hover align-middle mb-0 min-w-full" style="font-size: 0.9rem;">
                     <thead style="background: #f8fafc;">
                         <tr>
-                            <th class="ps-4 py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 60px;">No</th>
-                            <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 140px;">Kode Mapel</th>
+                            <th class="ps-4 py-3 whitespace-nowrap" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 60px;">No</th>
+                            <th class="py-3 whitespace-nowrap" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 140px;">Kode Mapel</th>
                             <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b;">Nama Mata Pelajaran</th>
-                            <th class="py-3 pe-4 text-end" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 120px;">Aksi</th>
+                            <th class="py-3 whitespace-nowrap" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 160px;">Kelompok</th>
+                            <th class="py-3 pe-4 text-end whitespace-nowrap" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 120px;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($dataMapel as $mapel)
                             <tr>
                                 {{-- 1. No --}}
-                                <td class="ps-4 fw-semibold text-muted" style="font-size: 0.85rem;">
+                                <td class="ps-4 fw-semibold text-muted whitespace-nowrap" style="font-size: 0.85rem;">
                                     {{ $loop->iteration + $dataMapel->firstItem() - 1 }}
                                 </td>
 
                                 {{-- 2. Kode Mapel --}}
-                                <td>
+                                <td class="whitespace-nowrap">
                                     <span class="badge-kode-mapel">
                                         {{ $mapel->kode_mapel ?? '-' }}
                                     </span>
@@ -265,9 +266,24 @@
                                     </div>
                                 </td>
 
-                                {{-- 4. Aksi --}}
-                                <td class="pe-4 text-end">
-                                    <div class="d-flex justify-content-end align-items-center gap-1">
+                                {{-- 4. Kelompok --}}
+                                <td>
+                                    @php
+                                        $badgeStyle = match($mapel->kelompok) {
+                                            'Muatan Umum' => 'background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;',
+                                            'Kejuruan'    => 'background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;',
+                                            'Muatan Lokal'=> 'background-color: #fef9c3; color: #a16207; border: 1px solid #fef08a;',
+                                            default       => 'background-color: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;'
+                                        };
+                                    @endphp
+                                    <span class="badge px-2 py-1 rounded-2 fw-semibold" style="font-size: 0.78rem; {{ $badgeStyle }}">
+                                        {{ $mapel->kelompok ?? '-' }}
+                                    </span>
+                                </td>
+
+                                {{-- 5. Aksi --}}
+                                <td class="pe-4 text-end whitespace-nowrap">
+                                    <div class="flex items-center justify-end gap-2 whitespace-nowrap">
                                         {{-- Dedicated Edit Page Button --}}
                                         <a href="{{ route('mapel.edit', $mapel->id) }}" class="btn-aksi" title="Edit Mapel">
                                             <i class="bi bi-pencil"></i>
@@ -287,7 +303,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="text-center py-5">
+                                <td colspan="5" class="text-center py-5">
                                     <div style="color: #cbd5e1;">
                                         <i class="bi bi-journal-x" style="font-size: 2.75rem; display: block; margin-bottom: 0.75rem;"></i>
                                     </div>

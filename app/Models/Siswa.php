@@ -60,4 +60,12 @@ class Siswa extends Model
     {
         return $this->hasMany(CatatanSiswaBermasalah::class, 'id_siswa', 'id');
     }
+
+    /**
+     * Relasi ke Presensi Siswa Harian
+     */
+    public function presensiHarian(): HasMany
+    {
+        return $this->hasMany(PresensiSiswa::class, 'id_siswa', 'id');
+    }
 }

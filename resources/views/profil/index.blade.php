@@ -201,10 +201,12 @@
                    onclick="switchTab(this,'section-password')">
                     <i class="bi bi-shield-lock"></i> Ganti Password
                 </a>
+                @if(auth()->user()->role === 'admin')
                 <a href="#section-kode" class="nav-link d-flex align-items-center gap-2"
                    onclick="switchTab(this,'section-kode')">
                     <i class="bi bi-key-fill"></i> Kode Aktivasi
                 </a>
+                @endif
             </div>
         </div>
 
@@ -417,6 +419,7 @@
             </div>
 
             {{-- ========== SECTION 3: KODE AKTIVASI ========== --}}
+            @if(auth()->user()->role === 'admin')
             <div id="section-kode" class="profil-section d-none">
                 <div class="profil-card">
                     <div class="card-header-custom">
@@ -497,6 +500,7 @@
                     </div>
                 </div>
             </div>
+            @endif
 
         </div>
     </div>

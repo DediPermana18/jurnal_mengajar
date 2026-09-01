@@ -39,15 +39,14 @@
         transform: scale(1.05);
     }
 
-    /* FIX Z-INDEX MODAL KAMERA agar tidak terhalang backdrop hitam */
+    /* FIX Z-INDEX MODAL KAMERA:
+       Dialog modal selalu DI ATAS backdrop hitam agar tombol & konten tetap bisa diklik.
+       Backdrop global dibiarkan memakai z-index standar (di bawah dialog). */
     .modal-camera-custom {
-        z-index: 10055 !important;
+        z-index: 1080 !important;
     }
     .modal-camera-custom .modal-dialog {
-        z-index: 10060 !important;
-    }
-    .modal-backdrop.show {
-        z-index: 10050 !important;
+        z-index: 1090 !important;
     }
 </style>
 @endpush
@@ -190,15 +189,15 @@
                 </div>
             @endif
 
-            <div class="table-responsive">
-                <table class="table table-custom align-middle mb-0" id="tabelPresensi">
+            <div class="table-responsive w-full overflow-x-auto">
+                <table class="table table-custom align-middle mb-0 min-w-full" id="tabelPresensi">
                     <thead>
                         <tr>
-                            <th style="width: 50px;">No</th>
-                            <th style="width: 120px;">NIS</th>
-                            <th>Nama Siswa</th>
-                            <th style="width: 140px;" class="text-center">Tidak Hadir?</th>
-                            <th style="width: 140px;" class="text-center">Status</th>
+                            <th class="whitespace-nowrap" style="width: 50px;">No</th>
+                            <th class="whitespace-nowrap" style="width: 120px;">NIS</th>
+                            <th class="whitespace-nowrap">Nama Siswa</th>
+                            <th style="width: 140px;" class="text-center whitespace-nowrap">Tidak Hadir?</th>
+                            <th style="width: 140px;" class="text-center whitespace-nowrap">Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -225,8 +224,8 @@
                             @endphp
 
                             <tr class="presensi-row {{ $isTidakHadir ? 'tidak-hadir' : 'hadir-default' }}" id="main_row_{{ $siswa->id }}">
-                                <td>{{ $index + 1 }}</td>
-                                <td>{{ $siswa->nis }}</td>
+                                <td class="whitespace-nowrap">{{ $index + 1 }}</td>
+                                <td class="whitespace-nowrap">{{ $siswa->nis }}</td>
                                 <td class="fw-semibold">
                                     {{ $siswa->nama }}
                                     @if($dispen)
@@ -544,6 +543,7 @@
         if (statusText) {
             statusText.innerHTML = '<i class="bi bi-camera-fill me-1"></i> Mengalihkan ke <strong>' + modeLabel + '</strong>...';
         }
+        resetToKondisiA();
         startCameraStream(currentFacingMode);
     }
 

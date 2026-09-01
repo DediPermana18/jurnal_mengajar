@@ -7,7 +7,7 @@
         padding-bottom: 2rem;
     }
     .dropdown-menu {
-        z-index: 1060 !important;
+        z-index: 1050 !important;
     }
 </style>
 @endpush
@@ -113,18 +113,17 @@
 
     <!-- TABEL DATA MASTER KELAS -->
     <div class="table-card-custom mb-4" style="overflow: visible;">
-        <div class="table-responsive" style="min-height: 280px; padding-bottom: 2rem;">
-            <table class="table table-custom align-middle">
+        <div class="table-responsive w-full overflow-x-auto" style="min-height: 280px; padding-bottom: 2rem;">
+            <table class="table table-custom align-middle min-w-full">
                 <thead>
                     <tr>
-                        <th style="width: 22%;">NAMA KELAS</th>
-                        <th style="width: 14%;">TINGKAT</th>
-                        <th style="width: 24%;">JURUSAN</th>
-                        <th style="width: 18%;">RUANGAN</th>
-                        <th style="width: 24%;">WALI KELAS</th>
-                        <th style="width: 16%;">TOTAL SISWA</th>
+                        <th class="whitespace-nowrap" style="width: 25%;">NAMA KELAS</th>
+                        <th class="whitespace-nowrap" style="width: 15%;">TINGKAT</th>
+                        <th class="whitespace-nowrap" style="width: 25%;">JURUSAN</th>
+                        <th style="width: 25%;">WALI KELAS</th>
+                        <th class="whitespace-nowrap" style="width: 10%;">TOTAL SISWA</th>
                         @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
-                            <th class="text-end" style="width: 10%;">AKSI</th>
+                            <th class="text-end whitespace-nowrap" style="width: 10%;">AKSI</th>
                         @endif
                     </tr>
                 </thead>
@@ -183,19 +182,6 @@
                                 @endif
                             </td>
 
-                            <!-- Kolom RUANGAN -->
-                            <td>
-                                @if($kelas->ruangan)
-                                    <span class="badge bg-light text-dark border px-3 py-2 rounded-3" style="font-size: 0.8rem;">
-                                        <i class="bi bi-building me-1"></i>{{ $kelas->ruangan->kode_ruangan }} — {{ $kelas->ruangan->nama_ruangan }}
-                                    </span>
-                                @else
-                                    <span class="badge bg-light text-muted border px-2 py-1 rounded-pill" style="font-size: 0.78rem;">
-                                        <i class="bi bi-dash-circle me-1"></i>Belum ditentukan
-                                    </span>
-                                @endif
-                            </td>
-
                             <!-- Kolom WALI KELAS -->
                             <td>
                                 @if($kelas->waliKelas)
@@ -231,12 +217,12 @@
 
                             <!-- Kolom AKSI -->
                             @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
-                                <td class="text-end">
+                                <td class="text-end whitespace-nowrap">
                                     <div class="dropdown">
                                         <button class="btn btn-sm btn-light border rounded-3 dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-boundary="window" aria-expanded="false">
                                             <i class="bi bi-three-dots-vertical"></i>
                                         </button>
-                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3 z-50" style="z-index: 1060;">
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3 z-50" style="z-index: 1050;">
                                             <!-- Detail Kelas & Siswa -->
                                             <li>
                                                 <a href="{{ route('kelas.show', $kelas->id) }}" class="dropdown-item py-2">
@@ -270,7 +256,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) ? 7 : 6 }}" class="text-center py-5 text-muted">
+                            <td colspan="{{ in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) ? 6 : 5 }}" class="text-center py-5 text-muted">
                                 <i class="bi bi-door-closed fs-1 d-block mb-2 text-secondary"></i>
                                 Belum ada data kelas yang sesuai dengan kriteria pencarian/filter.
                             </td>
@@ -336,20 +322,6 @@
                                 </option>
                             @endforeach
                         </select>
-                    </div>
-
-                    <!-- RUANGAN HOMEBASE -->
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-secondary small">RUANGAN HOMEBASE (OPSIONAL)</label>
-                        <select name="ruangan_id" class="form-select rounded-3">
-                            <option value="">-- Belum Ditentukan --</option>
-                            @foreach($daftarRuangan as $ruangan)
-                                <option value="{{ $ruangan->id }}" {{ old('ruangan_id') == $ruangan->id ? 'selected' : '' }}>
-                                    {{ $ruangan->kode_ruangan }} — {{ $ruangan->nama_ruangan }} @if($ruangan->lokasi) ({{ $ruangan->lokasi }}) @endif
-                                </option>
-                            @endforeach
-                        </select>
-                        <div class="form-text text-muted small">Ruangan fisik tempat kelas ini berada/homespace.</div>
                     </div>
 
                     <!-- WALI KELAS -->
@@ -419,19 +391,6 @@
                             @foreach($daftarJurusan as $jurusan)
                                 <option value="{{ $jurusan->id }}" {{ old('id_jurusan', $kelas->id_jurusan) == $jurusan->id ? 'selected' : '' }}>
                                     {{ $jurusan->kode_jurusan }} - {{ $jurusan->nama_jurusan }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <!-- RUANGAN HOMEBASE -->
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-secondary small">RUANGAN HOMEBASE (OPSIONAL)</label>
-                        <select name="ruangan_id" class="form-select rounded-3">
-                            <option value="">-- Belum Ditentukan --</option>
-                            @foreach($daftarRuangan as $ruangan)
-                                <option value="{{ $ruangan->id }}" {{ old('ruangan_id', $kelas->ruangan_id) == $ruangan->id ? 'selected' : '' }}>
-                                    {{ $ruangan->kode_ruangan }} — {{ $ruangan->nama_ruangan }} @if($ruangan->lokasi) ({{ $ruangan->lokasi }}) @endif
                                 </option>
                             @endforeach
                         </select>

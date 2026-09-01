@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\IzinGuru;
 use App\Models\PengaturanJadwal;
 use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -94,6 +95,8 @@ class IzinPiketController extends Controller
 
         $izin->update($data);
 
+        NotificationService::izinStatusChanged($izin->refresh());
+
         $pesan = "Verifikasi Piket untuk izin {$izin->user->nama} pada {$izin->tanggal->translatedFormat('d F Y')} berhasil.";
 
         if ($level === 1) {
@@ -127,6 +130,8 @@ class IzinPiketController extends Controller
             'approved_at'       => now(),
             'catatan_penolakan' => $validated['catatan_penolakan'],
         ]);
+
+        NotificationService::izinStatusChanged($izin->refresh());
 
         return redirect()->route('piket.izin.index')
             ->with('success', "Izin {$izin->user->nama} pada {$izin->tanggal->translatedFormat('d F Y')} ditolak.");

@@ -20,8 +20,8 @@
             <h5 class="fw-bold text-dark mb-0">Riwayat Jurnal Mengajar {{ $namaKelasSaya ?? 'Kelas Bimbingan' }}</h5>
             <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1">{{ $daftarJurnal->count() }} Jurnal</span>
         </div>
-        <div class="table-responsive">
-            <table class="table table-custom align-middle">
+        <div class="table-responsive w-full overflow-x-auto">
+            <table class="table table-custom align-middle min-w-full">
                 <thead>
                     <tr>
                         <th>Tanggal</th>
@@ -38,7 +38,7 @@
                             <td><strong>{{ $j['mapel'] }}</strong></td>
                             <td>{{ $j['guru_pengajar'] }}</td>
                             <td class="text-muted">{{ $j['materi'] }}</td>
-                            <td>
+                            <td class="whitespace-nowrap">
                                 <span class="badge {{ $j['hadir'] > 0 ? 'bg-success' : 'bg-secondary' }} rounded-pill px-3 py-1">
                                     {{ $j['ratio_label'] }}
                                 </span>

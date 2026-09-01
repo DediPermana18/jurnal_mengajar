@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Kurikulum;
 use App\Http\Controllers\Controller;
 use App\Models\IzinGuru;
 use App\Models\PengaturanJadwal;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -64,6 +65,7 @@ class KurikulumIzinController extends Controller
 
     /**
      * Menyetujui pengajuan izin guru (maju satu step sesuai level).
+     * Hanya dapat diproses oleh Waka saat status = Pending Waka (giliran Waka).
      */
     public function approve($id)
     {
@@ -71,28 +73,16 @@ class KurikulumIzinController extends Controller
 
         $izin = IzinGuru::with('user')->findOrFail($id);
 
-        abort_unless($izin->isPending(), 422, 'Hanya izin berstatus Pending yang dapat disetujui.');
+        abort_unless($izin->status === IzinGuru::STATUS_PENDING_WAKA, 422, 'Hanya izin berstatus Pending Waka yang dapat disetujui pada langkah ini.');
 
         $level = PengaturanJadwal::izinApprovalLevel();
         $data  = ['catatan_penolakan' => null];
 
-        $step = $izin->status;
-        if ($step === IzinGuru::STATUS_PENDING_PIKET) {
-            $data['approved_by_piket'] = $izin->approved_by_piket ?? auth()->id();
-            $data['status'] = match ($level) {
-                3      => IzinGuru::STATUS_PENDING_WAKA,
-                2      => IzinGuru::STATUS_PENDING_KEPSEK,
-                default => IzinGuru::STATUS_DISETUJUI,
-            };
-        } elseif ($step === IzinGuru::STATUS_PENDING_WAKA) {
-            $data['approved_by_waka'] = $izin->approved_by_waka ?? auth()->id();
-            $data['status']           = IzinGuru::STATUS_PENDING_KEPSEK;
-        } elseif ($step === IzinGuru::STATUS_PENDING_KEPSEK) {
-            $data['approved_by_kepsek'] = $izin->approved_by_kepsek ?? auth()->id();
-            $data['status']             = IzinGuru::STATUS_DISETUJUI;
-        } else {
-            abort(422, 'Status izin tidak dapat diproses.');
-        }
+        $data['approved_by_waka'] = $izin->approved_by_waka ?? auth()->id();
+        $data['status']           = match ($level) {
+            2      => IzinGuru::STATUS_DISETUJUI,
+            default => IzinGuru::STATUS_PENDING_KEPSEK,
+        };
 
         if ($data['status'] === IzinGuru::STATUS_DISETUJUI) {
             $data['approved_at'] = now();
@@ -100,12 +90,15 @@ class KurikulumIzinController extends Controller
 
         $izin->update($data);
 
+        NotificationService::izinStatusChanged($izin->refresh());
+
         return redirect()->route('kurikulum.izin.index')
             ->with('success', "Izin {$izin->user->nama} pada {$izin->tanggal->translatedFormat('d F Y')} diproses ke status '{$izin->fresh()->status_label}'.");
     }
 
     /**
      * Menolak pengajuan izin guru beserta catatan penolakan.
+     * Hanya dapat ditolak oleh Waka saat status = Pending Waka.
      */
     public function reject(Request $request, $id)
     {
@@ -113,7 +106,7 @@ class KurikulumIzinController extends Controller
 
         $izin = IzinGuru::with('user')->findOrFail($id);
 
-        abort_unless($izin->isPending(), 422, 'Hanya izin berstatus Pending yang dapat ditolak.');
+        abort_unless($izin->status === IzinGuru::STATUS_PENDING_WAKA, 422, 'Hanya izin berstatus Pending Waka yang dapat ditolak pada langkah ini.');
 
         $validated = $request->validate([
             'catatan_penolakan' => 'required|string|min:3|max:1000',
@@ -128,6 +121,8 @@ class KurikulumIzinController extends Controller
             'approved_at'       => now(),
             'catatan_penolakan' => $validated['catatan_penolakan'],
         ]);
+
+        NotificationService::izinStatusChanged($izin->refresh());
 
         return redirect()->route('kurikulum.izin.index')
             ->with('success', "Izin {$izin->user->nama} pada {$izin->tanggal->translatedFormat('d F Y')} ditolak. Catatan penolakan telah disimpan.");

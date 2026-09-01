@@ -2,6 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>Laporan KBM</title>
 </head>
 <body>
@@ -10,7 +11,8 @@
     <div>Periode: {{ $periodeMulai }} s.d. {{ $periodeSelesai }}</div>
     <br>
 
-    <table border="1" cellspacing="0" cellpadding="4" style="border-collapse: collapse;">
+    <div class="w-full overflow-x-auto">
+    <table class="min-w-full" border="1" cellspacing="0" cellpadding="4" style="border-collapse: collapse;">
         <tr>
             <th>Total Jam KBM Terlaksana</th>
             <th>Guru Hadir</th>
@@ -28,10 +30,12 @@
             <td>{{ $totalJurnalTerisi }}</td>
         </tr>
     </table>
+    </div>
 
     <br>
 
-    <table border="1" cellspacing="0" cellpadding="4" style="border-collapse: collapse;">
+    <div class="w-full overflow-x-auto">
+    <table class="min-w-full" border="1" cellspacing="0" cellpadding="4" style="border-collapse: collapse;">
         <thead>
             <tr>
                 <th>No</th>
@@ -66,5 +70,6 @@
             @endforelse
         </tbody>
     </table>
+    </div>
 </body>
 </html>

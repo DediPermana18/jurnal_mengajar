@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title>Laporan KBM - {{ strtoupper(config('app.name', 'WebJournal Management System')) }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -139,7 +139,8 @@
         </div>
 
         {{-- Ringkasan --}}
-        <table class="ringkasan mb-4" style="width:100%; font-size: 12px;">
+        <div class="w-full overflow-x-auto">
+        <table class="ringkasan mb-4 min-w-full" style="width:100%; font-size: 12px;">
             <tr>
                 <td class="text-center" style="width:25%;">
                     <div class="angka" style="color:#16a34a;">{{ number_format($totalJamKBM) }}</div>
@@ -160,9 +161,11 @@
                 </td>
             </tr>
         </table>
+        </div>
 
         {{-- Tabel Data --}}
-        <table class="table">
+        <div class="w-full overflow-x-auto">
+        <table class="table min-w-full">
             <thead>
                 <tr>
                     <th style="width:11%;">No</th>
@@ -205,6 +208,7 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
 
         @if($totalJamKBM > 0)
             <div class="footer-tabel">

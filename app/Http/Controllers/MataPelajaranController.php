@@ -23,9 +23,9 @@ class MataPelajaranController extends Controller
             });
         }
 
-        // Filter Jenis Mapel
-        if ($kelompok = $request->get('kelompok')) {
-            $query->where('kelompok', $kelompok);
+        // Filter Kelompok / Jenis Mapel
+        if ($request->filled('kelompok')) {
+            $query->where('kelompok', 'LIKE', '%' . $request->kelompok . '%');
         }
 
         $totalMapel = MataPelajaran::count();
@@ -35,9 +35,9 @@ class MataPelajaranController extends Controller
             ->appends($request->query());
 
         $jenisOptions = [
-            'Umum',
+            'Muatan Umum',
             'Kejuruan',
-            'Muatan Lokal / Ekstra',
+            'Muatan Lokal',
         ];
 
         return view('admin.mata-pelajaran.index', compact('dataMapel', 'totalMapel', 'jenisOptions'));
@@ -49,9 +49,9 @@ class MataPelajaranController extends Controller
     public function create()
     {
         $jenisOptions = [
-            'Umum',
+            'Muatan Umum',
             'Kejuruan',
-            'Muatan Lokal / Ekstra',
+            'Muatan Lokal',
         ];
 
         return view('admin.mata-pelajaran.create', compact('jenisOptions'));
@@ -65,9 +65,9 @@ class MataPelajaranController extends Controller
         $mapel = MataPelajaran::findOrFail($id);
 
         $jenisOptions = [
-            'Umum',
+            'Muatan Umum',
             'Kejuruan',
-            'Muatan Lokal / Ekstra',
+            'Muatan Lokal',
         ];
 
         return view('admin.mata-pelajaran.edit', compact('mapel', 'jenisOptions'));

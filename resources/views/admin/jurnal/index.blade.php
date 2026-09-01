@@ -98,16 +98,16 @@
             </div>
         </div>
 
-        <div class="table-responsive">
-            <table class="table table-custom align-middle">
+        <div class="table-responsive w-full overflow-x-auto">
+            <table class="table table-custom align-middle min-w-full">
                 <thead>
                     <tr>
-                        <th style="width: 12%;">WAKTU / TGL</th>
-                        <th style="width: 12%;">KELAS</th>
+                        <th class="whitespace-nowrap" style="width: 12%;">WAKTU / TGL</th>
+                        <th class="whitespace-nowrap" style="width: 12%;">KELAS</th>
                         <th style="width: 20%;">GURU PENGAJAR</th>
                         <th style="width: 18%;">MATA PELAJARAN</th>
                         <th style="width: 22%;">MATERI PEMBELAJARAN</th>
-                        <th style="width: 16%; text-align: right;">AKSI</th>
+                        <th class="whitespace-nowrap" style="width: 16%; text-align: right;">AKSI</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -166,8 +166,8 @@
                                     <small class="text-muted d-block text-truncate" style="max-width: 200px;">Catatan: {{ $jurnal->catatan_kejadian }}</small>
                                 @endif
                             </td>
-                            <td class="text-end">
-                                <div class="d-flex justify-content-end gap-1">
+                            <td class="text-end whitespace-nowrap">
+                                <div class="flex items-center justify-end gap-2 whitespace-nowrap">
                                     <a href="{{ route('jurnal.edit', $jurnal->id) }}" class="btn btn-sm btn-light border text-primary rounded-2 px-2 py-1" title="Edit">
                                         <i class="bi bi-pencil-square"></i> Edit
                                     </a>

@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\DispensasiSiswa;
 use App\Models\JadwalPiket;
 use App\Models\Kelas;
-use App\Models\PengaturanJadwal;
 use App\Models\Siswa;
 use App\Models\User;
 use Carbon\Carbon;
@@ -42,10 +41,8 @@ class DispensasiWaTest extends TestCase
         ], $extra));
     }
 
-    public function test_dispensasi_index_renders_kirim_wa_button(): void
+    public function test_dispensasi_index_renders_surat(): void
     {
-        PengaturanJadwal::getSetting()->update(['no_wa_waka' => '081234567890']);
-
         $piket = $this->makeUser('guru');
         JadwalPiket::create(['hari' => 'Senin', 'user_id' => $piket->id]);
 
@@ -60,20 +57,21 @@ class DispensasiWaTest extends TestCase
             'status_siswa'  => 'Aktif',
         ]);
 
-        DispensasiSiswa::create([
-            'id_siswa'        => $siswa->id,
-            'id_guru_piket'   => $piket->id,
-            'tanggal'         => now()->toDateString(),
-            'jam_ke'          => '3,4',
-            'alasan'          => 'Rapat organisasi siswa',
-            'status'          => DispensasiSiswa::STATUS_PENDING,
-            'approval_token'  => (string) Str::uuid(),
+        $dispen = DispensasiSiswa::create([
+            'id_siswa'      => $siswa->id,
+            'id_guru_piket' => $piket->id,
+            'tanggal'       => now()->toDateString(),
+            'jam_ke'        => '3,4',
+            'alasan'        => 'Rapat organisasi siswa',
+            'status'        => DispensasiSiswa::STATUS_PENDING,
         ]);
 
+        // Tidak ada lagi tombol Kirim WA / approval Waka di halaman index.
         $this->actingAs($piket)
             ->get(route('piket.dispensasi.index'))
             ->assertOk()
-            ->assertSee('Kirim WA ke Waka')
-            ->assertSee('6281234567890');
+            ->assertDontSee('Kirim WA ke Waka')
+            ->assertDontSee('QR Approval')
+            ->assertSee(route('piket.dispensasi.surat', $dispen->id));
     }
 }

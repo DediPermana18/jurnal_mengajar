@@ -6,16 +6,16 @@
 <div class="container-fluid px-0">
 
     {{-- Header --}}
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 md:mb-4 gap-2 md:gap-3">
         <div>
-            <h2 class="fw-black text-dark mb-1" style="font-weight: 900; font-size: 1.75rem; letter-spacing: -0.02em;">
+            <h2 class="fw-black text-dark mb-1" style="font-weight: 900; font-size: 1.5rem; letter-spacing: -0.02em;">
                 Dashboard Satpam
             </h2>
-            <p class="text-muted mb-0" style="font-size: 0.9rem;">
+            <p class="text-muted mb-0" style="font-size: 0.85rem;">
                 Kedisiplinan siswa di gerbang — {{ \Carbon\Carbon::parse($today)->translatedFormat('l, d F Y') }}.
             </p>
         </div>
-        <a href="{{ route('satpam.verifikasi') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm">
+        <a href="{{ route('satpam.verifikasi') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm text-xs md:text-sm mt-1 mt-md-0">
             <i class="bi bi-door-open-fill me-1"></i> Verifikasi Izin Keluar
         </a>
     </div>
@@ -47,26 +47,26 @@
     @endif
 
     {{-- Metrics Card --}}
-    <div class="row g-4 mb-4">
-        <div class="col-12 col-sm-6 col-xl-4">
-            <div class="stat-card-custom h-100">
-                <div class="stat-card-title">Siswa Terlambat Hari Ini</div>
-                <div class="stat-number-large text-warning">{{ number_format($totalTerlambat) }}</div>
-                <div class="stat-card-label">tercatat datang melewati batas waktu</div>
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-3 md:mb-4">
+        <div>
+            <div class="stat-card-custom p-3 md:p-4 h-100">
+                <div class="stat-card-title text-xs md:text-sm truncate mb-1 md:mb-2" title="Siswa Terlambat Hari Ini">Siswa Terlambat Hari Ini</div>
+                <div class="stat-number-large text-2xl md:text-4xl text-warning mb-1">{{ number_format($totalTerlambat) }}</div>
+                <div class="stat-card-label text-xs md:text-sm truncate" title="tercatat datang melewati batas waktu">Terlambat gerbang</div>
             </div>
         </div>
-        <div class="col-12 col-sm-6 col-xl-4">
-            <div class="stat-card-custom h-100">
-                <div class="stat-card-title">Izin Keluar Gerbang Hari Ini</div>
-                <div class="stat-number-large text-primary">{{ number_format($totalIzinKeluar) }}</div>
-                <div class="stat-card-label">dispensasi yang diverifikasi Satpam</div>
+        <div>
+            <div class="stat-card-custom p-3 md:p-4 h-100">
+                <div class="stat-card-title text-xs md:text-sm truncate mb-1 md:mb-2" title="Izin Keluar Gerbang Hari Ini">Izin Keluar Gerbang Hari Ini</div>
+                <div class="stat-number-large text-2xl md:text-4xl text-primary mb-1">{{ number_format($totalIzinKeluar) }}</div>
+                <div class="stat-card-label text-xs md:text-sm truncate" title="dispensasi yang diverifikasi Satpam">Diverifikasi Satpam</div>
             </div>
         </div>
-        <div class="col-12 col-sm-6 col-xl-4">
-            <div class="stat-card-custom h-100">
-                <div class="stat-card-title">Dispen Disetujui Hari Ini</div>
-                <div class="stat-number-large text-info">{{ number_format($totalDispenDisetujui) }}</div>
-                <div class="stat-card-label">surat izin valid untuk keluar</div>
+        <div class="col-span-2 md:col-span-1">
+            <div class="stat-card-custom p-3 md:p-4 h-100">
+                <div class="stat-card-title text-xs md:text-sm truncate mb-1 md:mb-2" title="Dispen Disetujui Hari Ini">Dispen Disetujui Hari Ini</div>
+                <div class="stat-number-large text-2xl md:text-4xl text-info mb-1">{{ number_format($totalDispenDisetujui) }}</div>
+                <div class="stat-card-label text-xs md:text-sm truncate" title="surat izin valid untuk keluar">Surat izin valid</div>
             </div>
         </div>
     </div>
@@ -163,38 +163,38 @@
                             <h5 class="fw-bold text-dark mb-0">Siswa Terlambat Hari Ini</h5>
                             <span class="text-muted small">{{ $daftarTerlambat->count() }} siswa</span>
                         </div>
-                        <div class="table-responsive">
-                            <table class="table table-custom align-middle mb-0">
+                        <div class="overflow-x-auto w-full rounded-lg">
+                            <table class="table table-custom align-middle mb-0 min-w-full">
                                 <thead>
                                     <tr>
-                                        <th>NO</th>
-                                        <th>SISWA</th>
-                                        <th>KELAS</th>
-                                        <th>JAM MASUK</th>
-                                        <th>ALASAN</th>
-                                        <th>DITERUSKAN KE</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">NO</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">SISWA</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">KELAS</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">JAM MASUK</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">ALASAN</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">DITERUSKAN KE</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @forelse($daftarTerlambat as $i => $t)
                                         <tr>
-                                            <td>{{ $i + 1 }}</td>
-                                            <td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $i + 1 }}</td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">
                                                 <strong>{{ $t->siswa?->nama ?? '-' }}</strong>
                                                 <div class="text-muted small">{{ $t->siswa?->nis ?? '-' }}</div>
                                             </td>
-                                            <td>{{ $t->siswa?->kelas?->nama_lengkap ?? '-' }}</td>
-                                            <td><span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill">{{ $t->jam_masuk?->format('H:i') }}</span></td>
-                                            <td>{{ $t->keterangan ?? '-' }}</td>
-                                            <td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $t->siswa?->kelas?->nama_lengkap ?? '-' }}</td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm"><span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill text-xs md:text-sm">{{ $t->jam_masuk?->format('H:i') }}</span></td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $t->keterangan ?? '-' }}</td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">
                                                 <div class="d-flex flex-column gap-1">
                                                     @if($t->jumlah_guru_piket > 0)
-                                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill text-start">
+                                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill text-start text-xs md:text-sm">
                                                             <i class="bi bi-people-fill me-1"></i>{{ $t->jumlah_guru_piket }} Guru Piket
                                                         </span>
                                                     @endif
                                                     @if($t->wali_kelas_penerima)
-                                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill text-start">
+                                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill text-start text-xs md:text-sm">
                                                             <i class="bi bi-person-check-fill me-1"></i>Wali Kelas
                                                         </span>
                                                     @endif
@@ -206,7 +206,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="6" class="text-center text-muted py-4">
+                                            <td colspan="6" class="text-center text-muted py-4 whitespace-nowrap px-3 py-2 text-xs md:text-sm">
                                                 <i class="bi bi-inbox fs-3 d-block mb-2"></i>
                                                 Belum ada siswa terlambat tercatat hari ini.
                                             </td>
@@ -328,31 +328,31 @@
                             <h5 class="fw-bold text-dark mb-0">Dispensasi Hari Ini</h5>
                             <span class="text-muted small">{{ $daftarIzinKeluar->count() }} surat</span>
                         </div>
-                        <div class="table-responsive">
-                            <table class="table table-custom align-middle mb-0">
+                        <div class="overflow-x-auto w-full rounded-lg">
+                            <table class="table table-custom align-middle mb-0 min-w-full">
                                 <thead>
                                     <tr>
-                                        <th>SISWA</th>
-                                        <th>KELAS</th>
-                                        <th>JENIS</th>
-                                        <th>JAM KE</th>
-                                        <th>GURU MAPEL</th>
-                                        <th>STATUS</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">SISWA</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">KELAS</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">JENIS</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">JAM KE</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">GURU MAPEL</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">STATUS</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @forelse($daftarIzinKeluar as $dispen)
                                         <tr>
-                                            <td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">
                                                 <strong>{{ $dispen->siswa?->nama ?? '-' }}</strong>
                                                 <div class="text-muted small">{{ $dispen->siswa?->nis ?? '-' }}</div>
                                             </td>
-                                            <td>{{ $dispen->siswa?->kelas?->nama_lengkap ?? '-' }}</td>
-                                            <td>
-                                                <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill">{{ $dispen->jenis_label }}</span>
+                                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $dispen->siswa?->kelas?->nama_lengkap ?? '-' }}</td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">
+                                                <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill text-xs md:text-sm">{{ $dispen->jenis_label }}</span>
                                             </td>
-                                            <td>{{ $dispen->jam_ke ?? '-' }}</td>
-                                            <td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $dispen->jam_ke ?? '-' }}</td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">
                                                 @if($dispen->guru)
                                                     <span>{{ $dispen->guru->nama }}</span>
                                                     <div class="text-muted small">{{ $dispen->jadwal?->mapel?->nama_mapel ?? '-' }}</div>
@@ -360,17 +360,17 @@
                                                     <span class="text-muted small">-</span>
                                                 @endif
                                             </td>
-                                            <td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">
                                                 @if($dispen->isKeluarGerbang())
-                                                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">Sudah Keluar</span>
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill text-xs md:text-sm">Sudah Keluar</span>
                                                 @else
-                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">Disetujui</span>
+                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill text-xs md:text-sm">Disetujui</span>
                                                 @endif
                                             </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="6" class="text-center text-muted py-4">
+                                            <td colspan="6" class="text-center text-muted py-4 whitespace-nowrap px-3 py-2 text-xs md:text-sm">
                                                 <i class="bi bi-inbox fs-3 d-block mb-2"></i>
                                                 Tidak ada dispensasi disetujui hari ini.
                                             </td>

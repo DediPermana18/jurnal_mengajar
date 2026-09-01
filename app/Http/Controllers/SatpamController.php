@@ -12,6 +12,7 @@ use App\Models\PenerimaTerlambat;
 use App\Models\Siswa;
 use App\Models\TahunAjaran;
 use App\Models\User;
+use App\Services\NotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -233,6 +234,8 @@ class SatpamController extends Controller
 
         $jumlahPenerima = $catatan->penerima()->count();
 
+        NotificationService::siswaTerlambat($catatan->load('penerima'));
+
         return back()->with('success', 'Siswa "' . $siswa->nama . '" tercatat terlambat pukul ' . $data['jam_masuk']
             . ' dan diteruskan ke ' . $catatan->jumlah_guru_piket . ' Guru Piket serta Wali Kelas (total ' . $jumlahPenerima . ' penerima).');
     }
@@ -292,6 +295,8 @@ class SatpamController extends Controller
         ]);
 
         $jumlahAbsensi = $dispen->terapkanKeAbsensi();
+
+        NotificationService::siswaDispen($dispen->load('siswa.kelas'));
 
         return redirect()->route('satpam.dashboard', ['tab' => 'dispensasi'])
             ->with('success', 'Dispensasi "' . $siswa->nama . '" (' . $dispen->jenis_label . ', jam ke-' . ($jamKe ?? '-')

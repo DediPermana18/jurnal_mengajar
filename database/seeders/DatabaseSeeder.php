@@ -44,48 +44,19 @@ class DatabaseSeeder extends Seeder
         $this->command->info('================================================');
         $this->command->info('');
 
-        // ============ AKUN GURU MAPEL DUMMY (test2 s.d. test10) ============
-        $this->createDummyGuruAccounts();
-    }
+        // ============ DATA RUANGAN SMK (R-01 s.d. R-10) ============
+        $this->call(RuanganSeeder::class);
 
-    /**
-     * Membuat 9 akun Guru Mapel dummy (test2 s.d. test10).
-     *
-     * Data guru disimpan langsung pada tabel users (role='guru').
-     * Tidak ada tabel terpisah 'gurus', sehingga tidak ada relasi profil
-     * tambahan yang perlu dibuat.
-     */
-    protected function createDummyGuruAccounts(): void
-    {
-        for ($i = 2; $i <= 10; $i++) {
-            $username = 'test' . $i;
-            $email    = $username . '@school.id';
+        // ============ DATA KELAS XI SMK (10 Kelas) ============
+        $this->call(KelasSeeder::class);
 
-            User::updateOrCreate(
-                ['username' => $username],
-                [
-                    'nama'          => $username,
-                    'email'         => $email,
-                    'nip'           => null,
-                    'password'      => Hash::make('password123'),
-                    'kode_aktivasi' => null,
-                    'role'          => 'guru',
-                    'sub_role'      => 'guru_mapel',
-                    'is_active'     => true,
-                ]
-            );
-        }
+        // ============ DATA MATA PELAJARAN (Umum, Mulok, Kejuruan) ============
+        $this->call(MapelSeeder::class);
 
-        $this->command->info('');
-        $this->command->info('================================================');
-        $this->command->info(' 9 Akun Guru Mapel dummy berhasil dibuat.');
-        $this->command->info('------------------------------------------------');
-        $this->command->info(' Username  : test2 s.d. test10');
-        $this->command->info(' Email     : test2@school.id s.d. test10@school.id');
-        $this->command->info(' Password  : password123');
-        $this->command->info(' Role      : Guru Mapel (guru)');
-        $this->command->info(' NIP       : NULL');
-        $this->command->info('================================================');
-        $this->command->info('');
+        // ============ DATA GURU REALISTIS (12 Guru + Akun Login + Wali Kelas) ============
+        $this->call(GuruSeeder::class);
+
+        // ============ DATA SISWA KELAS XI (10 Kelas x 5 Siswa = 50 Siswa) ============
+        $this->call(SiswaSeeder::class);
     }
 }

@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>@yield('title', 'WebJournal Management System')</title>
 
     <!-- Google Fonts: Plus Jakarta Sans -->
@@ -15,7 +15,16 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
+    <!-- Alpine.js CDN -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+
     <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
         :root {
             --sidebar-w: 260px;
             --sidebar-bg: #dbe6f1;
@@ -155,10 +164,10 @@
 
         .nav-btn .chevron-icon {
             font-size: 0.75rem;
-            transition: transform 0.25s ease;
+            transition: transform 0.2s ease;
         }
 
-        .nav-btn[aria-expanded="true"] .chevron-icon {
+        .nav-btn .chevron-icon.rotate-180 {
             transform: rotate(180deg);
         }
 
@@ -331,9 +340,44 @@
             flex: 1;
         }
 
-        @media (max-width: 991.98px) {
+        /* ================= SIDEBAR BACKDROP (mobile drawer) ================= */
+        .sidebar-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 1035;
+            background: rgba(15, 23, 42, 0.55);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .sidebar-backdrop.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* ================= FIX Z-INDEX MODAL (agar dialog selalu DI ATAS backdrop) =================
+           Backdrop hitam transparan berada di bawah dialog modal sehingga tombol Tutup / X
+           dan area konten modal tetap dapat diklik. Nilai ini menimpa default Bootstrap. */
+        .modal-backdrop {
+            z-index: 1040;
+        }
+
+        .modal {
+            z-index: 1055;
+        }
+
+        .modal .modal-dialog {
+            z-index: 1060;
+        }
+
+        /* Sembunyikan sidebar & tampilkan sebagai drawer overlay hanya di layar mobile (< 768px) */
+        @media (max-width: 767.98px) {
             .sidebar {
+                width: min(280px, 75vw);
                 transform: translateX(-100%);
+                box-shadow: 0 0 24px rgba(15, 23, 42, 0.35);
             }
             .sidebar.show {
                 transform: translateX(0);
@@ -343,7 +387,25 @@
             }
             .topbar-header {
                 justify-content: space-between;
-                padding: 0 1.25rem;
+                padding: 0 1rem;
+            }
+            .page-content {
+                padding: 1.25rem 1rem;
+            }
+
+            /* Judul halaman: ukuran pas di layar HP agar tidak "zoom" memenuhi layar */
+            .page-content h1 {
+                font-size: 1.5rem !important;
+            }
+            .page-content h2 {
+                font-size: 1.4rem !important;
+            }
+            .page-content h3 {
+                font-size: 1.25rem !important;
+            }
+            .page-content h4,
+            .page-content h5 {
+                font-size: 1.1rem !important;
             }
         }
 
@@ -392,6 +454,38 @@
             font-weight: 500;
             margin-top: 0.5rem;
             margin-bottom: 0;
+        }
+
+        @media (max-width: 767.98px) {
+            .stat-card-custom {
+                padding: 0.875rem 0.9rem !important;
+                border-radius: 12px;
+            }
+            .stat-card-title {
+                font-size: 0.75rem !important;
+                margin-bottom: 0.35rem !important;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .stat-number-large {
+                font-size: 1.5rem !important;
+                margin-bottom: 0.25rem !important;
+            }
+            .stat-card-label {
+                font-size: 0.75rem !important;
+                margin-bottom: 0.15rem !important;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .stat-card-subtext {
+                font-size: 0.7rem !important;
+                margin-top: 0.25rem !important;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
         }
 
         /* ================= TABLE CARD ================= */
@@ -454,6 +548,9 @@
 <body>
 
 <div class="app-wrapper">
+
+    <!-- SIDEBAR BACKDROP (mobile overlay) -->
+    <div class="sidebar-backdrop" id="sidebarBackdrop" hidden></div>
 
     <!-- SIDEBAR NAVIGATION -->
     <aside class="sidebar" id="appSidebar">
@@ -584,15 +681,15 @@
                     </div>
                 </div>
 
-                <!-- Presensi Guru -->
-                <div class="nav-item-container">
+                {{-- Presensi Guru (disabled/placeholder) --}}
+                {{-- <div class="nav-item-container">
                     <a href="{{ route('piket.presensi-guru') }}" class="nav-btn {{ request()->routeIs('piket.presensi-guru') ? 'active' : '' }}">
                         <span class="btn-left">
                             <i class="bi bi-person-check-fill"></i>
                             <span>Presensi Guru</span>
                         </span>
                     </a>
-                </div>
+                </div> --}}
 
                 <!-- Presensi Siswa -->
                 <div class="nav-item-container">
@@ -620,16 +717,6 @@
                         <span class="btn-left">
                             <i class="bi bi-clipboard2-check"></i>
                             <span>Dispensasi Siswa</span>
-                        </span>
-                    </a>
-                </div>
-
-                <!-- Approval Dispen -->
-                <div class="nav-item-container">
-                    <a href="{{ route('piket.dispensasi.pengajuan') }}" class="nav-btn {{ request()->routeIs('piket.dispensasi.pengajuan*') ? 'active' : '' }}">
-                        <span class="btn-left">
-                            <i class="bi bi-check2-square"></i>
-                            <span>Approval Dispen</span>
                         </span>
                     </a>
                 </div>
@@ -685,26 +772,31 @@
                 <!-- SECTION KELAS SAYA: HANYA untuk role 'wali_kelas' -->
                 @if($isWaliKelasRole)
                     @php
-                        $isKelasSayaActive = request()->routeIs('walikelas.*');
+                        $isKelasSayaActive = request()->is('*walikelas*') || request()->routeIs('walikelas.*');
                     @endphp
-                    <div class="nav-item-container mt-3">
+                    <div class="nav-item-container mt-3" x-data="{ open: {{ $isKelasSayaActive ? 'true' : 'false' }} }">
                         <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
                             KELAS SAYA
                         </div>
                         <button class="nav-btn {{ $isKelasSayaActive ? 'active' : '' }}" 
                                 type="button"
-                                data-bs-toggle="collapse" 
-                                data-bs-target="#dropdownKelasSaya" 
-                                aria-expanded="{{ $isKelasSayaActive ? 'true' : 'false' }}" 
-                                aria-controls="dropdownKelasSaya">
+                                :aria-expanded="open"
+                                @click.prevent="open = !open">
                             <span class="btn-left">
                                 <i class="bi bi-mortarboard-fill"></i>
                                 <span>Kelas Saya</span>
                             </span>
-                            <i class="bi bi-chevron-down chevron-icon"></i>
+                            <i class="bi bi-chevron-down chevron-icon transition-transform duration-200" :class="open ? 'rotate-180' : ''"></i>
                         </button>
                         
-                        <div class="collapse {{ $isKelasSayaActive ? 'show' : '' }}" id="dropdownKelasSaya">
+                        <div x-show="open" 
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 transform -translate-y-2"
+                             x-transition:enter-end="opacity-100 transform translate-y-0"
+                             x-transition:leave="transition ease-in duration-150"
+                             x-transition:leave-start="opacity-100 transform translate-y-0"
+                             x-transition:leave-end="opacity-0 transform -translate-y-2"
+                             id="dropdownKelasSaya">
                             <ul class="submenu-list">
                                 <li>
                                     <a href="{{ route('walikelas.dashboard') }}" class="submenu-item-link {{ request()->routeIs('walikelas.dashboard') ? 'active' : '' }}">
@@ -813,26 +905,42 @@
 
                 <!-- Dropdown Data Master (Petugas TU: Guru/Pengguna, Siswa, Kelas, Jurusan) -->
                 @php
-                    $isDataMasterActive = request()->routeIs('guru.index') || request()->routeIs('siswa.*') || request()->routeIs('kelas.*') || request()->routeIs('jurusan.*') || request()->routeIs('ruangan.*');
+                    $isDataMasterActive = request()->is('*master*') 
+                                       || request()->is('*guru*') 
+                                       || request()->is('*siswa*') 
+                                       || request()->is('*kelas*') 
+                                       || request()->is('*jurusan*') 
+                                       || request()->is('*ruangan*') 
+                                       || request()->routeIs('guru.*') 
+                                       || request()->routeIs('admin.guru.*') 
+                                       || request()->routeIs('siswa.*') 
+                                       || request()->routeIs('kelas.*') 
+                                       || request()->routeIs('jurusan.*') 
+                                       || request()->routeIs('ruangan.*');
                 @endphp
-                <div class="nav-item-container">
+                <div class="nav-item-container" x-data="{ open: {{ $isDataMasterActive ? 'true' : 'false' }} }">
                     <button class="nav-btn {{ $isDataMasterActive ? 'active' : '' }}" 
                             type="button"
-                            data-bs-toggle="collapse" 
-                            data-bs-target="#dropdownDataMaster" 
-                            aria-expanded="{{ $isDataMasterActive ? 'true' : 'false' }}" 
-                            aria-controls="dropdownDataMaster">
+                            :aria-expanded="open"
+                            @click.prevent="open = !open">
                         <span class="btn-left">
                             <i class="bi bi-database-fill"></i>
                             <span>Data Master</span>
                         </span>
-                        <i class="bi bi-chevron-down chevron-icon"></i>
+                        <i class="bi bi-chevron-down chevron-icon transition-transform duration-200" :class="open ? 'rotate-180' : ''"></i>
                     </button>
                     
-                    <div class="collapse {{ $isDataMasterActive ? 'show' : '' }}" id="dropdownDataMaster">
+                    <div x-show="open" 
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0 transform -translate-y-2"
+                         x-transition:enter-end="opacity-100 transform translate-y-0"
+                         x-transition:leave="transition ease-in duration-150"
+                         x-transition:leave-start="opacity-100 transform translate-y-0"
+                         x-transition:leave-end="opacity-0 transform -translate-y-2"
+                         id="dropdownDataMaster">
                         <ul class="submenu-list">
                             <li>
-                                <a href="{{ route('guru.index') }}" class="submenu-item-link {{ request()->routeIs('guru.index') ? 'active' : '' }}">
+                                <a href="{{ route('guru.index') }}" class="submenu-item-link {{ request()->routeIs('guru.*') || request()->routeIs('admin.guru.*') ? 'active' : '' }}">
                                     <i class="bi bi-person-badge"></i>
                                     <span>Data Pengguna / Guru</span>
                                 </a>
@@ -878,22 +986,32 @@
 
                 @if($isPetugasTU || $isSuperAdmin)
                     @php
-                        $isJadwalAdminActive = request()->routeIs('admin.jam-pelajaran.*') || request()->routeIs('admin.jadwal.*');
+                        $isJadwalAdminActive = request()->is('*jadwal*') 
+                                            || request()->is('*jam-pelajaran*') 
+                                            || request()->routeIs('admin.jam-pelajaran.*') 
+                                            || request()->routeIs('admin.jam-pulang.*') 
+                                            || request()->routeIs('admin.agenda-rutin.*') 
+                                            || request()->routeIs('admin.jadwal.*');
                     @endphp
-                    <div class="nav-item-container">
+                    <div class="nav-item-container" x-data="{ open: {{ $isJadwalAdminActive ? 'true' : 'false' }} }">
                         <button class="nav-btn {{ $isJadwalAdminActive ? 'active' : '' }}"
                                 type="button"
-                                data-bs-toggle="collapse"
-                                data-bs-target="#dropdownJadwalAdmin"
-                                aria-expanded="{{ $isJadwalAdminActive ? 'true' : 'false' }}"
-                                aria-controls="dropdownJadwalAdmin">
+                                :aria-expanded="open"
+                                @click.prevent="open = !open">
                             <span class="btn-left">
                                 <i class="bi bi-calendar3"></i>
                                 <span>Jadwal Pelajaran</span>
                             </span>
-                            <i class="bi bi-chevron-down chevron-icon"></i>
+                            <i class="bi bi-chevron-down chevron-icon transition-transform duration-200" :class="open ? 'rotate-180' : ''"></i>
                         </button>
-                        <div class="collapse {{ $isJadwalAdminActive ? 'show' : '' }}" id="dropdownJadwalAdmin">
+                        <div x-show="open" 
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 transform -translate-y-2"
+                             x-transition:enter-end="opacity-100 transform translate-y-0"
+                             x-transition:leave="transition ease-in duration-150"
+                             x-transition:leave-start="opacity-100 transform translate-y-0"
+                             x-transition:leave-end="opacity-0 transform -translate-y-2"
+                             id="dropdownJadwalAdmin">
                             <ul class="submenu-list">
                                 <li><a href="{{ route('admin.jam-pelajaran.index') }}" class="submenu-item-link {{ request()->routeIs('admin.jam-pelajaran.*') ? 'active' : '' }}"><i class="bi bi-clock-history"></i><span>Master Jam Pelajaran</span></a></li>
                                 <li><a href="{{ route('admin.jadwal.index') }}" class="submenu-item-link {{ request()->routeIs('admin.jadwal.*') ? 'active' : '' }}"><i class="bi bi-calendar-range"></i><span>Plotting Jadwal Kelas</span></a></li>
@@ -967,7 +1085,7 @@
         <!-- TOPBAR HEADER -->
         <header class="topbar-header">
             <!-- Mobile Toggle -->
-            <button class="btn btn-sm btn-light border d-lg-none" type="button" id="sidebarToggle">
+            <button class="btn btn-sm btn-light border d-md-none" type="button" id="sidebarToggle" aria-label="Buka menu navigasi" aria-controls="appSidebar" aria-expanded="false">
                 <i class="bi bi-list fs-5"></i>
             </button>
 
@@ -1018,10 +1136,65 @@
                 @endif
 
                 <!-- Notifications -->
-                <button class="icon-btn position-relative" type="button">
-                    <i class="bi bi-bell"></i>
-                    <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
-                </button>
+                @php
+                    $navNotifQuery = auth()->user()?->notifications();
+                    $navUnreadCount = $navNotifQuery?->count() ?? 0;
+                    $navNotifList   = $navNotifQuery?->latest()->limit(8)->get() ?? collect();
+                @endphp
+                <div class="dropdown">
+                    <button class="notif-bell-btn position-relative" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="position:relative;">
+                        <i class="bi bi-bell fs-5"></i>
+                        @if($navUnreadCount > 0)
+                            <span class="notif-dot"></span>
+                        @endif
+                    </button>
+
+                    <div class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-4 mt-2 notif-menu" style="width: 360px; max-height: 480px; overflow: hidden;">
+                        <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+                            <span class="fw-bold text-dark">Notifikasi</span>
+                            <span class="small text-muted">{{ $navUnreadCount }} belum dibaca</span>
+                        </div>
+                        <div style="max-height: 380px; overflow-y: auto;">
+                            @forelse($navNotifList as $n)
+                                @php
+                                    $nData   = $n->data;
+                                    $nIsRead = $n->read_at !== null;
+                                    $nUrl    = data_get($nData, 'url', '#');
+                                @endphp
+                                <div class="dropdown-item px-3 py-2 {{ $nIsRead ? '' : 'bg-primary-subtle' }}" style="white-space: normal; border-bottom: 1px solid #eef1f6;">
+                                    <a href="{{ $nUrl }}" class="text-decoration-none text-reset d-block">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <strong class="small">{{ data_get($nData, 'title', 'Notifikasi') }}</strong>
+                                            <small class="text-muted ms-2 text-nowrap">{{ $n->created_at?->diffForHumans() }}</small>
+                                        </div>
+                                        <div class="text-muted small mt-1">{{ data_get($nData, 'message', '') }}</div>
+                                    </a>
+                                    @if(!$nIsRead)
+                                        <form action="{{ route('notifications.read', $n->id) }}" method="POST" class="mt-1">
+                                            @csrf
+                                            <button class="btn btn-sm btn-light border rounded-3" type="submit">
+                                                <i class="bi bi-check-circle me-1"></i> Tandai Sudah Dibaca
+                                            </button>
+                                        </form>
+                                    @endif
+                                </div>
+                            @empty
+                                <div class="text-center text-muted py-5">
+                                    <i class="bi bi-bell-slash fs-2 d-block mb-2"></i>
+                                    Tidak ada notifikasi.
+                                </div>
+                            @endforelse
+                        </div>
+                        @if($navUnreadCount > 0)
+                            <form action="{{ route('notifications.read-all') }}" method="POST" class="p-2 border-top">
+                                @csrf
+                                <button class="btn btn-sm btn-primary w-100 rounded-3">
+                                    <i class="bi bi-check2-all me-1"></i> Tandai Semua Dibaca
+                                </button>
+                            </form>
+                        @endif
+                    </div>
+                </div>
 
                 <!-- Divider -->
                 <div class="topbar-divider"></div>
@@ -1044,8 +1217,7 @@
                     </div>
 
                     <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-4 mt-2">
-                        <li><a class="dropdown-item py-2" href="{{ route('profil.index') }}"><i class="bi bi-person me-2 text-primary"></i> Profil Saya</a></li>
-                        <li><a class="dropdown-item py-2" href="{{ route('pengaturan.index') }}"><i class="bi bi-sliders me-2 text-warning"></i> Pengaturan Akun</a></li>
+                        <li><a class="dropdown-item py-2" href="{{ route('profil.index') }}"><i class="bi bi-person me-2 text-primary"></i> Profil & Akun</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <form action="{{ route('logout') }}" method="POST" class="d-inline">
@@ -1074,10 +1246,72 @@
     document.addEventListener('DOMContentLoaded', function () {
         const sidebarToggle = document.getElementById('sidebarToggle');
         const appSidebar = document.getElementById('appSidebar');
+        const sidebarBackdrop = document.getElementById('sidebarBackdrop');
 
-        if (sidebarToggle && appSidebar) {
+        const MOBILE_MAX = 768;
+
+        function isMobile() {
+            return window.matchMedia('(max-width: 767.98px)').matches;
+        }
+
+        function openSidebar() {
+            appSidebar.classList.add('show');
+            sidebarBackdrop.hidden = false;
+            // Tunggu sebaris agar transisi opacity berjalan.
+            requestAnimationFrame(function () {
+                sidebarBackdrop.classList.add('show');
+            });
+            if (sidebarToggle) {
+                sidebarToggle.setAttribute('aria-expanded', 'true');
+            }
+        }
+
+        function closeSidebar() {
+            appSidebar.classList.remove('show');
+            sidebarBackdrop.classList.remove('show');
+            if (sidebarToggle) {
+                sidebarToggle.setAttribute('aria-expanded', 'false');
+            }
+            // Sembunyikan backdrop setelah transisi selesai.
+            setTimeout(function () {
+                if (!sidebarBackdrop.classList.contains('show')) {
+                    sidebarBackdrop.hidden = true;
+                }
+            }, 300);
+        }
+
+        if (sidebarToggle && appSidebar && sidebarBackdrop) {
             sidebarToggle.addEventListener('click', function () {
-                appSidebar.classList.toggle('show');
+                if (isMobile()) {
+                    if (appSidebar.classList.contains('show')) {
+                        closeSidebar();
+                    } else {
+                        openSidebar();
+                    }
+                } else {
+                    appSidebar.classList.toggle('show');
+                }
+            });
+
+            // Tutup saat tap/klik di luar sidebar (backdrop).
+            sidebarBackdrop.addEventListener('click', function () {
+                closeSidebar();
+            });
+
+            // Tutup otomatis saat memilih menu (tautan navigasi) di mobile.
+            appSidebar.querySelectorAll('a').forEach(function (link) {
+                link.addEventListener('click', function () {
+                    if (isMobile()) {
+                        closeSidebar();
+                    }
+                });
+            });
+
+            // Tutup saat resolusi naik ke desktop (drawer tidak tampil lagi).
+            window.matchMedia('(max-width: 767.98px)').addEventListener('change', function (e) {
+                if (!e.matches && appSidebar.classList.contains('show')) {
+                    closeSidebar();
+                }
             });
         }
     });

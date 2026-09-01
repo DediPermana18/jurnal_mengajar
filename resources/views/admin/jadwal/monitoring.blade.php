@@ -90,14 +90,14 @@
                     </span>
                 </div>
             </div>
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0" id="tableMonitoringKosong">
+            <div class="table-responsive w-full overflow-x-auto">
+                <table class="table table-hover align-middle mb-0 min-w-full" id="tableMonitoringKosong">
                     <thead class="table-light">
                         <tr>
-                            <th class="ps-4 py-3">Kelas</th>
-                            <th class="py-3">Hari</th>
-                            <th class="py-3">Jam Kosong</th>
-                            <th class="text-center py-3">Jumlah</th>
+                            <th class="ps-4 py-3 whitespace-nowrap">Kelas</th>
+                            <th class="py-3 whitespace-nowrap">Hari</th>
+                            <th class="py-3 whitespace-nowrap">Jam Kosong</th>
+                            <th class="text-center py-3 whitespace-nowrap">Jumlah</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -122,10 +122,10 @@
                                         </span>
                                     </a>
                                 </td>
-                                <td class="py-3">
+                                <td class="py-3 whitespace-nowrap">
                                     <span class="fw-semibold text-danger">[{{ implode(', ', $row['jam_kosong']) }}]</span>
                                 </td>
-                                <td class="text-center py-3">
+                                <td class="text-center py-3 whitespace-nowrap">
                                     <a href="{{ $urlPlotting }}" class="text-decoration-none">
                                         <span class="badge bg-danger text-white rounded-pill px-2 py-1">{{ $row['jumlah'] }}</span>
                                     </a>
