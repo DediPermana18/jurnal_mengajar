@@ -66,12 +66,18 @@ class SiswaController extends Controller
     {
         $request->validate([
             'nisn'          => 'nullable|string|max:20|unique:siswa,nisn',
-            'nis'           => 'nullable|string|max:20',
+            'nis'           => 'required|string|max:20|unique:siswa,nis',
             'nama'          => 'required|string|max:100',
             'id_kelas'      => 'nullable|exists:kelas,id',
             'id_jurusan'    => 'nullable|exists:jurusan,id',
             'jenis_kelamin' => 'required|in:L,P',
             'status_siswa'  => 'nullable|string|max:20',
+        ], [
+            'nis.required'    => 'NIS (Nomor Induk Sekolah) wajib diisi.',
+            'nis.max'         => 'NIS maksimal :max karakter.',
+            'nis.unique'      => 'NIS sudah digunakan siswa lain.',
+            'nisn.max'        => 'NISN maksimal :max karakter.',
+            'nisn.unique'     => 'NISN sudah digunakan siswa lain.',
         ]);
 
         $kelas = $request->filled('id_kelas') ? Kelas::find($request->id_kelas) : null;
@@ -118,12 +124,18 @@ class SiswaController extends Controller
     {
         $request->validate([
             'nisn'          => "nullable|string|max:20|unique:siswa,nisn,{$id}",
-            'nis'           => 'nullable|string|max:20',
+            'nis'           => "required|string|max:20|unique:siswa,nis,{$id}",
             'nama'          => 'required|string|max:100',
             'id_kelas'      => 'nullable|exists:kelas,id',
             'id_jurusan'    => 'nullable|exists:jurusan,id',
             'jenis_kelamin' => 'required|in:L,P',
             'status_siswa'  => 'nullable|string|max:20',
+        ], [
+            'nis.required'    => 'NIS (Nomor Induk Sekolah) wajib diisi.',
+            'nis.max'         => 'NIS maksimal :max karakter.',
+            'nis.unique'      => 'NIS sudah digunakan siswa lain.',
+            'nisn.max'        => 'NISN maksimal :max karakter.',
+            'nisn.unique'     => 'NISN sudah digunakan siswa lain.',
         ]);
 
         $siswa = Siswa::findOrFail($id);

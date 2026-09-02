@@ -78,17 +78,52 @@
                             </td>
                             <td>{{ $dispen->siswa?->kelas?->nama ?? '-' }}</td>
                             <td>
-                                <span class="badge bg-light text-dark border rounded-3 px-2 py-1 whitespace-nowrap">{{ $dispen->jam_ke_label }}</span>
+                                @if($dispen->isTipeMasuk())
+                                    <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle rounded-3 px-2 py-1 whitespace-nowrap">
+                                        <i class="bi bi-box-arrow-in-right me-1"></i>Masuk JP-{{ $dispen->jam_masuk_jp }}
+                                    </span>
+                                @else
+                                    <span class="badge bg-light text-dark border rounded-3 px-2 py-1 whitespace-nowrap">{{ $dispen->jam_ke_label }}</span>
+                                @endif
                             </td>
                             <td style="max-width: 260px;"><span class="text-wrap">{{ $dispen->alasan }}</span></td>
                             <td><span class="badge {{ $dispen->status_badge }} rounded-pill px-2 py-2 whitespace-nowrap">{{ $dispen->status_label }}</span></td>
                             <td class="text-end whitespace-nowrap">
-                                <div class="flex items-center justify-center gap-2 whitespace-nowrap">
+                                <div class="flex items-center justify-center gap-2 whitespace-nowrap flex-wrap">
                                 <a href="{{ route('piket.dispensasi.surat', $dispen->id) }}" target="_blank"
                                        class="btn btn-sm btn-outline-dark rounded-3"
                                        title="Lihat Surat Dispensasi & TTD Digital (tab baru)">
                                     <i class="bi bi-file-earmark-text"></i>Lihat Surat
                                 </a>
+                                @if($dispen->approval_token)
+                                    @php
+                                        $approvalLink = route('dispen.approval.show', $dispen->approval_token);
+                                        $waText = 'Halo Waka Kesiswaan, mohon tandatangani surat dispensasi berikut: ' . $approvalLink;
+                                        $qrSvg = \App\Support\QrCodeHelper::svg($approvalLink, 6);
+                                    @endphp
+                                    <a href="https://wa.me/?text={{ urlencode($waText) }}" target="_blank" rel="noopener"
+                                       class="btn btn-sm btn-success rounded-3" title="Kirim WA ke Waka Kesiswaan">
+                                        <i class="bi bi-whatsapp"></i>WA ke Waka
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-3"
+                                            data-bs-toggle="modal" data-bs-target="#qrDispen{{ $dispen->id }}" title="Tampilkan QR approval">
+                                        <i class="bi bi-qr-code"></i>QR
+                                    </button>
+                                    <div class="modal fade" id="qrDispen{{ $dispen->id }}" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog modal-sm modal-dialog-centered">
+                                            <div class="modal-content rounded-4 border-0 shadow-lg">
+                                                <div class="modal-header border-0 pb-0">
+                                                    <h6 class="modal-title fw-bold text-dark">Link Approval Dispensasi</h6>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body text-center p-4">
+                                                    <div class="d-inline-block bg-white rounded-4 p-3 shadow-sm">{!! $qrSvg !!}</div>
+                                                    <div class="small text-muted mt-3 break-word">{{ $approvalLink }}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
                                 @if($dispen->isApproved())
                                     @if(!$dispen->has_ttd)
                                         <a href="{{ route('piket.dispensasi.ttd', $dispen->id) }}"

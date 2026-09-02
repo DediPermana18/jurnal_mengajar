@@ -4,14 +4,22 @@
 
 @push('styles')
 <style>
-    .status-radio-group .form-check-input:checked {
-        background-color: var(--bs-primary);
-        border-color: var(--bs-primary);
+    .status-pill + .status-pill {
+        margin-left: 6px;
     }
-    .status-badge-hadir { background-color: #d1e7dd; color: #0f5132; }
-    .status-badge-sakit { background-color: #f8d7da; color: #842029; }
-    .status-badge-izin { background-color: #cff4fc; color: #055160; }
-    .status-badge-alpha { background-color: #e2e3e5; color: #41464b; }
+    .status-pill .btn-check:checked + .btn-outline-success {
+        background-color: #198754;
+        box-shadow: 0 1px 2px rgba(25,135,84,.35);
+    }
+    .status-pill label {
+        padding-left: 14px;
+        padding-right: 14px;
+        font-weight: 600;
+    }
+    .status-pill label i {
+        margin-right: 4px;
+        font-size: 0.8rem;
+    }
 </style>
 @endpush
 
@@ -48,17 +56,33 @@
             <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
         </div>
     @endif
+    @if($errors->any())
+        <div class="alert alert-danger alert-dismissible fade show rounded-3 border-0 shadow-sm mb-4 d-flex align-items-center gap-2" role="alert"
+             style="background: #fef2f2; color: #991b1b; font-size: 0.9rem;">
+            <i class="bi bi-exclamation-triangle-fill text-danger fs-5"></i>
+            <div>
+                <strong>Periksa kembali presensi:</strong>
+                <ul class="mb-0 ps-3 mt-1">
+                    @foreach($errors->all() as $e)
+                        <li>{{ $e }}</li>
+                    @endforeach
+                </ul>
+            </div>
+            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
 
-    {{-- Filter Form --}}
+    {{-- Filter Form (Compact Header) --}}
     <form method="GET" action="{{ route('piket.presensi-siswa') }}" class="card border-0 shadow-sm rounded-4 mb-4">
-        <div class="card-body">
-            <div class="row g-3 align-items-end">
-                <div class="col-12 col-md-4">
-                    <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.85rem;">
-                        Kelas <span class="text-danger">*</span>
+        <div class="card-body py-3">
+            <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3">
+                <div class="d-flex align-items-center gap-2">
+                    <label for="filterKelas" class="form-label fw-semibold text-dark mb-0 text-nowrap" style="font-size: 0.85rem;">
+                        <i class="bi bi-journal-text me-1 text-muted"></i>Kelas <span class="text-danger">*</span>
                     </label>
-                    <select name="id_kelas" id="filterKelas" class="form-select rounded-3 @error('id_kelas') is-invalid @enderror"
-                            style="font-size: 0.875rem;" required>
+                    <select name="id_kelas" id="filterKelas"
+                            class="form-select form-select-sm rounded-3 @error('id_kelas') is-invalid @enderror"
+                            style="width: 230px;" required>
                         <option value="">-- Pilih Kelas --</option>
                         @foreach($kelasList as $kelas)
                             <option value="{{ $kelas->id }}" {{ $idKelas == $kelas->id ? 'selected' : '' }}>
@@ -66,35 +90,28 @@
                             </option>
                         @endforeach
                     </select>
-                    @error('id_kelas')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
 
-                <div class="col-12 col-md-3">
-                    <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.85rem;">
-                        Tanggal <span class="text-danger">*</span>
+                <div class="d-flex align-items-center gap-2">
+                    <label for="filterTanggal" class="form-label fw-semibold text-dark mb-0 text-nowrap" style="font-size: 0.85rem;">
+                        <i class="bi bi-calendar3 me-1 text-muted"></i>Tanggal <span class="text-danger">*</span>
                     </label>
                     <input type="date"
                            name="tanggal"
                            id="filterTanggal"
                            value="{{ $tanggal }}"
                            max="{{ $today }}"
-                           class="form-control rounded-3 @error('tanggal') is-invalid @enderror"
-                           style="font-size: 0.875rem;"
+                           class="form-control form-control-sm rounded-3 @error('tanggal') is-invalid @enderror"
+                           style="width: 165px;"
                            required>
-                    @error('tanggal')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
 
-                <div class="col-12 col-md-3">
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary fw-semibold rounded-3 py-2">
-                            <i class="bi bi-search me-1"></i> Tampilkan Siswa
-                        </button>
-                    </div>
-                </div>
-
-                <div class="col-12 col-md-2">
+                <div class="d-flex align-items-center gap-2 ms-auto">
+                    <button type="submit" class="btn btn-primary btn-sm fw-semibold rounded-3 px-3">
+                        <i class="bi bi-search me-1"></i> Tampilkan Siswa
+                    </button>
                     @if($idKelas)
-                        <a href="{{ route('piket.presensi-siswa') }}" class="btn btn-outline-secondary fw-semibold rounded-3 py-2 w-100">
+                        <a href="{{ route('piket.presensi-siswa') }}" class="btn btn-outline-secondary btn-sm fw-semibold rounded-3 px-3">
                             <i class="bi bi-x-circle me-1"></i> Reset
                         </a>
                     @endif
@@ -116,6 +133,7 @@
                         <h5 class="fw-bold text-dark mb-0">
                             <i class="bi bi-people-fill text-primary me-2"></i>
                             Daftar Siswa - {{ $dataSiswa->first()?->kelas?->nama_kelas ?? 'Kelas' }}
+                            <span class="badge bg-light text-dark border rounded-3 ms-1 px-2 py-1" id="countPresent">0/{{ $dataSiswa->count() }} Hadir</span>
                         </h5>
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-sm btn-outline-success rounded-3" onclick="setAllStatus('Hadir')">
@@ -125,6 +143,9 @@
                                 <i class="bi bi-save me-1"></i> Simpan Presensi
                             </button>
                         </div>
+                    </div>
+                    <div class="text-muted mt-2" style="font-size: 0.78rem;">
+                        <i class="bi bi-info-circle me-1"></i>Semua siswa berstatus <strong>Hadir</strong> secara default. Klik pill untuk mengubah status siswa yang tidak hadir saja.
                     </div>
                 </div>
 
@@ -137,8 +158,8 @@
                                         <th class="text-center whitespace-nowrap" style="width: 50px;">NO</th>
                                         <th class="whitespace-nowrap" style="width: 100px;">NISN</th>
                                         <th>NAMA SISWA</th>
-                                        <th class="text-center whitespace-nowrap" style="width: 300px;">STATUS ABSENSI</th>
-                                        <th style="width: 200px;">KETERANGAN</th>
+                                        <th class="whitespace-nowrap" style="min-width: 340px;">STATUS ABSENSI</th>
+                                        <th style="min-width: 200px;">KETERANGAN</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -147,38 +168,37 @@
                                             $existing = $presensiExisting->get($siswa->id);
                                             $currentStatus = $existing ? $existing->status : 'Hadir';
                                             $currentKeterangan = $existing ? $existing->keterangan : '';
+                                            $pillConfig = [
+                                                'Hadir'  => ['cls' => 'btn-outline-success', 'icon' => 'bi-check-circle-fill'],
+                                                'Sakit'  => ['cls' => 'btn-outline-danger',  'icon' => 'bi-heart-pulse-fill'],
+                                                'Izin'   => ['cls' => 'btn-outline-primary', 'icon' => 'bi-file-earmark-text-fill'],
+                                                'Alpha'  => ['cls' => 'btn-outline-secondary','icon' => 'bi-x-circle-fill'],
+                                            ];
                                         @endphp
                                         <tr>
                                             <td class="text-center fw-semibold text-dark whitespace-nowrap">{{ $loop->iteration }}</td>
                                             <td class="text-muted small whitespace-nowrap">{{ $siswa->nisn ?? '-' }}</td>
                                             <td>
                                                 <div class="fw-semibold text-dark">{{ $siswa->nama }}</div>
+                                                <input type="hidden" name="presensi[{{ $siswa->id }}][id_siswa]" value="{{ $siswa->id }}">
                                             </td>
-                                            <td>
-                                                <div class="status-radio-group d-flex flex-wrap gap-3">
-                                                    @foreach(['Hadir', 'Sakit', 'Izin', 'Alpha'] as $status)
-                                                        @php
-                                                            $badgeClass = match($status) {
-                                                                'Hadir' => 'status-badge-hadir',
-                                                                'Sakit' => 'status-badge-sakit',
-                                                                'Izin' => 'status-badge-izin',
-                                                                'Alpha' => 'status-badge-alpha',
-                                                            };
-                                                        @endphp
-                                                        <div class="form-check">
-                                                            <input class="form-check-input"
+                                            <td class="status-pill">
+                                                <div class="d-flex flex-wrap">
+                                                    @foreach($pillConfig as $status => $cfg)
+                                                        <span class="position-relative">
+                                                            <input class="btn-check"
                                                                    type="radio"
                                                                    name="presensi[{{ $siswa->id }}][status]"
                                                                    id="status_{{ $siswa->id }}_{{ $status }}"
                                                                    value="{{ $status }}"
                                                                    {{ $currentStatus === $status ? 'checked' : '' }}
+                                                                   onchange="updateCount()"
                                                                    required>
-                                                            <label class="form-check-label fw-medium small px-2 py-1 rounded-pill border {{ $badgeClass }}"
-                                                                   for="status_{{ $siswa->id }}_{{ $status }}"
-                                                                   style="cursor: pointer; min-width: 70px; text-align: center;">
-                                                                {{ $status }}
+                                                            <label class="btn btn-sm rounded-pill {{ $cfg['cls'] }}"
+                                                                   for="status_{{ $siswa->id }}_{{ $status }}">
+                                                                <i class="bi {{ $cfg['icon'] }}"></i>{{ $status }}
                                                             </label>
-                                                        </div>
+                                                        </span>
                                                     @endforeach
                                                 </div>
                                             </td>
@@ -187,9 +207,8 @@
                                                        name="presensi[{{ $siswa->id }}][keterangan]"
                                                        class="form-control form-control-sm rounded-3"
                                                        value="{{ $currentKeterangan }}"
-                                                       placeholder="Keterangan (opsional)"
-                                                       style="font-size: 0.82rem;">
-                                                <input type="hidden" name="presensi[{{ $siswa->id }}][id_siswa]" value="{{ $siswa->id }}">
+                                                       placeholder="Catatan (opsional)"
+                                                       style="font-size: 0.82rem; max-width: 240px;">
                                             </td>
                                         </tr>
                                     @endforeach
@@ -217,3 +236,29 @@
 
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    function setAllStatus(status) {
+        document.querySelectorAll('input.btn-check[type="radio"]').forEach(function (radio) {
+            if (radio.value === status) {
+                radio.checked = true;
+            } else {
+                radio.checked = false;
+            }
+        });
+        updateCount();
+    }
+
+    function updateCount() {
+        var total = 0;
+        document.querySelectorAll('input.btn-check[type="radio"]:checked').forEach(function (radio) {
+            if (radio.value === 'Hadir') total++;
+        });
+        var badge = document.getElementById('countPresent');
+        if (badge) badge.textContent = total + '/' + {{ $dataSiswa->count() }} + ' Hadir';
+    }
+
+    document.addEventListener('DOMContentLoaded', updateCount);
+</script>
+@endpush

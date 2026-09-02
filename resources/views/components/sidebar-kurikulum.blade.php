@@ -82,6 +82,17 @@
     </a>
 </div>
 
+<!-- 4c. Approval Dispensasi -->
+<div class="nav-item-container">
+    <a href="{{ Route::has('kurikulum.dispensasi.approval.index') ? route('kurikulum.dispensasi.approval.index') : '#' }}"
+       class="nav-btn {{ request()->routeIs('kurikulum.dispensasi.approval.*') ? 'active' : '' }}">
+        <span class="btn-left">
+            <i class="bi bi-clipboard-check"></i>
+            <span>Approval Dispensasi</span>
+        </span>
+    </a>
+</div>
+
 <!-- 5. Laporan KBM -->
 <div class="nav-item-container">
     <a href="{{ Route::has('kurikulum.laporan.index') ? route('kurikulum.laporan.index') : '#' }}"

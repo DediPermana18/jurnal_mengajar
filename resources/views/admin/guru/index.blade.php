@@ -233,10 +233,7 @@
                             $words = explode(' ', trim($guru->nama));
                             $initials = strtoupper(substr($words[0], 0, 1));
                             $initials .= count($words) > 1 ? strtoupper(substr(end($words), 0, 1)) : strtoupper(substr($words[0], 1, 1));
-                            $mapelNames = collect();
-                            if ($guru->jadwalPelajaran && $guru->jadwalPelajaran->isNotEmpty()) {
-                                $mapelNames = $mapelNames->concat($guru->jadwalPelajaran->map(fn($jp) => $jp->mataPelajaran?->nama_mapel)->filter());
-                            }
+                            $mapelDiampu = $guru->mapelDiampu->unique('id');
                             $namaKelasWali = $guru->kelasWali?->pluck('nama_kelas')->join(', ') ?: $guru->kelas?->nama_kelas;
                         @endphp
                         <tr>
@@ -253,17 +250,17 @@
                                 </div>
                             </td>
 
-                            {{-- 2. Mata Pelajaran Pengampu --}}
+                            {{-- 2. Mata Pelajaran Pengampu (dari Plotting Jadwal) --}}
                             <td>
-                                @if($mapelNames->unique()->isNotEmpty())
-                                    @foreach($mapelNames->unique() as $namaMapel)
+                                @if($mapelDiampu->isNotEmpty())
+                                    @foreach($mapelDiampu as $mapel)
                                         <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 rounded-2 me-1 mb-1" style="font-size: 0.78rem; font-weight: 600;">
-                                            <i class="bi bi-journal-bookmark me-1"></i>{{ $namaMapel }}
+                                            <i class="bi bi-journal-bookmark me-1"></i>{{ $mapel->nama_mapel }}
                                         </span>
                                     @endforeach
                                 @else
                                     <span class="badge bg-light text-muted border px-2 py-1 rounded-pill" style="font-size: 0.78rem;">
-                                        <i class="bi bi-dash-circle me-1"></i>Belum set
+                                        <i class="bi bi-dash-circle me-1"></i>Belum di-plot
                                     </span>
                                 @endif
                             </td>

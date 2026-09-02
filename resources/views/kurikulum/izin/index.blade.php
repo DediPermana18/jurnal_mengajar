@@ -136,7 +136,9 @@
                             </td>
                             <td>
                                 @if($izin->lampiran)
-                                    <a href="{{ route('kurikulum.izin.lampiran', $izin->id) }}" target="_blank"
+                                    <a href="{{ route('kurikulum.izin.lampiran', $izin->id) }}"
+                                       data-image-preview="{{ route('kurikulum.izin.lampiran', $izin->id) }}"
+                                       data-image-title="Lampiran Izin - {{ addslashes($izin->guru?->nama ?? '') }}"
                                        class="btn btn-sm btn-outline-primary rounded-3">
                                         <i class="bi bi-paperclip me-1"></i>Lihat
                                     </a>
@@ -309,11 +311,50 @@
     .btn-wa { background-color: #25D366 !important; border-color: #25D366 !important; color: #fff !important; }
     .btn-wa:hover, .btn-wa:focus, .btn-wa:active { background-color: #1EBE5D !important; border-color: #1EBE5D !important; color: #fff !important; }
 </style>
+
+<!-- MODAL PREVIEW GAMBAR (LIGHTBOX) -->
+<div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-labelledby="imagePreviewModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-light py-3">
+                <h5 class="modal-title fw-bold text-dark fs-6" id="imagePreviewModalTitle">
+                    <i class="bi bi-paperclip me-2 text-primary"></i> Lampiran / Foto
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-2 bg-dark-subtle text-center">
+                <img id="imagePreviewModalSrc" src="" alt="Preview Lampiran"
+                     class="img-fluid rounded mx-auto d-block"
+                     style="max-height: 80vh; width: auto; max-width: 100%; object-fit: contain;">
+            </div>
+            <div class="modal-footer border-0 justify-content-end">
+                <button type="button" class="btn btn-light rounded-3" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // ===== Lightbox Preview Lampiran / Foto (Modal Pop-up) =====
+        var titleEl = document.getElementById('imagePreviewModalTitle');
+        var imgEl   = document.getElementById('imagePreviewModalSrc');
+        var modalEl = document.getElementById('imagePreviewModal');
+
+        document.querySelectorAll('[data-image-preview]').forEach(function (el) {
+            el.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (imgEl) imgEl.src = el.getAttribute('data-image-preview');
+                if (titleEl) titleEl.innerHTML = '<i class="bi bi-paperclip me-2 text-primary"></i> ' +
+                    (el.getAttribute('data-image-title') || 'Lampiran / Foto');
+                if (modalEl && window.bootstrap && bootstrap.Modal) {
+                    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                }
+            });
+        });
+
         const noWaWaka = @json($noWaWaka);
         const noWaKepsek = @json($noWaKepsek);
 

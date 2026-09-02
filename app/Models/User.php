@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -97,6 +98,24 @@ class User extends Authenticatable
     public function jadwalPelajaran(): HasMany
     {
         return $this->hasMany(JadwalPelajaran::class, 'id_guru', 'id');
+    }
+
+    /**
+     * Daftar Mata Pelajaran unik yang diampu guru berdasarkan Plotting Jadwal.
+     * Menggunakan hasManyThrough: User → JadwalPelajaran → MataPelajaran.
+     * Catatan: distinct() tidak didukung langsung pada hasManyThrough;
+     * gunakan ->mapelDiampu()->distinct()->get() untuk hasil unik.
+     */
+    public function mapelDiampu(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            MataPelajaran::class,
+            JadwalPelajaran::class,
+            'id_guru',   // FK di jadwal_pelajaran → users.id
+            'id',        // FK di mata_pelajaran → jadwal_pelajaran.id_mapel
+            'id',        // PK di users
+            'id_mapel'   // FK di jadwal_pelajaran → mata_pelajaran.id
+        );
     }
 
     /**

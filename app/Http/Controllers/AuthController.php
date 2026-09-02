@@ -121,22 +121,47 @@ class AuthController extends Controller
 
     /**
      * Redirect User Berdasarkan Role
+     *
+     * Urutan prioritas:
+     *  1. Satpam          → satpam.dashboard
+     *  2. Admin Waka Kurikulum (sub_role = waka_kurikulum) → kurikulum.dashboard
+     *  3. Admin lainnya (TU, super_admin, dll.) → home (admin dashboard)
+     *  4. Guru piket hari ini → piket.dashboard
+     *  5. Guru biasa / wali kelas → guru.dashboard
      */
     protected function redirectBasedOnRole($user)
     {
-        // Satpam / Petugas Keamanan → portal satpam (independen), bukan portal piket/TU.
+        // 1. Satpam / Petugas Keamanan → portal satpam
         if ($user->isSatpam()) {
-            return redirect()->route('satpam.dashboard')->with('success', 'Selamat datang kembali, ' . $user->nama . '!');
+            return redirect()->route('satpam.dashboard')
+                ->with('success', 'Selamat datang kembali, ' . $user->nama . '!');
         }
 
+        // 2. Admin dengan sub_role waka_kurikulum → portal kurikulum
+        if ($user->role === 'admin' && $user->sub_role === 'waka_kurikulum') {
+            return redirect()->route('kurikulum.dashboard')
+                ->with('success', 'Selamat datang kembali, Waka Kurikulum ' . $user->nama . '!');
+        }
+
+        // 3. Admin lainnya (super_admin, TU, warden, dll.) → halaman utama admin
         if (in_array($user->role, ['admin', 'super_admin', 'epic_admin', 'absolute_admin', 'warden'])) {
-            return redirect()->route('home')->with('success', 'Selamat datang kembali, Admin ' . $user->nama . '!');
+            return redirect()->route('home')
+                ->with('success', 'Selamat datang kembali, Admin ' . $user->nama . '!');
         }
 
+        // 4. Guru yang mendapat jadwal piket HARI INI → portal piket
+        if ($user->isPiketHariIni()) {
+            return redirect()->route('piket.dashboard')
+                ->with('success', 'Selamat datang kembali, Guru Piket ' . $user->nama . '!');
+        }
+
+        // 5. Guru biasa / wali kelas / guru mapel → portal guru
         if (in_array($user->role, ['guru', 'guru_mapel', 'wali_kelas'])) {
-            return redirect()->route('guru.dashboard')->with('success', 'Selamat datang kembali, ' . $user->nama . '!');
+            return redirect()->route('guru.dashboard')
+                ->with('success', 'Selamat datang kembali, ' . $user->nama . '!');
         }
 
+        // Fallback — redirect ke home
         return redirect()->route('home');
     }
 

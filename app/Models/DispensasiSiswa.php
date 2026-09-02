@@ -11,20 +11,29 @@ class DispensasiSiswa extends Model
 {
     use HasFactory;
 
-    public const STATUS_PENDING   = 'pending';
-    public const STATUS_DISETUJUI = 'disetujui';
-    public const STATUS_DITOLAK   = 'ditolak';
+    public const STATUS_PENDING      = 'pending';
+    public const STATUS_PENDING_WAKA = 'pending_waka';
+    public const STATUS_DISETUJUI    = 'disetujui';
+    public const STATUS_APPROVED     = 'approved';
+    public const STATUS_FINAL        = 'final';
+    public const STATUS_DITOLAK      = 'ditolak';
 
     public const STATUS_LABELS = [
-        self::STATUS_PENDING   => 'Pending',
-        self::STATUS_DISETUJUI => 'Disetujui',
-        self::STATUS_DITOLAK   => 'Ditolak',
+        self::STATUS_PENDING       => 'Pending',
+        self::STATUS_PENDING_WAKA  => 'Pending Waka',
+        self::STATUS_DISETUJUI     => 'Disetujui',
+        self::STATUS_APPROVED      => 'Approved',
+        self::STATUS_FINAL         => 'Final',
+        self::STATUS_DITOLAK       => 'Ditolak',
     ];
 
     public const STATUS_BADGES = [
-        self::STATUS_PENDING   => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle',
-        self::STATUS_DISETUJUI => 'bg-success-subtle text-success border border-success-subtle',
-        self::STATUS_DITOLAK   => 'bg-danger-subtle text-danger border border-danger-subtle',
+        self::STATUS_PENDING       => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle',
+        self::STATUS_PENDING_WAKA  => 'bg-info-subtle text-info-emphasis border border-info-subtle',
+        self::STATUS_DISETUJUI     => 'bg-success-subtle text-success border border-success-subtle',
+        self::STATUS_APPROVED      => 'bg-primary-subtle text-primary-emphasis border border-primary-subtle',
+        self::STATUS_FINAL         => 'bg-success-subtle text-success border border-success-subtle',
+        self::STATUS_DITOLAK       => 'bg-danger-subtle text-danger border border-danger-subtle',
     ];
 
     public const JENIS_KELUAR    = 'keluar_gerbang';
@@ -39,6 +48,15 @@ class DispensasiSiswa extends Model
         self::JENIS_ACARA     => 'Tugas / Acara Sekolah',
     ];
 
+    // Tipe dispensasi: keluar gerbang (default) vs masuk kelas (izin telat / kembali KBM)
+    public const TIPE_KELUAR = 'keluar';
+    public const TIPE_MASUK  = 'masuk';
+
+    public const TIPE_LABELS = [
+        self::TIPE_KELUAR => 'Keluar Gerbang',
+        self::TIPE_MASUK  => 'Masuk Kelas',
+    ];
+
     protected $table = 'dispensasi_siswa';
 
     protected $fillable = [
@@ -48,7 +66,10 @@ class DispensasiSiswa extends Model
         'id_guru',
         'tanggal',
         'jenis',
+        'tipe_dispen',
         'jam_ke',
+        'jam_keluar_jp',
+        'jam_masuk_jp',
         'alasan',
         'status',
         'approved_at',
@@ -56,6 +77,7 @@ class DispensasiSiswa extends Model
         'catatan_penolakan',
         'ttd_siswa',
         'ttd_guru',
+        'ttd_waka',
         'approval_token',
         'keluar_gerbang_at',
         'keluar_gerbang_by',
@@ -120,7 +142,11 @@ class DispensasiSiswa extends Model
      */
     public function isApproved(): bool
     {
-        return $this->status === self::STATUS_DISETUJUI;
+        return in_array($this->status, [
+            self::STATUS_DISETUJUI,
+            self::STATUS_APPROVED,
+            self::STATUS_FINAL,
+        ], true);
     }
 
     /**
@@ -145,6 +171,10 @@ class DispensasiSiswa extends Model
      */
     public function getStatusLabelAttribute(): string
     {
+        if ($this->status === self::STATUS_FINAL) {
+            return 'Final';
+        }
+
         return self::STATUS_LABELS[$this->status] ?? ucfirst(str_replace('_', ' ', (string) $this->status));
     }
 
@@ -162,6 +192,22 @@ class DispensasiSiswa extends Model
     public function getJenisLabelAttribute(): string
     {
         return self::JENIS_LABELS[$this->jenis] ?? ucfirst(str_replace('_', ' ', (string) $this->jenis));
+    }
+
+    /**
+     * Apakah dispensasi bertipe "Masuk Kelas" (izin telat / kembali KBM)?
+     */
+    public function isTipeMasuk(): bool
+    {
+        return $this->tipe_dispen === self::TIPE_MASUK;
+    }
+
+    /**
+     * Label tipe dispensasi, mis. "Masuk Kelas" / "Keluar Gerbang".
+     */
+    public function getTipeDispenLabelAttribute(): string
+    {
+        return self::TIPE_LABELS[$this->tipe_dispen ?? self::TIPE_KELUAR] ?? ucfirst((string) $this->tipe_dispen);
     }
 
     /**
@@ -259,6 +305,46 @@ class DispensasiSiswa extends Model
     public function getHasTtdGuruAttribute(): bool
     {
         return (bool) $this->ttd_guru_url;
+    }
+
+    /**
+     * Alias backward-compatible untuk TTD Guru Piket.
+     */
+    public function getTtdPiketAttribute(): ?string
+    {
+        return $this->ttd_guru;
+    }
+
+    /**
+     * Alias backward-compatible untuk relasi Guru Piket.
+     */
+    public function getPiketAttribute(): ?User
+    {
+        return $this->guruPiket;
+    }
+
+    /**
+     * URL tampilan tanda tangan Waka Kurikulum atau null.
+     */
+    public function getTtdWakaUrlAttribute(): ?string
+    {
+        $ttd = $this->ttd_waka ? trim((string) $this->ttd_waka) : null;
+
+        if (!$ttd) {
+            return null;
+        }
+
+        return preg_match('/^data:/i', $ttd)
+            ? $ttd
+            : Storage::disk('public')->url($ttd);
+    }
+
+    /**
+     * Apakah Waka Kurikulum sudah menandatangani pengajuan ini?
+     */
+    public function getHasTtdWakaAttribute(): bool
+    {
+        return (bool) $this->ttd_waka_url;
     }
 
     /**

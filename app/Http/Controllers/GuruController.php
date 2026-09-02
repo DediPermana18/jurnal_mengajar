@@ -73,7 +73,7 @@ class GuruController extends Controller
             }
         }
 
-        $dataGuru = $query->with(['kelas.jurusan', 'kelasWali.jurusan', 'jadwalPelajaran.mataPelajaran', 'jadwalPelajaran.kelas.jurusan'])
+        $dataGuru = $query->with(['kelas.jurusan', 'kelasWali.jurusan', 'mapelDiampu'])
             ->orderBy('id', 'asc')
             ->paginate(10)
             ->withQueryString();

@@ -133,9 +133,12 @@ use App\Http\Controllers\IzinPiketController;
 Route::get('/approve-izin/{token}', [IzinApprovalController::class, 'show'])->name('izin.approval.show');
 Route::post('/approve-izin/{token}', [IzinApprovalController::class, 'submit'])->name('izin.approval.submit');
 
+Route::get('/dispen/approve/{token}', [DispensasiController::class, 'publicApproveView'])->name('dispen.approval.show');
+Route::post('/dispen/approve/{token}', [DispensasiController::class, 'publicApproveStore'])->name('dispen.approval.store');
+
 Route::prefix('piket')->group(function () {
     Route::get('/dashboard', [GuruPiketController::class, 'dashboard'])->name('piket.dashboard');
-    // Route::get('/presensi-guru', [GuruPiketController::class, 'presensiGuru'])->name('piket.presensi-guru');
+    Route::get('/presensi-guru', [GuruPiketController::class, 'presensiGuru'])->name('piket.presensi-guru');
     Route::get('/presensi-siswa', [GuruPiketController::class, 'presensiSiswa'])->name('piket.presensi-siswa');
     Route::post('/presensi-siswa', [GuruPiketController::class, 'storePresensiSiswa'])->name('piket.presensi-siswa.store');
     Route::get('/jurnal', [GuruPiketController::class, 'jurnalKBM'])->name('piket.jurnal');
@@ -193,6 +196,9 @@ Route::prefix('kurikulum')->group(function () {
     Route::get('/izin/lampiran/{id}',                 [KurikulumIzinController::class, 'showLampiran'])->name('kurikulum.izin.lampiran');
     Route::get('/izin/pengaturan',                    [IzinSettingController::class, 'index'])->name('kurikulum.izin.setting');
     Route::post('/izin/pengaturan',                   [IzinSettingController::class, 'update'])->name('kurikulum.izin.setting.update');
+
+    Route::get('/approval-dispensasi', [DispensasiController::class, 'indexApproval'])->name('kurikulum.dispensasi.approval.index');
+    Route::post('/approval-dispensasi/{id}', [DispensasiController::class, 'storeApproval'])->name('kurikulum.dispensasi.approval.store');
 
     Route::get('/laporan', [KurikulumLaporanController::class, 'index'])->name('kurikulum.laporan.index');
     Route::get('/laporan/export-excel', [KurikulumLaporanController::class, 'exportExcel'])->name('kurikulum.laporan.excel');

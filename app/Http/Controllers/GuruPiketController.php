@@ -135,18 +135,23 @@ class GuruPiketController extends Controller
         $user = Auth::user();
 
         foreach ($validated['presensi'] as $item) {
-            PresensiSiswa::updateOrCreate(
-                [
-                    'id_siswa' => $item['id_siswa'],
-                    'tanggal'  => $validated['tanggal'],
-                ],
-                [
-                    'id_kelas'       => $validated['id_kelas'],
-                    'status'         => $item['status'],
-                    'keterangan'     => $item['keterangan'] ?? null,
-                    'id_guru_piket'  => $user->id,
-                ]
-            );
+            // Hindari galat unique [id_siswa, tanggal] saat baris lama ter-soft delete:
+            // temukan termasuk baris trashed, lalu restore & perbarui baris yang sama.
+            $presensi = PresensiSiswa::withTrashed()->firstOrNew([
+                'id_siswa' => $item['id_siswa'],
+                'tanggal'  => $validated['tanggal'],
+            ]);
+
+            if ($presensi->trashed()) {
+                $presensi->restore();
+            }
+
+            $presensi->fill([
+                'id_kelas'      => $validated['id_kelas'],
+                'status'        => $item['status'],
+                'keterangan'    => $item['keterangan'] ?? null,
+                'id_guru_piket' => $user->id,
+            ])->save();
         }
 
         return redirect()->route('piket.presensi-siswa', [

@@ -426,16 +426,16 @@
                                                 <span class="text-muted" style="font-size: 0.85rem;">-</span>
                                             @elseif($jadwal)
                                                 <div class="d-flex align-items-center gap-2">
-                                                    <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
-                                                         style="width: 28px; height: 28px; font-size: 0.75rem; background: #64748b;">
+                                                    <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
+                                                         style="width: 28px; height: 28px; min-width: 28px; font-size: 0.75rem; background: #64748b;">
                                                         {{ strtoupper(substr($jadwal->guru->nama ?? 'G', 0, 1)) }}
                                                     </div>
-                                                    <div>
-                                                        <div class="fw-semibold text-dark" style="font-size: 0.88rem;">
+                                                    <div class="min-w-0" style="overflow: hidden;">
+                                                        <div class="fw-semibold text-dark text-truncate" style="font-size: 0.88rem;">
                                                             {{ $jadwal->guru->nama ?? 'Guru Tidak Ditemukan' }}
                                                         </div>
                                                         @if(!empty($jadwal->guru->nip))
-                                                            <div class="text-muted" style="font-size: 0.72rem;">NIP: {{ $jadwal->guru->nip }}</div>
+                                                            <div class="text-muted text-truncate" style="font-size: 0.72rem;">NIP: {{ $jadwal->guru->nip }}</div>
                                                         @endif
                                                     </div>
                                                 </div>

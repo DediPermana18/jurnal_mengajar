@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
-    <title>Surat Dispen {{ $dispensasi->nomor_surat }}</title>
+    <title>Surat Izin Masuk Kelas {{ $dispensasi->nomor_surat }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
@@ -53,7 +53,7 @@
                 display: none !important;
             }
 
-            .surat-dispensasi {
+            .surat-masuk {
                 box-shadow: none !important;
                 border: none !important;
                 border-radius: 0 !important;
@@ -70,16 +70,16 @@
 </head>
 <body class="py-4 py-md-5">
     @php
-        $penandatangan = $dispensasi->approver ?? $dispensasi->guruPiket;
-        $piket = $dispensasi->piket ?? $dispensasi->guruPiket ?? auth()->user();
-        $wakaKesiswaan = \App\Models\User::wakaKesiswaan();
+        $penandatangan = $dispensasi->approver ?? $dispensasi->guruPiket ?? $piket;
+        $piket = $piket ?? $dispensasi->guruPiket ?? auth()->user();
+        $jamMasuk = $dispensasi->jam_masuk_jp;
     @endphp
 
     {{-- Toolbar (tidak tercetak) --}}
     <div class="container no-print mb-4">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div>
-                <a href="{{ route('piket.dispensasi.index') }}" class="btn btn-outline-secondary rounded-3 btn-toolbar-icon">
+                <a href="{{ route('piket.dispensasi.index', ['tanggal' => $dispensasi->tanggal?->toDateString()]) }}" class="btn btn-outline-secondary rounded-3 btn-toolbar-icon">
                     <i class="bi bi-arrow-left"></i> Kembali
                 </a>
             </div>
@@ -94,28 +94,28 @@
 
     {{-- Surat --}}
     <div class="container">
-        <div class="surat-dispensasi bg-white rounded-4 shadow-sm p-4 p-md-5" style="max-width: 820px; margin: 0 auto;">
+        <div class="surat-masuk bg-white rounded-4 shadow-sm p-4 p-md-5" style="max-width: 760px; margin: 0 auto;">
 
             {{-- Kop Surat --}}
             <div class="surat-kop text-center pb-3 mb-4">
                 <div class="nama-sekolah">{{ strtoupper(config('app.name', 'WebJournal Management System')) }}</div>
                 <div class="sub-sekolah">SISTEM DISPENSASI SISWA SEKOLAH</div>
-                <div class="text-muted small">SURAT DISPENSASI DIGITAL</div>
+                <div class="text-muted small">SURAT IZIN MASUK KELAS DIGITAL</div>
             </div>
 
             {{-- Judul, Nomor & Status --}}
             <div class="text-center mb-4">
-                <h3 class="fw-bold mb-1" style="letter-spacing: 0.02em;">SURAT DISPENSASI</h3>
+                <h3 class="fw-bold mb-1" style="letter-spacing: 0.02em;">SURAT IZIN MASUK KELAS</h3>
                 <div class="text-muted">
                     Nomor: <span class="fw-semibold text-dark">{{ $dispensasi->nomor_surat }}</span>
                 </div>
             </div>
 
             <p class="mb-2">
-                Guru Piket hari {{ $dispensasi->tanggal->translatedFormat('l, d F Y') }} menerangkan bahwa siswa di bawah ini:
+                Guru Piket hari {{ $dispensasi->tanggal?->translatedFormat('l, d F Y') }} menerangkan bahwa siswa di bawah ini:
             </p>
 
-            {{-- Data Siswa & Pengajuan --}}
+            {{-- Data Siswa & Keterangan --}}
             <div class="table-responsive w-full overflow-x-auto">
             <table class="table table-sm table-borderless align-middle mb-4 min-w-full" style="max-width: 560px;">
                 <tbody>
@@ -137,26 +137,16 @@
                     <tr>
                         <td class="text-muted">Hari / Tanggal</td>
                         <td>:</td>
-                        <td class="fw-semibold text-dark">{{ $dispensasi->tanggal->translatedFormat('l, d F Y') }}</td>
+                        <td class="fw-semibold text-dark">{{ $dispensasi->tanggal?->translatedFormat('l, d F Y') }}</td>
                     </tr>
-                    <!-- Baris Jam Pembuatan Surat -->
                     <tr>
-                        <td class="text-muted">Waktu Pembuatan</td>
+                        <td class="text-muted">Jam Terlambat / Masuk</td>
                         <td>:</td>
                         <td class="fw-semibold text-dark">
-                            {{ $dispensasi->created_at ? $dispensasi->created_at->format('H:i') . ' WIB' : '-' }}
-                        </td>
-                    </tr>
-
-                    <!-- Baris Jam Berangkat / Keluar Sekolah -->
-                    <tr>
-                        <td class="text-muted">Jam Berangkat / Keluar</td>
-                        <td>:</td>
-                        <td class="fw-semibold text-dark">
-                            @if(!empty($dispensasi->jam_keluar_jp))
-                                Jam Ke-{{ $dispensasi->jam_keluar_jp }}
-                                @if(isset($jamKeluarDetail) && $jamKeluarDetail)
-                                    ({{ substr($jamKeluarDetail->jam_mulai, 0, 5) }} WIB)
+                            @if($jamMasuk)
+                                Boleh masuk mulai JP Ke-{{ $jamMasuk }}
+                                @if(isset($jamMasukDetail) && $jamMasukDetail)
+                                    ({{ substr((string) $jamMasukDetail->jam_mulai, 0, 5) }} WIB)
                                 @endif
                             @else
                                 -
@@ -164,7 +154,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td class="text-muted">Alasan Kegiatan</td>
+                        <td class="text-muted">Alasan / Kategori</td>
                         <td>:</td>
                         <td class="fw-semibold text-dark">{{ $dispensasi->alasan }}</td>
                     </tr>
@@ -173,19 +163,13 @@
             </div>
 
             <p class="mb-5">
-                Diperkenankan untuk tidak mengikuti kegiatan belajar mengajar pada jam tersebut di atas
+                Diberikan izin untuk <strong>mengikuti kegiatan belajar mengajar mulai dari Jam Pelajaran tersebut di atas</strong>
                 dengan alasan <strong>{{ $dispensasi->alasan }}</strong>.
-                @if($dispensasi->isApproved())
-                    Sesuai persetujuan yang telah disahkan, absensi siswa pada jam terkait otomatis
-                    tercatat sebagai <strong>Dispen</strong> pada jurnal mengajar.
-                @endif
-                Demikian surat dispensasi ini dibuat dengan sebenarnya untuk digunakan sebagaimana mestinya.
+                Demikian nota ini dibuat dengan sebenarnya untuk digunakan sebagaimana mestinya.
             </p>
 
-
-                        <!-- KODE TTD 3 KOLOM SEJAJAR (JANGAN SAMPAI DITIMPA COPILOT LAGI) -->
+            {{-- TTD 2 KOLOM SEJAJAR: Siswa & Guru Piket --}}
             <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 32px; gap: 16px; text-align: center;">
-                
                 <!-- TTD Siswa -->
                 <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
                     <p style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">TTD Siswa</p>
@@ -196,7 +180,7 @@
                             <span style="font-size: 12px; color: #9ca3af; font-style: italic;">(Belum TTD)</span>
                         @endif
                     </div>
-                    <p style="font-weight: bold; font-size: 14px; text-decoration: underline; margin-top: 8px;">{{ $dispensasi->siswa->nama ?? 'Alya Maharani' }}</p>
+                    <p style="font-weight: bold; font-size: 14px; text-decoration: underline; margin-top: 8px;">{{ $dispensasi->siswa->nama ?? '-' }}</p>
                     <p style="font-size: 12px; color: #6b7280;">NISN. {{ $dispensasi->siswa->nisn ?? '-' }}</p>
                 </div>
 
@@ -212,27 +196,11 @@
                             <span style="font-size: 12px; color: #9ca3af; font-style: italic;">(Belum TTD)</span>
                         @endif
                     </div>
-                    <p style="font-weight: bold; font-size: 14px; margin-top: 8px;">{{ $dispensasi->piket->nama ?? $dispensasi->piket->name ?? 'Eko Prasetyo, S.Sn., M.Ds.' }}</p>
-                    <p style="font-size: 12px; color: #6b7280;">NIP. {{ $dispensasi->piket->nip ?? '-' }}</p>
+                    <p style="font-weight: bold; font-size: 14px; margin-top: 8px;">{{ $penandatangan->nama ?? $piket->nama ?? '-' }}</p>
+                    <p style="font-size: 12px; color: #6b7280;">NIP. {{ $penandatangan->nip ?? $piket->nip ?? '-' }}</p>
                 </div>
-
-                <!-- TTD Waka Kesiswaan -->
-                <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
-                    <p style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">TTD Waka Kesiswaan</p>
-                    <div style="height: 80px; width: 100%; border: 1px solid #e5e7eb; border-radius: 8px; background-color: #f9fafb; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 4px;">
-                        @if(!empty($dispensasi->ttd_waka))
-                            <img src="{{ $dispensasi->ttd_waka }}" style="max-height: 70px; width: auto; max-width: 100%; object-fit: contain;" alt="TTD Waka">
-                        @else
-                            <span style="font-size: 12px; color: #9ca3af; font-style: italic;">(Menunggu Approval)</span>
-                        @endif
-                    </div>
-                    <p style="font-weight: bold; font-size: 14px; margin-top: 8px;">{{ $wakaKesiswaan->nama ?? 'Budi Santoso, S.Kom.' }}</p>
-                    <p style="font-size: 12px; color: #6b7280;">Waka Kesiswaan</p>
-                </div>
-
             </div>
-
-            </div>
+        </div>
     </div>
 </body>
 </html>

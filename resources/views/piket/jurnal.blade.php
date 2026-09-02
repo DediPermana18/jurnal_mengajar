@@ -65,13 +65,12 @@
             <table class="table table-custom align-middle min-w-full">
                 <thead>
                     <tr>
-                        <th style="width: 12%;">WAKTU</th>
-                        <th style="width: 20%;">GURU ASLI & STATUS</th>
-                        <th style="width: 18%;">GURU PENGGANTI</th>
-                        <th style="width: 12%;">KELAS</th>
-                        <th style="width: 16%;">MATA PELAJARAN</th>
-                        <th style="width: 14%;">MATERI / CATATAN</th>
-                        <th style="width: 8%; text-align: center;" class="whitespace-nowrap">AKSI</th>
+                        <th style="width: 11%;">WAKTU</th>
+                        <th style="width: 22%;">GURU ASLI & STATUS</th>
+                        <th style="width: 11%;">KELAS</th>
+                        <th style="width: 15%;">MATA PELAJARAN</th>
+                        <th style="width: 28%;">MATERI / CATATAN</th>
+                        <th style="width: 11%; text-align: center;" class="whitespace-nowrap">AKSI</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -111,19 +110,12 @@
                                     <span class="badge border rounded-pill px-2 py-1 small whitespace-nowrap {{ $statusClass }}">
                                         <i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i> {{ $jurnal->status_kehadiran ?? 'Hadir' }}
                                     </span>
+                                    @if($jurnal->guruPengganti)
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-1 small ms-1" title="Digantikan oleh Guru Piket">
+                                            <i class="bi bi-person-fill-gear me-1"></i> Pengganti: {{ $jurnal->guruPengganti->nama }}
+                                        </span>
+                                    @endif
                                 </div>
-                            </td>
-
-                            <!-- Guru Pengganti -->
-                            <td>
-                                @if($jurnal->guruPengganti)
-                                    <div class="fw-semibold text-primary" style="font-size: 0.85rem;">
-                                        <i class="bi bi-person-fill-gear me-1"></i> {{ $jurnal->guruPengganti->nama }}
-                                    </div>
-                                    <div class="text-muted small" style="font-size: 0.75rem;">Guru Piket</div>
-                                @else
-                                    <span class="text-muted small" style="font-size: 0.8rem;">- (Tidak Ada)</span>
-                                @endif
                             </td>
 
                             <!-- Kelas -->
@@ -142,8 +134,8 @@
 
                             <!-- Materi & Catatan Kejadian -->
                             <td>
-                                <div class="text-dark" style="font-size: 0.85rem; max-width: 220px;">
-                                    {{ \Illuminate\Support\Str::limit($jurnal->materi, 60) }}
+                                <div class="text-dark" style="font-size: 0.85rem; max-width: 400px;">
+                                    {{ \Illuminate\Support\Str::limit($jurnal->materi, 80) }}
                                 </div>
                                 @if($jurnal->catatan_kejadian)
                                     <div class="text-warning small mt-1">
@@ -152,7 +144,10 @@
                                 @endif
                                 @if($jurnal->foto_kegiatan)
                                     <div class="mt-1">
-                                        <a href="{{ route('jurnal.foto', basename($jurnal->foto_kegiatan)) }}" target="_blank" class="badge bg-info-subtle text-info-emphasis border text-decoration-none" style="font-size: 0.72rem;">
+                                        <a href="{{ route('jurnal.foto', basename($jurnal->foto_kegiatan)) }}"
+                                           data-image-preview="{{ route('jurnal.foto', basename($jurnal->foto_kegiatan)) }}"
+                                           data-image-title="Foto Kegiatan KBM" class="badge bg-info-subtle text-info-emphasis border text-decoration-none"
+                                           style="font-size: 0.72rem; cursor: pointer;">
                                             <i class="bi bi-image me-1"></i> Foto KBM
                                         </a>
                                     </div>
@@ -259,8 +254,49 @@
     </div>
 </div>
 
+<!-- ================= MODAL PREVIEW GAMBAR (LIGHTBOX) ================= -->
+<div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-labelledby="imagePreviewModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-light py-3">
+                <h5 class="modal-title fw-bold text-dark fs-6" id="imagePreviewModalTitle">
+                    <i class="bi bi-image me-2 text-primary"></i> Foto / Dokumentasi
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-2 bg-dark-subtle text-center">
+                <img id="imagePreviewModalSrc" src="" alt="Preview Foto"
+                     class="img-fluid rounded mx-auto d-block"
+                     style="max-height: 80vh; width: auto; max-width: 100%; object-fit: contain;">
+            </div>
+            <div class="modal-footer border-0 justify-content-end">
+                <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 <script>
+    (function () {
+        // ===== Lightbox Preview Foto (Modal Pop-up) =====
+        var titleEl = document.getElementById('imagePreviewModalTitle');
+        var imgEl   = document.getElementById('imagePreviewModalSrc');
+        var modalEl = document.getElementById('imagePreviewModal');
+
+        document.querySelectorAll('[data-image-preview]').forEach(function (el) {
+            el.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (imgEl) imgEl.src = el.getAttribute('data-image-preview');
+                if (titleEl) titleEl.innerHTML = '<i class="bi bi-image me-2 text-primary"></i> ' +
+                    (el.getAttribute('data-image-title') || 'Foto / Dokumentasi');
+                if (modalEl && window.bootstrap && bootstrap.Modal) {
+                    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                }
+            });
+        });
+    })();
+
     function openModalEditPiket(jurnalId, namaGuruAsli, statusKehadiran, idGuruPengganti, catatanKejadian) {
         const form = document.getElementById('formEditPiket');
         form.action = "{{ url('/piket/jurnal') }}/" + jurnalId + "/update-piket";
