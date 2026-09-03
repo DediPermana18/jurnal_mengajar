@@ -28,8 +28,8 @@
 
 ## 🛠️ Tech Stack
 
-- **Framework:** [Laravel 11](https://laravel.com)
-- **Language:** PHP 8.2+
+- **Framework:** [Laravel 13](https://laravel.com)
+- **Language:** PHP 8.3+
 - **Database:** MySQL / MariaDB
 - **Frontend:** Blade, Tailwind CSS, Alpine.js
 
