@@ -48,7 +48,7 @@
 
             <div class="mb-3">
                 <label class="form-label fw-semibold text-dark">Kelas <span class="text-danger">*</span></label>
-                <select name="id_kelas" class="form-select rounded-3 py-2" required>
+                <select name="id_kelas" id="id_kelas" class="form-select rounded-3 py-2" required>
                     <option value="">-- Pilih Kelas --</option>
                     @foreach ($dataKelas as $kelas)
                         <option value="{{ $kelas->id }}" {{ old('id_kelas', $siswa->id_kelas) == $kelas->id ? 'selected' : '' }}>
@@ -56,18 +56,9 @@
                         </option>
                     @endforeach
                 </select>
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label fw-semibold text-dark">Jurusan</label>
-                <select name="id_jurusan" class="form-select rounded-3 py-2">
-                    <option value="">-- Pilih Jurusan --</option>
-                    @foreach($jurusans as $jurusan)
-                        <option value="{{ $jurusan->id }}" {{ old('id_jurusan', $siswa->id_jurusan) == $jurusan->id ? 'selected' : '' }}>
-                            {{ $jurusan->kode_jurusan }} - {{ $jurusan->nama_jurusan }}
-                        </option>
-                    @endforeach
-                </select>
+                <div class="form-text text-muted">
+                    <i class="bi bi-info-circle me-1"></i>Jurusan siswa otomatis mengikuti jurusan kelas yang dipilih.
+                </div>
             </div>
 
             <div class="mb-4">

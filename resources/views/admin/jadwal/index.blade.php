@@ -471,15 +471,13 @@
                                                 <div class="flex items-center justify-end gap-2 whitespace-nowrap">
                                                     <button type="button" class="btn btn-sm btn-light border rounded-3 px-2 py-1"
                                                             style="font-size: 0.78rem;" title="Edit Plotting"
-                                                            onclick="openEditModal(
-                                                                {{ $jadwal->id }},
+                                                            onclick="preparePlotModalEdit(
+                                                                '{{ $jadwal->group_id ?? '' }}',
+                                                                {{ $jadwal->id_kelas }},
                                                                 {{ $jadwal->id_mapel }},
                                                                 {{ $jadwal->id_guru }},
                                                                 {{ $jadwal->id_ruangan ?? 'null' }},
-                                                                {{ $jadwal->id_kelas }},
-                                                                '{{ $jadwal->hari }}',
-                                                                {{ $jadwal->id_jam }},
-                                                                '{{ $slotName }} ({{ $waktuFormatted }})'
+                                                                {{ $jadwal->id_jam }}
                                                             )">
                                                         <i class="bi bi-pencil-fill text-primary me-1"></i> Edit
                                                     </button>
@@ -526,6 +524,7 @@
                 @csrf
                 <input type="hidden" name="id_kelas" value="{{ $selectedKelas->id }}">
                 <input type="hidden" name="hari" value="{{ $selectedHari }}">
+                <input type="hidden" name="group_id" id="plotGroupId" value="">
 
                 <div class="modal-header border-0 pb-0">
                     <h5 class="modal-title fw-bold" id="modalPlottingJadwalTitle">
@@ -591,9 +590,15 @@
                         <span class="badge bg-primary rounded-pill px-2 py-1" id="badgeJpTotal" style="font-size: 0.78rem;">1 JP</span>
                     </div>
 
+                    {{-- Error Rentang Menabrak Slot Terisi --}}
+                    <div class="alert alert-danger border-0 rounded-3 py-2 px-3 mb-3 d-none align-items-center gap-2" id="boxJamKonflik" style="font-size: 0.8rem;" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill text-danger flex-shrink-0" style="font-size: 1rem;"></i>
+                        <span id="labelJamKonflik"></span>
+                    </div>
+
                     <div class="alert alert-info border-0 rounded-3 py-2 px-3 mb-3 d-flex align-items-center gap-2" style="font-size: 0.8rem;">
                         <i class="bi bi-info-circle-fill text-info flex-shrink-0" style="font-size: 1rem;"></i>
-                        <span>Jika slot jam yang dipilih sudah terisi, jadwal lama pada slot tersebut akan otomatis diperbarui / ditimpa (overwrite).</span>
+                        <span>Slot jam yang sudah terisi oleh jadwal lain pada hari ini otomatis dinonaktifkan pada dropdown agar tidak terjadi tumpang tindih jadwal. Rentang yang menabrak slot terisi tidak dapat disimpan.</span>
                     </div>
 
                     {{-- Pilih Mata Pelajaran --}}
@@ -641,7 +646,7 @@
 
                 <div class="modal-footer border-0 pt-0">
                     <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold">
+                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold" id="btnSimpanPlotting">
                         <i class="bi bi-check-lg me-1"></i> Simpan Plotting
                     </button>
                 </div>
@@ -650,105 +655,6 @@
     </div>
 </div>
 
-{{-- ===================== MODAL EDIT PLOTTING ===================== --}}
-<div class="modal fade" id="modalEditJadwal" tabindex="-1" aria-labelledby="modalEditJadwalTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow rounded-4">
-            <form method="POST" id="formEditJadwal" action="">
-                @csrf
-                @method('PUT')
-
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold" id="modalEditJadwalTitle">
-                        <i class="bi bi-pencil-square text-warning me-2"></i>Edit Plotting Jadwal
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-
-                <div class="modal-body pt-3">
-                    {{-- Info Kelas / Hari / Slot Jam (read-only, tidak dapat diubah) --}}
-                    <input type="hidden" name="id_kelas" id="editIdKelas" value="">
-                    <input type="hidden" name="hari" id="editHari" value="">
-                    <input type="hidden" name="id_jam" id="editIdJam" value="">
-
-                    <div class="d-flex flex-column flex-sm-row align-items-stretch gap-2 mb-4">
-                        <div class="flex-fill d-flex align-items-center gap-2 bg-white border rounded-3 px-3 py-2">
-                            <span class="badge bg-primary text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 34px; height: 34px;">
-                                <i class="bi bi-building"></i>
-                            </span>
-                            <div>
-                                <div class="text-muted text-uppercase" style="font-size: 0.68rem; letter-spacing: 0.05em;">Kelas</div>
-                                <div class="fw-bold text-dark" style="font-size: 0.9rem;">{{ $selectedKelas->tingkat }} - {{ $selectedKelas->nama_kelas }} ({{ $selectedKelas->jurusan->nama_jurusan ?? 'Umum' }})</div>
-                            </div>
-                        </div>
-                        <div class="flex-fill d-flex align-items-center gap-2 bg-white border rounded-3 px-3 py-2">
-                            <span class="badge bg-success text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 34px; height: 34px;">
-                                <i class="bi bi-calendar-week"></i>
-                            </span>
-                            <div>
-                                <div class="text-muted text-uppercase" style="font-size: 0.68rem; letter-spacing: 0.05em;">Hari</div>
-                                <div class="fw-bold text-dark" id="editSlotHari" style="font-size: 0.9rem;">{{ $selectedHari }}</div>
-                            </div>
-                        </div>
-                        <div class="flex-fill d-flex align-items-center gap-2 bg-white border rounded-3 px-3 py-2">
-                            <span class="badge bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 34px; height: 34px;">
-                                <i class="bi bi-clock"></i>
-                            </span>
-                            <div>
-                                <div class="text-muted text-uppercase" style="font-size: 0.68rem; letter-spacing: 0.05em;">Slot Jam</div>
-                                <div class="fw-bold text-dark" id="editSlotInfo" style="font-size: 0.9rem;">-</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Pilih Mata Pelajaran --}}
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">Mata Pelajaran</label>
-                        <select name="id_mapel" id="editIdMapel" class="form-select rounded-3" required>
-                            @foreach($mapelList as $mapel)
-                                <option value="{{ $mapel->id }}">
-                                    {{ $mapel->nama_mapel }} ({{ $mapel->kode_mapel }})
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    {{-- Pilih Guru Pengajar --}}
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">Guru Pengajar</label>
-                        <select name="id_guru" id="editIdGuru" class="form-select rounded-3" required>
-                            @foreach($guruList as $guru)
-                                <option value="{{ $guru->id }}">
-                                    {{ $guru->nama }} {{ !empty($guru->nip) ? '— NIP: ' . $guru->nip : '' }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    {{-- Pilih Ruangan (Moving Class) --}}
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">Ruangan (Moving Class)</label>
-                        <select name="id_ruangan" id="editIdRuangan" class="form-select rounded-3">
-                            <option value="">-- Pilih Ruangan (Opsional) --</option>
-                            @foreach($ruanganList as $ruangan)
-                                <option value="{{ $ruangan->id }}">
-                                    {{ $ruangan->kode_ruangan }} — {{ $ruangan->nama_ruangan }} @if($ruangan->lokasi) ({{ $ruangan->lokasi }}) @endif
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                </div>
-
-                <div class="modal-footer border-0 pt-0">
-                    <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-warning text-white rounded-3 px-4 fw-semibold">
-                        <i class="bi bi-check-lg me-1"></i> Perbarui
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 @endif
 @endsection
 
@@ -758,18 +664,24 @@
 
 @php
     $formattedSlots = $jamPelajaranList->map(function($j) use ($jadwalList) {
+        $jadwal = $jadwalList ? $jadwalList->get($j->id) : null;
         return [
             'id' => $j->id,
             'jam_ke' => $j->jam_ke,
             'jenis' => $j->jenis,
             'jam_mulai' => substr($j->jam_mulai, 0, 5),
             'jam_selesai' => substr($j->jam_selesai, 0, 5),
-            'is_plotted' => $jadwalList ? $jadwalList->has($j->id) : false
+            'is_plotted' => (bool) $jadwal,
+            'group_id' => $jadwal?->group_id,
+            'mapel' => $jadwal?->mataPelajaran?->nama_mapel
         ];
     });
 @endphp
 <script>
     const allSlots = @json($formattedSlots);
+
+    // State mode Edit: kumpulan jam_ke milik jadwal (grup) yang sedang di-edit — tidak di-disable.
+    let plotEditExemptJamKe = new Set();
 
     document.addEventListener('DOMContentLoaded', function () {
         // 1. Inisialisasi Choices.js pada Dropdown Pilih Kelas
@@ -808,8 +720,7 @@
 
         // 3. Cegah auto-submit saat Enter ditekan di dalam input/select modal
         const forms = [
-            document.getElementById('formPlottingJadwal'),
-            document.getElementById('formEditJadwal')
+            document.getElementById('formPlottingJadwal')
         ];
 
         forms.forEach(function (form) {
@@ -892,36 +803,211 @@
         }
 
         badgeEl.textContent = `${totalJp} JP`;
+
+        runRangeConflictCheck();
     }
 
     function preparePlotModal(jamKe) {
+        // Mode Tambah (Create): reset state edit
+        plotEditExemptJamKe = new Set();
+
+        const grupEl = document.getElementById('plotGroupId');
+        if (grupEl) grupEl.value = '';
+
+        const titleEl = document.getElementById('modalPlottingJadwalTitle');
+        if (titleEl) {
+            titleEl.innerHTML = '<i class="bi bi-calendar-plus-fill text-primary me-2"></i>Plotting Mata Pelajaran';
+        }
+
+        const btnSimpan = document.getElementById('btnSimpanPlotting');
+        if (btnSimpan) {
+            btnSimpan.classList.remove('btn-warning', 'text-white');
+            btnSimpan.classList.add('btn-primary');
+            btnSimpan.innerHTML = '<i class="bi bi-check-lg me-1"></i> Simpan Plotting';
+            btnSimpan.disabled = false;
+        }
+
+        // Kosongkan pemilihan mapel/guru/ruangan
+        ['plotIdMapel', 'plotIdGuru', 'plotIdRuangan'].forEach(function (id) {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+
         const mulaiEl = document.getElementById('plotJamKeMulai');
         const selesaiEl = document.getElementById('plotJamKeSelesai');
         if (jamKe && mulaiEl && selesaiEl) {
             mulaiEl.value = String(jamKe);
             selesaiEl.value = String(jamKe);
         }
+
+        refreshDropdownAvailability();
         updateJpInfo();
     }
 
-    function openEditModal(idJadwal, mapelId, guruId, ruanganId, idKelas, hari, idJam, slotInfo) {
-        const routeBase = "{{ url('admin/jadwal') }}";
-        document.getElementById('formEditJadwal').action = routeBase + '/' + idJadwal;
+    function preparePlotModalEdit(groupId, idKelas, idMapel, idGuru, idRuangan, idJam) {
+        // Mode Edit: rentang jam diambil dari seluruh slot yang memiliki group_id sama.
+        plotEditExemptJamKe = new Set();
 
-        document.getElementById('editSlotInfo').textContent = slotInfo;
-        const editSlotHariEl = document.getElementById('editSlotHari');
-        if (editSlotHariEl && hari) {
-            editSlotHariEl.textContent = hari;
+        const grupSlots = groupId
+            ? allSlots.filter(s => s.group_id === groupId)
+            : allSlots.filter(s => s.id === idJam);
+
+        if (grupSlots.length === 0 && groupId) {
+            // Fallback: data lama tanpa group_id, gunakan satu slot yang diklik
+            const single = allSlots.find(s => s.id === idJam);
+            if (single) grupSlots.push(single);
         }
-        document.getElementById('editIdMapel').value = mapelId;
-        document.getElementById('editIdGuru').value = guruId;
-        document.getElementById('editIdRuangan').value = ruanganId ? ruanganId : '';
-        document.getElementById('editIdKelas').value = idKelas;
-        document.getElementById('editHari').value = hari;
-        document.getElementById('editIdJam').value = idJam;
+        if (grupSlots.length === 0) return;
 
-        const modal = new bootstrap.Modal(document.getElementById('modalEditJadwal'));
+        const kbmGroupSlots = grupSlots.filter(s => s.jam_ke !== null && s.jenis !== 'istirahat');
+        if (kbmGroupSlots.length === 0) return;
+
+        plotEditExemptJamKe = new Set(kbmGroupSlots.map(s => s.jam_ke));
+
+        const mulaiKe = Math.min(...kbmGroupSlots.map(s => s.jam_ke));
+        const selesaiKe = Math.max(...kbmGroupSlots.map(s => s.jam_ke));
+
+        const grupEl = document.getElementById('plotGroupId');
+        if (grupEl) grupEl.value = groupId || '';
+
+        const titleEl = document.getElementById('modalPlottingJadwalTitle');
+        if (titleEl) {
+            titleEl.innerHTML = '<i class="bi bi-pencil-square text-warning me-2"></i>Edit Plotting Mata Pelajaran';
+        }
+
+        const btnSimpan = document.getElementById('btnSimpanPlotting');
+        if (btnSimpan) {
+            btnSimpan.classList.remove('btn-primary');
+            btnSimpan.classList.add('btn-warning', 'text-white');
+            btnSimpan.innerHTML = '<i class="bi bi-check-lg me-1"></i> Perbarui Plotting';
+            btnSimpan.disabled = false;
+        }
+
+        const mulaiEl = document.getElementById('plotJamKeMulai');
+        const selesaiEl = document.getElementById('plotJamKeSelesai');
+        if (mulaiEl) mulaiEl.value = String(mulaiKe);
+        if (selesaiEl) selesaiEl.value = String(selesaiKe);
+
+        const mapelEl = document.getElementById('plotIdMapel');
+        if (mapelEl) mapelEl.value = idMapel;
+        const guruEl = document.getElementById('plotIdGuru');
+        if (guruEl) guruEl.value = idGuru;
+        const ruanganEl = document.getElementById('plotIdRuangan');
+        if (ruanganEl) ruanganEl.value = idRuangan ? idRuangan : '';
+
+        refreshDropdownAvailability();
+        updateJpInfo();
+
+        const modal = new bootstrap.Modal(document.getElementById('modalPlottingJadwal'));
         modal.show();
+    }
+
+    function refreshDropdownAvailability() {
+        const mulaiEl = document.getElementById('plotJamKeMulai');
+        const selesaiEl = document.getElementById('plotJamKeSelesai');
+        if (!mulaiEl || !selesaiEl || !allSlots.length) return;
+
+        // 1. Untuk setiap slot JP yang sudah terisi: disable pada kedua dropdown (kecuali milik jadwal yang sedang di-edit)
+        allSlots.forEach(function (s) {
+            if (s.jam_ke === null || s.jam_ke === undefined) return;
+            const occupied = !!s.is_plotted && !plotEditExemptJamKe.has(s.jam_ke);
+
+            [mulaiEl, selesaiEl].forEach(function (select) {
+                for (let i = 0; i < select.options.length; i++) {
+                    if (parseInt(select.options[i].value) === parseInt(s.jam_ke)) {
+                        select.options[i].disabled = occupied;
+                        const base = select.options[i].textContent.replace(/ - \[Sudah Terisi\]$/, '');
+                        select.options[i].textContent = occupied ? base + ' - [Sudah Terisi]' : base;
+                    }
+                }
+            });
+        });
+
+        // 2. Jika nilai terpilih kini menjadi disabled (tidak valid), pindah ke opsi pertama yang masih tersedia
+        let mulaiVal = parseInt(mulaiEl.value) || 1;
+        let selesaiVal = parseInt(selesaiEl.value) || 1;
+
+        if (mulaiEl.selectedOptions[0] && mulaiEl.selectedOptions[0].disabled) {
+            const firstEnabled = Array.from(mulaiEl.options).find(o => !o.disabled);
+            mulaiVal = firstEnabled ? parseInt(firstEnabled.value) : mulaiVal;
+        }
+        if (selesaiEl.selectedOptions[0] && selesaiEl.selectedOptions[0].disabled) {
+            const firstEnabled = Array.from(selesaiEl.options).find(o => !o.disabled && parseInt(o.value) >= mulaiVal);
+            selesaiVal = firstEnabled ? parseInt(firstEnabled.value) : Math.max(mulaiVal, selesaiVal);
+        }
+        if (selesaiVal < mulaiVal) selesaiVal = mulaiVal;
+
+        mulaiEl.value = String(mulaiVal);
+        selesaiEl.value = String(selesaiVal);
+    }
+
+    function runRangeConflictCheck() {
+        const mulaiEl = document.getElementById('plotJamKeMulai');
+        const selesaiEl = document.getElementById('plotJamKeSelesai');
+        const boxError = document.getElementById('boxJamKonflik');
+        const labelError = document.getElementById('labelJamKonflik');
+        const btnSimpan = document.getElementById('btnSimpanPlotting');
+        if (!mulaiEl || !selesaiEl || !boxError || !labelError || !btnSimpan) return;
+
+        const mulaiVal = parseInt(mulaiEl.value) || 1;
+        const selesaiVal = parseInt(selesaiEl.value) || 1;
+
+        // Cari slot terisi lain di dalam rentang: is_plotted && bukan milik jadwal yang sedang di-edit
+        const konflik = allSlots.filter(s =>
+            s.jam_ke !== null &&
+            s.jenis !== 'istirahat' &&
+            s.jam_ke >= mulaiVal &&
+            s.jam_ke <= selesaiVal &&
+            !!s.is_plotted &&
+            !plotEditExemptJamKe.has(s.jam_ke)
+        );
+
+        [mulaiEl, selesaiEl].forEach(function (el) {
+            el.classList.toggle('is-invalid', konflik.length > 0);
+        });
+
+        if (konflik.length > 0) {
+            const detail = konflik
+                .map(s => `Jam ${s.jam_ke} (${s.jam_mulai} - ${s.jam_selesai})${s.mapel ? ' - ' + s.mapel : ''}`)
+                .join(', ');
+            labelError.textContent = 'Rentang jam yang dipilih menabrak slot yang sudah terisi: ' + detail + '. Silakan pilih rentang lain tanpa slot terisi di tengahnya.';
+            boxError.classList.remove('d-none');
+            boxError.classList.add('d-flex');
+            btnSimpan.disabled = true;
+            return;
+        }
+
+        boxError.classList.add('d-none');
+        boxError.classList.remove('d-flex');
+        btnSimpan.disabled = false;
+    }
+
+    function onMulaiChange() {
+        const mulaiEl = document.getElementById('plotJamKeMulai');
+        const selesaiEl = document.getElementById('plotJamKeSelesai');
+        if (!mulaiEl || !selesaiEl) return;
+
+        const mulaiVal = parseInt(mulaiEl.value) || 1;
+        const selesaiVal = parseInt(selesaiEl.value) || 1;
+
+        if (selesaiVal < mulaiVal) {
+            selesaiEl.value = mulaiVal;
+        }
+        updateJpInfo();
+    }
+
+    function onSelesaiChange() {
+        const mulaiEl = document.getElementById('plotJamKeMulai');
+        const selesaiEl = document.getElementById('plotJamKeSelesai');
+        if (!mulaiEl || !selesaiEl) return;
+
+        const mulaiVal = parseInt(mulaiEl.value) || 1;
+        const selesaiVal = parseInt(selesaiEl.value) || 1;
+
+        if (selesaiVal < mulaiVal) {
+            mulaiEl.value = selesaiVal;
+        }
+        updateJpInfo();
     }
 </script>
 @endpush

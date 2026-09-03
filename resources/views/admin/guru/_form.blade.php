@@ -21,44 +21,7 @@
             <label class="form-label fw-semibold text-secondary small">PASSWORD AKUN</label>
             <input type="password" name="password" class="form-control rounded-3" minlength="6" placeholder="Kosongkan untuk password default (password123)">
         </div>
-        <div class="col-md-12">
-            <label class="form-label fw-semibold text-secondary small">ROLE GURU <span class="text-danger">*</span></label>
-            <select name="role" id="guru_role" class="form-select rounded-3" required onchange="toggleGuruFields()">
-                @php($selectedGuruRole = old('role', 'guru_mapel'))
-                <option value="guru_mapel" {{ $selectedGuruRole === 'guru_mapel' ? 'selected' : '' }}>Guru Mapel</option>
-                <option value="wali_kelas" {{ $selectedGuruRole === 'wali_kelas' ? 'selected' : '' }}>Wali Kelas</option>
-                <option value="guru" {{ $selectedGuruRole === 'guru' ? 'selected' : '' }}>Guru Umum</option>
-            </select>
-        </div>
-    @else
-        <div class="col-md-6">
-            <label class="form-label fw-semibold text-secondary small">ROLE GURU <span class="text-danger">*</span></label>
-            <select name="role" id="guru_role" class="form-select rounded-3" required onchange="toggleGuruFields()">
-                @php($selectedGuruRole = old('role', $guru->sub_role ?: ($guru->role === 'guru' ? 'guru' : $guru->role)))
-                <option value="guru_mapel" {{ $selectedGuruRole === 'guru_mapel' ? 'selected' : '' }}>Guru Mapel</option>
-                <option value="wali_kelas" {{ $selectedGuruRole === 'wali_kelas' ? 'selected' : '' }}>Wali Kelas</option>
-                <option value="guru" {{ $selectedGuruRole === 'guru' ? 'selected' : '' }}>Guru Umum</option>
-            </select>
-        </div>
     @endif
-    <div class="col-12" id="guru_kelas_field">
-        <label class="form-label fw-semibold text-secondary small">KELAS YANG DIWALIIN <span class="text-danger">*</span></label>
-        <select name="kelas_id" class="form-select rounded-3">
-            <option value="">-- Pilih Kelas --</option>
-            @foreach($daftarKelas as $kelas)
-                @php($isOwnKelas = $currentKelasId == $kelas->id || ($isEdit && $guru->kelasWali->contains('id', $kelas->id)))
-                @php($hasOtherWali = $kelas->id_wali_kelas && !$isOwnKelas)
-                <option
-                    value="{{ $kelas->id }}"
-                    @selected($isOwnKelas)
-                    @disabled($hasOtherWali)
-                >
-                    {{ $kelas->nama_kelas }}{{ $kelas->jurusan ? ' - ' . $kelas->jurusan->nama_jurusan : '' }}{{ $hasOtherWali ? ' (dipegang guru lain)' : '' }}
-                </option>
-            @endforeach
-        </select>
-        <div class="form-text">Wajib diisi untuk role Wali Kelas.</div>
-    </div>
     @if($isEdit)
         <div class="col-12">
             <div class="form-check border rounded-3 p-3 bg-light">
@@ -69,14 +32,3 @@
         </div>
     @endif
 </div>
-
-@push('scripts')
-<script>
-    function toggleGuruFields() {
-        const role = document.getElementById('guru_role')?.value;
-        const kelasField = document.getElementById('guru_kelas_field');
-        if (kelasField) kelasField.style.display = role === 'wali_kelas' ? 'block' : 'none';
-    }
-    document.addEventListener('DOMContentLoaded', toggleGuruFields);
-</script>
-@endpush

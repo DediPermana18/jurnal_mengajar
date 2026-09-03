@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DispensasiSiswa;
+use App\Models\IzinGuru;
+use App\Models\JadwalPelajaran;
 use App\Models\Jurnal;
 use App\Models\Kelas;
 use App\Models\PresensiSiswa;
 use App\Models\Siswa;
+use App\Models\TahunAjaran;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use App\Models\User;
@@ -27,7 +31,70 @@ class GuruPiketController extends Controller
     public function dashboard()
     {
         $this->authorizeGuruPiket();
-        return view('piket.dashboard');
+
+        $today   = now()->toDateString();
+        $hariIni = now()->translatedFormat('l');
+
+        $tahunAktif = TahunAjaran::where('status_aktif', true)->first();
+
+        // 1. Total siswa tidak hadir (Sakit / Izin / Alpha) hari ini
+        $siswaTidakHadir = PresensiSiswa::whereDate('tanggal', $today)
+            ->whereIn('status', ['Sakit', 'Izin', 'Alpha'])
+            ->count();
+
+        // 2. Guru tidak hadir / mengajukan izin hari ini
+        $guruIzinHariIni = IzinGuru::whereDate('tanggal', $today)->count();
+
+        // 3. Total dispensasi keluar / masuk hari ini
+        $dispensasiHariIni = DispensasiSiswa::whereDate('tanggal', $today)->count();
+
+        // 4. Kelas dengan KBM belum terisi (ada sesi KBM hari ini yang jurnalnya belum diisi)
+        $jadwalHariIni = JadwalPelajaran::where('hari', $hariIni)
+            ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
+            ->get();
+
+        $idJadwalHariIni = $jadwalHariIni->pluck('id');
+        $jurnalTerisiIds = $idJadwalHariIni->isEmpty()
+            ? collect()
+            : Jurnal::whereDate('tanggal', $today)
+                ->whereIn('id_jadwal', $idJadwalHariIni)
+                ->whereNotNull('materi')
+                ->where('materi', '!=', '')
+                ->pluck('id_jadwal')
+                ->unique();
+
+        $kelasKbmBelumTerisi = $jadwalHariIni
+            ->groupBy('id_kelas')
+            ->filter(fn ($sessions) => $sessions->contains(fn ($s) => ! $jurnalTerisiIds->contains($s->id)))
+            ->count();
+
+        // Recent: 5 dispensasi terbaru hari ini
+        $dispensasiTerbaru = DispensasiSiswa::with(['siswa.kelas'])
+            ->whereDate('tanggal', $today)
+            ->orderBy('id', 'desc')
+            ->take(5)
+            ->get();
+
+        // Recent: daftar guru izin hari ini
+        $izinGuruHariIni = IzinGuru::with('user')
+            ->whereDate('tanggal', $today)
+            ->orderBy('id', 'desc')
+            ->take(5)
+            ->get();
+
+        $izinPendingPiket = IzinGuru::where('status', IzinGuru::STATUS_PENDING_PIKET)->count();
+
+        return view('piket.dashboard', compact(
+            'today',
+            'hariIni',
+            'siswaTidakHadir',
+            'guruIzinHariIni',
+            'dispensasiHariIni',
+            'kelasKbmBelumTerisi',
+            'dispensasiTerbaru',
+            'izinGuruHariIni',
+            'izinPendingPiket',
+        ));
     }
 
     /**

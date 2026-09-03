@@ -47,9 +47,28 @@
                 </div>
 
                 <div class="col-12">
-                    <label class="form-label fw-semibold text-dark">Alasan Izin <span class="text-danger">*</span></label>
-                    <textarea name="alasan" rows="4" maxlength="1000" class="form-control rounded-3" required
-                              placeholder="Contoh: Izin menghadiri kegiatan keluarga, sakit, atau urusan dinas...">{{ old('alasan') }}</textarea>
+                    <label class="form-label fw-semibold text-dark">Kategori Izin <span class="text-danger">*</span></label>
+                    <div class="d-flex flex-wrap gap-2" role="group" aria-label="Kategori Izin">
+                        @foreach(\App\Models\IzinGuru::KATEGORI_IZIN as $kategoriValue => $kategoriLabel)
+                            <input type="radio" class="btn-check" name="kategori_izin" id="kategori-{{ $kategoriValue }}"
+                                   value="{{ $kategoriValue }}" autocomplete="off" required
+                                   {{ old('kategori_izin', 'sakit') === $kategoriValue ? 'checked' : '' }}>
+                            <label class="btn btn-outline-primary rounded-pill px-3 py-2" for="kategori-{{ $kategoriValue }}">
+                                <i class="bi bi-check-circle me-1 d-none"></i>{{ $kategoriLabel }}
+                            </label>
+                        @endforeach
+                    </div>
+                    <div class="form-text text-muted mt-1">
+                        <i class="bi bi-info-circle me-1"></i>Pilih kategori yang paling sesuai. Rincian tambahan dapat ditulis pada kolom keterangan.
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label fw-semibold text-dark">
+                        Catatan Detail / Keterangan <span class="text-muted fw-normal">(opsional)</span>
+                    </label>
+                    <textarea name="keterangan" rows="3" maxlength="1000" class="form-control rounded-3"
+                              placeholder="Contoh: sakit demam tinggi, surat dokter menyusul, rapat dinas di Cabdis...">{{ old('keterangan') }}</textarea>
                 </div>
 
                 <div class="col-12">

@@ -55,8 +55,7 @@ class SiswaController extends Controller
     public function create()
     {
         $dataKelas = Kelas::with('jurusan')->orderBy('tingkat')->orderBy('nama_kelas')->get();
-        $jurusans  = Jurusan::orderBy('nama_jurusan')->get();
-        return view('admin.siswa.create', compact('dataKelas', 'jurusans'));
+        return view('admin.siswa.create', compact('dataKelas'));
     }
 
     /**
@@ -69,7 +68,6 @@ class SiswaController extends Controller
             'nis'           => 'required|string|max:20|unique:siswa,nis',
             'nama'          => 'required|string|max:100',
             'id_kelas'      => 'nullable|exists:kelas,id',
-            'id_jurusan'    => 'nullable|exists:jurusan,id',
             'jenis_kelamin' => 'required|in:L,P',
             'status_siswa'  => 'nullable|string|max:20',
         ], [
@@ -81,7 +79,8 @@ class SiswaController extends Controller
         ]);
 
         $kelas = $request->filled('id_kelas') ? Kelas::find($request->id_kelas) : null;
-        $idJurusan = $request->filled('id_jurusan') ? $request->id_jurusan : $kelas?->id_jurusan;
+        // Jurusan mengikuti jurusan kelas yang dipilih secara otomatis
+        $idJurusan = $kelas?->id_jurusan;
 
         Siswa::create([
             'nisn'          => $request->nisn,
@@ -112,9 +111,8 @@ class SiswaController extends Controller
     {
         $siswa     = Siswa::findOrFail($id);
         $dataKelas = Kelas::with('jurusan')->orderBy('tingkat')->orderBy('nama_kelas')->get();
-        $jurusans  = Jurusan::all();
 
-        return view('admin.siswa.edit', compact('siswa', 'dataKelas', 'jurusans'));
+        return view('admin.siswa.edit', compact('siswa', 'dataKelas'));
     }
 
     /**
@@ -127,7 +125,6 @@ class SiswaController extends Controller
             'nis'           => "required|string|max:20|unique:siswa,nis,{$id}",
             'nama'          => 'required|string|max:100',
             'id_kelas'      => 'nullable|exists:kelas,id',
-            'id_jurusan'    => 'nullable|exists:jurusan,id',
             'jenis_kelamin' => 'required|in:L,P',
             'status_siswa'  => 'nullable|string|max:20',
         ], [
@@ -140,7 +137,8 @@ class SiswaController extends Controller
 
         $siswa = Siswa::findOrFail($id);
         $kelas = $request->filled('id_kelas') ? Kelas::find($request->id_kelas) : null;
-        $idJurusan = $request->filled('id_jurusan') ? $request->id_jurusan : $kelas?->id_jurusan;
+        // Jurusan mengikuti jurusan kelas yang dipilih secara otomatis
+        $idJurusan = $kelas?->id_jurusan;
 
         $siswa->update([
             'nisn'          => $request->nisn,

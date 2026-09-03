@@ -7,7 +7,7 @@
     <div class="mb-4">
         <a href="{{ route('guru.index') }}" class="text-decoration-none text-muted small"><i class="bi bi-arrow-left me-1"></i> Kembali ke Data Guru</a>
         <h2 class="fw-black text-dark mt-2 mb-1" style="letter-spacing: -0.02em; font-weight: 800; font-size: 1.75rem;">Tambah Data Guru</h2>
-        <p class="text-muted mb-0">Buat akun guru dan atur penugasan akademiknya.</p>
+        <p class="text-muted mb-0">Buat akun guru dengan data dasar identitas dan akses ke portal.</p>
     </div>
     @if ($errors->any())
         <div class="alert alert-danger border-0 shadow-sm rounded-4 mb-4"><strong>Gagal menyimpan data:</strong><ul class="mb-0 ps-3">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>

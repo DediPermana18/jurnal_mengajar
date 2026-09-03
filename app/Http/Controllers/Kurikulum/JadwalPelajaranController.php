@@ -230,6 +230,7 @@ class JadwalPelajaranController extends Controller
             'id_mapel'       => 'required|exists:mata_pelajaran,id',
             'id_guru'        => ['required', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_GURU))],
             'id_ruangan'     => 'nullable|exists:ruangans,id',
+            'group_id'       => 'nullable|string|max:40',
         ]);
 
         $tahunAktif = TahunAjaran::where('status_aktif', true)->first() ?? TahunAjaran::first();
@@ -254,6 +255,11 @@ class JadwalPelajaranController extends Controller
 
         $targetJamIds = $targetSlots->pluck('id')->toArray();
 
+        // Mode Edit: saat group_id dikirim, seluruh slot pada grup yang sama diperbarui
+        // (rentang baru boleh mengecil/membesar), dan group_id lama dipakai ulang.
+        $isEditMode = filled($validated['group_id'] ?? null);
+        $groupId    = $isEditMode ? (string) $validated['group_id'] : (string) Str::uuid();
+
         // 2. Pengecekan bentrok guru di kelas lain pada jam & hari yang sama
         $bentroks = JadwalPelajaran::where('hari', $validated['hari'])
             ->whereIn('id_jam', $targetJamIds)
@@ -277,9 +283,31 @@ class JadwalPelajaranController extends Controller
                 ->with('error', "Bentrok Jadwal! {$namaGuru} sudah memiliki jadwal mengajar pada: {$bentrokList}.");
         }
 
-        // 3. Gunakan 1 group_id UUID yang sama untuk seluruh sesi multi-jam ini
-        $groupId = (string) Str::uuid();
+        // 2b. Pengecekan slot yang sudah terisi jadwal lain pada kelas & hari yang sama.
+        //     Saat edit, slot milik grup yang sama dikecualikan (boleh dipilih ulang).
+        $slotTerisiLain = JadwalPelajaran::where('id_kelas', $validated['id_kelas'])
+            ->where('hari', $validated['hari'])
+            ->whereIn('id_jam', $targetJamIds)
+            ->when($tahunAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
+            ->when($isEditMode, fn($q) => $q->where(function ($sub) use ($groupId) {
+                $sub->where('group_id', '!=', $groupId)
+                    ->orWhereNull('group_id');
+            }))
+            ->with(['mataPelajaran', 'jamPelajaran'])
+            ->get();
 
+        if ($slotTerisiLain->isNotEmpty()) {
+            $slotBentrok = $slotTerisiLain->first();
+            $namaMapel = $slotBentrok->mataPelajaran->nama_mapel ?? 'jadwal lain';
+            $jamKe     = $slotBentrok->jamPelajaran->jam_ke ?? '-';
+
+            return redirect()
+                ->route('admin.jadwal.index', ['id_kelas' => $validated['id_kelas'], 'hari' => $validated['hari']])
+                ->withInput()
+                ->with('error', "Slot Jam ke-{$jamKe} pada hari {$validated['hari']} sudah terisi {$namaMapel}. Pilih rentang jam yang tidak menabrak slot yang sudah terisi.");
+        }
+
+        // 3. Gunakan 1 group_id (UUID lama saat edit / UUID baru saat tambah) untuk seluruh sesi multi-jam ini
         foreach ($targetSlots as $slot) {
             JadwalPelajaran::withTrashed()->updateOrCreate(
                 [
@@ -303,9 +331,25 @@ class JadwalPelajaranController extends Controller
             ? "Jam ke-{$validated['jam_ke_mulai']}"
             : "Jam ke-{$validated['jam_ke_mulai']} s/d Jam ke-{$validated['jam_ke_selesai']}";
 
+        // Mode Edit: bersihkan slot lama pada grup yang berada di luar rentang baru
+        // agar tidak tersisa slot yang seharusnya sudah dilepas saat rentang diciutkan.
+        if ($isEditMode) {
+            JadwalPelajaran::withTrashed()
+                ->where('group_id', $groupId)
+                ->where('id_kelas', $validated['id_kelas'])
+                ->where('hari', $validated['hari'])
+                ->where('id_tahun_ajaran', $tahunAktif?->id)
+                ->whereNotIn('id_jam', $targetJamIds)
+                ->forceDelete();
+        }
+
+        $pesanSukses = $isEditMode
+            ? "Plotting jadwal berhasil diperbarui untuk {$totalJp} JP ({$pesanRentang})."
+            : "Plotting jadwal berhasil disimpan untuk {$totalJp} JP ({$pesanRentang}).";
+
         return redirect()
             ->route('admin.jadwal.index', ['id_kelas' => $validated['id_kelas'], 'hari' => $validated['hari']])
-            ->with('success', "Plotting jadwal berhasil disimpan untuk {$totalJp} JP ({$pesanRentang}).");
+            ->with('success', $pesanSukses);
     }
 
     /**

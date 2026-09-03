@@ -62,6 +62,8 @@ class IzinGuruApprovalFlowTest extends TestCase
         $this->actingAs($guru)
             ->post(route('guru.izin.store'), [
                 'tanggal' => now()->toDateString(),
+                'kategori_izin' => 'sakit',
+                'keterangan' => 'Demam 39°C',
                 'alasan' => 'Sakit demam',
                 'tugas_siswa' => 'Mengerjakan latihan',
                 'ttd_guru' => 'data:image/png;base64,AAAA',
@@ -75,6 +77,9 @@ class IzinGuruApprovalFlowTest extends TestCase
         $this->assertNotNull($izin->token_waka);
         $this->assertNull($izin->token_kepsek); // token Kepsek belum dirilis
         $this->assertNotNull($izin->ttd_guru);
+        $this->assertEquals('sakit', $izin->kategori_izin);
+        $this->assertEquals('Demam 39°C', $izin->keterangan);
+        $this->assertStringContainsString('Sakit', $izin->alasan);
 
         // Piket verify -> level 3 -> pending_waka
         $this->actingAs($piket)

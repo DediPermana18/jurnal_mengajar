@@ -55,6 +55,14 @@
                         <div class="fw-semibold">{{ $izin->created_at?->translatedFormat('d/m/Y H:i') }}</div>
                     </div>
                     <div class="col-12">
+                        <div class="text-muted small">Kategori Izin</div>
+                        @if($izin->kategori_izin_label)
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2">{{ $izin->kategori_izin_label }}</span>
+                        @else
+                            <div class="fw-semibold">-</div>
+                        @endif
+                    </div>
+                    <div class="col-12">
                         <div class="text-muted small">Alasan</div>
                         <div class="fw-semibold">{{ $izin->alasan }}</div>
                     </div>

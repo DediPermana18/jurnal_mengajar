@@ -60,13 +60,18 @@ class IzinController extends Controller
 
         $validated = $request->validate([
             'tanggal' => 'required|date',
-            'alasan' => 'required|string|max:1000',
+            'kategori_izin' => 'required|in:'.implode(',', array_keys(IzinGuru::KATEGORI_IZIN)),
+            'keterangan' => 'nullable|string|max:1000',
+            'alasan' => 'nullable|string|max:1000',
             'lampiran' => 'nullable|string|max:7000000',
             'tugas_siswa' => 'nullable|string|max:1000',
             'ttd_guru' => 'nullable|string|max:150000',
         ], [
             'tanggal.required' => 'Tanggal izin wajib diisi.',
             'tanggal.date' => 'Format tanggal tidak valid.',
+            'kategori_izin.required' => 'Pilih kategori izin terlebih dahulu.',
+            'kategori_izin.in' => 'Kategori izin yang dipilih tidak valid.',
+            'keterangan.max' => 'Keterangan maksimal :max karakter.',
             'alasan.required' => 'Alasan izin wajib diisi.',
             'alasan.max' => 'Alasan maksimal :max karakter.',
             'lampiran.max' => 'Ukuran lampiran terlalu besar.',
@@ -76,6 +81,11 @@ class IzinController extends Controller
         $ttdGuru = isset($validated['ttd_guru']) && preg_match('/^data:image\/png;base64,/i', trim($validated['ttd_guru']))
             ? trim($validated['ttd_guru'])
             : null;
+
+        // Alasan isi otomatis dari kategori (+ keterangan), kolom legacy untuk tampilan lama.
+        $kategoriLabel = IzinGuru::kategoriLabel($validated['kategori_izin']);
+        $detail = trim((string) ($validated['keterangan'] ?? ''));
+        $alasan = $detail !== '' ? $kategoriLabel.' — '.$detail : $kategoriLabel;
 
         // Lampiran / bukti surat (data URL base64) -> simpan sebagai file.
         $lampiranPath = null;
@@ -100,7 +110,9 @@ class IzinController extends Controller
         $izin = IzinGuru::create([
             'user_id' => Auth::id(),
             'tanggal' => $validated['tanggal'],
-            'alasan' => $validated['alasan'],
+            'kategori_izin' => $validated['kategori_izin'],
+            'keterangan' => $validated['keterangan'] ?? null,
+            'alasan' => $alasan,
             'lampiran' => $lampiranPath,
             'tugas_siswa' => $validated['tugas_siswa'] ?? null,
             'status' => IzinGuru::STATUS_PENDING_PIKET,

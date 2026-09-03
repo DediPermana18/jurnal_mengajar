@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Kelas;
-use App\Models\Jurusan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -87,10 +86,7 @@ class GuruController extends Controller
     {
         $this->authorizePetugasTU();
 
-        return view('admin.guru.create', [
-            'daftarKelas' => Kelas::with('jurusan')->orderBy('nama_kelas')->get(),
-            'currentKelasId' => null,
-        ]);
+        return view('admin.guru.create');
     }
 
     public function edit($id)
@@ -98,13 +94,9 @@ class GuruController extends Controller
         $this->authorizePetugasTU();
 
         $guru = User::where('role', User::ROLE_GURU)
-            ->with(['kelasWali', 'kelas'])
             ->findOrFail($id);
-        return view('admin.guru.edit', [
-            'guru' => $guru,
-            'daftarKelas' => Kelas::with('jurusan')->orderBy('nama_kelas')->get(),
-            'currentKelasId' => $guru->kelas_id ?: $guru->kelasWali->first()?->id,
-        ]);
+
+        return view('admin.guru.edit', compact('guru'));
     }
 
     /**
@@ -115,57 +107,27 @@ class GuruController extends Controller
         $this->authorizePetugasTU();
 
         $request->validate([
-            'nama'      => 'required|string|max:255',
-            'nip'       => 'nullable|string|max:50|unique:users,nip',
-            'username'  => 'required|string|max:100|unique:users,username',
-            'password'  => 'nullable|string|min:6',
-            'role'      => 'required|in:guru_mapel,wali_kelas,guru',
-            'kelas_id'  => 'nullable|exists:kelas,id',
+            'nama'     => 'required|string|max:255',
+            'nip'      => 'nullable|string|max:50|unique:users,nip',
+            'username' => 'required|string|max:100|unique:users,username',
+            'password' => 'nullable|string|min:6',
         ], [
-            'nama.required'   => 'Nama guru wajib diisi.',
-            'nip.unique'      => 'NIP sudah terdaftar dalam sistem.',
+            'nama.required'     => 'Nama guru wajib diisi.',
+            'nip.unique'        => 'NIP sudah terdaftar dalam sistem.',
             'username.required' => 'Username wajib diisi.',
-            'username.unique' => 'Username sudah terdaftar dalam sistem.',
-            'role.required'   => 'Role guru wajib dipilih.',
-            'role.in'         => 'Role guru tidak valid.',
-            'kelas_id.exists' => 'Kelas yang dipilih tidak ditemukan.',
+            'username.unique'   => 'Username sudah terdaftar dalam sistem.',
         ]);
 
-        $role = $request->role;
-
-        // Validasi: kelas_id wajib diisi jika role wali_kelas
-        if ($role === 'wali_kelas' && empty($request->kelas_id)) {
-            return back()->withErrors(['kelas_id' => 'Kelas wajib dipilih untuk role Wali Kelas.'])->withInput();
-        }
-
-        // Validasi: kelas yang dipilih belum ada wali kelasnya
-        if ($role === 'wali_kelas' && !empty($request->kelas_id)) {
-            $kelasExists = Kelas::where('id', $request->kelas_id)
-                ->whereNotNull('id_wali_kelas')
-                ->exists();
-            if ($kelasExists) {
-                return back()->withErrors(['kelas_id' => 'Kelas yang dipilih sudah memiliki Wali Kelas.'])->withInput();
-            }
-        }
-
-        $kelasId = ($role === 'wali_kelas' && $request->filled('kelas_id')) ? (int)$request->kelas_id : null;
-
-        // Buat user baru
+        // Role di-set otomatis di backend tanpa input dari form.
         $user = User::create([
-            'nama'          => $request->nama,
-            'nip'           => $request->nip,
-            'username'      => $request->username,
-            'password'      => Hash::make($request->password ?? 'password123'),
-            'role'          => User::ROLE_GURU,
-            'sub_role'      => $role,
-            'is_active'     => true,
-            'kelas_id'      => $kelasId,
+            'nama'      => $request->nama,
+            'nip'       => $request->nip,
+            'username'  => $request->username,
+            'password'  => Hash::make($request->password ?? 'password123'),
+            'role'      => User::ROLE_GURU,
+            'sub_role'  => 'guru_mapel',
+            'is_active' => true,
         ]);
-
-        // Assign wali kelas: set id_wali_kelas pada tabel kelas
-        if ($role === 'wali_kelas' && !empty($kelasId)) {
-            Kelas::where('id', $kelasId)->update(['id_wali_kelas' => $user->id]);
-        }
 
         return redirect()->route('guru.index')->with('success', 'Data Guru baru berhasil ditambahkan!');
     }
@@ -180,74 +142,25 @@ class GuruController extends Controller
         $user = User::withTrashed()->where('role', User::ROLE_GURU)->findOrFail($id);
 
         $request->validate([
-            'nama'      => 'required|string|max:255',
-            'nip'       => 'nullable|string|max:50|unique:users,nip,' . $user->id,
-            'username'  => 'required|string|max:100|unique:users,username,' . $user->id,
-            'role'      => 'required|in:guru_mapel,wali_kelas,guru',
-            'kelas_id'  => 'nullable|exists:kelas,id',
+            'nama'     => 'required|string|max:255',
+            'nip'      => 'nullable|string|max:50|unique:users,nip,' . $user->id,
+            'username' => 'required|string|max:100|unique:users,username,' . $user->id,
         ], [
-            'nama.required'   => 'Nama guru wajib diisi.',
-            'nip.unique'      => 'NIP sudah terdaftar dalam sistem.',
+            'nama.required'     => 'Nama guru wajib diisi.',
+            'nip.unique'        => 'NIP sudah terdaftar dalam sistem.',
             'username.required' => 'Username wajib diisi.',
-            'username.unique' => 'Username sudah terdaftar dalam sistem.',
-            'role.required'   => 'Role guru wajib dipilih.',
-            'role.in'         => 'Role guru tidak valid.',
-            'kelas_id.exists' => 'Kelas yang dipilih tidak ditemukan.',
+            'username.unique'   => 'Username sudah terdaftar dalam sistem.',
         ]);
 
-        $role = $request->role;
-
-        // Validasi: kelas_id wajib diisi jika role wali_kelas
-        if ($role === 'wali_kelas' && empty($request->kelas_id)) {
-            return back()->withErrors(['kelas_id' => 'Kelas wajib dipilih untuk role Wali Kelas.'])->withInput();
-        }
-
-        // Validasi: kelas yang dipilih belum ada wali kelasnya (kecuali kelas yang sedang dipegang guru ini)
-        if ($role === 'wali_kelas' && !empty($request->kelas_id)) {
-            $kelasExists = Kelas::where('id', $request->kelas_id)
-                ->where('id_wali_kelas', '!=', $user->id)
-                ->whereNotNull('id_wali_kelas')
-                ->exists();
-            if ($kelasExists) {
-                return back()->withErrors(['kelas_id' => 'Kelas yang dipilih sudah memiliki Wali Kelas lain.'])->withInput();
-            }
-        }
-
-        // Simpan role lama untuk perbandingan
-        $oldRole = $user->sub_role ?: $user->role;
-
-        $kelasId = ($role === 'wali_kelas' && $request->filled('kelas_id')) ? (int)$request->kelas_id : null;
-
-        // Update data user
+        // Role & penugasan (wali kelas / piket) tidak diubah lewat form edit guru.
         $user->update([
             'nama'      => $request->nama,
             'nip'       => $request->nip,
             'username'  => $request->username,
             'role'      => User::ROLE_GURU,
-            'sub_role'  => $role,
+            'sub_role'  => $user->sub_role ?: 'guru_mapel',
             'is_active' => $request->has('is_active') ? $request->boolean('is_active') : $user->is_active,
-            'kelas_id'  => $kelasId,
         ]);
-
-        // ===== HANDLE PERUBAHAN ASSIGNMENT WALI KELAS =====
-        if ($oldRole === 'wali_kelas' && $role !== 'wali_kelas') {
-            // Role berubah DARI wali_kelas -> selain wali_kelas: lepas semua kelas yang diwaliin
-            Kelas::where('id_wali_kelas', $user->id)->update(['id_wali_kelas' => null]);
-        }
-
-        if ($role === 'wali_kelas') {
-            // Lepas kelas lama guru ini jika ada yang berbeda dari kelas baru
-            Kelas::where('id_wali_kelas', $user->id)
-                ->when(!empty($kelasId), function($q) use ($kelasId) {
-                    $q->where('id', '!=', $kelasId);
-                })
-                ->update(['id_wali_kelas' => null]);
-
-            // Set guru ini sebagai id_wali_kelas di tabel kelas
-            if (!empty($kelasId)) {
-                Kelas::where('id', $kelasId)->update(['id_wali_kelas' => $user->id]);
-            }
-        }
 
         return redirect()->route('guru.index')->with('success', 'Data Guru berhasil diperbarui!');
     }

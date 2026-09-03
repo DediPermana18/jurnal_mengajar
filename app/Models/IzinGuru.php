@@ -47,11 +47,20 @@ class IzinGuru extends Model
         self::STATUS_DITOLAK => 'bg-danger-subtle text-danger border border-danger-subtle',
     ];
 
+    public const KATEGORI_IZIN = [
+        'sakit' => 'Sakit',
+        'dinas_luar' => 'Dinas Luar / Tugas Sekolah',
+        'urusan_keluarga' => 'Urusan Keluarga',
+        'lainnya' => 'Lainnya',
+    ];
+
     protected $table = 'izin_guru';
 
     protected $fillable = [
         'user_id',
         'tanggal',
+        'kategori_izin',
+        'keterangan',
         'alasan',
         'lampiran',
         'tugas_siswa',
@@ -121,6 +130,20 @@ class IzinGuru extends Model
     public function getStatusBadgeAttribute(): string
     {
         return self::STATUS_BADGES[$this->status] ?? 'bg-secondary-subtle text-secondary border border-secondary-subtle';
+    }
+
+    public static function kategoriLabel(?string $kategori): ?string
+    {
+        if ($kategori === null) {
+            return null;
+        }
+
+        return self::KATEGORI_IZIN[$kategori] ?? $kategori;
+    }
+
+    public function getKategoriIzinLabelAttribute(): ?string
+    {
+        return self::kategoriLabel($this->kategori_izin);
     }
 
     public function isApproved(): bool

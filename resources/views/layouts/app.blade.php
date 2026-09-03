@@ -601,13 +601,17 @@
                 $isGuruPiketRole = ($previewRole === 'guru_piket') 
                                 || ($user ? $user->isPetugasPiketHariIni() : false);
 
-                // 4. Role Wali Kelas (role=guru & sub_role=wali_kelas)
-                $isWaliKelasRole = ($userRole === 'guru' && $userSubRole === 'wali_kelas') 
-                                || ($userRole === 'wali_kelas');
+                // 4. Role Wali Kelas (role=guru & sub_role=wali_kelas, atau terikat sebagai wali kelas).
+                //    Deteksi lewat model (sub_role wali_kelas / terikat kelas), bukan hanya role string.
+                $isWaliKelasUser = $user ? $user->isWaliKelas() : false;
+                $isWaliKelasRole = ($userRole === 'guru' && $userSubRole === 'wali_kelas')
+                                || ($userRole === 'wali_kelas')
+                                || $isWaliKelasUser;
 
-                // 5. Guru Context (Guru Mapel & Wali Kelas)
+                // 5. Guru Context (Guru Mapel & Wali Kelas). Termasuk yang juga bertugas Piket,
+                //    agar menu PORTAL GURU & KELAS SAYA tetap tampil meski sedang membuka modul Piket.
                 $isGuruRole = ($userRole === 'guru');
-                $isGuruContext = $isGuruRole && !$isGuruPiketRole;
+                $isGuruContext = $isGuruRole;
 
                 // 6. Petugas TU & Super Admin
                 $isSuperAdmin = ($userRole === 'admin' && $userSubRole === null);
@@ -652,7 +656,7 @@
                     </a>
                 </div>
 
-            @elseif($isGuruPiketRole)
+            @elseif($isGuruPiketRole && !$isGuruRole)
                 {{-- ================= NAVIGASI GURU PIKET ================= --}}
 
                 <!-- Dashboard Piket -->
@@ -769,7 +773,7 @@
                     </a>
                 </div>
 
-                <!-- SECTION KELAS SAYA: HANYA untuk role 'wali_kelas' -->
+                <!-- SECTION KELAS SAYA: selalu tampil bagi wali kelas (bahkan saat membuka modul Piket) -->
                 @if($isWaliKelasRole)
                     @php
                         $isKelasSayaActive = request()->is('*walikelas*') || request()->routeIs('walikelas.*');
@@ -824,6 +828,55 @@
                                 </li>
                             </ul>
                         </div>
+                    </div>
+                @endif
+
+                <!-- SECTION GURU PIKET: tampil bila guru berjadwal piket pada hari berjalan -->
+                @if($isGuruPiketRole)
+                    <div class="nav-item-container mt-3">
+                        <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                            GURU PIKET
+                        </div>
+                    </div>
+
+                    <!-- Presensi Siswa -->
+                    <div class="nav-item-container">
+                        <a href="{{ route('piket.presensi-siswa') }}" class="nav-btn {{ request()->routeIs('piket.presensi-siswa') ? 'active' : '' }}">
+                            <span class="btn-left">
+                                <i class="bi bi-people-fill"></i>
+                                <span>Presensi Siswa</span>
+                            </span>
+                        </a>
+                    </div>
+
+                    <!-- Jurnal KBM Harian -->
+                    <div class="nav-item-container">
+                        <a href="{{ route('piket.jurnal') }}" class="nav-btn {{ request()->routeIs('piket.jurnal') ? 'active' : '' }}">
+                            <span class="btn-left">
+                                <i class="bi bi-journal-text"></i>
+                                <span>Jurnal KBM Harian</span>
+                            </span>
+                        </a>
+                    </div>
+
+                    <!-- Dispensasi Siswa -->
+                    <div class="nav-item-container">
+                        <a href="{{ route('piket.dispensasi.index') }}" class="nav-btn {{ request()->routeIs('piket.dispensasi.index') || request()->routeIs('piket.dispensasi.create') ? 'active' : '' }}">
+                            <span class="btn-left">
+                                <i class="bi bi-clipboard2-check"></i>
+                                <span>Dispensasi Siswa</span>
+                            </span>
+                        </a>
+                    </div>
+
+                    <!-- Approval Izin Guru (Piket) -->
+                    <div class="nav-item-container">
+                        <a href="{{ route('piket.izin.index') }}" class="nav-btn {{ request()->routeIs('piket.izin*') ? 'active' : '' }}">
+                            <span class="btn-left">
+                                <i class="bi bi-person-check-fill"></i>
+                                <span>Approval Izin Guru</span>
+                            </span>
+                        </a>
                     </div>
                 @endif
 
