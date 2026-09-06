@@ -45,6 +45,27 @@
         margin-bottom: 6px;
         font-size: 0.85rem;
     }
+
+    /* Opsi jam yang terkunci: redup & abu-abu */
+    .jam-option-locked {
+        color: #adb5bd !important;
+        background-color: #f8f9fa;
+        font-style: italic;
+    }
+    select option:disabled {
+        color: #adb5bd;
+        background-color: #f1f3f5;
+    }
+
+    /* Toast Plotting */
+    #toastPlottingContainer {
+        position: fixed;
+        top: 1.25rem;
+        right: 1.25rem;
+        z-index: 1090;
+        min-width: 320px;
+        max-width: 420px;
+    }
 </style>
 @endpush
 
@@ -63,9 +84,23 @@
         </div>
         <div class="d-flex gap-2 flex-wrap align-items-center">
             @if($tahunAktif)
-                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fw-semibold" style="font-size: 0.82rem;">
-                    <i class="bi bi-calendar-check me-1"></i> T.A. {{ $tahunAktif->tahun_ajaran }} (Semester {{ $tahunAktif->semester }})
-                </span>
+                <button type="button"
+                        class="btn btn-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fw-semibold d-inline-flex align-items-center gap-2"
+                        style="background-color: #e7f1ff; border-color: #b8d9ff !important; font-size: 0.82rem;"
+                        data-bs-toggle="modal" data-bs-target="#modalPilihTahunAjaran"
+                        title="Ganti Tahun Ajaran & Semester">
+                    <i class="bi bi-calendar-check me-1"></i>
+                    T.A. {{ $tahunAktif->tahun_ajaran }} (Semester {{ $tahunAktif->semester }})
+                    <i class="bi bi-chevron-down" style="font-size: 0.7rem;"></i>
+                </button>
+            @else
+                <button type="button"
+                        class="btn btn-outline-secondary rounded-pill px-3 py-2 fw-semibold d-inline-flex align-items-center gap-2"
+                        style="font-size: 0.82rem;"
+                        data-bs-toggle="modal" data-bs-target="#modalPilihTahunAjaran">
+                    <i class="bi bi-calendar-plus"></i> Pilih Tahun Ajaran & Semester
+                    <i class="bi bi-chevron-down" style="font-size: 0.7rem;"></i>
+                </button>
             @endif
             <a href="{{ route('admin.jam-pelajaran.index') }}" class="btn btn-outline-secondary rounded-3 fw-semibold px-3 d-flex align-items-center gap-2" style="font-size: 0.875rem;">
                 <i class="bi bi-clock-history"></i> Master Jam
@@ -515,6 +550,65 @@
 
 </div>
 
+{{-- ===================== MODAL PILIH TAHUN AJARAN & SEMESTER ===================== --}}
+<div class="modal fade" id="modalPilihTahunAjaran" tabindex="-1" aria-labelledby="modalPilihTahunAjaranTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <form id="formPilihTahunAjaran" onsubmit="applyTahunAjaranFilter(event)">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold" id="modalPilihTahunAjaranTitle">
+                        <i class="bi bi-calendar-range-fill text-primary me-2"></i>Pilih Tahun Ajaran & Semester
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body pt-3">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.875rem;">Tahun Ajaran</label>
+                            <select name="tahun_ajaran" id="filterTahunAjaran" class="form-select rounded-3" required>
+                                <option value="">-- Pilih Tahun Ajaran --</option>
+                                @foreach($tahunOptions as $tahunOption)
+                                    <option value="{{ $tahunOption }}" {{ $tahunAktif && $tahunAktif->tahun_ajaran === $tahunOption ? 'selected' : '' }}>
+                                        {{ $tahunOption }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.875rem;">Semester</label>
+                            <select name="semester" id="filterSemester" class="form-select rounded-3" required>
+                                <option value="">-- Pilih Semester --</option>
+                                @foreach($semesterList as $semesterOption)
+                                    <option value="{{ $semesterOption }}" {{ $tahunAktif && $tahunAktif->semester === $semesterOption ? 'selected' : '' }}>
+                                        {{ $semesterOption }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info border-0 rounded-3 py-2 px-3 mt-3 d-flex align-items-start gap-2" style="font-size: 0.78rem;">
+                        <i class="bi bi-info-circle-fill text-info flex-shrink-0 mt-1"></i>
+                        <div>
+                            Matriks jadwal, slot yang kosong/terisi, dan <strong>plotting baru yang disimpan</strong>
+                            akan mengikuti Tahun Ajaran &amp; Semester yang dipilih. Pilihan ini otomatis tersimpan dan
+                            tetap aktif saat Anda kembali ke halaman ini.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold" id="btnTerapkanTahunAjaran">
+                        <i class="bi bi-check-lg me-1"></i> Terapkan Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {{-- ===================== MODAL PLOTTING JADWAL (MULTI-SLOT / BLOK JAM) ===================== --}}
 @if($selectedKelas)
 <div class="modal fade" id="modalPlottingJadwal" tabindex="-1" aria-labelledby="modalPlottingJadwalTitle" aria-hidden="true">
@@ -524,6 +618,7 @@
                 @csrf
                 <input type="hidden" name="id_kelas" value="{{ $selectedKelas->id }}">
                 <input type="hidden" name="hari" value="{{ $selectedHari }}">
+                <input type="hidden" name="tahun_ajaran_id" value="{{ $tahunAktif->id ?? '' }}">
                 <input type="hidden" name="group_id" id="plotGroupId" value="">
 
                 <div class="modal-header border-0 pb-0">
@@ -545,23 +640,14 @@
                     </div>
 
                     {{-- Pilihan Rentang Jam Pelajaran (Dari Jam Ke- s/d Sampai Jam Ke-) --}}
-                    @php
-                        $kbmSlots = $jamPelajaranList->where('jenis', '!=', 'istirahat')->whereNotNull('jam_ke')->sortBy('jam_ke');
-                    @endphp
+                    {{-- Options dibangun via JS (rebuild) dari allSlots — menampilkan slot terkunci sebagai disabled + suffix --}}
                     <div class="row g-3 mb-2">
                         <div class="col-6">
                             <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.875rem;">
                                 <i class="bi bi-play-circle-fill text-primary me-1"></i> Dari Jam Ke-
                             </label>
                             <select name="jam_ke_mulai" id="plotJamKeMulai" class="form-select rounded-3" required onchange="onMulaiChange()">
-                                @foreach($kbmSlots as $jam)
-                                    @php
-                                        $wkt = substr(str_replace(':', '.', $jam->jam_mulai), 0, 5) . ' – ' . substr(str_replace(':', '.', $jam->jam_selesai), 0, 5);
-                                    @endphp
-                                    <option value="{{ $jam->jam_ke }}">
-                                        Jam {{ $jam->jam_ke }} ({{ $wkt }})
-                                    </option>
-                                @endforeach
+                                <option value="">— Pilih Jam —</option>
                             </select>
                         </div>
                         <div class="col-6">
@@ -569,14 +655,7 @@
                                 <i class="bi bi-stop-circle-fill text-primary me-1"></i> Sampai Jam Ke-
                             </label>
                             <select name="jam_ke_selesai" id="plotJamKeSelesai" class="form-select rounded-3" required onchange="onSelesaiChange()">
-                                @foreach($kbmSlots as $jam)
-                                    @php
-                                        $wkt = substr(str_replace(':', '.', $jam->jam_mulai), 0, 5) . ' – ' . substr(str_replace(':', '.', $jam->jam_selesai), 0, 5);
-                                    @endphp
-                                    <option value="{{ $jam->jam_ke }}">
-                                        Jam {{ $jam->jam_ke }} ({{ $wkt }})
-                                    </option>
-                                @endforeach
+                                <option value="">— Pilih Jam —</option>
                             </select>
                         </div>
                     </div>
@@ -598,7 +677,7 @@
 
                     <div class="alert alert-info border-0 rounded-3 py-2 px-3 mb-3 d-flex align-items-center gap-2" style="font-size: 0.8rem;">
                         <i class="bi bi-info-circle-fill text-info flex-shrink-0" style="font-size: 1rem;"></i>
-                        <span>Slot jam yang sudah terisi oleh jadwal lain pada hari ini otomatis dinonaktifkan pada dropdown agar tidak terjadi tumpang tindih jadwal. Rentang yang menabrak slot terisi tidak dapat disimpan.</span>
+                        <span>Dropdown jam otomatis menonaktifkan slot yang terkunci: Non-KBM/istirahat, Agenda Rutin (UPACARA/PEMBIASAAN), Pulang Sekolah, maupun slot yang sudah terisi jadwal lain pada hari ini. Rentang jam yang menabrak slot terkunci, istirahat, atau slot terisi tidak dapat disimpan.</span>
                     </div>
 
                     {{-- Pilih Mata Pelajaran --}}
@@ -656,6 +735,9 @@
 </div>
 
 @endif
+
+{{-- ===================== TOAST KONFIRMASI / PERINGATAN PLOTTING ===================== --}}
+<div id="toastPlottingContainer" aria-live="polite" aria-atomic="true"></div>
 @endsection
 
 @push('scripts')
@@ -663,8 +745,29 @@
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 
 @php
-    $formattedSlots = $jamPelajaranList->map(function($j) use ($jadwalList) {
+    $formattedSlots = $jamPelajaranList->map(function($j) use ($jadwalList, $agendaRutinAktif, $maxJamKe) {
         $jadwal = $jadwalList ? $jadwalList->get($j->id) : null;
+
+        // Sumber pengunci slot (multi-source) untuk label & disabled pada dropdown plotting.
+        $lockReason = null;
+        $lockLabel  = null;
+        if ($j->jenis !== 'kbm') {
+            $lockReason = 'istirahat';
+            $lockLabel  = 'ISTIRAHAT';
+        } else {
+            $agenda = $agendaRutinAktif?->get($j->jam_ke);
+            if ($agenda) {
+                $namaAgenda = strtolower($agenda->nama_agenda ?? 'Agenda');
+                $lockReason = 'agenda';
+                $lockLabel  = str_contains($namaAgenda, 'upacara')
+                    ? 'UPACARA'
+                    : (str_contains($namaAgenda, 'pembiasaan') ? 'PEMBIASAAN' : 'AGENDA');
+            } elseif ($maxJamKe !== null && $j->jam_ke !== null && $j->jam_ke > $maxJamKe) {
+                $lockReason = 'pulang';
+                $lockLabel  = 'PULANG SEKOLAH';
+            }
+        }
+
         return [
             'id' => $j->id,
             'jam_ke' => $j->jam_ke,
@@ -673,12 +776,63 @@
             'jam_selesai' => substr($j->jam_selesai, 0, 5),
             'is_plotted' => (bool) $jadwal,
             'group_id' => $jadwal?->group_id,
-            'mapel' => $jadwal?->mataPelajaran?->nama_mapel
+            'mapel' => $jadwal?->mataPelajaran?->nama_mapel,
+            'lock_reason' => $lockReason,
+            'lock_label' => $lockLabel
         ];
     });
 @endphp
 <script>
     const allSlots = @json($formattedSlots);
+
+    // Peta kombinasi Tahun Ajaran | Semester -> id (dari master tahun_ajaran)
+    const tahunAjaranMap = @json(
+        collect($tahunAjaranList)->keyBy(fn ($t) => $t->tahun_ajaran . '|' . $t->semester)
+            ->map(fn ($t) => ['id' => $t->id, 'tahun_ajaran' => $t->tahun_ajaran, 'semester' => $t->semester])
+            ->all()
+    );
+
+    // Terapkan filter Tahun Ajaran & Semester: resolve kombinasi -> tahun_ajaran_id, lalu reload
+    function applyTahunAjaranFilter(event) {
+        if (event) event.preventDefault();
+
+        const tahunEl = document.getElementById('filterTahunAjaran');
+        const semesterEl = document.getElementById('filterSemester');
+        if (!tahunEl || !semesterEl) return;
+
+        const kombinasi = tahunEl.value + '|' + semesterEl.value;
+        const row = tahunAjaranMap[kombinasi];
+
+        if (!row) {
+            alert('Kombinasi Tahun Ajaran & Semester tersebut tidak tersedia pada master data. Silakan pilih kombinasi lain atau buat Tahun Ajaran terlebih dahulu.');
+            return;
+        }
+
+        // Pertahankan id_kelas & hari yang sedang aktif di URL
+        const url = new URL(window.location.href);
+        url.searchParams.set('tahun_ajaran_id', row.id);
+        url.searchParams.delete('tahun_ajaran');
+        url.searchParams.delete('semester');
+        window.location.href = url.toString();
+    }
+
+    // Saat modal dibuka, sinkronkan nilai option dengan konteks yang sedang aktif
+    document.addEventListener('DOMContentLoaded', function () {
+        const modalTahun = document.getElementById('modalPilihTahunAjaran');
+        if (modalTahun) {
+            modalTahun.addEventListener('shown.bs.modal', function () {
+                const tahunEl = document.getElementById('filterTahunAjaran');
+                const semesterEl = document.getElementById('filterSemester');
+                if (tahunEl && semesterEl && tahunEl.options.length > 1 && !tahunEl.value) {
+                    tahunEl.selectedIndex = 1;
+                    for (let i = 0; i < semesterEl.options.length; i++) {
+                        const o = semesterEl.options[i];
+                        if (o.value === '{{ $tahunAktif->semester ?? 'Ganjil' }}') { semesterEl.selectedIndex = i; break; }
+                    }
+                }
+            });
+        }
+    });
 
     // State mode Edit: kumpulan jam_ke milik jadwal (grup) yang sedang di-edit — tidak di-disable.
     let plotEditExemptJamKe = new Set();
@@ -741,34 +895,6 @@
         updateJpInfo();
     });
 
-    function onMulaiChange() {
-        const mulaiEl = document.getElementById('plotJamKeMulai');
-        const selesaiEl = document.getElementById('plotJamKeSelesai');
-        if (!mulaiEl || !selesaiEl) return;
-
-        const mulaiVal = parseInt(mulaiEl.value) || 1;
-        const selesaiVal = parseInt(selesaiEl.value) || 1;
-
-        if (selesaiVal < mulaiVal) {
-            selesaiEl.value = mulaiVal;
-        }
-        updateJpInfo();
-    }
-
-    function onSelesaiChange() {
-        const mulaiEl = document.getElementById('plotJamKeMulai');
-        const selesaiEl = document.getElementById('plotJamKeSelesai');
-        if (!mulaiEl || !selesaiEl) return;
-
-        const mulaiVal = parseInt(mulaiEl.value) || 1;
-        const selesaiVal = parseInt(selesaiEl.value) || 1;
-
-        if (selesaiVal < mulaiVal) {
-            mulaiEl.value = selesaiVal;
-        }
-        updateJpInfo();
-    }
-
     function updateJpInfo() {
         const mulaiEl = document.getElementById('plotJamKeMulai');
         const selesaiEl = document.getElementById('plotJamKeSelesai');
@@ -776,30 +902,24 @@
         const badgeEl = document.getElementById('badgeJpTotal');
         if (!mulaiEl || !selesaiEl || !labelEl || !badgeEl) return;
 
-        const mulaiVal = parseInt(mulaiEl.value) || 1;
-        const selesaiVal = parseInt(selesaiEl.value) || 1;
+        const mulaiVal = parseInt(mulaiEl.value, 10);
+        const selesaiVal = parseInt(selesaiEl.value, 10);
+
+        if (isNaN(mulaiVal) || isNaN(selesaiVal)) {
+            labelEl.innerHTML = 'Terpilih: <strong>-</strong> (pilih jam terlebih dahulu)';
+            badgeEl.textContent = '- JP';
+            runRangeConflictCheck();
+            return;
+        }
 
         // Filter slot KBM dalam rentang
         const selectedKbmSlots = allSlots.filter(s => s.jam_ke !== null && s.jenis !== 'istirahat' && s.jam_ke >= mulaiVal && s.jam_ke <= selesaiVal);
         const totalJp = selectedKbmSlots.length;
 
-        // Cek apakah ada istirahat di dalam rentang waktu jam mulai s/d jam selesai
-        let hasIstirahat = false;
-        if (selectedKbmSlots.length > 0) {
-            const firstSlot = selectedKbmSlots[0];
-            const lastSlot = selectedKbmSlots[selectedKbmSlots.length - 1];
-            hasIstirahat = allSlots.some(s => s.jenis === 'istirahat' && s.jam_mulai >= firstSlot.jam_mulai && s.jam_selesai <= lastSlot.jam_selesai);
-        }
-
-        let note = '';
-        if (hasIstirahat) {
-            note = ' &bull; <span class="text-warning-emphasis fw-semibold">(Melewati Jam Istirahat)</span>';
-        }
-
         if (mulaiVal === selesaiVal) {
-            labelEl.innerHTML = `Terpilih: <strong>${totalJp} JP</strong> (Jam ${mulaiVal})${note}`;
+            labelEl.innerHTML = `Terpilih: <strong>${totalJp} JP</strong> (Jam ${mulaiVal})`;
         } else {
-            labelEl.innerHTML = `Terpilih: <strong>${totalJp} JP</strong> (Jam ${mulaiVal} s/d Jam ${selesaiVal})${note}`;
+            labelEl.innerHTML = `Terpilih: <strong>${totalJp} JP</strong> (Jam ${mulaiVal} s/d Jam ${selesaiVal})`;
         }
 
         badgeEl.textContent = `${totalJp} JP`;
@@ -841,7 +961,6 @@
         }
 
         refreshDropdownAvailability();
-        updateJpInfo();
     }
 
     function preparePlotModalEdit(groupId, idKelas, idMapel, idGuru, idRuangan, idJam) {
@@ -896,71 +1015,178 @@
         if (ruanganEl) ruanganEl.value = idRuangan ? idRuangan : '';
 
         refreshDropdownAvailability();
-        updateJpInfo();
 
         const modal = new bootstrap.Modal(document.getElementById('modalPlottingJadwal'));
         modal.show();
     }
 
+    // ===== Toast peringatan Plotting =====
+    function showToast(message, type) {
+        const container = document.getElementById('toastPlottingContainer');
+        if (!container || typeof bootstrap === 'undefined') {
+            window.alert(message);
+            return;
+        }
+        const color = (type === 'danger' || type === 'error') ? 'danger' : (type === 'success' ? 'success' : 'warning');
+        const icon = color === 'danger' ? 'bi-exclamation-triangle-fill'
+            : (color === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill');
+        const el = document.createElement('div');
+        el.className = 'toast align-items-center text-bg-' + color + ' border-0 shadow rounded-3';
+        el.setAttribute('role', 'alert');
+        el.setAttribute('aria-live', 'assertive');
+        el.setAttribute('aria-atomic', 'true');
+        el.innerHTML = '<div class="d-flex"><div class="toast-body fw-semibold" style="font-size:0.82rem;">' +
+            '<i class="bi ' + icon + ' me-2"></i>' + message +
+            '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Tutup"></button></div>';
+        container.appendChild(el);
+        const toast = new bootstrap.Toast(el, { delay: 6000 });
+        el.addEventListener('hidden.bs.toast', function () { el.remove(); });
+        toast.show();
+    }
+
+    // Label suffix sumber pengunci slot untuk dropdown
+    function lockSuffixFor(s) {
+        if (s.lock_reason === 'istirahat') return 'ISTIRAHAT';
+        if (s.lock_reason === 'agenda') return s.lock_label || 'AGENDA';
+        if (s.lock_reason === 'pulang') return 'PULANG SEKOLAH';
+        return null;
+    }
+
+    function optionDisabled(select, value) {
+        for (let i = 0; i < select.options.length; i++) {
+            if (String(select.options[i].value) === String(value)) return select.options[i].disabled;
+        }
+        return true;
+    }
+
+    // Bangun ulang opsi "Dari/Sampai Jam Ke-" dari allSlots.
+    // Setiap slot terkunci (Non-KBM/istirahat, Agenda Rutin, Pulang Sekolah) & slot terisi
+    // menjadi option disabled (redup) dengan suffix label yang jelas.
+    function rebuildJamOptions() {
+        const mulaiEl = document.getElementById('plotJamKeMulai');
+        const selesaiEl = document.getElementById('plotJamKeSelesai');
+        if (!mulaiEl || !selesaiEl) return;
+
+        const prevMulai = mulaiEl.value;
+        const prevSelesai = selesaiEl.value;
+        const sorted = allSlots.slice().sort((a, b) => (a.jam_mulai || '').localeCompare(b.jam_mulai || ''));
+
+        function buildList(select) {
+            select.innerHTML = '<option value="">— Pilih Jam —</option>';
+            sorted.forEach(function (s) {
+                const wkt = (s.jam_mulai || '').replace(':', '.') + ' - ' + (s.jam_selesai || '').replace(':', '.');
+                const opt = document.createElement('option');
+
+                if (s.jam_ke === null || s.jenis === 'istirahat') {
+                    opt.value = 'ist';
+                    opt.disabled = true;
+                    opt.className = 'jam-option-locked';
+                    opt.textContent = 'Istirahat (' + wkt + ') - [ISTIRAHAT]';
+                    select.appendChild(opt);
+                    return;
+                }
+
+                opt.value = String(s.jam_ke);
+                const exempt = plotEditExemptJamKe.has(parseInt(s.jam_ke, 10));
+                const hardLock = (s.lock_reason === 'istirahat' || s.lock_reason === 'agenda' || s.lock_reason === 'pulang');
+                const occupied = !!s.is_plotted && !exempt;
+
+                let suffix = null;
+                if (hardLock) {
+                    suffix = lockSuffixFor(s);
+                } else if (occupied) {
+                    suffix = 'SUDAH TERISI' + (s.mapel ? ': ' + s.mapel : '');
+                }
+
+                if (suffix) {
+                    opt.disabled = true;
+                    opt.className = 'jam-option-locked';
+                    opt.textContent = 'Jam ' + s.jam_ke + ' (' + wkt + ') - [' + suffix + ']';
+                } else {
+                    opt.textContent = 'Jam ' + s.jam_ke + ' (' + wkt + ')';
+                }
+                select.appendChild(opt);
+            });
+        }
+
+        buildList(mulaiEl);
+        buildList(selesaiEl);
+
+        // Pulihkan nilai sebelumnya jika masih valid (tidak disabled)
+        if (prevMulai && !optionDisabled(mulaiEl, prevMulai)) mulaiEl.value = prevMulai;
+        if (prevSelesai && !optionDisabled(selesaiEl, prevSelesai)) selesaiEl.value = prevSelesai;
+    }
+
+    // Cari seluruh slot terkunci/terisi di dalam rentang [mulaiVal..selesaiVal] (inklusif).
+    function findBlockedSlotsInRange(mulaiVal, selesaiVal) {
+        const blocked = [];
+        if (isNaN(mulaiVal) || isNaN(selesaiVal)) return blocked;
+
+        const kbmInRange = allSlots.filter(s =>
+            s.jam_ke !== null && s.jenis !== 'istirahat' &&
+            s.jam_ke >= mulaiVal && s.jam_ke <= selesaiVal
+        );
+
+        kbmInRange.forEach(function (s) {
+            if (plotEditExemptJamKe.has(s.jam_ke)) return;
+
+            const hardLock = (s.lock_reason === 'agenda' || s.lock_reason === 'pulang' || s.lock_reason === 'istirahat');
+            if (hardLock || !!s.is_plotted) {
+                blocked.push({
+                    jam_ke: s.jam_ke,
+                    label: lockSuffixFor(s) || (s.is_plotted ? 'SUDAH TERISI' : 'TERKUNCI'),
+                    mapel: s.mapel || null,
+                });
+            }
+        });
+
+        // Istirahat yang terentang di dalam rentang waktu
+        if (kbmInRange.length > 0) {
+            const rangeMulai = Math.min(...kbmInRange.map(s => s.jam_mulai));
+            const rangeSelesai = Math.max(...kbmInRange.map(s => s.jam_selesai));
+            const spansIstirahat = allSlots.some(s =>
+                s.jenis === 'istirahat' &&
+                s.jam_mulai < rangeSelesai &&
+                s.jam_selesai > rangeMulai
+            );
+            if (spansIstirahat) {
+                blocked.push({ jam_ke: null, label: 'ISTIRAHAT', mapel: null });
+            }
+        }
+
+        return blocked;
+    }
+
     function refreshDropdownAvailability() {
         const mulaiEl = document.getElementById('plotJamKeMulai');
         const selesaiEl = document.getElementById('plotJamKeSelesai');
-        if (!mulaiEl || !selesaiEl || !allSlots.length) return;
+        if (!mulaiEl || !selesaiEl) return;
 
-        // 1. Untuk setiap slot JP yang sudah terisi: disable pada kedua dropdown (kecuali milik jadwal yang sedang di-edit)
-        allSlots.forEach(function (s) {
-            if (s.jam_ke === null || s.jam_ke === undefined) return;
-            const occupied = !!s.is_plotted && !plotEditExemptJamKe.has(s.jam_ke);
-
-            [mulaiEl, selesaiEl].forEach(function (select) {
-                for (let i = 0; i < select.options.length; i++) {
-                    if (parseInt(select.options[i].value) === parseInt(s.jam_ke)) {
-                        select.options[i].disabled = occupied;
-                        const base = select.options[i].textContent.replace(/ - \[Sudah Terisi\]$/, '');
-                        select.options[i].textContent = occupied ? base + ' - [Sudah Terisi]' : base;
-                    }
-                }
-            });
-        });
-
-        // 2. Jika nilai terpilih kini menjadi disabled (tidak valid), pindah ke opsi pertama yang masih tersedia
-        let mulaiVal = parseInt(mulaiEl.value) || 1;
-        let selesaiVal = parseInt(selesaiEl.value) || 1;
-
-        if (mulaiEl.selectedOptions[0] && mulaiEl.selectedOptions[0].disabled) {
-            const firstEnabled = Array.from(mulaiEl.options).find(o => !o.disabled);
-            mulaiVal = firstEnabled ? parseInt(firstEnabled.value) : mulaiVal;
-        }
-        if (selesaiEl.selectedOptions[0] && selesaiEl.selectedOptions[0].disabled) {
-            const firstEnabled = Array.from(selesaiEl.options).find(o => !o.disabled && parseInt(o.value) >= mulaiVal);
-            selesaiVal = firstEnabled ? parseInt(firstEnabled.value) : Math.max(mulaiVal, selesaiVal);
-        }
-        if (selesaiVal < mulaiVal) selesaiVal = mulaiVal;
-
-        mulaiEl.value = String(mulaiVal);
-        selesaiEl.value = String(selesaiVal);
+        rebuildJamOptions();
+        updateJpInfo();
     }
 
+    // Validasi rentang (frontend): jika ada slot terkunci/istirahat/terisi -> reset & peringatan.
+    // Mengembalikan true bila rentang aman (tidak ada konflik).
     function runRangeConflictCheck() {
         const mulaiEl = document.getElementById('plotJamKeMulai');
         const selesaiEl = document.getElementById('plotJamKeSelesai');
         const boxError = document.getElementById('boxJamKonflik');
         const labelError = document.getElementById('labelJamKonflik');
         const btnSimpan = document.getElementById('btnSimpanPlotting');
-        if (!mulaiEl || !selesaiEl || !boxError || !labelError || !btnSimpan) return;
+        if (!mulaiEl || !selesaiEl || !boxError || !labelError || !btnSimpan) return false;
 
-        const mulaiVal = parseInt(mulaiEl.value) || 1;
-        const selesaiVal = parseInt(selesaiEl.value) || 1;
+        const mulaiVal = parseInt(mulaiEl.value, 10);
+        const selesaiVal = parseInt(selesaiEl.value, 10);
 
-        // Cari slot terisi lain di dalam rentang: is_plotted && bukan milik jadwal yang sedang di-edit
-        const konflik = allSlots.filter(s =>
-            s.jam_ke !== null &&
-            s.jenis !== 'istirahat' &&
-            s.jam_ke >= mulaiVal &&
-            s.jam_ke <= selesaiVal &&
-            !!s.is_plotted &&
-            !plotEditExemptJamKe.has(s.jam_ke)
-        );
+        if (isNaN(mulaiVal) || isNaN(selesaiVal) || selesaiVal < mulaiVal) {
+            boxError.classList.add('d-none');
+            boxError.classList.remove('d-flex');
+            btnSimpan.disabled = true;
+            return false;
+        }
+
+        const konflik = findBlockedSlotsInRange(mulaiVal, selesaiVal);
 
         [mulaiEl, selesaiEl].forEach(function (el) {
             el.classList.toggle('is-invalid', konflik.length > 0);
@@ -968,18 +1194,24 @@
 
         if (konflik.length > 0) {
             const detail = konflik
-                .map(s => `Jam ${s.jam_ke} (${s.jam_mulai} - ${s.jam_selesai})${s.mapel ? ' - ' + s.mapel : ''}`)
+                .map(x => (x.jam_ke === null ? 'Istirahat' : 'Jam ' + x.jam_ke) + ' [' + x.label + ']' + (x.mapel ? ' - ' + x.mapel : ''))
                 .join(', ');
-            labelError.textContent = 'Rentang jam yang dipilih menabrak slot yang sudah terisi: ' + detail + '. Silakan pilih rentang lain tanpa slot terisi di tengahnya.';
+            labelError.textContent = 'Rentang jam menabrak slot yang terkunci, istirahat, atau sudah terisi mapel lain (' + detail + '). Pilih rentang lain.';
             boxError.classList.remove('d-none');
             boxError.classList.add('d-flex');
             btnSimpan.disabled = true;
-            return;
+
+            // Reset/kosongkan pilihan agar user memilih ulang
+            mulaiEl.value = '';
+            selesaiEl.value = '';
+            showToast('Rentang jam menabrak slot yang terkunci, istirahat, atau sudah terisi mapel lain!', 'danger');
+            return false;
         }
 
         boxError.classList.add('d-none');
         boxError.classList.remove('d-flex');
         btnSimpan.disabled = false;
+        return true;
     }
 
     function onMulaiChange() {
@@ -987,10 +1219,10 @@
         const selesaiEl = document.getElementById('plotJamKeSelesai');
         if (!mulaiEl || !selesaiEl) return;
 
-        const mulaiVal = parseInt(mulaiEl.value) || 1;
-        const selesaiVal = parseInt(selesaiEl.value) || 1;
+        const mulaiVal = parseInt(mulaiEl.value, 10);
+        const selesaiVal = parseInt(selesaiEl.value, 10);
 
-        if (selesaiVal < mulaiVal) {
+        if (!isNaN(mulaiVal) && !isNaN(selesaiVal) && selesaiVal < mulaiVal) {
             selesaiEl.value = mulaiVal;
         }
         updateJpInfo();
@@ -1001,13 +1233,82 @@
         const selesaiEl = document.getElementById('plotJamKeSelesai');
         if (!mulaiEl || !selesaiEl) return;
 
-        const mulaiVal = parseInt(mulaiEl.value) || 1;
-        const selesaiVal = parseInt(selesaiEl.value) || 1;
+        const mulaiVal = parseInt(mulaiEl.value, 10);
+        const selesaiVal = parseInt(selesaiEl.value, 10);
 
-        if (selesaiVal < mulaiVal) {
+        if (!isNaN(mulaiVal) && !isNaN(selesaiVal) && selesaiVal < mulaiVal) {
             mulaiEl.value = selesaiVal;
         }
         updateJpInfo();
     }
+
+    // ===== Submit Plotting via fetch: respon JSON 422 dari server ditampilkan via toast =====
+    document.addEventListener('DOMContentLoaded', function () {
+        const plotForm = document.getElementById('formPlottingJadwal');
+        if (!plotForm) return;
+
+        plotForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            if (!plotForm.reportValidity()) return;
+
+            // Guard frontend terakhir: tolak rentang yang menabrak slot terkunci
+            if (!runRangeConflictCheck()) {
+                showToast('Rentang jam menabrak slot yang terkunci, istirahat, atau sudah terisi mapel lain!', 'danger');
+                return;
+            }
+
+            const btn = document.getElementById('btnSimpanPlotting');
+            const originalBtnHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Menyimpan...';
+            }
+
+            const fd = new FormData(plotForm);
+            const tokenEl = plotForm.querySelector('input[name="_token"]');
+
+            fetch(plotForm.action, {
+                method: 'POST',
+                body: fd,
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': tokenEl ? tokenEl.value : '',
+                },
+            })
+            .then(function (resp) {
+                const ct = resp.headers.get('content-type') || '';
+                if (ct.includes('application/json')) {
+                    return resp.json().then(function (data) {
+                        return { ok: resp.ok, data: data };
+                    });
+                }
+                return { ok: resp.ok, data: null };
+            })
+            .then(function (result) {
+                if (result.ok) {
+                    showToast('Plotting jadwal berhasil disimpan.', 'success');
+                    setTimeout(function () { window.location.reload(); }, 900);
+                    return;
+                }
+                const msg = (result.data && result.data.message)
+                    ? result.data.message
+                    : 'Gagal menyimpan! Terdapat slot terkunci atau bentrok dalam rentang jam yang dipilih.';
+                showToast(msg, 'danger');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalBtnHtml;
+                }
+            })
+            .catch(function () {
+                // Fallback bila fetch gagal: biarkan reload agar flash error server tampil
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalBtnHtml;
+                }
+                window.location.reload();
+            });
+        });
+    });
 </script>
 @endpush

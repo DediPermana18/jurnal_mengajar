@@ -47,7 +47,7 @@ class GuruPortalController extends Controller
         }
 
         $hari       = $this->hariIndonesia();
-        $tahunAktif = TahunAjaran::where('status_aktif', true)->first();
+        $tahunAktif = TahunAjaran::where('is_active', true)->first();
 
         // ===== Jadwal mengajar hari ini milik guru ini =====
         $jadwalQuery = JadwalPelajaran::with(['jamPelajaran', 'kelas', 'mapel'])

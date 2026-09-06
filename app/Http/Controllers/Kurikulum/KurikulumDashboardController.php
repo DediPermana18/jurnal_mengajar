@@ -63,7 +63,7 @@ class KurikulumDashboardController extends Controller
         $izinMenungguApproval = IzinGuru::where('status', IzinGuru::STATUS_PENDING_WAKA)->count();
 
         // 4. Stat Card 4: Guru Mengajar Hari Ini
-        $tahunAktif = TahunAjaran::where('status_aktif', true)->first() ?? TahunAjaran::first();
+        $tahunAktif = TahunAjaran::where('is_active', true)->first() ?? TahunAjaran::first();
 
         $guruMengajarHariIni = JadwalPelajaran::where('hari', $hariIniStr)
             ->when($tahunAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))

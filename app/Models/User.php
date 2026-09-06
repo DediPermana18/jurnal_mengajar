@@ -30,11 +30,12 @@ class User extends Authenticatable
      * Kode role yang dapat dipilih oleh Petugas IT pada fitur "Switch View As".
      */
     public const PREVIEW_ROLES = [
-        'admin_tu'      => 'Admin TU',
+        'admin_tu'       => 'Admin TU',
         'waka_kurikulum' => 'Waka Kurikulum',
-        'guru_piket'    => 'Guru Piket',
-        'guru_mapel'    => 'Guru Mapel',
-        'siswa'         => 'Siswa',
+        'waka_sdm'       => 'Waka SDM',
+        'guru_piket'     => 'Guru Piket',
+        'guru_mapel'     => 'Guru Mapel',
+        'siswa'          => 'Siswa',
     ];
 
     public const ADMIN_SUB_ROLES = [
@@ -209,6 +210,15 @@ class User extends Authenticatable
     {
         return ($this->role === 'admin' && $this->sub_role === 'satpam')
             || $this->role === 'piket_satpam';
+    }
+
+    /**
+     * Apakah user ini adalah Waka SDM / Kepegawaian?
+     */
+    public function isWakaSdm(): bool
+    {
+        return ($this->role === 'admin' && $this->sub_role === 'waka_sdm')
+            || $this->role === 'waka_sdm';
     }
 
     /**

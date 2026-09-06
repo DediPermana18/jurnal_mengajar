@@ -78,6 +78,13 @@ Route::resource('admin/jurusan', JurusanController::class);
 use App\Http\Controllers\RuanganController;
 Route::resource('admin/ruangan', RuanganController::class)->only(['index', 'store', 'update', 'destroy']);
 
+use App\Http\Controllers\TahunAjaranController;
+Route::resource('admin/tahun-ajaran', TahunAjaranController::class)
+    ->only(['index', 'store', 'update', 'destroy'])
+    ->names('tahun-ajaran');
+Route::post('/admin/tahun-ajaran/{tahunAjaran}/set-aktif', [TahunAjaranController::class, 'setAktif'])
+    ->name('tahun-ajaran.set-aktif');
+
 Route::resource('admin/mata-pelajaran', MataPelajaranController::class)->names('mapel');
 
 Route::redirect('/admin/laporan', '/kurikulum/laporan')->name('laporan.index');
@@ -211,7 +218,9 @@ Route::prefix('admin')->middleware(['auth', AdminScheduleAccess::class])->group(
     Route::post('/jam-pelajaran', [JamPelajaranController::class, 'store'])->name('admin.jam-pelajaran.store');
     Route::put('/jam-pelajaran/{jamPelajaran}', [JamPelajaranController::class, 'update'])->name('admin.jam-pelajaran.update');
     Route::delete('/jam-pelajaran/{jamPelajaran}', [JamPelajaranController::class, 'destroy'])->name('admin.jam-pelajaran.destroy');
+    Route::delete('/jam-pelajaran/truncate/{kategori_hari}', [JamPelajaranController::class, 'destroyAll'])->name('admin.jam-pelajaran.destroy-all');
     Route::post('/jam-pelajaran/generate-preset', [JamPelajaranController::class, 'generatePreset'])->name('admin.jam-pelajaran.generate');
+    Route::get('/jam-pelajaran/generate-check', [JamPelajaranController::class, 'checkGeneratePreset'])->name('admin.jam-pelajaran.generate-check');
     Route::post('/jam-pulang/upsert', [JamPulangController::class, 'upsert'])->name('admin.jam-pulang.upsert');
     Route::post('/agenda-rutin/upsert', [AgendaRutinController::class, 'upsert'])->name('admin.agenda-rutin.upsert');
     Route::post('/toggle-senin-tanpa-upacara', [PengaturanJadwalController::class, 'toggleSeninTanpaUpacara'])->name('admin.toggle-senin-tanpa-upacara');
@@ -224,3 +233,16 @@ Route::prefix('admin')->middleware(['auth', AdminScheduleAccess::class])->group(
     Route::delete('/jadwal/{jadwalPelajaran}', [JadwalPelajaranController::class, 'destroy'])->name('admin.jadwal.destroy');
     Route::get('/jadwal-pelajaran', fn() => redirect()->route('admin.jadwal.index'));
 });
+
+// ================= ROUTE PORTAL WAKA SDM (KEPEGAWAIAN) =================
+use App\Http\Controllers\WakaSdmController;
+
+Route::prefix('admin/waka-sdm')->middleware(['auth'])->group(function () {
+    Route::get('/dashboard',                  [WakaSdmController::class, 'dashboard'])->name('waka-sdm.dashboard');
+    Route::get('/rekap-izin',                  [WakaSdmController::class, 'rekapIzin'])->name('waka-sdm.rekap-izin');
+    Route::get('/rekap-presensi-guru',         [WakaSdmController::class, 'rekapPresensiGuru'])->name('waka-sdm.rekap-presensi-guru');
+    Route::get('/rekap-presensi-guru/export-excel', [WakaSdmController::class, 'exportExcelPresensi'])->name('waka-sdm.export-excel');
+    Route::get('/rekap-presensi-guru/print',   [WakaSdmController::class, 'printPresensi'])->name('waka-sdm.print-presensi');
+    Route::get('/izin/{id}/lampiran',          [WakaSdmController::class, 'showLampiran'])->name('waka-sdm.izin.lampiran');
+});
+

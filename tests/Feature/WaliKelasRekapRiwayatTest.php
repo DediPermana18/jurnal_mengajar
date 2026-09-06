@@ -49,7 +49,7 @@ class WaliKelasRekapRiwayatTest extends TestCase
         $tahun = TahunAjaran::create([
             'tahun_ajaran' => '2025/2026',
             'semester'     => 'Ganjil',
-            'status_aktif' => true,
+            'is_active' => true,
         ]);
 
         $suffix = Str::random(3);

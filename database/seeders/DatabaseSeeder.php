@@ -2,61 +2,61 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 class DatabaseSeeder extends Seeder
 {
     /**
      * Run the database seeds.
-     *
-     * Menghasilkan 1 akun Admin Tata Usaha (TU) default beserta informasi login.
+     * Orchestrator utama pemanggilan seluruh database seeder modular.
      */
     public function run(): void
     {
-        $nama     = 'Administrator TU';
-        $email    = 'admin@school.id';
-        $username = 'admin';
-        $password = 'password';
-
-        User::updateOrCreate(
-            ['email' => $email],
-            [
-                'nama'          => $nama,
-                'username'      => $username,
-                'password'      => Hash::make($password),
-                'kode_aktivasi' => null,
-                'role'          => 'admin',
-                'sub_role'      => 'petugas_tu',
-                'is_active'     => true,
-            ]
-        );
-
         $this->command->info('');
-        $this->command->info('================================================');
-        $this->command->info(' Akun Admin Tata Usaha berhasil dibuat.');
-        $this->command->info('------------------------------------------------');
-        $this->command->info(" Nama     : {$nama}");
-        $this->command->info(" Email    : {$email}");
-        $this->command->info(" Password : {$password}");
-        $this->command->info(' Role     : Admin Tata Usaha (TU)');
-        $this->command->info('================================================');
-        $this->command->info('');
+        $this->command->info('===================================================================');
+        $this->command->info('  MEMULAI PROSES DATABASE SEEDING SYSTEM (jurnal_guru_digital)');
+        $this->command->info('===================================================================');
 
-        // ============ DATA RUANGAN SMK (R-01 s.d. R-10) ============
+        // Matikan Foreign Key Constraints agar truncate/seed berjalan mulus tanpa foreign key error
+        Schema::disableForeignKeyConstraints();
+
+        // 1. MASTER DATA & DEPENDENSI AWAL
+        $this->call(TahunAjaranSeeder::class);
+        $this->call(JurusanSeeder::class);
         $this->call(RuanganSeeder::class);
+        $this->call(JamPelajaranSeeder::class);
+        $this->call(PengaturanJadwalSeeder::class);
 
-        // ============ DATA KELAS XI SMK (10 Kelas) ============
+        // 2. USERS & AKADEMIK
+        $this->call(UserSeeder::class);
         $this->call(KelasSeeder::class);
-
-        // ============ DATA MATA PELAJARAN (Umum, Mulok, Kejuruan) ============
+        $this->call(SiswaSeeder::class);
         $this->call(MapelSeeder::class);
 
-        // ============ DATA GURU REALISTIS (12 Guru + Akun Login + Wali Kelas) ============
-        $this->call(GuruSeeder::class);
+        // 3. PLOTTING & JADWAL
+        $this->call(JadwalPelajaranSeeder::class);
+        $this->call(JadwalPiketSeeder::class);
+        $this->call(PengurusRuanganSeeder::class);
 
-        // ============ DATA SISWA KELAS XI (10 Kelas x 5 Siswa = 50 Siswa) ============
-        $this->call(SiswaSeeder::class);
+        // 4. TRANSAKSI DUMMY & LOG
+        $this->call(TransaksiSeeder::class);
+
+        // Aktifkan kembali Foreign Key Constraints
+        Schema::enableForeignKeyConstraints();
+
+        $this->command->info('');
+        $this->command->info('===================================================================');
+        $this->command->info('  DATABASE SEEDING BERHASIL DISELESAIKAN SECARA KESELURUHAN!');
+        $this->command->info('===================================================================');
+        $this->command->info(' Credentials Default Login:');
+        $this->command->info('  - Admin TU          : admin / password');
+        $this->command->info('  - Waka Kurikulum    : waka.kurikulum / password');
+        $this->command->info('  - Waka SDM          : waka.sdm / password');
+        $this->command->info('  - Satpam            : satpam / password');
+        $this->command->info('  - Petugas IT        : petugas.it / password');
+        $this->command->info('  - Akun Guru         : [username_guru] / password (mis. budi.santoso, ahmad.fauzi, dll)');
+        $this->command->info('===================================================================');
+        $this->command->info('');
     }
 }

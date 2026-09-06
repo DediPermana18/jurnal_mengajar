@@ -30,11 +30,9 @@ class JamPelajaran extends Model
     public function getJenisLabelAttribute(): string
     {
         return match ($this->jenis) {
-            'kbm'        => 'KBM',
-            'istirahat'  => 'Istirahat',
-            'upacara'    => 'Upacara',
-            'pembiasaan' => 'Pembiasaan',
-            default      => ucfirst($this->jenis ?? '-'),
+            'kbm'       => 'KBM',
+            'istirahat' => 'Istirahat',
+            default     => ucfirst($this->jenis ?? '-'),
         };
     }
 

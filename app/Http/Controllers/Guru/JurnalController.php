@@ -207,7 +207,7 @@ class JurnalController extends Controller
         $hari = $this->hariIndonesia();
         $today = Carbon::today()->toDateString();
 
-        $tahunAktif = TahunAjaran::where('status_aktif', true)->first();
+        $tahunAktif = TahunAjaran::where('is_active', true)->first();
 
         $query = JadwalPelajaran::with(['jamPelajaran', 'kelas', 'mapel'])
             ->where('id_guru', $user->id)

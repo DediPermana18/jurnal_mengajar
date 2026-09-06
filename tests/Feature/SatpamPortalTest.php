@@ -83,7 +83,7 @@ class SatpamPortalTest extends TestCase
         $tahun = TahunAjaran::create([
             'tahun_ajaran' => '2025/2026',
             'semester'     => 'Ganjil',
-            'status_aktif' => true,
+            'is_active' => true,
         ]);
 
         $mapel = MataPelajaran::create(['nama_mapel' => 'Matematika', 'kode_mapel' => 'MTK']);

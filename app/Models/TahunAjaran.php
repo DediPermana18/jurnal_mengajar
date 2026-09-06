@@ -16,13 +16,13 @@ class TahunAjaran extends Model
     protected $fillable = [
         'tahun_ajaran',
         'semester',
-        'status_aktif',
+        'is_active',
     ];
 
     protected function casts(): array
     {
         return [
-            'status_aktif' => 'boolean',
+            'is_active' => 'boolean',
         ];
     }
 

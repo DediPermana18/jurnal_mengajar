@@ -79,7 +79,7 @@ class DispensasiController extends Controller
             ->orderBy('jam_ke')
             ->get();
 
-        $tahunAktif = TahunAjaran::where('status_aktif', true)->first();
+        $tahunAktif = TahunAjaran::where('is_active', true)->first();
 
         $jadwalQuery = JadwalPelajaran::with(['jamPelajaran', 'kelas', 'mapel', 'guru']);
         if ($tahunAktif) {

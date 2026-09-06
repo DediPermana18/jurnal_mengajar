@@ -9,152 +9,174 @@ use Illuminate\Support\Facades\Hash;
 class UserSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Seed Data Master User:
+     * - Admin TU, Waka Kurikulum, Waka SDM, Satpam, Petugas IT
+     * - Daftar Guru (Budi Santoso, Agus Setiawan, Siti Rahmawati, Ahmad Fauzi, Eko Prasetyo, Rina Wulandari, Hendra Wijaya, Retno Utami, Bambang Hermanto, Dewi Lestari)
      */
     public function run(): void
     {
-        // Bersihkan data user kesiswaan atau kepala sekolah jika masih ada
-        User::withTrashed()->whereIn('username', ['kesiswaan', 'kepala_sekolah'])->forceDelete();
+        $defaultPassword = Hash::make('password');
 
-        // 1. Super Admin
-        User::updateOrCreate(
-            ['username' => 'superadmin'],
+        // 1. ADMIN & STRUKTURAL / STAFF
+        $staffs = [
             [
-                'nama'          => 'Super Admin System',
-                'nip'           => '198501012010011001',
-                'password'      => Hash::make('password123'),
-                'kode_aktivasi' => 'SUPER123',
-                'role'          => 'admin',
-                'sub_role'      => null,
-                'is_active'     => true,
-            ]
-        );
+                'username'  => 'admin',
+                'nama'      => 'Administrator TU',
+                'nip'       => '198702022012011002',
+                'email'     => 'admin@school.id',
+                'no_hp'     => '081234567001',
+                'role'      => User::ROLE_ADMIN,
+                'sub_role'  => 'petugas_tu',
+            ],
+            [
+                'username'  => 'waka.kurikulum',
+                'nama'      => 'Dr. H. Subagyo, M.Pd.',
+                'nip'       => '197508122002121001',
+                'email'     => 'waka.kurikulum@school.id',
+                'no_hp'     => '081234567002',
+                'role'      => User::ROLE_ADMIN,
+                'sub_role'  => 'waka_kurikulum',
+            ],
+            [
+                'username'  => 'waka.sdm',
+                'nama'      => 'Drs. Supriyanto, M.M.',
+                'nip'       => '197804152005011004',
+                'email'     => 'waka.sdm@school.id',
+                'no_hp'     => '081234567003',
+                'role'      => User::ROLE_ADMIN,
+                'sub_role'  => 'waka_sdm',
+            ],
+            [
+                'username'  => 'satpam',
+                'nama'      => 'Sugianto',
+                'nip'       => '199001012018011099',
+                'email'     => 'satpam@school.id',
+                'no_hp'     => '081234567004',
+                'role'      => User::ROLE_ADMIN,
+                'sub_role'  => 'satpam',
+            ],
+            [
+                'username'  => 'petugas.it',
+                'nama'      => 'Rian Hidayat, S.Kom.',
+                'nip'       => '199305202020011005',
+                'email'     => 'it@school.id',
+                'no_hp'     => '081234567005',
+                'role'      => User::ROLE_PETUGAS_IT,
+                'sub_role'  => null,
+            ],
+        ];
 
-        // 2. Admin TU (Tata Usaha)
-        User::updateOrCreate(
-            ['username' => 'admintu'],
-            [
-                'nama'          => 'Admin Tata Usaha (TU)',
-                'nip'           => '198702022012011002',
-                'password'      => Hash::make('password123'),
-                'kode_aktivasi' => 'ADMIN123',
-                'role'          => 'admin',
-                'sub_role'      => 'petugas_tu',
-                'is_active'     => true,
-            ]
-        );
+        foreach ($staffs as $s) {
+            User::updateOrCreate(
+                ['username' => $s['username']],
+                [
+                    'nama'          => $s['nama'],
+                    'nip'           => $s['nip'],
+                    'email'         => $s['email'],
+                    'no_hp'         => $s['no_hp'],
+                    'password'      => $defaultPassword,
+                    'kode_aktivasi' => null,
+                    'role'          => $s['role'],
+                    'sub_role'      => $s['sub_role'],
+                    'is_active'     => true,
+                ]
+            );
+        }
 
-        // Alias 'admin' untuk Admin TU (memastikan kompatibilitas test login)
-        User::updateOrCreate(
-            ['username' => 'admin'],
+        // 2. DAFTAR GURU REALISTIS
+        $guruList = [
             [
-                'nama'          => 'Administrator Utama',
-                'nip'           => '198702022012011000',
-                'password'      => Hash::make('password123'),
-                'kode_aktivasi' => 'ADMIN1234',
-                'role'          => 'admin',
-                'sub_role'      => 'petugas_tu',
-                'is_active'     => true,
-            ]
-        );
+                'nama'     => 'Budi Santoso, S.Kom.',
+                'username' => 'budi.santoso',
+                'nip'      => '198503122010011001',
+                'email'    => 'budi.santoso@school.id',
+                'no_hp'    => '081234567801',
+            ],
+            [
+                'nama'     => 'Agus Setiawan, S.Pd.',
+                'username' => 'agus.setiawan',
+                'nip'      => '199106202019031005',
+                'email'    => 'agus.setiawan@school.id',
+                'no_hp'    => '081234567802',
+            ],
+            [
+                'nama'     => 'Siti Rahmawati, S.Pd.',
+                'username' => 'siti.rahmawati',
+                'nip'      => '198807242012022005',
+                'email'    => 'siti.rahmawati@school.id',
+                'no_hp'    => '081234567803',
+            ],
+            [
+                'nama'     => 'Ir. Ahmad Fauzi, M.T.',
+                'username' => 'ahmad.fauzi',
+                'nip'      => '198111052008011003',
+                'email'    => 'ahmad.fauzi@school.id',
+                'no_hp'    => '081234567804',
+            ],
+            [
+                'nama'     => 'Eko Prasetyo, S.Sn., M.Ds.',
+                'username' => 'eko.prasetyo',
+                'nip'      => '199002152015041001',
+                'email'    => 'eko.prasetyo@school.id',
+                'no_hp'    => '081234567805',
+            ],
+            [
+                'nama'     => 'Rina Wulandari, S.E., M.M.',
+                'username' => 'rina.wulandari',
+                'nip'      => '198709102011012008',
+                'email'    => 'rina.wulandari@school.id',
+                'no_hp'    => '081234567806',
+            ],
+            [
+                'nama'     => 'Hendra Wijaya, S.T.',
+                'username' => 'hendra.wijaya',
+                'nip'      => '199204082018011004',
+                'email'    => 'hendra.wijaya@school.id',
+                'no_hp'    => '081234567807',
+            ],
+            [
+                'nama'     => 'Dr. Retno Utami, M.Si.',
+                'username' => 'retno.utami',
+                'nip'      => '197808142005012002',
+                'email'    => 'retno.utami@school.id',
+                'no_hp'    => '081234567808',
+            ],
+            [
+                'nama'     => 'Bambang Hermanto, S.Ag.',
+                'username' => 'bambang.hermanto',
+                'nip'      => '198310122009021003',
+                'email'    => 'bambang.hermanto@school.id',
+                'no_hp'    => '081234567809',
+            ],
+            [
+                'nama'     => 'Dewi Lestari, S.Pd.',
+                'username' => 'dewi.lestari',
+                'nip'      => '199403162020122007',
+                'email'    => 'dewi.lestari@school.id',
+                'no_hp'    => '081234567810',
+            ],
+        ];
 
-        // 3. Waka Kurikulum
-        User::updateOrCreate(
-            ['username' => 'kurikulum'],
-            [
-                'nama'          => 'Waka Kurikulum',
-                'nip'           => '198803032013011003',
-                'password'      => Hash::make('password123'),
-                'kode_aktivasi' => 'KURIKULUM123',
-                'role'          => 'admin',
-                'sub_role'      => 'waka_kurikulum',
-                'is_active'     => true,
-            ]
-        );
+        $guruCount = 0;
+        foreach ($guruList as $g) {
+            User::updateOrCreate(
+                ['username' => $g['username']],
+                [
+                    'nama'          => $g['nama'],
+                    'nip'           => $g['nip'],
+                    'email'         => $g['email'],
+                    'no_hp'         => $g['no_hp'],
+                    'password'      => $defaultPassword,
+                    'kode_aktivasi' => null,
+                    'role'          => User::ROLE_GURU,
+                    'sub_role'      => 'guru_mapel',
+                    'is_active'     => true,
+                ]
+            );
+            $guruCount++;
+        }
 
-        // 4. Guru Mapel
-        User::updateOrCreate(
-            ['username' => 'gurubudi'],
-            [
-                'nama'          => 'Budi Santoso, S.Pd. (Guru Mapel)',
-                'nip'           => '199003032015011005',
-                'password'      => Hash::make('password123'),
-                'kode_aktivasi' => null,
-                'role'          => 'guru',
-                'sub_role'      => 'guru_mapel',
-                'is_active'     => true,
-            ]
-        );
-
-        // Alias 'guru' untuk Guru Testing
-        User::updateOrCreate(
-            ['username' => 'guru'],
-            [
-                'nama'          => 'Guru Pengajar Utama',
-                'nip'           => '199003032015011000',
-                'password'      => Hash::make('password123'),
-                'kode_aktivasi' => null,
-                'role'          => 'guru',
-                'sub_role'      => 'guru_mapel',
-                'is_active'     => true,
-            ]
-        );
-
-        // 5. Wali Kelas
-        User::updateOrCreate(
-            ['username' => 'gurahmad'],
-            [
-                'nama'          => 'Ahmad Dahlan, S.Si. (Wali Kelas)',
-                'nip'           => '199405052020011006',
-                'password'      => Hash::make('password123'),
-                'kode_aktivasi' => null,
-                'role'          => 'guru',
-                'sub_role'      => 'wali_kelas',
-                'is_active'     => true,
-            ]
-        );
-
-        // 6. Guru yang dapat ditugaskan piket melalui jadwal_piket
-        User::updateOrCreate(
-            ['username' => 'gurupiket'],
-            [
-                'nama'          => 'Siti Rahma, M.Pd. (Guru Mapel)',
-                'nip'           => '199206062017011007',
-                'password'      => Hash::make('password123'),
-                'kode_aktivasi' => null,
-                'role'          => 'guru',
-                'sub_role'      => 'guru',
-                'is_active'     => true,
-            ]
-        );
-
-        // 7. Satpam / Security
-        User::updateOrCreate(
-            ['username' => 'satpam'],
-            [
-                'nama'          => 'Joko Security (Satpam)',
-                'nip'           => '199507072021011008',
-                'password'      => Hash::make('password123'),
-                'kode_aktivasi' => 'satpam123',
-                'role'          => 'admin',
-                'sub_role'      => 'satpam',
-                'is_active'     => true,
-            ]
-        );
-
-        // 8. Petugas IT / QA Tester
-        User::updateOrCreate(
-            ['email' => 'it@school.id'],
-            [
-                'nama'          => 'Petugas IT / QA Tester',
-                'nip'           => '199808082022011009',
-                'username'      => 'petugasit',
-                'password'      => Hash::make('password'),
-                'kode_aktivasi' => null,
-                'role'          => 'petugas_it',
-                'sub_role'      => null,
-                'is_active'     => true,
-            ]
-        );
+        $totalUsers = count($staffs) + $guruCount;
+        $this->command->info(" [UserSeeder] {$totalUsers} User (5 Staff/Admin + {$guruCount} Guru) berhasil dibuat/diperbarui.");
     }
 }

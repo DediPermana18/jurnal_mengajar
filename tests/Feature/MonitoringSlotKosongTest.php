@@ -58,7 +58,7 @@ class MonitoringSlotKosongTest extends TestCase
         $tahun = TahunAjaran::create([
             'tahun_ajaran' => '2026/2027',
             'semester'     => 'Ganjil',
-            'status_aktif' => true,
+            'is_active' => true,
         ]);
         $kelas = Kelas::create([
             'nama_kelas' => 'A',

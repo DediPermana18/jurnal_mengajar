@@ -35,7 +35,7 @@ class GuruPiketController extends Controller
         $today   = now()->toDateString();
         $hariIni = now()->translatedFormat('l');
 
-        $tahunAktif = TahunAjaran::where('status_aktif', true)->first();
+        $tahunAktif = TahunAjaran::where('is_active', true)->first();
 
         // 1. Total siswa tidak hadir (Sakit / Izin / Alpha) hari ini
         $siswaTidakHadir = PresensiSiswa::whereDate('tanggal', $today)

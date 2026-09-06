@@ -143,7 +143,13 @@ class AuthController extends Controller
                 ->with('success', 'Selamat datang kembali, Waka Kurikulum ' . $user->nama . '!');
         }
 
-        // 3. Admin lainnya (super_admin, TU, warden, dll.) → halaman utama admin
+        // 3. Admin dengan sub_role waka_sdm → portal Waka SDM
+        if (($user->role === 'admin' && $user->sub_role === 'waka_sdm') || $user->role === 'waka_sdm') {
+            return redirect()->route('waka-sdm.dashboard')
+                ->with('success', 'Selamat datang kembali, Waka SDM ' . $user->nama . '!');
+        }
+
+        // 4. Admin lainnya (super_admin, TU, warden, dll.) → halaman utama admin
         if (in_array($user->role, ['admin', 'super_admin', 'epic_admin', 'absolute_admin', 'warden'])) {
             return redirect()->route('home')
                 ->with('success', 'Selamat datang kembali, Admin ' . $user->nama . '!');

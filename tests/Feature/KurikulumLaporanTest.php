@@ -50,7 +50,7 @@ class KurikulumLaporanTest extends TestCase
         $admin = $this->makeUser('admin', 'waka_kurikulum');
         $guru  = $this->makeUser('guru', 'guru_mapel');
 
-        $tahunAjaran = TahunAjaran::create(['tahun_ajaran' => '2026/2027', 'semester' => 'Ganjil', 'status_aktif' => true]);
+        $tahunAjaran = TahunAjaran::create(['tahun_ajaran' => '2026/2027', 'semester' => 'Ganjil', 'is_active' => true]);
         $kelasX      = Kelas::create(['nama_kelas' => 'X IPA 1', 'tingkat' => 'X']);
         $kelasXI     = Kelas::create(['nama_kelas' => 'XI IPA 1', 'tingkat' => 'XI']);
         $mapel       = MataPelajaran::create(['nama_mapel' => 'Matematika', 'kode_mapel' => 'MTK']);

@@ -579,6 +579,7 @@
                     $previewRoleMap = [
                         'admin_tu'       => ['role' => 'admin', 'sub_role' => 'petugas_tu'],
                         'waka_kurikulum' => ['role' => 'admin', 'sub_role' => 'waka_kurikulum'],
+                        'waka_sdm'       => ['role' => 'admin', 'sub_role' => 'waka_sdm'],
                         'guru_mapel'     => ['role' => 'guru',  'sub_role' => 'guru_mapel'],
                         'guru_piket'     => ['role' => 'guru',  'sub_role' => 'guru'],
                     ];
@@ -592,6 +593,10 @@
                 // 1. Role Waka Kurikulum (role=admin & sub_role=waka_kurikulum)
                 $isKurikulumRole = ($userRole === 'admin' && $userSubRole === 'waka_kurikulum') 
                                 || in_array($userRole, ['admin_kurikulum', 'waka_kurikulum', 'kurikulum']);
+
+                // 1b. Role Waka SDM (role=admin & sub_role=waka_sdm)
+                $isWakaSdmRole = ($userRole === 'admin' && $userSubRole === 'waka_sdm') 
+                              || in_array($userRole, ['waka_sdm', 'admin_sdm', 'sdm']);
 
                 // 2. Role Satpam (role=admin & sub_role=satpam / role lama piket_satpam)
                 $isSatpamRole = $user ? $user->isSatpam() : false;
@@ -627,6 +632,10 @@
             @if($isKurikulumRole)
                 {{-- ================= NAVIGASI WAKA KURIKULUM ================= --}}
                 <x-sidebar-kurikulum :pendingIzinCount="\App\Models\IzinGuru::whereIn('status', [\App\Models\IzinGuru::STATUS_PENDING_PIKET, \App\Models\IzinGuru::STATUS_PENDING_WAKA, \App\Models\IzinGuru::STATUS_PENDING_KEPSEK])->count()" />
+
+            @elseif($isWakaSdmRole)
+                {{-- ================= NAVIGASI WAKA SDM ================= --}}
+                <x-sidebar-waka-sdm :pendingIzinCount="\App\Models\IzinGuru::whereIn('status', [\App\Models\IzinGuru::STATUS_PENDING_PIKET, \App\Models\IzinGuru::STATUS_PENDING_WAKA, \App\Models\IzinGuru::STATUS_PENDING_KEPSEK])->count()" />
 
             @elseif($isSatpamRole)
                 {{-- ================= NAVIGASI SATPAM / KEAMANAN (portal independen) ================= --}}
@@ -964,12 +973,14 @@
                                        || request()->is('*kelas*') 
                                        || request()->is('*jurusan*') 
                                        || request()->is('*ruangan*') 
+                                       || request()->is('*tahun-ajaran*') 
                                        || request()->routeIs('guru.*') 
                                        || request()->routeIs('admin.guru.*') 
                                        || request()->routeIs('siswa.*') 
                                        || request()->routeIs('kelas.*') 
                                        || request()->routeIs('jurusan.*') 
-                                       || request()->routeIs('ruangan.*');
+                                       || request()->routeIs('ruangan.*')
+                                       || request()->routeIs('tahun-ajaran.*');
                 @endphp
                 <div class="nav-item-container" x-data="{ open: {{ $isDataMasterActive ? 'true' : 'false' }} }">
                     <button class="nav-btn {{ $isDataMasterActive ? 'active' : '' }}" 
@@ -1020,6 +1031,12 @@
                                 <a href="{{ route('ruangan.index') }}" class="submenu-item-link {{ request()->routeIs('ruangan.*') ? 'active' : '' }}">
                                     <i class="bi bi-building"></i>
                                     <span>Data Ruangan</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('tahun-ajaran.index') }}" class="submenu-item-link {{ request()->routeIs('tahun-ajaran.*') ? 'active' : '' }}">
+                                    <i class="bi bi-calendar3"></i>
+                                    <span>Tahun Ajaran</span>
                                 </a>
                             </li>
                         </ul>
@@ -1092,7 +1109,15 @@
                         <a href="{{ route('laporan.index') }}" class="nav-btn {{ request()->routeIs('laporan.*', 'kurikulum.laporan.*') ? 'active' : '' }}">
                             <span class="btn-left">
                                 <i class="bi bi-file-earmark-text"></i>
-                                <span>Laporan</span>
+                                <span>Laporan KBM</span>
+                            </span>
+                        </a>
+                    </div>
+                    <div class="nav-item-container">
+                        <a href="{{ route('waka-sdm.dashboard') }}" class="nav-btn {{ request()->routeIs('waka-sdm.*') ? 'active' : '' }}">
+                            <span class="btn-left">
+                                <i class="bi bi-person-workspace"></i>
+                                <span>Portal Waka SDM</span>
                             </span>
                         </a>
                     </div>
