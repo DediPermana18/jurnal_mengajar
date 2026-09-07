@@ -1287,8 +1287,16 @@
             })
             .then(function (result) {
                 if (result.ok) {
-                    showToast('Plotting jadwal berhasil disimpan.', 'success');
-                    setTimeout(function () { window.location.reload(); }, 900);
+                    const modalEl = document.getElementById('modalPlottingJadwal');
+                    if (modalEl) {
+                        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                        if (modalInstance) modalInstance.hide();
+                    }
+                    const msg = (result.data && result.data.message)
+                        ? result.data.message
+                        : 'Plotting jadwal berhasil disimpan.';
+                    showToast(msg, 'success');
+                    setTimeout(function () { window.location.reload(); }, 600);
                     return;
                 }
                 const msg = (result.data && result.data.message)

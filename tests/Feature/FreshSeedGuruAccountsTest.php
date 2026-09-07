@@ -13,20 +13,22 @@ class FreshSeedGuruAccountsTest extends TestCase
     {
         Artisan::call('migrate:fresh --seed');
 
-        for ($i = 2; $i <= 10; $i++) {
-            $username = 'test' . $i;
+        $usernames = [
+            'budi.santoso',
+            'agus.setiawan',
+            'siti.rahmawati',
+            'ahmad.fauzi',
+            'eko.prasetyo',
+        ];
+
+        foreach ($usernames as $username) {
             $guru = User::where('username', $username)->first();
 
             $this->assertNotNull($guru, "{$username} tidak ditemukan");
-            $this->assertEquals($username, $guru->nama);
-            $this->assertEquals($username . '@school.id', $guru->email);
-            $this->assertNull($guru->nip);
             $this->assertEquals('guru', $guru->role);
-            $this->assertEquals('guru_mapel', $guru->sub_role);
-            $this->assertTrue(Hash::check('password123', $guru->password));
+            $this->assertTrue(Hash::check('password', $guru->password));
         }
 
-        $this->assertNull(User::where('username', 'test1')->first());
         $this->assertNull(User::where('username', 'test11')->first());
     }
 

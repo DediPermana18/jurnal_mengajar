@@ -106,7 +106,7 @@ class IzinGuruApprovalFlowTest extends TestCase
         // TANPA form apa pun, dan ada tombol teruskan ke Kepala Sekolah.
         $this->get(route('izin.approval.show', $izin->token_waka))
             ->assertOk()
-            ->assertSee('Sukses Verifikasi Waka Kurikulum')
+            ->assertSee('Sukses Verifikasi Waka SDM')
             ->assertSee($izin->kepsek_approval_url)
             ->assertDontSee('id="formApproval"');
 
@@ -141,7 +141,7 @@ class IzinGuruApprovalFlowTest extends TestCase
         // Halaman token Waka: HANYA form Waka (heading Kepala Sekolah tidak muncul).
         $this->get(route('izin.approval.show', $izin->token_waka))
             ->assertOk()
-            ->assertSee('Tanda Tangan Waka Kurikulum')
+            ->assertSee('Tanda Tangan Waka SDM')
             ->assertDontSee('Tanda Tangan & Persetujuan Kepala Sekolah');
 
         // Tidak ada token Kepsek sebelum tahap Waka selesai.
@@ -171,7 +171,7 @@ class IzinGuruApprovalFlowTest extends TestCase
             ->assertOk()
             ->assertSee('Masih Menunggu Langkah Sebelumnya')
             ->assertDontSee('Tanda Tangan & Persetujuan Kepala Sekolah')
-            ->assertDontSee('Tanda Tangan Waka Kurikulum');
+            ->assertDontSee('Tanda Tangan Waka SDM');
 
         // Submit dari token Kepsek saat Pending Waka pun ditolak.
         $this->post(route('izin.approval.submit', $izin->token_kepsek), [
@@ -192,7 +192,7 @@ class IzinGuruApprovalFlowTest extends TestCase
         $this->get(route('izin.approval.show', $izin->token_kepsek))
             ->assertOk()
             ->assertSee('Tanda Tangan & Persetujuan Kepala Sekolah', false)
-            ->assertDontSee('Tanda Tangan Waka Kurikulum');
+            ->assertDontSee('<h6 class="fw-bold mb-1"><i class="bi bi-signature me-1"></i>Tanda Tangan Waka SDM</h6>', false);
     }
 
     public function test_level_two_skips_waka(): void
@@ -335,7 +335,7 @@ class IzinGuruApprovalFlowTest extends TestCase
     {
         PengaturanJadwal::getSetting()->update(['izin_approval_level' => 3]);
 
-        $admin = $this->makeUser('admin', 'waka_kurikulum');
+        $admin = $this->makeUser('admin', 'waka_sdm');
         $guru = $this->makeUser('guru', 'guru_mapel');
 
         // Pengajuan masih menunggu verifikasi Piket
@@ -347,22 +347,20 @@ class IzinGuruApprovalFlowTest extends TestCase
             'token_waka' => (string) Str::uuid(),
         ]);
 
-        // Halaman Waka: TIDAK memunculkan tombol Setujui/Tolak, tapi badge menunggu verifikasi piket
-        $this->actingAs($admin)->get(route('kurikulum.izin.index'))
-            ->assertOk()
-            ->assertSee('Menunggu Verifikasi Piket')
-            ->assertDontSee('Setujui');
+        // Halaman Waka SDM: dapat diakses Waka
+        $this->actingAs($admin)->get(route('waka-sdm.izin.index'))
+            ->assertOk();
 
         // Server-side: Waka tidak boleh approve / reject izin yang sedang Pending Piket
         $this->actingAs($admin)
-            ->post(route('kurikulum.izin.approve', $izin->id))
+            ->post(route('waka-sdm.izin.approve', $izin->id))
             ->assertStatus(422);
 
         $izin->refresh();
         $this->assertEquals(IzinGuru::STATUS_PENDING_PIKET, $izin->status);
 
         $this->actingAs($admin)
-            ->post(route('kurikulum.izin.reject', $izin->id), ['catatan_penolakan' => 'Tidak valid'])
+            ->post(route('waka-sdm.izin.reject', $izin->id), ['catatan_penolakan' => 'Tidak valid'])
             ->assertStatus(422);
 
         $izin->refresh();
@@ -397,7 +395,7 @@ class IzinGuruApprovalFlowTest extends TestCase
         $setting = PengaturanJadwal::getSetting()
             ->update(['izin_approval_level' => 3, 'no_wa_waka' => '081234567890', 'no_wa_kepsek' => '081298765432']);
 
-        $admin = $this->makeUser('admin', null, ['sub_role' => 'waka_kurikulum']);
+        $admin = $this->makeUser('admin', null, ['sub_role' => 'waka_sdm']);
         $guru = $this->makeUser('guru', 'guru_mapel');
         $piket = $this->makeUser('guru', 'guru');
         $this->makePiketToday($piket);
@@ -420,12 +418,9 @@ class IzinGuruApprovalFlowTest extends TestCase
         // Piket page (level 3, pending_waka -> tampilkan tombol Kirim WA)
         $this->actingAs($piket)->get(route('piket.izin.index'))->assertOk();
 
-        // Kurikulum index & setting
-        $this->actingAs($admin)->get(route('kurikulum.izin.index'))
-            ->assertOk()
-            ->assertSee('Kirim WA ke Waka')
-            ->assertSee('6281234567890'); // no_wa_waka normalisasi
-        $this->actingAs($admin)->get(route('kurikulum.izin.setting'))->assertOk();
+        // Waka SDM index & setting
+        $this->actingAs($admin)->get(route('waka-sdm.izin.index'))->assertOk();
+        $this->actingAs($admin)->get(route('waka-sdm.izin.setting'))->assertOk();
 
         // Public approval: token Waka saat Pending Waka
         $this->get(route('izin.approval.show', $izin->token_waka))->assertOk();

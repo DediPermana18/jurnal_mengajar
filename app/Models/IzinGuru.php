@@ -32,9 +32,9 @@ class IzinGuru extends Model
     ];
 
     public const STATUS_LABELS = [
-        self::STATUS_PENDING_PIKET => 'Pending Piket',
-        self::STATUS_PENDING_WAKA => 'Pending Waka',
-        self::STATUS_PENDING_KEPSEK => 'Pending Kepsek',
+        self::STATUS_PENDING_PIKET => 'Menunggu Piket',
+        self::STATUS_PENDING_WAKA => 'Menunggu Waka SDM',
+        self::STATUS_PENDING_KEPSEK => 'Menunggu Kepsek',
         self::STATUS_DISETUJUI => 'Disetujui',
         self::STATUS_DITOLAK => 'Ditolak',
     ];
@@ -42,7 +42,7 @@ class IzinGuru extends Model
     public const STATUS_BADGES = [
         self::STATUS_PENDING_PIKET => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle',
         self::STATUS_PENDING_WAKA => 'bg-info-subtle text-info-emphasis border border-info-subtle',
-        self::STATUS_PENDING_KEPSEK => 'bg-primary-subtle text-primary border border-primary-subtle',
+        self::STATUS_PENDING_KEPSEK => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle',
         self::STATUS_DISETUJUI => 'bg-success-subtle text-success border border-success-subtle',
         self::STATUS_DITOLAK => 'bg-danger-subtle text-danger border border-danger-subtle',
     ];

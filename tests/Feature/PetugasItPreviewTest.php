@@ -56,7 +56,13 @@ class PetugasItPreviewTest extends TestCase
 
     public function test_non_it_user_cannot_switch()
     {
-        $guru = User::where('username', 'guru')->first();
+        $guru = User::where('role', 'guru')->first() ?? User::create([
+            'nama' => 'Guru Biasa',
+            'username' => 'guru_biasa',
+            'password' => bcrypt('password'),
+            'role' => 'guru',
+            'is_active' => true,
+        ]);
         $this->actingAs($guru);
 
         $this->post(route('it.switch-view'), ['role' => 'admin_tu'])

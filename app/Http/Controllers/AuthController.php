@@ -27,24 +27,13 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
-        $mode = $request->input('mode', 'guru');
-
         // Rule Validasi Input Dasar
-        $rules = [
+        $request->validate([
             'login_id' => 'required|string',
             'password' => 'required|string',
-            'mode'     => 'required|in:guru,admin',
-        ];
-
-        // Jika mode Admin, wajibkan field kode_aktivasi
-        if ($mode === 'admin') {
-            $rules['kode_aktivasi'] = 'required|string';
-        }
-
-        $request->validate($rules, [
-            'login_id.required'      => 'Username atau NIP wajib diisi.',
-            'password.required'      => 'Password wajib diisi.',
-            'kode_aktivasi.required' => 'Kode Aktivasi khusus Admin wajib diisi.',
+        ], [
+            'login_id.required' => 'Username atau NIP wajib diisi.',
+            'password.required' => 'Password wajib diisi.',
         ]);
 
         $loginId = trim($request->input('login_id'));
@@ -73,33 +62,18 @@ class AuthController extends Controller
             return back()->withErrors(['login_id' => 'Akun Anda sudah tidak berlaku. Silakan hubungi Admin TU.'])->withInput();
         }
 
-        // ================= VALIDASI KODE AKTIVASI ADMIN =================
-        if ($mode === 'admin') {
-            // Bersihkan input spasi dan ubah ke huruf kecil untuk perbandingan tidak case-sensitive
-            $inputKode = strtolower(trim($request->input('kode_aktivasi', '')));
+        // ================= VALIDASI KODE AKTIVASI UNTUK AKUN NON-GURU =================
+        // Jika user ber-role Non-Guru (Admin, Kepsek, Waka SDM, Waka Kurikulum, Piket, TU, Satpam, IT, dll):
+        // Wajib cocokkan input kode_aktivasi LANGSUNG dengan nilai $user->kode_aktivasi yang ada di database.
+        $isGuruRole = $user->role === 'guru' || $user->role === User::ROLE_GURU;
 
-            // Daftar Kode Aktivasi yang Diizinkan (Dev/Testing & DB)
-            $allowedCodes = [
-                'admin123',
-                'webjournal2026',
-                'adm123',
-            ];
+        if (!$isGuruRole) {
+            $inputKode = strtolower(trim((string) $request->input('kode_aktivasi', '')));
+            $dbKode    = strtolower(trim((string) $user->kode_aktivasi));
 
-            // Jika di database user mempunyai kode_aktivasi khusus, masukkan ke daftar valid
-            if (!empty($user->kode_aktivasi)) {
-                $allowedCodes[] = strtolower(trim($user->kode_aktivasi));
-            }
-
-            Log::info('Proses Validasi Login Admin:', [
-                'user'        => $user->username,
-                'input_kode'  => $inputKode,
-                'valid_codes' => $allowedCodes
-            ]);
-
-            // Cek apakah kode yang diinput sesuai
-            if (!in_array($inputKode, $allowedCodes)) {
+            if ($inputKode === '' || $dbKode === '' || $inputKode !== $dbKode) {
                 return back()->withErrors([
-                    'kode_aktivasi' => 'Kode Aktivasi Admin tidak valid. (Gunakan: ADMIN123 atau WEBJOURNAL2026)'
+                    'kode_aktivasi' => 'Kode aktivasi tidak valid.'
                 ])->withInput();
             }
         }

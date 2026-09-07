@@ -37,17 +37,21 @@
     </a>
 </div>
 
-<!-- 3. Rekap Izin & Cuti Guru -->
+<!-- 3. Rekap Perizinan & Cuti Guru -->
 <div class="nav-item-container">
     <a href="{{ route('waka-sdm.rekap-izin') }}"
        class="nav-btn d-flex align-items-center justify-content-between {{ $isRekapIzinActive ? 'active' : '' }}">
         <span class="btn-left">
             <i class="bi bi-calendar2-check-fill"></i>
-            <span>Rekap Izin & Cuti</span>
+            <span>Rekap Perizinan & Cuti Guru</span>
         </span>
         @if(($pendingIzinCount ?? 0) > 0)
-            <span class="badge bg-warning-subtle text-warning-emphasis border rounded-pill px-2 py-0.5" style="font-size: 0.7rem;">
+            <span class="badge bg-danger rounded-pill px-2 py-0.5" style="font-size: 0.7rem;">
                 {{ $pendingIzinCount }}
+            </span>
+        @else
+            <span class="badge bg-secondary-subtle text-secondary border rounded-pill px-1.5 py-0.5" style="font-size: 0.68rem;">
+                0
             </span>
         @endif
     </a>

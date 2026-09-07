@@ -38,12 +38,13 @@ class AuthRedirectTest extends TestCase
 
     public function test_role_lama_piket_satpam_di_redirect_ke_dashboard_satpam(): void
     {
-        $satpam = $this->makeUser('piket_satpam', null);
+        $satpam = $this->makeUser('piket_satpam', null, 'satpam123');
 
         $this->post('/login', [
-            'login_id' => $satpam->username,
-            'password' => 'password123',
-            'mode'     => 'guru',
+            'login_id'      => $satpam->username,
+            'password'      => 'password123',
+            'mode'          => 'admin',
+            'kode_aktivasi' => 'satpam123',
         ])->assertRedirect(route('satpam.dashboard'));
     }
 

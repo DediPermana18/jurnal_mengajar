@@ -98,6 +98,16 @@ class JadwalPelajaranController extends Controller
             ->get()
             ->keyBy('jam_ke');
 
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success'           => true,
+                'selected_kelas_id' => $selectedKelas?->id,
+                'selected_hari'     => $selectedHari,
+                'tahun_aktif'       => $tahunAktif,
+                'jadwal'            => $jadwalList->values(),
+            ]);
+        }
+
         return view('admin.jadwal.index', compact(
             'kelasList',
             'mapelList',
@@ -233,163 +243,235 @@ class JadwalPelajaranController extends Controller
     /**
      * Simpan plotting jadwal baru (mendukung multi-slot jam sekaligus).
      */
+    /**
+     * Simpan plotting jadwal baru (mendukung multi-slot jam sekaligus).
+     */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'id_kelas'       => 'required|exists:kelas,id',
-            'hari'           => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat',
-            'jam_ke_mulai'   => 'required|integer|min:1|max:20',
-            'jam_ke_selesai' => 'required|integer|min:1|max:20|gte:jam_ke_mulai',
-            'id_mapel'       => 'required|exists:mata_pelajaran,id',
-            'id_guru'        => ['required', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_GURU))],
-            'id_ruangan'     => 'nullable|exists:ruangans,id',
-            'group_id'       => 'nullable|string|max:40',
-        ]);
+        try {
+            $validated = $request->validate([
+                'id_kelas'       => 'required|exists:kelas,id',
+                'hari'           => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat',
+                'jam_ke_mulai'   => 'required|integer|min:1|max:20',
+                'jam_ke_selesai' => 'required|integer|min:1|max:20|gte:jam_ke_mulai',
+                'id_mapel'       => 'required|exists:mata_pelajaran,id',
+                'id_guru'        => ['required', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_GURU))],
+                'id_ruangan'     => 'nullable|exists:ruangans,id',
+                'group_id'       => 'nullable|string|max:40',
+            ]);
 
-        $tahunAktif = $this->resolveTahunAjaranContext($request);
-        $kategoriHari = ($validated['hari'] === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
-        $kelas = Kelas::find($validated['id_kelas']);
-        $tingkatKelas = $kelas ? match(strtoupper(trim($kelas->tingkat))) { 'X' => '10', 'XI' => '11', 'XII' => '12', default => $kelas->tingkat } : '10';
+            $tahunAktif   = $this->resolveTahunAjaranContext($request);
+            $taStr        = $tahunAktif ? " (T.A. {$tahunAktif->tahun_ajaran} {$tahunAktif->semester})" : "";
+            $kategoriHari = ($validated['hari'] === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
+            $kelas        = Kelas::find($validated['id_kelas']);
+            $tingkatKelas = $kelas ? match(strtoupper(trim($kelas->tingkat))) { 'X' => '10', 'XI' => '11', 'XII' => '12', default => $kelas->tingkat } : '10';
 
-        // 1. Ambil semua slot KBM dalam rentang jam_ke_mulai s/d jam_ke_selesai (abaikan jenis istirahat)
-        $targetSlots = JamPelajaran::where('kategori_hari', $kategoriHari)
-            ->whereNotNull('jam_ke')
-            ->where('jenis', '!=', 'istirahat')
-            ->whereBetween('jam_ke', [$validated['jam_ke_mulai'], $validated['jam_ke_selesai']])
-            ->orderBy('jam_mulai')
-            ->get();
+            // 1. Ambil semua slot KBM dalam rentang jam_ke_mulai s/d jam_ke_selesai (abaikan jenis istirahat)
+            $targetSlots = JamPelajaran::where('kategori_hari', $kategoriHari)
+                ->whereNotNull('jam_ke')
+                ->where('jenis', '!=', 'istirahat')
+                ->whereBetween('jam_ke', [$validated['jam_ke_mulai'], $validated['jam_ke_selesai']])
+                ->orderBy('jam_mulai')
+                ->get();
 
-        if ($targetSlots->isEmpty()) {
-            return $this->guardFailure(
-                $request,
-                'Tidak ditemukan slot KBM pada rentang Jam ke-' . $validated['jam_ke_mulai'] . ' s/d Jam ke-' . $validated['jam_ke_selesai'] . '.',
-                ['id_kelas' => $validated['id_kelas'], 'hari' => $validated['hari']]
+            if ($targetSlots->isEmpty()) {
+                throw new \Exception("Tidak ditemukan slot KBM pada rentang Jam ke-{$validated['jam_ke_mulai']} s/d Jam ke-{$validated['jam_ke_selesai']}.");
+            }
+
+            $targetJamIds = $targetSlots->pluck('id')->toArray();
+
+            // Mode Edit: saat group_id dikirim, seluruh slot pada grup yang sama diperbarui
+            $isEditMode = filled($validated['group_id'] ?? null);
+            $groupId    = $isEditMode ? (string) $validated['group_id'] : (string) Str::uuid();
+
+            // 1b. HARD GUARD: slot terkunci multi-sumber dalam rentang
+            $blockedSlots = $this->detectBlockedSlotsInRange(
+                $kategoriHari,
+                $targetSlots,
+                $validated['hari'],
+                (int) $validated['id_kelas'],
+                $tahunAktif,
+                $tingkatKelas,
+                $isEditMode ? $groupId : null
             );
-        }
 
-        $targetJamIds = $targetSlots->pluck('id')->toArray();
+            if (!empty($blockedSlots)) {
+                $details = [];
+                foreach ($blockedSlots as $b) {
+                    $label = match ($b['reason']) {
+                        'istirahat' => 'Istirahat',
+                        'agenda'    => 'Agenda Rutin',
+                        'pulang'    => 'Terkunci (Selesai KBM)',
+                        'non_kbm'   => 'Terkunci',
+                        'terisi'    => 'Terkunci (' . ($b['detail'] ?? 'Sudah Terisi') . ')',
+                        default     => 'Terkunci',
+                    };
 
-        // Mode Edit: saat group_id dikirim, seluruh slot pada grup yang sama diperbarui
-        // (rentang baru boleh mengecil/membesar), dan group_id lama dipakai ulang.
-        $isEditMode = filled($validated['group_id'] ?? null);
-        $groupId    = $isEditMode ? (string) $validated['group_id'] : (string) Str::uuid();
+                    if ($b['jam_ke'] !== null) {
+                        $details[] = "{$label} pada Jam Ke-{$b['jam_ke']}";
+                    } else {
+                        $details[] = "{$label}";
+                    }
+                }
 
-        // 1b. HARD GUARD: slot terkunci multi-sumber dalam rentang (Non-KBM, Agenda Rutin,
-        //     Batas Pulang Sekolah, Istirahat di tengah rentang, & slot sudah terisi mapel lain).
-        $blockedSlots = $this->detectBlockedSlotsInRange(
-            $kategoriHari,
-            $targetSlots,
-            $validated['hari'],
-            (int) $validated['id_kelas'],
-            $tahunAktif,
-            $tingkatKelas,
-            $isEditMode ? $groupId : null
-        );
+                $detailStr = implode(', ', array_unique($details));
+                throw new \Exception("Gagal! Rentang jam yang dipilih menabrak slot {$detailStr}.");
+            }
 
-        if (!empty($blockedSlots)) {
-            $detail = implode(', ', array_map(function ($b) {
-                return 'Jam Ke-' . ($b['jam_ke'] ?? '-') . " ({$b['label']})";
-            }, $blockedSlots));
+            // 2. Pengecekan bentrok guru di kelas lain pada jam & hari yang sama
+            $bentroks = JadwalPelajaran::where('hari', $validated['hari'])
+                ->whereIn('id_jam', $targetJamIds)
+                ->where('id_guru', $validated['id_guru'])
+                ->where('id_kelas', '!=', $validated['id_kelas'])
+                ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
+                ->with(['kelas', 'guru', 'jamPelajaran', 'mataPelajaran'])
+                ->get();
 
-            return $this->guardFailure(
-                $request,
-                'Gagal menyimpan! Terdapat slot terkunci atau bentrok dalam rentang jam yang dipilih: ' . $detail . '.',
-                ['id_kelas' => $validated['id_kelas'], 'hari' => $validated['hari']]
-            );
-        }
+            if ($bentroks->isNotEmpty()) {
+                $namaGuru = $bentroks->first()->guru->nama ?? 'Guru terpilih';
+                $details  = [];
+                $grouped  = $bentroks->groupBy(fn ($b) => ($b->mataPelajaran->nama_mapel ?? 'Mapel') . '|||' . ($b->kelas->nama_kelas ?? 'Kelas'));
 
-        // 2. Pengecekan bentrok guru di kelas lain pada jam & hari yang sama
-        $bentroks = JadwalPelajaran::where('hari', $validated['hari'])
-            ->whereIn('id_jam', $targetJamIds)
-            ->where('id_guru', $validated['id_guru'])
-            ->where('id_kelas', '!=', $validated['id_kelas'])
-            ->when($tahunAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
-            ->with(['kelas', 'guru', 'jamPelajaran'])
-            ->get();
+                foreach ($grouped as $key => $items) {
+                    [$namaMapel, $namaKelas] = explode('|||', $key);
+                    $jamKes    = $items->map(fn ($item) => 'Jam Ke-' . ($item->jamPelajaran->jam_ke ?? '-'))->unique()->implode(' / ');
+                    $details[] = "Guru {$namaGuru} sudah ada jadwal di Kelas {$namaKelas} pada {$jamKes}{$taStr}";
+                }
 
-        if ($bentroks->isNotEmpty()) {
-            $namaGuru = $bentroks->first()->guru->nama ?? 'Guru terpilih';
-            $bentrokList = $bentroks->map(function ($b) {
-                $namaKelas = $b->kelas->nama_kelas ?? 'Kelas Lain';
-                $jamKe     = $b->jamPelajaran->jam_ke ?? '-';
-                return "Jam ke-{$jamKe} ({$namaKelas})";
-            })->implode(', ');
+                throw new \Exception("Gagal! " . implode('; ', $details) . ".");
+            }
 
-            return $this->guardFailure(
-                $request,
-                "Bentrok Jadwal! {$namaGuru} sudah memiliki jadwal mengajar pada: {$bentrokList}.",
-                ['id_kelas' => $validated['id_kelas'], 'hari' => $validated['hari']]
-            );
-        }
+            // 2b. Pengecekan bentrok ruangan sedang digunakan oleh kelas lain
+            if (!empty($validated['id_ruangan'])) {
+                $bentrokRuangan = JadwalPelajaran::where('hari', $validated['hari'])
+                    ->whereIn('id_jam', $targetJamIds)
+                    ->where('id_ruangan', $validated['id_ruangan'])
+                    ->where('id_kelas', '!=', $validated['id_kelas'])
+                    ->when($isEditMode, fn ($q) => $q->where(function ($sub) use ($groupId) {
+                        $sub->where('group_id', '!=', $groupId)->orWhereNull('group_id');
+                    }))
+                    ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
+                    ->with(['kelas', 'mataPelajaran', 'ruangan', 'jamPelajaran'])
+                    ->get();
 
-        // 2b. Pengecekan slot yang sudah terisi jadwal lain pada kelas & hari yang sama.
-        //     Saat edit, slot milik grup yang sama dikecualikan (boleh dipilih ulang).
-        $slotTerisiLain = JadwalPelajaran::where('id_kelas', $validated['id_kelas'])
-            ->where('hari', $validated['hari'])
-            ->whereIn('id_jam', $targetJamIds)
-            ->when($tahunAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
-            ->when($isEditMode, fn($q) => $q->where(function ($sub) use ($groupId) {
-                $sub->where('group_id', '!=', $groupId)
-                    ->orWhereNull('group_id');
-            }))
-            ->with(['mataPelajaran', 'jamPelajaran'])
-            ->get();
+                if ($bentrokRuangan->isNotEmpty()) {
+                    $details = [];
+                    $grouped = $bentrokRuangan->groupBy(fn ($b) => ($b->ruangan->nama_ruangan ?? $b->ruangan->kode_ruangan ?? 'Ruangan') . '|||' . ($b->kelas->nama_kelas ?? 'Kelas') . '|||' . ($b->mataPelajaran->nama_mapel ?? 'Mapel'));
 
-        if ($slotTerisiLain->isNotEmpty()) {
-            $slotBentrok = $slotTerisiLain->first();
-            $namaMapel = $slotBentrok->mataPelajaran->nama_mapel ?? 'jadwal lain';
-            $jamKe     = $slotBentrok->jamPelajaran->jam_ke ?? '-';
+                    foreach ($grouped as $key => $items) {
+                        [$namaRuangan, $namaKelas, $namaMapel] = explode('|||', $key);
+                        $jamKes    = $items->map(fn ($item) => 'Jam Ke-' . ($item->jamPelajaran->jam_ke ?? '-'))->unique()->implode(' / ');
+                        $details[] = "Ruangan {$namaRuangan} sudah terpakai oleh Kelas {$namaKelas} pada {$jamKes}{$taStr}";
+                    }
 
-            return $this->guardFailure(
-                $request,
-                "Slot Jam ke-{$jamKe} pada hari {$validated['hari']} sudah terisi {$namaMapel}. Pilih rentang jam yang tidak menabrak slot yang sudah terisi.",
-                ['id_kelas' => $validated['id_kelas'], 'hari' => $validated['hari']]
-            );
-        }
+                    throw new \Exception("Gagal! " . implode('; ', $details) . ".");
+                }
+            }
 
-        // 3. Gunakan 1 group_id (UUID lama saat edit / UUID baru saat tambah) untuk seluruh sesi multi-jam ini
-        foreach ($targetSlots as $slot) {
-            JadwalPelajaran::withTrashed()->updateOrCreate(
-                [
-                    'id_kelas'        => $validated['id_kelas'],
-                    'hari'            => $validated['hari'],
-                    'id_jam'          => $slot->id,
-                    'id_tahun_ajaran' => $tahunAktif?->id,
-                ],
-                [
-                    'group_id'   => $groupId,
-                    'id_mapel'   => $validated['id_mapel'],
-                    'id_guru'    => $validated['id_guru'],
-                    'id_ruangan' => $validated['id_ruangan'] ?? null,
-                    'deleted_at' => null,
-                ]
-            );
-        }
-
-        $totalJp = $targetSlots->count();
-        $pesanRentang = ($validated['jam_ke_mulai'] == $validated['jam_ke_selesai'])
-            ? "Jam ke-{$validated['jam_ke_mulai']}"
-            : "Jam ke-{$validated['jam_ke_mulai']} s/d Jam ke-{$validated['jam_ke_selesai']}";
-
-        // Mode Edit: bersihkan slot lama pada grup yang berada di luar rentang baru
-        // agar tidak tersisa slot yang seharusnya sudah dilepas saat rentang diciutkan.
-        if ($isEditMode) {
-            JadwalPelajaran::withTrashed()
-                ->where('group_id', $groupId)
-                ->where('id_kelas', $validated['id_kelas'])
+            // 2c. Pengecekan slot yang sudah terisi jadwal lain pada kelas & hari yang sama
+            $slotTerisiLain = JadwalPelajaran::where('id_kelas', $validated['id_kelas'])
                 ->where('hari', $validated['hari'])
-                ->where('id_tahun_ajaran', $tahunAktif?->id)
-                ->whereNotIn('id_jam', $targetJamIds)
-                ->forceDelete();
+                ->whereIn('id_jam', $targetJamIds)
+                ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
+                ->when($isEditMode, fn ($q) => $q->where(function ($sub) use ($groupId) {
+                    $sub->where('group_id', '!=', $groupId)->orWhereNull('group_id');
+                }))
+                ->with(['mataPelajaran', 'jamPelajaran'])
+                ->get();
+
+            if ($slotTerisiLain->isNotEmpty()) {
+                $slotBentrok = $slotTerisiLain->first();
+                $namaMapel   = $slotBentrok->mataPelajaran->nama_mapel ?? 'jadwal lain';
+                $jamKe       = $slotBentrok->jamPelajaran->jam_ke ?? '-';
+
+                throw new \Exception("Gagal! Rentang jam yang dipilih menabrak slot Terkunci ({$namaMapel}) pada Jam Ke-{$jamKe}.");
+            }
+
+            // 3. Simpan dalam transaksi DB
+            \Illuminate\Support\Facades\DB::transaction(function () use ($targetSlots, $validated, $tahunAktif, $groupId, $isEditMode, $targetJamIds) {
+                // Hapus permanen record soft-deleted pada slot target untuk guru atau kelas ini
+                // agar tidak memicu bentrok DB Unique Constraint (unq_guru_hari_jam / unq_kelas_hari_jam)
+                JadwalPelajaran::onlyTrashed()
+                    ->where('hari', $validated['hari'])
+                    ->whereIn('id_jam', $targetJamIds)
+                    ->where(function ($q) use ($validated) {
+                        $q->where('id_guru', $validated['id_guru'])
+                          ->orWhere('id_kelas', $validated['id_kelas']);
+                    })
+                    ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
+                    ->forceDelete();
+
+                foreach ($targetSlots as $slot) {
+                    JadwalPelajaran::withTrashed()->updateOrCreate(
+                        [
+                            'id_kelas'        => $validated['id_kelas'],
+                            'hari'            => $validated['hari'],
+                            'id_jam'          => $slot->id,
+                            'id_tahun_ajaran' => $tahunAktif?->id,
+                        ],
+                        [
+                            'group_id'   => $groupId,
+                            'id_mapel'   => $validated['id_mapel'],
+                            'id_guru'    => $validated['id_guru'],
+                            'id_ruangan' => $validated['id_ruangan'] ?? null,
+                            'deleted_at' => null,
+                        ]
+                    );
+                }
+
+                if ($isEditMode) {
+                    JadwalPelajaran::withTrashed()
+                        ->where('group_id', $groupId)
+                        ->where('id_kelas', $validated['id_kelas'])
+                        ->where('hari', $validated['hari'])
+                        ->where('id_tahun_ajaran', $tahunAktif?->id)
+                        ->whereNotIn('id_jam', $targetJamIds)
+                        ->forceDelete();
+                }
+            });
+
+            $mapelObj  = MataPelajaran::find($validated['id_mapel']);
+            $guruObj   = User::find($validated['id_guru']);
+            $namaMapel = $mapelObj?->nama_mapel ?? 'Mapel';
+            $namaGuru  = $guruObj?->nama ?? 'Guru';
+
+            $pesanJam = ($validated['jam_ke_mulai'] == $validated['jam_ke_selesai'])
+                ? "Jam Ke-{$validated['jam_ke_mulai']}"
+                : "Jam Ke-{$validated['jam_ke_mulai']} s/d {$validated['jam_ke_selesai']}";
+
+            $actionVerb  = $isEditMode ? 'memperbarui' : 'menambahkan';
+            $taInfo      = $tahunAktif ? " untuk Tahun Ajaran {$tahunAktif->tahun_ajaran} ({$tahunAktif->semester})" : "";
+            $pesanSukses = "Berhasil {$actionVerb} jadwal {$namaMapel} ({$namaGuru}) pada {$pesanJam}{$taInfo}.";
+
+            session()->flash('success', $pesanSukses);
+
+            if ($request->wantsJson()) {
+                $savedItems = JadwalPelajaran::with(['mataPelajaran', 'guru', 'jamPelajaran', 'ruangan'])
+                    ->where('group_id', $groupId)
+                    ->where('id_kelas', $validated['id_kelas'])
+                    ->where('hari', $validated['hari'])
+                    ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
+                    ->get();
+
+                return response()->json([
+                    'success'  => true,
+                    'message'  => $pesanSukses,
+                    'id_kelas' => $validated['id_kelas'],
+                    'hari'     => $validated['hari'],
+                    'data'     => $savedItems,
+                ]);
+            }
+
+            return redirect()
+                ->route('admin.jadwal.index', ['id_kelas' => $validated['id_kelas'], 'hari' => $validated['hari']])
+                ->with('success', $pesanSukses);
+        } catch (\Throwable $e) {
+            return $this->guardFailure(
+                $request,
+                $e->getMessage(),
+                ['id_kelas' => $request->input('id_kelas'), 'hari' => $request->input('hari')]
+            );
         }
-
-        $pesanSukses = $isEditMode
-            ? "Plotting jadwal berhasil diperbarui untuk {$totalJp} JP ({$pesanRentang})."
-            : "Plotting jadwal berhasil disimpan untuk {$totalJp} JP ({$pesanRentang}).";
-
-        return redirect()
-            ->route('admin.jadwal.index', ['id_kelas' => $validated['id_kelas'], 'hari' => $validated['hari']])
-            ->with('success', $pesanSukses);
     }
 
     /**
@@ -397,106 +479,193 @@ class JadwalPelajaranController extends Controller
      */
     public function update(Request $request, JadwalPelajaran $jadwalPelajaran)
     {
-        $validated = $request->validate([
-            'id_kelas'   => 'required|exists:kelas,id',
-            'hari'       => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu',
-            'id_jam'     => 'required|exists:jam_pelajaran,id',
-            'id_mapel'   => 'required|exists:mata_pelajaran,id',
-            'id_guru'    => ['required', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_GURU))],
-            'id_ruangan' => 'nullable|exists:ruangans,id',
-        ]);
+        try {
+            $validated = $request->validate([
+                'id_kelas'   => 'required|exists:kelas,id',
+                'hari'       => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu',
+                'id_jam'     => 'required|exists:jam_pelajaran,id',
+                'id_mapel'   => 'required|exists:mata_pelajaran,id',
+                'id_guru'    => ['required', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_GURU))],
+                'id_ruangan' => 'nullable|exists:ruangans,id',
+            ]);
 
-        // HARD GUARD: tolak jika slot target terkunci (Non-KBM / Agenda Rutin / melewati batas pulang).
-        $slot = JamPelajaran::find($validated['id_jam']);
-        $kategoriHari = ($validated['hari'] === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
-        $kelasUpdate = Kelas::find($validated['id_kelas']);
-        $tingkatUpdate = $kelasUpdate ? match (strtoupper(trim($kelasUpdate->tingkat))) { 'X' => '10', 'XI' => '11', 'XII' => '12', default => $kelasUpdate->tingkat } : '10';
+            $tahunAktif    = $this->resolveTahunAjaranContext($request);
+            $taStr         = $tahunAktif ? " (T.A. {$tahunAktif->tahun_ajaran} {$tahunAktif->semester})" : "";
+            $slot          = JamPelajaran::find($validated['id_jam']);
+            $kategoriHari  = ($validated['hari'] === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
+            $kelasUpdate   = Kelas::find($validated['id_kelas']);
+            $tingkatUpdate = $kelasUpdate ? match (strtoupper(trim($kelasUpdate->tingkat))) { 'X' => '10', 'XI' => '11', 'XII' => '12', default => $kelasUpdate->tingkat } : '10';
 
-        if ($slot) {
-            $agendaUpdate = AgendaRutin::where('hari', $validated['hari'])->where('jam_ke', $slot->jam_ke)->where('is_active', true)->first();
-            $maxJamKeUpdate = JamPulang::getMaxJamKe($kategoriHari, $tingkatUpdate);
-            $terkunci = ($slot->jenis !== 'kbm')
-                || ($agendaUpdate !== null)
-                || ($maxJamKeUpdate !== null && $slot->jam_ke !== null && $slot->jam_ke > $maxJamKeUpdate);
+            if ($slot) {
+                $agendaUpdate   = AgendaRutin::where('hari', $validated['hari'])->where('jam_ke', $slot->jam_ke)->where('is_active', true)->first();
+                $maxJamKeUpdate = JamPulang::getMaxJamKe($kategoriHari, $tingkatUpdate);
+                $terkunci       = ($slot->jenis !== 'kbm')
+                    || ($agendaUpdate !== null)
+                    || ($maxJamKeUpdate !== null && $slot->jam_ke !== null && $slot->jam_ke > $maxJamKeUpdate);
 
-            if ($terkunci) {
-                return $this->guardFailure(
-                    $request,
-                    'Gagal menyimpan! Slot tersebut terkunci (non-KBM, agenda rutin, atau melewati batas jam pulang).',
-                    ['id_kelas' => $validated['id_kelas'], 'hari' => $validated['hari']]
-                );
+                if ($terkunci) {
+                    $reasonLabel = ($slot->jenis !== 'kbm')
+                        ? str_contains(strtolower($slot->jenis ?? ''), 'istirahat') ? 'Istirahat' : 'Terkunci'
+                        : (($agendaUpdate !== null)
+                            ? 'Agenda Rutin'
+                            : 'Terkunci (Selesai KBM)');
+                    $jamKeStr = $slot->jam_ke !== null ? "Jam Ke-{$slot->jam_ke}" : 'slot tersebut';
+
+                    throw new \Exception("Gagal! Rentang jam yang dipilih menabrak slot {$reasonLabel} pada {$jamKeStr}.");
+                }
+
+                // Tolak jika slot sudah terisi jadwal lain
+                $terisiLain = JadwalPelajaran::where('id_kelas', $validated['id_kelas'])
+                    ->where('hari', $validated['hari'])
+                    ->where('id_jam', $validated['id_jam'])
+                    ->where('id', '!=', $jadwalPelajaran->id)
+                    ->when($jadwalPelajaran->id_tahun_ajaran, fn ($q) => $q->where('id_tahun_ajaran', $jadwalPelajaran->id_tahun_ajaran))
+                    ->when($jadwalPelajaran->group_id, fn ($q) => $q->where(function ($sub) use ($jadwalPelajaran) {
+                        $sub->where('group_id', '!=', $jadwalPelajaran->group_id)->orWhereNull('group_id');
+                    }))
+                    ->with(['mataPelajaran'])
+                    ->first();
+
+                if ($terisiLain) {
+                    $namaMapel = $terisiLain->mataPelajaran->nama_mapel ?? 'Jadwal Lain';
+                    $jamKeStr  = $slot->jam_ke !== null ? "Jam Ke-{$slot->jam_ke}" : 'slot tersebut';
+                    throw new \Exception("Gagal! Rentang jam yang dipilih menabrak slot Terkunci ({$namaMapel}) pada {$jamKeStr}.");
+                }
             }
 
-            // Tolak jika slot sudah terisi jadwal lain (bukan milik grup/dirinya sendiri).
-            $terisiLain = JadwalPelajaran::where('id_kelas', $validated['id_kelas'])
-                ->where('hari', $validated['hari'])
+            // Pengecekan bentrok guru di kelas lain
+            $bentrok = JadwalPelajaran::where('hari', $validated['hari'])
                 ->where('id_jam', $validated['id_jam'])
+                ->where('id_guru', $validated['id_guru'])
+                ->where('id_kelas', '!=', $validated['id_kelas'])
                 ->where('id', '!=', $jadwalPelajaran->id)
-                ->when($jadwalPelajaran->id_tahun_ajaran, fn($q) => $q->where('id_tahun_ajaran', $jadwalPelajaran->id_tahun_ajaran))
-                ->when($jadwalPelajaran->group_id, fn($q) => $q->where(function ($sub) use ($jadwalPelajaran) {
-                    $sub->where('group_id', '!=', $jadwalPelajaran->group_id)->orWhereNull('group_id');
-                }))
-                ->exists();
+                ->when($jadwalPelajaran->id_tahun_ajaran, fn ($q) => $q->where('id_tahun_ajaran', $jadwalPelajaran->id_tahun_ajaran))
+                ->with(['kelas', 'guru', 'jamPelajaran', 'mataPelajaran'])
+                ->first();
 
-            if ($terisiLain) {
-                return $this->guardFailure(
-                    $request,
-                    'Gagal menyimpan! Slot tersebut sudah terisi jadwal lain pada kelas & hari yang sama.',
-                    ['id_kelas' => $validated['id_kelas'], 'hari' => $validated['hari']]
-                );
+            if ($bentrok) {
+                $namaGuru  = $bentrok->guru->nama ?? 'Guru terpilih';
+                $namaMapel = $bentrok->mataPelajaran->nama_mapel ?? 'Mapel';
+                $namaKelas = $bentrok->kelas->nama_kelas ?? 'Kelas lain';
+                $jamKe     = $bentrok->jamPelajaran->jam_ke ?? '';
+                $infoJam   = $jamKe ? "Jam Ke-{$jamKe}" : 'slot jam tersebut';
+
+                throw new \Exception("Gagal! Guru {$namaGuru} sudah ada jadwal di Kelas {$namaKelas} pada {$infoJam}{$taStr}.");
             }
-        }
 
-        // Pengecekan bentrok guru di kelas lain
-        $bentrok = JadwalPelajaran::where('hari', $validated['hari'])
-            ->where('id_jam', $validated['id_jam'])
-            ->where('id_guru', $validated['id_guru'])
-            ->where('id_kelas', '!=', $validated['id_kelas'])
-            ->where('id', '!=', $jadwalPelajaran->id)
-            ->when($jadwalPelajaran->id_tahun_ajaran, fn($q) => $q->where('id_tahun_ajaran', $jadwalPelajaran->id_tahun_ajaran))
-            ->with(['kelas', 'guru', 'jamPelajaran'])
-            ->first();
+            // Pengecekan bentrok ruangan sedang digunakan oleh kelas lain
+            if (!empty($validated['id_ruangan'])) {
+                $bentrokRuangan = JadwalPelajaran::where('hari', $validated['hari'])
+                    ->where('id_jam', $validated['id_jam'])
+                    ->where('id_ruangan', $validated['id_ruangan'])
+                    ->where('id_kelas', '!=', $validated['id_kelas'])
+                    ->where('id', '!=', $jadwalPelajaran->id)
+                    ->when($jadwalPelajaran->id_tahun_ajaran, fn ($q) => $q->where('id_tahun_ajaran', $jadwalPelajaran->id_tahun_ajaran))
+                    ->with(['kelas', 'mataPelajaran', 'ruangan', 'jamPelajaran'])
+                    ->first();
 
-        if ($bentrok) {
-            $namaGuru  = $bentrok->guru->nama ?? 'Guru terpilih';
-            $namaKelas = $bentrok->kelas->nama_kelas ?? 'kelas lain';
-            $jamKe     = $bentrok->jamPelajaran->jam_ke ?? '';
-            $infoJam   = $jamKe ? "Jam ke-{$jamKe}" : 'slot jam tersebut';
+                if ($bentrokRuangan) {
+                    $namaRuangan = $bentrokRuangan->ruangan->nama_ruangan ?? $bentrokRuangan->ruangan->kode_ruangan ?? 'Ruangan';
+                    $namaKelas   = $bentrokRuangan->kelas->nama_kelas ?? 'Kelas lain';
+                    $namaMapel   = $bentrokRuangan->mataPelajaran->nama_mapel ?? 'Mapel';
+                    $jamKe       = $bentrokRuangan->jamPelajaran->jam_ke ?? '';
+                    $infoJam     = $jamKe ? "Jam Ke-{$jamKe}" : 'slot jam tersebut';
 
+                    throw new \Exception("Gagal! Ruangan {$namaRuangan} sudah terpakai oleh Kelas {$namaKelas} pada {$infoJam}{$taStr}.");
+                }
+            }
+
+            \Illuminate\Support\Facades\DB::transaction(function () use ($jadwalPelajaran, $validated, $tahunAktif) {
+                // Hapus permanen record soft-deleted pada slot target untuk guru atau kelas ini
+                // agar tidak memicu bentrok DB Unique Constraint (unq_guru_hari_jam / unq_kelas_hari_jam)
+                JadwalPelajaran::onlyTrashed()
+                    ->where('hari', $validated['hari'])
+                    ->where('id_jam', $validated['id_jam'])
+                    ->where(function ($q) use ($validated) {
+                        $q->where('id_guru', $validated['id_guru'])
+                          ->orWhere('id_kelas', $validated['id_kelas']);
+                    })
+                    ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
+                    ->forceDelete();
+
+                $jadwalPelajaran->update([
+                    'id_kelas'        => $validated['id_kelas'],
+                    'hari'            => $validated['hari'],
+                    'id_jam'          => $validated['id_jam'],
+                    'id_mapel'        => $validated['id_mapel'],
+                    'id_guru'         => $validated['id_guru'],
+                    'id_ruangan'      => $validated['id_ruangan'] ?? null,
+                    'id_tahun_ajaran' => $tahunAktif?->id ?? $jadwalPelajaran->id_tahun_ajaran,
+                ]);
+            });
+
+            $mapelObj  = MataPelajaran::find($validated['id_mapel']);
+            $guruObj   = User::find($validated['id_guru']);
+            $jamObj    = JamPelajaran::find($validated['id_jam']);
+
+            $namaMapel = $mapelObj?->nama_mapel ?? 'Mapel';
+            $namaGuru  = $guruObj?->nama ?? 'Guru';
+            $jamKe     = $jamObj?->jam_ke ?? '-';
+
+            $taInfo      = $tahunAktif ? " untuk Tahun Ajaran {$tahunAktif->tahun_ajaran} ({$tahunAktif->semester})" : "";
+            $pesanSukses = "Berhasil memperbarui jadwal {$namaMapel} ({$namaGuru}) pada Jam Ke-{$jamKe}{$taInfo}.";
+            session()->flash('success', $pesanSukses);
+
+            if ($request->wantsJson()) {
+                $jadwalPelajaran->load(['mataPelajaran', 'guru', 'jamPelajaran', 'ruangan']);
+
+                return response()->json([
+                    'success'  => true,
+                    'message'  => $pesanSukses,
+                    'id_kelas' => $validated['id_kelas'],
+                    'hari'     => $validated['hari'],
+                    'data'     => $jadwalPelajaran,
+                ]);
+            }
+
+            return redirect()
+                ->route('admin.jadwal.index', ['id_kelas' => $jadwalPelajaran->id_kelas, 'hari' => $jadwalPelajaran->hari])
+                ->with('success', $pesanSukses);
+        } catch (\Throwable $e) {
             return $this->guardFailure(
                 $request,
-                "Bentrok Jadwal! {$namaGuru} sudah memiliki jadwal mengajar di {$namaKelas} pada {$infoJam}.",
+                $e->getMessage(),
                 ['id_kelas' => $jadwalPelajaran->id_kelas, 'hari' => $jadwalPelajaran->hari]
             );
         }
-
-        $jadwalPelajaran->update([
-            'id_kelas'   => $validated['id_kelas'],
-            'hari'       => $validated['hari'],
-            'id_jam'     => $validated['id_jam'],
-            'id_mapel'   => $validated['id_mapel'],
-            'id_guru'    => $validated['id_guru'],
-            'id_ruangan' => $validated['id_ruangan'] ?? null,
-        ]);
-
-        return redirect()
-            ->route('admin.jadwal.index', ['id_kelas' => $jadwalPelajaran->id_kelas, 'hari' => $jadwalPelajaran->hari])
-            ->with('success', 'Jadwal pelajaran berhasil diperbarui.');
     }
 
     /**
      * Hapus / unplot jadwal pelajaran pada slot tertentu.
      */
-    public function destroy(JadwalPelajaran $jadwalPelajaran)
+    public function destroy(Request $request, JadwalPelajaran $jadwalPelajaran)
     {
-        $idKelas = $jadwalPelajaran->id_kelas;
-        $hari    = $jadwalPelajaran->hari;
+        try {
+            $idKelas = $jadwalPelajaran->id_kelas;
+            $hari    = $jadwalPelajaran->hari;
 
-        $jadwalPelajaran->delete();
+            \Illuminate\Support\Facades\DB::transaction(function () use ($jadwalPelajaran) {
+                $jadwalPelajaran->delete();
+            });
 
-        return redirect()
-            ->route('admin.jadwal.index', ['id_kelas' => $idKelas, 'hari' => $hari])
-            ->with('success', 'Plotting jadwal pada slot tersebut berhasil dikosongkan.');
+            $pesanSukses = 'Plotting jadwal pada slot tersebut berhasil dikosongkan.';
+            session()->flash('success', $pesanSukses);
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success'  => true,
+                    'message'  => $pesanSukses,
+                    'id_kelas' => $idKelas,
+                    'hari'     => $hari,
+                ]);
+            }
+
+            return redirect()
+                ->route('admin.jadwal.index', ['id_kelas' => $idKelas, 'hari' => $hari])
+                ->with('success', $pesanSukses);
+        } catch (\Throwable $e) {
+            return $this->guardFailure($request, $e->getMessage(), []);
+        }
     }
 
     /**
@@ -575,7 +744,7 @@ class JadwalPelajaranController extends Controller
             $occupiedQuery = JadwalPelajaran::where('id_kelas', $idKelas)
                 ->where('hari', $hari)
                 ->where('id_jam', $slot->id)
-                ->when($tahunAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAktif->id));
+                ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id));
 
             if ($exemptGroupId) {
                 $occupiedQuery->where(function ($sub) use ($exemptGroupId) {
@@ -627,7 +796,7 @@ class JadwalPelajaranController extends Controller
     ): \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse {
         if ($request->wantsJson()) {
             return response()->json([
-                'message' => 'Gagal menyimpan! Terdapat slot terkunci atau bentrok dalam rentang jam yang dipilih.',
+                'message' => $flashMessage,
             ], 422);
         }
 

@@ -83,7 +83,7 @@
 
                     @if($izin->has_ttd_waka)
                         <div class="mt-3 pt-3 border-top">
-                            <div class="text-muted small mb-2">Tanda Tangan Waka</div>
+                            <div class="text-muted small mb-2">Tanda Tangan Waka SDM</div>
                             <div class="border rounded-3 p-2 bg-light-subtle d-inline-block"><img src="{{ $izin->ttd_waka_url }}" class="ttd-img" alt="TTD Waka"></div>
                         </div>
                     @endif
@@ -108,8 +108,8 @@
                 <div class="card-body p-4">
                     <div class="text-center mb-3">
                         <span class="d-inline-flex align-items-center justify-content-center mb-2" style="width: 64px; height: 64px; border-radius: 50%; background: #dcfce7; color: #166534;"><i class="bi bi-check2-circle fs-2"></i></span>
-                        <h5 class="fw-bold text-success mb-1">Sukses Verifikasi Waka Kurikulum</h5>
-                        <p class="text-muted mb-0">Pengajuan izin atas nama <strong>{{ $guru->nama ?? '-' }}</strong> pada {{ $izin->tanggal->translatedFormat('d F Y') }} telah diverifikasi dan ditandatangani Waka Kurikulum.<br>Langkah tanda tangan Waka selesai &mdash; tidak dapat diubah lagi.</p>
+                        <h5 class="fw-bold text-success mb-1">Sukses Verifikasi Waka SDM</h5>
+                        <p class="text-muted mb-0">Pengajuan izin atas nama <strong>{{ $guru->nama ?? '-' }}</strong> pada {{ $izin->tanggal->translatedFormat('d F Y') }} telah diverifikasi dan ditandatangani Waka SDM.<br>Langkah tanda tangan Waka selesai &mdash; tidak dapat diubah lagi.</p>
                     </div>
 
                     <hr>
@@ -144,10 +144,57 @@
         @if($state === 'waka')
             <div class="card border-0 shadow-sm rounded-4 mb-4">
                 <div class="card-body p-4">
-                    <h6 class="fw-bold mb-1"><i class="bi bi-signature me-1"></i>Tanda Tangan Waka Kurikulum</h6>
-                    <p class="text-muted small mb-3">Goreskan tanda tangan Waka Kurikulum pada area di bawah, lalu pilih <strong>Setujui</strong> untuk melanjutkan ke Kepala Sekolah, atau <strong>Tolak</strong> beserta catatannya.</p>
+                    <h6 class="fw-bold mb-1"><i class="bi bi-signature me-1"></i>Tanda Tangan Waka SDM</h6>
+                    <p class="text-muted small mb-3">Goreskan tanda tangan Waka SDM pada area di bawah, lalu pilih <strong>Setujui</strong> untuk melanjutkan ke Kepala Sekolah, atau <strong>Tolak</strong> beserta catatannya.</p>
+
                     <form method="POST" action="{{ route('izin.approval.submit', $token) }}" id="formApproval">
                         @csrf
+
+                        {{-- DUAL-MODE: Penandatangan INSIDE FORM --}}
+                        @if($isWakaSdmAuth)
+                            <div class="alert alert-info border-0 rounded-3 d-flex align-items-center gap-2 py-2 px-3 mb-3">
+                                <i class="bi bi-person-lock-fill fs-5"></i>
+                                <div>
+                                    <div class="text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.05em;">Penandatangan</div>
+                                    <div class="fw-semibold text-dark">
+                                        <i class="bi bi-person-check me-1 text-success"></i>{{ Auth::user()->nama }}
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-1" style="font-size: 0.7rem;">Terkunci · Mode Login</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" name="approved_by_waka_id" value="{{ Auth::id() }}">
+                        @else
+                            @php $wakaSdmList = $daftarWakaSdm ?? collect(); @endphp
+                            @if($wakaSdmList->count() === 1)
+                                @php $singleWaka = $wakaSdmList->first(); @endphp
+                                <div class="mb-3">
+                                    <label for="selectWakaSdm" class="form-label small fw-semibold text-secondary">
+                                        Pejabat Waka SDM / Kepegawaian
+                                    </label>
+                                    <select name="approved_by_waka_id" id="selectWakaSdm" class="form-select rounded-3" required>
+                                        <option value="{{ $singleWaka->id }}" selected>{{ $singleWaka->nama }} ({{ $singleWaka->nip ?? 'Non-NIP' }})</option>
+                                    </select>
+                                    <input type="hidden" name="approved_by_waka_id" value="{{ $singleWaka->id }}">
+                                    <div class="form-text small"><i class="bi bi-person-check me-1"></i>Satu pejabat Waka SDM terdaftar — otomatis terpilih.</div>
+                                </div>
+                            @elseif($wakaSdmList->isNotEmpty())
+                                <div class="mb-3">
+                                    <label for="selectWakaSdm" class="form-label small fw-semibold text-secondary">
+                                        Pilih Pejabat Waka SDM / Kepegawaian <span class="text-danger">*</span>
+                                    </label>
+                                    <select name="approved_by_waka_id" id="selectWakaSdm" class="form-select rounded-3" required>
+                                        <option value="" disabled selected>-- Pilih Pejabat Waka SDM --</option>
+                                        @foreach($wakaSdmList as $waka)
+                                            <option value="{{ $waka->id }}">{{ $waka->nama }} ({{ $waka->nip ?? 'Non-NIP' }})</option>
+                                        @endforeach
+                                    </select>
+                                    <div class="form-text small"><i class="bi bi-share me-1"></i>Tautan publik: pilih pejabat Waka SDM yang berwenang menandatangani.</div>
+                                </div>
+                            @else
+                                <input type="hidden" name="approved_by_waka_id" value="">
+                            @endif
+                        @endif
+
                         <canvas id="canvasTtd" width="600" height="220">Browser tidak mendukung Canvas.</canvas>
                         <div class="d-flex justify-content-end my-2">
                             <button type="button" id="btnClear" class="btn btn-sm btn-outline-danger rounded-3"><i class="bi bi-eraser me-1"></i> Hapus</button>
@@ -176,6 +223,52 @@
                     <p class="text-muted small mb-3">Ini adalah langkah <strong>terakhir</strong>. Goreskan tanda tangan pada area di bawah, lalu pilih <strong>Setujui</strong> untuk mengesahkan izin, atau <strong>Tolak</strong> beserta catatannya.</p>
                     <form method="POST" action="{{ route('izin.approval.submit', $token) }}" id="formApproval">
                         @csrf
+
+                        {{-- DUAL-MODE: Penandatangan Kepsek INSIDE FORM --}}
+                        @if($isKepsekAuth ?? false)
+                            <div class="alert alert-info border-0 rounded-3 d-flex align-items-center gap-2 py-2 px-3 mb-3">
+                                <i class="bi bi-person-lock-fill fs-5"></i>
+                                <div>
+                                    <div class="text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.05em;">Penandatangan</div>
+                                    <div class="fw-semibold text-dark">
+                                        <i class="bi bi-person-check me-1 text-success"></i>{{ Auth::user()->nama }}
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-1" style="font-size: 0.7rem;">Terkunci · Mode Login</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" name="approved_by_kepsek_id" value="{{ Auth::id() }}">
+                        @else
+                            @php $kepsekList = $daftarKepsek ?? collect(); @endphp
+                            @if($kepsekList->count() === 1)
+                                @php $singleKepsek = $kepsekList->first(); @endphp
+                                <div class="mb-3">
+                                    <label for="selectKepsek" class="form-label small fw-semibold text-secondary">
+                                        Pejabat Kepala Sekolah
+                                    </label>
+                                    <select name="approved_by_kepsek_id" id="selectKepsek" class="form-select rounded-3" required>
+                                        <option value="{{ $singleKepsek->id }}" selected>{{ $singleKepsek->nama }} ({{ $singleKepsek->nip ?? 'Non-NIP' }})</option>
+                                    </select>
+                                    <input type="hidden" name="approved_by_kepsek_id" value="{{ $singleKepsek->id }}">
+                                    <div class="form-text small"><i class="bi bi-person-check me-1"></i>Satu pejabat Kepala Sekolah terdaftar — otomatis terpilih.</div>
+                                </div>
+                            @elseif($kepsekList->isNotEmpty())
+                                <div class="mb-3">
+                                    <label for="selectKepsek" class="form-label small fw-semibold text-secondary">
+                                        Pilih Pejabat Kepala Sekolah <span class="text-danger">*</span>
+                                    </label>
+                                    <select name="approved_by_kepsek_id" id="selectKepsek" class="form-select rounded-3" required>
+                                        <option value="" disabled selected>-- Pilih Pejabat Kepala Sekolah --</option>
+                                        @foreach($kepsekList as $kp)
+                                            <option value="{{ $kp->id }}">{{ $kp->nama }} ({{ $kp->nip ?? 'Non-NIP' }})</option>
+                                        @endforeach
+                                    </select>
+                                    <div class="form-text small"><i class="bi bi-share me-1"></i>Tautan publik: pilih Kepala Sekolah yang berwenang menandatangani.</div>
+                                </div>
+                            @else
+                                <input type="hidden" name="approved_by_kepsek_id" value="">
+                            @endif
+                        @endif
+
                         <canvas id="canvasTtd" width="600" height="220">Browser tidak mendukung Canvas.</canvas>
                         <div class="d-flex justify-content-end my-2">
                             <button type="button" id="btnClear" class="btn btn-sm btn-outline-danger rounded-3"><i class="bi bi-eraser me-1"></i> Hapus</button>
@@ -184,7 +277,7 @@
                         <input type="hidden" name="ttd_kepsek" id="ttdKepsek" value="">
                         <div class="mb-3">
                             <label class="form-label small fw-semibold text-secondary">Catatan Penolakan <span class="text-muted fw-normal">(opsional, bila menolak)</span></label>
-                            <textarea name="catatan_penolakan" rows="2" maxlength="500" class="form-control rounded-3"></textarea>
+                            <textarea name="catatan_penolakan" rows="2" maxlength="500" class="form-control rounded-3" placeholder="Contoh: Lampiran kurang lengkap..."></textarea>
                         </div>
                         <hr>
                         <div class="d-flex flex-wrap justify-content-end gap-2">
@@ -212,11 +305,17 @@
 
         {{-- ===== REJECTED ===== --}}
         @if($state === 'rejected')
+            @php
+                $penolak = $izin->approverKepsek?->nama 
+                    ?? $izin->approverWaka?->nama 
+                    ?? ($daftarKepsek ?? collect())->first()?->nama 
+                    ?? ($daftarWakaSdm ?? collect())->first()?->nama;
+            @endphp
             <div class="card border-0 shadow-sm rounded-4 border-start border-5 border-danger">
                 <div class="card-body p-4 text-center">
                     <span class="d-inline-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px; border-radius: 50%; background: #fee2e2; color: #991b1b;"><i class="bi bi-x-octagon fs-2"></i></span>
                     <h5 class="fw-bold text-danger mb-1">Izin Ditolak</h5>
-                    <p class="text-muted mb-0">Pengajuan izin atas nama <strong>{{ $guru->nama ?? '-' }}</strong> ditolak pada {{ $izin->approved_at?->translatedFormat('d F Y, H:i') }}.</p>
+                    <p class="text-muted mb-0">Pengajuan izin atas nama <strong>{{ $guru->nama ?? '-' }}</strong> ditolak oleh <strong>{{ $penolak ?? 'Pejabat Berwenang' }}</strong> pada {{ $izin->approved_at?->translatedFormat('d F Y, H:i') }}.</p>
                     @if($izin->catatan_penolakan)
                         <div class="alert alert-warning rounded-3 mt-3 mb-0 text-start"><i class="bi bi-chat-left-text me-1"></i><strong>Catatan penolakan:</strong> {{ $izin->catatan_penolakan }}</div>
                     @endif
@@ -260,7 +359,23 @@
                     const requireTtd = (clicked && clicked.name === 'keputusan' && clicked.value === 'setujui');
                     if (requireTtd) {
                         const val = state === 'waka' ? ttdWakaHidden.value : ttdKepsekHidden.value;
-                        if (!val) { e.preventDefault(); alert('Silakan goreskan tanda tangan terlebih dahulu.'); }
+                        if (!val) { e.preventDefault(); alert('Silakan goreskan tanda tangan terlebih dahulu.'); return; }
+
+                        // Mode tautan publik: wajib memilih pejabat Waka SDM / Kepsek.
+                        if (state === 'waka' && @json(!$isWakaSdmAuth)) {
+                            const selWaka = document.getElementById('selectWakaSdm');
+                            if (selWaka && !selWaka.value) {
+                                e.preventDefault();
+                                alert('Silakan pilih pejabat Waka SDM / Kepegawaian terlebih dahulu.');
+                            }
+                        }
+                        if (state === 'kepsek' && @json(!($isKepsekAuth ?? false))) {
+                            const selKepsek = document.getElementById('selectKepsek');
+                            if (selKepsek && !selKepsek.value) {
+                                e.preventDefault();
+                                alert('Silakan pilih pejabat Kepala Sekolah terlebih dahulu.');
+                            }
+                        }
                     }
                 });
             }

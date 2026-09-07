@@ -28,31 +28,12 @@
         justify-content: center;
         font-size: 1.35rem;
     }
-    .quick-action-card {
+    .actionable-card {
         background: #ffffff;
         border: 1px solid #e2e8f0;
         border-radius: 1rem;
-        padding: 1.15rem 1.25rem;
-        text-decoration: none;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        color: #1e293b;
-        transition: all 0.2s ease;
-    }
-    .quick-action-card:hover {
-        background: #f8fafc;
-        border-color: #0284c7;
-        color: #0369a1;
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(2, 132, 199, 0.08);
-    }
-    .chart-card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 1rem;
-        padding: 1.25rem;
         box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        transition: all 0.2s ease;
     }
     .table-custom-sdm th {
         background: #f8fafc;
@@ -230,60 +211,213 @@
     </div>
 
     {{-- ============================================================== --}}
-    {{-- 2. GRAFIK KEHADIRAN & BREAKDOWN BULAN INI                      --}}
+    {{-- 2. REAL-TIME ACTIONABLE MONITORING TABLES                      --}}
     {{-- ============================================================== --}}
     <div class="row g-3 mb-4">
-        {{-- Grafik Garis: Tren Persentase Kehadiran --}}
-        <div class="col-12 col-lg-8">
-            <div class="chart-card h-100">
-                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        
+        {{-- CARD 1: Guru Tidak Hadir / Izin Hari Ini --}}
+        <div class="col-12 col-xl-6">
+            <div class="actionable-card h-100 d-flex flex-column">
+                <div class="card-header bg-white border-bottom py-3 px-3.5 d-flex align-items-center justify-content-between flex-wrap gap-2">
                     <div>
-                        <h5 class="fw-bold text-dark mb-0" style="font-size: 1rem;">
-                            <i class="bi bi-graph-up text-primary me-1.5"></i> Grafik Persentase Kehadiran Guru Bulan Ini
-                        </h5>
-                        <p class="text-muted mb-0 text-xs">
-                            Tren tingkat kehadiran guru per hari pada bulan {{ \Carbon\Carbon::now()->translatedFormat('F Y') }}
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-circle p-1 d-inline-flex">
+                                <i class="bi bi-person-x fs-6"></i>
+                            </span>
+                            <h5 class="fw-bold text-dark mb-0" style="font-size: 1rem;">
+                                Guru Tidak Hadir / Izin Hari Ini
+                            </h5>
+                        </div>
+                        <p class="text-muted mb-0 text-xs mt-1">
+                            Daftar guru yang berhalangan hadir dan status penugasan guru pengganti.
                         </p>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill text-xs px-2.5 py-1">
-                            Rata-rata: {{ $persentaseKehadiranBulanIni }}%
-                        </span>
-                    </div>
+                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill text-xs px-2.5 py-1">
+                        {{ $guruIzinHariIniList->count() }} Guru
+                    </span>
                 </div>
-                <div style="height: 250px; width: 100%;">
-                    <canvas id="kehadiranTrendChart"></canvas>
+
+                <div class="card-body p-0 flex-grow-1">
+                    @if($guruIzinHariIniList->isEmpty())
+                        <div class="text-center py-5 px-3">
+                            <div class="rounded-circle bg-success-subtle text-success d-inline-flex align-items-center justify-content-center mb-2" style="width: 46px; height: 46px;">
+                                <i class="bi bi-check2-circle fs-4"></i>
+                            </div>
+                            <h6 class="fw-bold text-dark mb-1">Semua guru terjadwal hadir hari ini.</h6>
+                            <p class="text-muted text-xs mb-0">Tidak ada pengajuan izin, sakit, atau dinas luar yang aktif untuk hari ini.</p>
+                        </div>
+                    @else
+                        <div class="table-responsive">
+                            <table class="table table-custom-sdm table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Nama Guru</th>
+                                        <th>Status</th>
+                                        <th>Alasan</th>
+                                        <th>Guru Pengganti</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($guruIzinHariIniList as $izin)
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <div class="rounded-circle bg-warning-subtle text-warning-emphasis d-flex align-items-center justify-content-center fw-bold" style="width: 32px; height: 32px; font-size: 0.78rem;">
+                                                        {{ strtoupper(substr($izin->user?->nama ?? 'G', 0, 1)) }}
+                                                    </div>
+                                                    <div>
+                                                        <div class="fw-semibold text-dark">{{ $izin->user?->nama ?? 'Guru Tidak Ditemukan' }}</div>
+                                                        <div class="text-muted text-2xs">{{ $izin->user?->nip ? 'NIP: ' . $izin->user->nip : 'Non-NIP' }}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-light text-dark border border-secondary-subtle px-2 py-1 rounded-pill text-xs fw-semibold">
+                                                    {{ $izin->kategori_izin_label ?? ucfirst(str_replace('_', ' ', $izin->kategori_izin ?? 'Izin')) }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="text-truncate text-dark text-xs" style="max-width: 170px;" title="{{ $izin->alasan ?? $izin->keterangan }}">
+                                                    {{ $izin->alasan ?? $izin->keterangan ?? '-' }}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                @if($izin->guru_pengganti)
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill text-xs" title="Guru Pengganti / Cover">
+                                                        <i class="bi bi-person-check-fill me-1"></i> {{ $izin->guru_pengganti->nama }}
+                                                    </span>
+                                                @elseif($izin->approverPiket)
+                                                    <span class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1 rounded-pill text-xs" title="Dicatat oleh Piket">
+                                                        <i class="bi bi-shield-check me-1"></i> Piket: {{ $izin->approverPiket->nama }}
+                                                    </span>
+                                                @else
+                                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 rounded-pill text-xs">
+                                                        <i class="bi bi-exclamation-circle me-1"></i> Belum Cover
+                                                    </span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </div>
+
+                <div class="card-footer bg-white border-top py-2.5 px-3.5 d-flex align-items-center justify-content-between text-xs">
+                    <span class="text-muted">Diperbarui real-time dari database izin</span>
+                    <a href="{{ route('waka-sdm.rekap-izin') }}" class="text-primary text-decoration-none fw-semibold">
+                        Kelola Rekap Izin &rarr;
+                    </a>
                 </div>
             </div>
         </div>
 
-        {{-- Grafik Donut: Komposisi Izin & Kehadiran --}}
-        <div class="col-12 col-lg-4">
-            <div class="chart-card h-100 d-flex flex-column">
-                <div class="mb-3">
-                    <h5 class="fw-bold text-dark mb-0" style="font-size: 1rem;">
-                        <i class="bi bi-pie-chart text-info me-1.5"></i> Distribusi Kehadiran
-                    </h5>
-                    <p class="text-muted mb-0 text-xs">
-                        Akumulasi hari kerja bulan {{ \Carbon\Carbon::now()->translatedFormat('F') }}
-                    </p>
+        {{-- CARD 2: Pantauan Kelas Kosong (Jam Ini / Hari Ini) --}}
+        <div class="col-12 col-xl-6">
+            <div class="actionable-card h-100 d-flex flex-column">
+                <div class="card-header bg-white border-bottom py-3 px-3.5 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-circle p-1 d-inline-flex">
+                                <i class="bi bi-door-closed fs-6"></i>
+                            </span>
+                            <h5 class="fw-bold text-dark mb-0" style="font-size: 1rem;">
+                                Pantauan Kelas Kosong (Jam Ini)
+                            </h5>
+                        </div>
+                        <p class="text-muted mb-0 text-xs mt-1">
+                            Sesi KBM yang sedang berlangsung/terjadwal tapi Jurnal KBM-nya belum diisi guru.
+                        </p>
+                    </div>
+                    <span class="badge {{ $kelasKosongHariIniList->count() > 0 ? 'bg-danger-subtle text-danger border-danger-subtle' : 'bg-success-subtle text-success border-success-subtle' }} border rounded-pill text-xs px-2.5 py-1">
+                        {{ $kelasKosongHariIniList->count() }} Sesi Belum Diisi
+                    </span>
                 </div>
-                <div class="my-auto position-relative" style="height: 180px;">
-                    <canvas id="kehadiranDoughnutChart"></canvas>
+
+                <div class="card-body p-0 flex-grow-1">
+                    @if($kelasKosongHariIniList->isEmpty())
+                        <div class="text-center py-5 px-3">
+                            <div class="rounded-circle bg-success-subtle text-success d-inline-flex align-items-center justify-content-center mb-2" style="width: 46px; height: 46px;">
+                                <i class="bi bi-check2-all fs-4"></i>
+                            </div>
+                            <h6 class="fw-bold text-dark mb-1">Semua sesi KBM hari ini sudah terisi dengan baik.</h6>
+                            <p class="text-muted text-xs mb-0">Tidak ada kelas kosong atau jurnal mengajar yang terlewatkan hari ini.</p>
+                        </div>
+                    @else
+                        <div class="table-responsive">
+                            <table class="table table-custom-sdm table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Jam / Sesi</th>
+                                        <th>Kelas & Mapel</th>
+                                        <th>Guru Pengajar</th>
+                                        <th class="text-end">Aksi Cepat</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($kelasKosongHariIniList as $item)
+                                        <tr>
+                                            <td>
+                                                <span class="badge bg-light text-dark border fw-bold text-xs">
+                                                    Jam Ke-{{ $item->jam?->jam_ke ?? '-' }}
+                                                </span>
+                                                <div class="text-muted text-2xs mt-0.5">
+                                                    {{ $item->jam ? \Carbon\Carbon::parse($item->jam->jam_mulai)->format('H:i') . ' - ' . \Carbon\Carbon::parse($item->jam->jam_selesai)->format('H:i') : '' }}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="fw-bold text-dark">{{ $item->kelas?->nama_kelas ?? '-' }}</div>
+                                                <div class="text-muted text-xs text-truncate" style="max-width: 140px;" title="{{ $item->mapel?->nama_mapel }}">
+                                                    {{ $item->mapel?->nama_mapel ?? '-' }}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="fw-semibold text-dark text-xs">{{ $item->guru?->nama ?? 'Guru Tidak Ditemukan' }}</div>
+                                                @if($item->izin)
+                                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle text-2xs px-1.5 py-0.5 rounded-pill">
+                                                        <i class="bi bi-exclamation-triangle"></i> Izin
+                                                    </span>
+                                                @else
+                                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle text-2xs px-1.5 py-0.5 rounded-pill">
+                                                        Belum Hadir
+                                                    </span>
+                                                @endif
+                                            </td>
+                                            <td class="text-end">
+                                                @if($item->waUrl)
+                                                    <a href="{{ $item->waUrl }}" target="_blank" class="btn btn-sm btn-success rounded-pill px-2.5 py-1 text-xs d-inline-flex align-items-center gap-1 shadow-2xs fw-semibold" title="Kirim pesan WhatsApp pengingat">
+                                                        <i class="bi bi-whatsapp"></i> Ingatkan
+                                                    </a>
+                                                @else
+                                                    <a href="{{ route('waka-sdm.rekap-izin') }}" class="btn btn-sm btn-light border rounded-pill px-2.5 py-1 text-xs text-secondary fw-semibold" title="Buka manajemen izin / piket">
+                                                        <i class="bi bi-shield-fill-exclamation text-warning me-1"></i> Hubungi Piket
+                                                    </a>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
                 </div>
-                <div class="pt-3 mt-2 border-top text-xs d-flex justify-content-between text-muted">
-                    <span><i class="bi bi-circle-fill text-success me-1"></i> Hadir: <strong>{{ $totalHadirBulanIni }}</strong></span>
-                    <span><i class="bi bi-circle-fill text-danger me-1"></i> Sakit: <strong>{{ $totalSakitBulanIni }}</strong></span>
-                    <span><i class="bi bi-circle-fill text-warning me-1"></i> Izin/Dinas: <strong>{{ $totalIzinBulanIni }}</strong></span>
+
+                <div class="card-footer bg-white border-top py-2.5 px-3.5 d-flex align-items-center justify-content-between text-xs">
+                    <span class="text-muted">Kirim pengingat atau koordinasikan dengan Tim Piket</span>
+                    <a href="#tabelMonitoringLengkap" class="text-primary text-decoration-none fw-semibold">
+                        Lihat Semua Sesi &darr;
+                    </a>
                 </div>
             </div>
         </div>
+
     </div>
 
     {{-- ============================================================== --}}
     {{-- 3. TABEL MONITORING KBM & PRESENSI GURU HARI INI               --}}
     {{-- ============================================================== --}}
-    <div class="card border rounded-3 shadow-2xs mb-4">
+    <div id="tabelMonitoringLengkap" class="card border rounded-3 shadow-2xs mb-4">
         <div class="card-header bg-white border-bottom py-3 px-3.5 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div>
                 <h5 class="fw-bold text-dark mb-0" style="font-size: 1rem;">
@@ -473,124 +607,3 @@
 
 </div>
 @endsection
-
-@push('scripts')
-{{-- Chart.js CDN --}}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    // 1. Line Chart: Tren Persentase Kehadiran Guru
-    const ctxTrend = document.getElementById('kehadiranTrendChart');
-    if (ctxTrend) {
-        const labels = @json($chartLabels);
-        const rateData = @json($chartRateData);
-        const hadirData = @json($chartHadirData);
-
-        new Chart(ctxTrend, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Persentase Kehadiran (%)',
-                        data: rateData,
-                        borderColor: '#0284c7',
-                        backgroundColor: 'rgba(2, 132, 199, 0.08)',
-                        borderWidth: 2.5,
-                        fill: true,
-                        tension: 0.35,
-                        pointBackgroundColor: '#0284c7',
-                        pointBorderColor: '#ffffff',
-                        pointBorderWidth: 2,
-                        pointRadius: 4,
-                        pointHoverRadius: 6,
-                        yAxisID: 'y'
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return ` Kehadiran: ${context.parsed.y}%`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: {
-                            display: false
-                        },
-                        ticks: {
-                            font: { size: 11 },
-                            color: '#64748b'
-                        }
-                    },
-                    y: {
-                        min: 0,
-                        max: 100,
-                        grid: {
-                            color: '#f1f5f9'
-                        },
-                        ticks: {
-                            stepSize: 20,
-                            font: { size: 11 },
-                            color: '#64748b',
-                            callback: function(value) {
-                                return value + '%';
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    // 2. Doughnut Chart: Distribusi Kehadiran Bulan Ini
-    const ctxDonut = document.getElementById('kehadiranDoughnutChart');
-    if (ctxDonut) {
-        const totalHadir = {{ $totalHadirBulanIni }};
-        const totalSakit = {{ $totalSakitBulanIni }};
-        const totalIzin = {{ $totalIzinBulanIni }};
-
-        new Chart(ctxDonut, {
-            type: 'doughnut',
-            data: {
-                labels: ['Hadir', 'Sakit', 'Izin / Cuti / Dinas'],
-                datasets: [{
-                    data: [
-                        Math.max(0, totalHadir),
-                        Math.max(0, totalSakit),
-                        Math.max(0, totalIzin)
-                    ],
-                    backgroundColor: [
-                        '#10b981', // green
-                        '#ef4444', // red
-                        '#f59e0b'  // amber
-                    ],
-                    borderWidth: 2,
-                    borderColor: '#ffffff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '72%',
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                }
-            }
-        });
-    }
-});
-</script>
-@endpush

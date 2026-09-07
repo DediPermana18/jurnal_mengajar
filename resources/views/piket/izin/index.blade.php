@@ -148,7 +148,14 @@
                                             <div class="d-none" id="qr-izin-{{ $izin->id }}">{!! $qrSvg !!}</div>
                                         @endif
                                     @else
-                                        <span class="text-muted small">-</span>
+                                        <button type="button" class="btn btn-sm btn-outline-primary rounded-3 text-xs"
+                                                onclick="openDetailModalPiket({{ $izin->id }})" title="Lihat Detail">
+                                            <i class="bi bi-eye me-1"></i>Lihat Detail
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-light border rounded-3 text-xs"
+                                                onclick="openDokumenModalPiket({{ $izin->id }})" title="Cetak Surat">
+                                            <i class="bi bi-printer"></i>
+                                        </button>
                                     @endif
                                 </div>
                             </td>
@@ -230,6 +237,71 @@
     </div>
 </div>
 
+<!-- MODAL DETAIL IZIN PIKET -->
+<div class="modal fade" id="modalDetailIzinPiket" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark fs-6"><i class="bi bi-info-circle me-2 text-primary"></i> Detail Pengajuan Izin Guru</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4" id="modalDetailBodyPiket"></div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light rounded-3 text-xs" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DOKUMEN CETAK SURAT PIKET -->
+<div class="modal fade" id="modalDokumenPiket" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark fs-6"><i class="bi bi-file-earmark-text me-2 text-primary"></i> Dokumen Surat Perizinan Guru</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div id="dokumenSuratPiket" class="border rounded-3 p-4 bg-white shadow-sm"></div>
+            </div>
+            <div class="modal-footer border-0 justify-content-between pt-0 px-4 pb-4">
+                <span id="dokumenNamaGuruPiket" class="text-muted text-xs"></span>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-light border rounded-3 text-xs" data-bs-dismiss="modal">Tutup</button>
+                    <a id="btnDownloadDokumenPiket" href="#" target="_blank" class="btn btn-outline-primary rounded-3 text-xs fw-semibold d-none"><i class="bi bi-download me-1"></i> Unduh Lampiran</a>
+                    <button type="button" onclick="printDokumenPiket()" class="btn btn-primary rounded-3 text-xs fw-semibold"><i class="bi bi-printer me-1"></i> Cetak Surat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@php
+    $piketDetailData = collect($daftarIzin->items())->map(function ($i) {
+        return [
+            'id'           => $i->id,
+            'nama'         => $i->user?->nama ?? '-',
+            'nip'          => $i->user?->nip ?? '-',
+            'tanggal'      => $i->tanggal?->translatedFormat('d F Y') ?? '-',
+            'hari'         => $i->tanggal?->translatedFormat('l') ?? '-',
+            'kategori'     => $i->kategori_izin_label ?? 'Lainnya',
+            'alasan'       => $i->alasan,
+            'tugas_siswa'  => $i->tugas_siswa,
+            'status'       => $i->status,
+            'status_label' => $i->status_label,
+            'status_badge' => $i->status_badge,
+            'has_lampiran' => !empty($i->lampiran),
+            'lampiran_url' => $i->lampiran ? asset('storage/' . $i->lampiran) : null,
+            'ttd_guru'     => $i->ttd_guru_url,
+            'ttd_waka'     => $i->ttd_waka_url,
+            'ttd_kepsek'   => $i->ttd_kepsek_url,
+            'nama_waka'    => $i->approverWaka?->nama,
+            'nama_kepsek'  => $i->approverKepsek?->nama,
+            'approved_at'  => $i->approved_at?->translatedFormat('d F Y, H:i'),
+        ];
+    })->values();
+@endphp
+
 <style>
     .qr-approval-preview svg { width: 220px; height: 220px; display: block; }
     .btn-wa { background-color: #25D366 !important; border-color: #25D366 !important; color: #fff !important; }
@@ -239,6 +311,130 @@
 
 @push('scripts')
 <script>
+    const piketIzinData = @json($piketDetailData);
+
+    function openDetailModalPiket(izinId) {
+        const data = piketIzinData.find(d => d.id === izinId);
+        if (!data) return;
+
+        const ttdGuru = data.ttd_guru
+            ? `<img src="${data.ttd_guru}" class="rounded border" style="height: 56px; object-fit: contain;" alt="TTD Guru">`
+            : `<span class="badge bg-secondary-subtle text-secondary border rounded-pill px-2 py-1 text-2xs">Belum ada TTD</span>`;
+        const ttdWaka = data.ttd_waka
+            ? `<img src="${data.ttd_waka}" class="rounded border" style="height: 56px; object-fit: contain;" alt="TTD Waka">`
+            : `<span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-2 py-1 text-2xs">Menunggu TTD Waka SDM</span>`;
+        const ttdKepsek = data.ttd_kepsek
+            ? `<img src="${data.ttd_kepsek}" class="rounded border" style="height: 56px; object-fit: contain;" alt="TTD Kepsek">`
+            : `<span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-2 py-1 text-2xs">Menunggu TTD Kepsek</span>`;
+
+        document.getElementById('modalDetailBodyPiket').innerHTML = `
+            <div class="row g-3 mb-3">
+                <div class="col-6"><div class="text-muted text-xs">Nama Guru</div><div class="fw-semibold text-dark">${data.nama}</div></div>
+                <div class="col-6"><div class="text-muted text-xs">NIP</div><div class="fw-semibold text-dark">${data.nip}</div></div>
+                <div class="col-6"><div class="text-muted text-xs">Tanggal Izin</div><div class="fw-semibold text-dark">${data.hari}, ${data.tanggal}</div></div>
+                <div class="col-6"><div class="text-muted text-xs">Kategori</div><div class="fw-semibold text-dark">${data.kategori}</div></div>
+                <div class="col-12"><div class="text-muted text-xs">Alasan</div><div class="fw-semibold text-dark">${data.alasan}</div></div>
+                ${data.tugas_siswa ? `<div class="col-12"><div class="text-muted text-xs">Tugas Siswa</div><div class="fw-semibold text-dark">${data.tugas_siswa}</div></div>` : ''}
+            </div>
+            <hr class="my-3">
+            <div class="small fw-semibold text-muted text-uppercase mb-2">Tanda Tangan Digital (3 Berdampingan)</div>
+            <div class="row text-center g-3">
+                <div class="col-4">
+                    <div class="text-xs fw-semibold text-dark mb-1">Guru (${data.nama})</div>
+                    <div class="d-flex justify-content-center align-items-center" style="min-height:60px;">${ttdGuru}</div>
+                </div>
+                <div class="col-4">
+                    <div class="text-xs fw-semibold text-dark mb-1">Waka SDM (${data.nama_waka || '-'})</div>
+                    <div class="d-flex justify-content-center align-items-center" style="min-height:60px;">${ttdWaka}</div>
+                </div>
+                <div class="col-4">
+                    <div class="text-xs fw-semibold text-dark mb-1">Kepala Sekolah (${data.nama_kepsek || '-'})</div>
+                    <div class="d-flex justify-content-center align-items-center" style="min-height:60px;">${ttdKepsek}</div>
+                </div>
+            </div>
+        `;
+
+        const modal = new bootstrap.Modal(document.getElementById('modalDetailIzinPiket'));
+        modal.show();
+    }
+
+    function openDokumenModalPiket(izinId) {
+        const data = piketIzinData.find(d => d.id === izinId);
+        if (!data) return;
+
+        const ttdGuru = data.ttd_guru
+            ? `<img src="${data.ttd_guru}" style="height: 64px; object-fit: contain;" alt="TTD Guru">`
+            : `<span class="text-muted fst-italic text-xs">(belum ada TTD)</span>`;
+        const ttdWaka = data.ttd_waka
+            ? `<img src="${data.ttd_waka}" style="height: 64px; object-fit: contain;" alt="TTD Waka">`
+            : `<span class="text-muted fst-italic text-xs">(Menunggu TTD Waka SDM)</span>`;
+        const ttdKepsek = data.ttd_kepsek
+            ? `<img src="${data.ttd_kepsek}" style="height: 64px; object-fit: contain;" alt="TTD Kepsek">`
+            : `<span class="text-muted fst-italic text-xs">(Menunggu TTD Kepsek)</span>`;
+
+        document.getElementById('dokumenSuratPiket').innerHTML = `
+            <div style="text-align:center; border-bottom: 2px solid #111827; padding-bottom: 12px; margin-bottom: 16px;">
+                <div style="font-size: 0.95rem; font-weight: 800; text-transform: uppercase;">Surat Pengajuan Izin Kegiatan Guru</div>
+                <div class="text-muted" style="font-size: 0.8rem;">Sistem Informasi Presensi & Perizinan Digital</div>
+            </div>
+            <div class="mb-3" style="font-size: 0.85rem;">
+                <div class="mb-1">Kepada Yth. Pimpinan Sekolah / Kepala Sekolah<br>di Tempat</div>
+            </div>
+            <table style="font-size: 0.85rem; margin-bottom: 12px;">
+                <tr><td style="padding-right: 12px; vertical-align: top;">Nama Guru</td><td>: <strong>${data.nama}</strong></td></tr>
+                <tr><td style="padding-right: 12px; vertical-align: top;">NIP</td><td>: ${data.nip || '-'}</td></tr>
+                <tr><td style="padding-right: 12px; vertical-align: top;">Tanggal Izin</td><td>: ${data.tanggal} (${data.hari})</td></tr>
+                <tr><td style="padding-right: 12px; vertical-align: top;">Jenis Izin</td><td>: ${data.kategori}</td></tr>
+            </table>
+            <p style="font-size: 0.85rem; text-align: justify; margin-bottom: 8px;">Permohonan izin dengan alasan: <em>"${data.alasan}"</em></p>
+            ${data.tugas_siswa ? `<p style="font-size: 0.85rem; margin-bottom: 12px;"><strong>Penugasan Siswa:</strong> ${data.tugas_siswa}</p>` : ''}
+            
+            <div style="display:flex; justify-content:space-between; gap:16px; margin-top:36px; align-items:flex-end;">
+                <div style="text-align:center; width:32%;">
+                    <div class="mb-1" style="font-size:0.8rem;">Pemohon,<br>Guru</div>
+                    <div style="height:70px; display:flex; align-items:center; justify-content:center;">${ttdGuru}</div>
+                    <div class="border-top d-inline-block pt-1" style="font-size:0.8rem; min-width:130px;">${data.nama}</div>
+                </div>
+                <div style="text-align:center; width:32%;">
+                    <div class="mb-1" style="font-size:0.8rem;">Mengetahui,<br>Waka SDM</div>
+                    <div style="height:70px; display:flex; align-items:center; justify-content:center;">${ttdWaka}</div>
+                    <div class="border-top d-inline-block pt-1" style="font-size:0.8rem; min-width:130px;">${data.nama_waka || '...........................'}</div>
+                </div>
+                <div style="text-align:center; width:32%;">
+                    <div class="mb-1" style="font-size:0.8rem;">Menyetujui,<br>Kepala Sekolah</div>
+                    <div style="height:70px; display:flex; align-items:center; justify-content:center;">${ttdKepsek}</div>
+                    <div class="border-top d-inline-block pt-1" style="font-size:0.8rem; min-width:130px;">${data.nama_kepsek || '...........................'}</div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('dokumenNamaGuruPiket').textContent = 'Pemohon: ' + data.nama;
+        const btnDownload = document.getElementById('btnDownloadDokumenPiket');
+        btnDownload.href = data.lampiran_url || '#';
+        btnDownload.classList.toggle('d-none', !data.has_lampiran);
+
+        const modal = new bootstrap.Modal(document.getElementById('modalDokumenPiket'));
+        modal.show();
+    }
+
+    function printDokumenPiket() {
+        const surat = document.getElementById('dokumenSuratPiket').innerHTML;
+        const w = window.open('', '_blank', 'width=800,height=900');
+        w.document.write(`
+            <html><head><title>Dokumen Izin Guru</title>
+            <style>
+                body { font-family: system-ui, -apple-system, sans-serif; color: #111827; padding: 40px; font-size: 14px; }
+                img { max-width: 100%; }
+                table { border-collapse: collapse; }
+                td { vertical-align: top; }
+            </style></head><body>${surat}</body></html>
+        `);
+        w.document.close();
+        w.focus();
+        w.print();
+        w.close();
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         const noWaWaka = @json($noWaWaka);
         const noWaKepsek = @json($noWaKepsek);

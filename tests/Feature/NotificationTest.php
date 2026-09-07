@@ -48,11 +48,12 @@ class NotificationTest extends TestCase
 
         $this->actingAs($guru)
             ->post(route('guru.izin.store'), [
-                'tanggal'     => '2026-08-11',
-                'alasan'      => 'Sakit',
-                'lampiran'    => null,
-                'tugas_siswa' => null,
-                'ttd_guru'    => null,
+                'tanggal'       => '2026-08-11',
+                'kategori_izin' => 'sakit',
+                'alasan'        => 'Sakit',
+                'lampiran'      => null,
+                'tugas_siswa'   => null,
+                'ttd_guru'      => null,
             ]);
 
         $this->assertSame(1, $waka->unreadNotifications()->count());
@@ -67,7 +68,7 @@ class NotificationTest extends TestCase
 
         $this->actingAs($this->makeUser('guru', 'guru_mapel', 'gurud'))
             ->post(route('guru.izin.store'), [
-                'tanggal' => '2026-08-12', 'alasan' => 'Acara keluarga',
+                'tanggal' => '2026-08-12', 'kategori_izin' => 'sakit', 'alasan' => 'Acara keluarga',
             ]);
 
         // Waka melihat daftar notifikasi (JSON)

@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'WebJournal Management System')</title>
 
     <!-- Google Fonts: Plus Jakarta Sans -->
@@ -598,6 +599,11 @@
                 $isWakaSdmRole = ($userRole === 'admin' && $userSubRole === 'waka_sdm') 
                               || in_array($userRole, ['waka_sdm', 'admin_sdm', 'sdm']);
 
+                // 1c. Role Kepala Sekolah (role=kepsek / kepala_sekolah / admin & sub_role=kepsek)
+                $isKepsekRole = ($userRole === 'admin' && in_array($userSubRole, ['kepsek', 'kepala_sekolah'])) 
+                             || in_array($userRole, ['kepsek', 'kepala_sekolah'])
+                             || ($user ? $user->isKepsek() : false);
+
                 // 2. Role Satpam (role=admin & sub_role=satpam / role lama piket_satpam)
                 $isSatpamRole = $user ? $user->isSatpam() : false;
 
@@ -636,6 +642,10 @@
             @elseif($isWakaSdmRole)
                 {{-- ================= NAVIGASI WAKA SDM ================= --}}
                 <x-sidebar-waka-sdm :pendingIzinCount="\App\Models\IzinGuru::whereIn('status', [\App\Models\IzinGuru::STATUS_PENDING_PIKET, \App\Models\IzinGuru::STATUS_PENDING_WAKA, \App\Models\IzinGuru::STATUS_PENDING_KEPSEK])->count()" />
+
+            @elseif($isKepsekRole)
+                {{-- ================= NAVIGASI KEPALA SEKOLAH ================= --}}
+                <x-sidebar-kepsek :pendingIzinCount="\App\Models\IzinGuru::where('status', \App\Models\IzinGuru::STATUS_PENDING_KEPSEK)->count()" />
 
             @elseif($isSatpamRole)
                 {{-- ================= NAVIGASI SATPAM / KEAMANAN (portal independen) ================= --}}

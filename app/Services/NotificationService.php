@@ -41,22 +41,22 @@ class NotificationService
     }
 
     /**
-     * Waka Kurikulum / SDM (role admin + sub_role waka*).
+     * Waka Kurikulum / SDM (role waka/waka_sdm atau role admin + sub_role waka*).
      */
     public static function wakaRecipients(): Collection
     {
-        return User::where('role', 'admin')
-            ->where('sub_role', 'like', 'waka%')
+        return User::whereIn('role', ['waka', 'waka_sdm'])
+            ->orWhere(fn ($q) => $q->where('role', 'admin')->where('sub_role', 'like', 'waka%'))
             ->get();
     }
 
     /**
-     * Kepala Sekolah (role admin + sub_role kepala_sekolah / kepsek).
+     * Kepala Sekolah (role kepsek/kepala_sekolah atau role admin + sub_role kepala_sekolah / kepsek).
      */
     public static function kepsekRecipients(): Collection
     {
-        return User::where('role', 'admin')
-            ->whereIn('sub_role', ['kepala_sekolah', 'kepsek', 'kepala_sekolah2'])
+        return User::whereIn('role', ['kepsek', 'kepala_sekolah'])
+            ->orWhere(fn ($q) => $q->where('role', 'admin')->whereIn('sub_role', ['kepala_sekolah', 'kepsek', 'kepala_sekolah2']))
             ->get();
     }
 
@@ -91,7 +91,7 @@ class NotificationService
             'category' => 'izin_baru',
             'title'    => 'Pengajuan Izin Baru',
             'message'  => "{$nama} mengajukan izin pada {$tanggal} dan butuh persetujuan Anda.",
-            'url'      => route('kurikulum.izin.index'),
+            'url'      => route('waka-sdm.izin.index'),
         ];
 
         $recipients = collect()

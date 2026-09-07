@@ -175,22 +175,19 @@
                                class="w-full px-6 py-3.5 bg-white border border-slate-300/80 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 shadow-sm text-slate-900 text-sm font-medium transition-all placeholder:text-slate-400">
                     </div>
 
-                    <!-- KODE AKTIVASI (KHUSUS ADMIN) -->
+                    <!-- KODE AKTIVASI (KHUSUS ADMIN / PEJABAT) -->
                     <div x-show="mode === 'admin'" 
                          x-transition:enter="transition ease-out duration-300"
                          x-transition:enter-start="opacity-0 -translate-y-2"
                          x-transition:enter-end="opacity-100 translate-y-0"
                          x-cloak>
-                        <label class="block text-xs font-black tracking-wider text-slate-700 uppercase mb-2">KODE AKTIVASI</label>
+                        <label class="block text-xs font-black tracking-wider text-slate-700 uppercase mb-2">KODE AKTIVASI <span class="normal-case text-slate-400 font-medium">(Khusus Admin / Pejabat)</span></label>
                         <input type="text" 
                                name="kode_aktivasi" 
                                :disabled="mode !== 'admin'"
                                value="{{ old('kode_aktivasi') }}"
-                               placeholder="Masukkan Kode Aktivasi Admin (misal: ADMIN123)" 
+                               placeholder="Masukkan Kode Aktivasi" 
                                class="w-full px-6 py-3.5 bg-white border border-slate-300/80 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 shadow-sm text-slate-900 text-sm font-medium transition-all placeholder:text-slate-400">
-                        <p class="text-[11px] text-slate-500 mt-1.5 px-3">
-                            <i class="bi bi-info-circle me-1"></i> Kode aktivasi dev: <code class="font-bold text-brand-600 bg-slate-200/70 px-1.5 py-0.5 rounded">ADMIN123</code> atau <code class="font-bold text-brand-600 bg-slate-200/70 px-1.5 py-0.5 rounded">WEBJOURNAL2026</code>
-                        </p>
                     </div>
 
                     <!-- LUPA SANDI LINK -->

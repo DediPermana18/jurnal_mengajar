@@ -54,10 +54,24 @@
         background: #eff6ff;
         color: #1d4ed8;
         border: 1px solid #bfdbfe;
-        border-radius: 10px;
+        border-radius: 8px;
         padding: 0.35rem 0.75rem;
         font-weight: 800;
-        font-size: 0.85rem;
+        font-size: 0.82rem;
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
+    }
+
+    .jam-sub-caption {
+        font-size: 0.72rem;
+        color: #64748b;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.15rem;
+        white-space: nowrap;
+        margin-top: 0.15rem;
     }
 
     .empty-state-icon {
@@ -154,22 +168,47 @@
                 <table class="table table-custom align-middle mb-0 min-w-full">
                     <thead>
                         <tr>
-                            <th class="whitespace-nowrap">Jam Ke-</th>
-                            <th class="whitespace-nowrap">Waktu</th>
-                            <th class="whitespace-nowrap">Kelas</th>
-                            <th class="whitespace-nowrap">Mata Pelajaran</th>
-                            <th class="whitespace-nowrap">Status Jurnal</th>
-                            <th class="text-end whitespace-nowrap">Aksi</th>
+                            <th class="whitespace-nowrap py-3 px-3" style="width: 170px; min-width: 160px;">Jam Ke-</th>
+                            <th class="whitespace-nowrap py-3 px-3">Waktu</th>
+                            <th class="whitespace-nowrap py-3 px-3">Kelas</th>
+                            <th class="whitespace-nowrap py-3 px-3">Mata Pelajaran</th>
+                            <th class="whitespace-nowrap py-3 px-3">Status Jurnal</th>
+                            <th class="text-end whitespace-nowrap py-3 px-3">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($jadwals as $item)
+                            @php
+                                $utama = $item->jam_ke_utama ?? null;
+                                $sub   = $item->jam_ke_sub ?? null;
+                                if (!$utama) {
+                                    if (str_contains($item->jam_ke, '(Maju dari')) {
+                                        $parts = explode(' (Maju dari ', rtrim($item->jam_ke, ')'));
+                                        $utama = str_starts_with($parts[0], 'Jam') ? $parts[0] : 'Jam ' . $parts[0];
+                                        $sub   = 'Maju dari ' . ($parts[1] ?? '');
+                                    } else {
+                                        $utama = str_starts_with($item->jam_ke, 'Jam') ? $item->jam_ke : 'Jam ' . $item->jam_ke;
+                                        $sub   = null;
+                                    }
+                                }
+                            @endphp
                             <tr class="{{ !$item->can_fill && !$item->can_edit ? 'text-muted' : '' }}">
-                                <td class="whitespace-nowrap"><span class="jam-badge">Jam {{ $item->jam_ke }}</span></td>
-                                <td class="whitespace-nowrap">{{ $item->waktu }}</td>
-                                <td class="whitespace-nowrap"><span class="badge bg-light text-dark border">{{ $item->kelas }}</span></td>
-                                <td class="whitespace-nowrap">{{ $item->mapel }}</td>
-                                <td>
+                                <td class="whitespace-nowrap py-3 px-3" style="width: 170px; min-width: 160px;">
+                                    <div class="d-flex flex-column align-items-start justify-content-center">
+                                        <span class="jam-badge">
+                                            <i class="bi bi-clock-history me-1 opacity-75"></i>{{ $utama }}
+                                        </span>
+                                        @if(!empty($sub))
+                                            <span class="jam-sub-caption text-muted">
+                                                <i class="bi bi-arrow-left-short text-primary fs-6"></i>{{ $sub }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                </td>
+                                <td class="whitespace-nowrap py-3 px-3">{{ $item->waktu }}</td>
+                                <td class="whitespace-nowrap py-3 px-3"><span class="badge bg-light text-dark border">{{ $item->kelas }}</span></td>
+                                <td class="whitespace-nowrap py-3 px-3">{{ $item->mapel }}</td>
+                                <td class="py-3 px-3">
                                     @if($item->is_pulang)
                                         <span class="badge d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fw-semibold"
                                               style="font-size: 0.78rem; background-color: #fee2e2; color: #dc2626; border: 1px solid #fca5a5;">
@@ -213,7 +252,7 @@
                                         </div>
                                     @endif
                                 </td>
-                                <td class="text-end whitespace-nowrap">
+                                <td class="text-end whitespace-nowrap py-3 px-3">
                                     @if($item->is_filled && isset($item->jurnal))
                                         <div class="flex items-center justify-center gap-2 whitespace-nowrap">
                                             <!-- Tombol 1: Lihat Detail (Selalu Tampil Jika Sudah Terisi) -->
@@ -264,10 +303,33 @@
         <div class="d-lg-none">
             <div class="row g-3">
                 @foreach($jadwals as $item)
+                    @php
+                        $utama = $item->jam_ke_utama ?? null;
+                        $sub   = $item->jam_ke_sub ?? null;
+                        if (!$utama) {
+                            if (str_contains($item->jam_ke, '(Maju dari')) {
+                                $parts = explode(' (Maju dari ', rtrim($item->jam_ke, ')'));
+                                $utama = str_starts_with($parts[0], 'Jam') ? $parts[0] : 'Jam ' . $parts[0];
+                                $sub   = 'Maju dari ' . ($parts[1] ?? '');
+                            } else {
+                                $utama = str_starts_with($item->jam_ke, 'Jam') ? $item->jam_ke : 'Jam ' . $item->jam_ke;
+                                $sub   = null;
+                            }
+                        }
+                    @endphp
                     <div class="col-12">
                         <div class="jadwal-card p-4 {{ !$item->can_fill && !$item->can_edit ? 'locked' : '' }}">
                             <div class="d-flex justify-content-between align-items-start mb-3">
-                                <span class="jam-badge">Jam {{ $item->jam_ke }}</span>
+                                <div class="d-flex flex-column align-items-start justify-content-center">
+                                    <span class="jam-badge">
+                                        <i class="bi bi-clock-history me-1 opacity-75"></i>{{ $utama }}
+                                    </span>
+                                    @if(!empty($sub))
+                                        <span class="jam-sub-caption text-muted">
+                                            <i class="bi bi-arrow-left-short text-primary fs-6"></i>{{ $sub }}
+                                        </span>
+                                    @endif
+                                </div>
                                 @php $st = $item->status_info ?? null; @endphp
                                 @if($item->is_pulang)
                                     <span class="badge d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fw-semibold"

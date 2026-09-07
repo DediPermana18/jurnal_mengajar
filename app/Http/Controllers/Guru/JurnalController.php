@@ -197,7 +197,73 @@ class JurnalController extends Controller
     }
 
     /**
-     * Halaman utama — daftar jadwal mengajar hari ini.
+     * Helper: Dapatkan semua JadwalPelajaran yang berada dalam satu blok jam berurutan
+     * untuk kelas dan mata pelajaran yang sama pada hari yang sama.
+     */
+    protected function getGroupSchedules(JadwalPelajaran $jadwal): \Illuminate\Support\Collection
+    {
+        if ($jadwal->group_id) {
+            $schedules = JadwalPelajaran::where('group_id', $jadwal->group_id)
+                ->with(['jamPelajaran', 'kelas', 'mapel'])
+                ->get()
+                ->sortBy(fn ($j) => $j->jamPelajaran?->jam_ke ?? 999)
+                ->values();
+
+            if ($schedules->isNotEmpty()) {
+                return $schedules;
+            }
+        }
+
+        $query = JadwalPelajaran::with(['jamPelajaran', 'kelas', 'mapel'])
+            ->where('id_guru', $jadwal->id_guru)
+            ->where('hari', $jadwal->hari)
+            ->where('id_kelas', $jadwal->id_kelas)
+            ->where('id_mapel', $jadwal->id_mapel);
+
+        if ($jadwal->id_tahun_ajaran) {
+            $query->where('id_tahun_ajaran', $jadwal->id_tahun_ajaran);
+        }
+
+        $allSchedules = $query->get()->sortBy(fn ($j) => $j->jamPelajaran?->jam_ke ?? 999)->values();
+
+        if ($allSchedules->count() <= 1) {
+            return $allSchedules->isEmpty() ? collect([$jadwal]) : $allSchedules;
+        }
+
+        $blocks = [];
+        $currentBlock = [];
+
+        foreach ($allSchedules as $s) {
+            if (empty($currentBlock)) {
+                $currentBlock[] = $s;
+            } else {
+                $prev = end($currentBlock);
+                $prevJam = $prev->jamPelajaran?->jam_ke;
+                $currJam = $s->jamPelajaran?->jam_ke;
+
+                if ($prevJam !== null && $currJam !== null && (int) $currJam === (int) $prevJam + 1) {
+                    $currentBlock[] = $s;
+                } else {
+                    $blocks[] = collect($currentBlock);
+                    $currentBlock = [$s];
+                }
+            }
+        }
+        if (!empty($currentBlock)) {
+            $blocks[] = collect($currentBlock);
+        }
+
+        foreach ($blocks as $block) {
+            if ($block->contains('id', $jadwal->id)) {
+                return $block;
+            }
+        }
+
+        return collect([$jadwal]);
+    }
+
+    /**
+     * Halaman utama — daftar jadwal mengajar hari ini (Grouped by consecutive JP).
      */
     public function index()
     {
@@ -206,6 +272,7 @@ class JurnalController extends Controller
         $user = auth()->user();
         $hari = $this->hariIndonesia();
         $today = Carbon::today()->toDateString();
+        $now   = Carbon::now();
 
         $tahunAktif = TahunAjaran::where('is_active', true)->first();
 
@@ -235,54 +302,159 @@ class JurnalController extends Controller
         $kategoriHariShift = ($hari === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
         $jamListShift      = $isModeKhususHariIni ? JamPelajaran::where('kategori_hari', $kategoriHariShift)->get()->keyBy('jam_ke') : collect();
 
-        $jadwals = $query
+        $rawItems = $query
             ->get()
             ->sortBy(fn ($j) => $j->jamPelajaran?->jam_ke ?? 999)
             ->values()
-            ->map(function ($jadwal) use ($jurnalHariIni, $jamPulangLookup, $hari, $isModeKhususHariIni, $isSeninShiftHariIni, $isJumatShiftHariIni, $jamListShift, $today) {
+            ->map(function ($jadwal) use ($jurnalHariIni, $isModeKhususHariIni, $jamListShift) {
                 $jamOriginal = $jadwal->jamPelajaran;
                 $overrideJam = null;
-                $displayJamKe = $jamOriginal?->jam_ke ?? '-';
+                $effectiveJamKe = $jamOriginal?->jam_ke;
 
                 // Shift 1 JP jika mode khusus (Senin / Jumat) aktif
                 if ($isModeKhususHariIni && $jamOriginal && $jamOriginal->jam_ke && $jamOriginal->jam_ke >= 2) {
                     $shiftedJamKe = $jamOriginal->jam_ke - 1;
                     $overrideJam = $jamListShift->get($shiftedJamKe);
-                    $displayJamKe = "{$shiftedJamKe} (Maju dari Jam {$jamOriginal->jam_ke})";
+                    $effectiveJamKe = $shiftedJamKe;
                 }
 
-                $eval = $this->evaluateJadwal($jadwal, $jurnalHariIni->get($jadwal->id), $overrideJam);
-
-                // Cek apakah slot ini melewati batas jam pulang kelas tersebut
-                $kategoriHari = ($hari === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
-                $tingkat      = strtoupper(trim($jadwal->kelas?->tingkat ?? ''));
-                $jamKe        = $overrideJam?->jam_ke ?? $jamOriginal?->jam_ke;
-                $maxJamKe     = $tingkat ? $jamPulangLookup->get("{$kategoriHari}|{$tingkat}")?->max_jam_ke : null;
-                $isPulang     = $maxJamKe !== null && $jamKe !== null && $jamKe > $maxJamKe;
-
-                $jamSelesaiStr = $overrideJam?->jam_selesai ?? $jamOriginal?->jam_selesai;
-                $statusInfo    = Jurnal::hitungStatusPengisian($eval['jurnal'], $today, $jamSelesaiStr);
+                $effectiveJamObj = $overrideJam ?? $jamOriginal;
+                $jurnal = $jurnalHariIni->get($jadwal->id);
 
                 return (object) [
-                    'jadwal'          => $jadwal,
-                    'jam_ke'          => $displayJamKe,
-                    'waktu'           => $eval['waktu'],
-                    'kelas'           => $jadwal->kelas?->nama_kelas ?? '-',
-                    'mapel'           => $jadwal->mapel?->nama_mapel ?? '-',
-                    'is_filled'       => $eval['is_filled'],
-                    'is_today'        => $eval['is_today'],
-                    'can_fill'        => $eval['can_fill'],
-                    'can_edit'        => $eval['can_edit'],
-                    'lock_reason'     => $eval['lock_reason'],
-                    'jurnal'          => $eval['jurnal'],
-                    'is_pulang'       => $isPulang,
-                    'max_jam_ke'      => $maxJamKe,
-                    'is_senin_shift'  => $isSeninShiftHariIni,
-                    'is_jumat_shift'  => $isJumatShiftHariIni,
-                    'is_mode_khusus'  => $isModeKhususHariIni,
-                    'status_info'     => $statusInfo,
+                    'jadwal'            => $jadwal,
+                    'jam_original'      => $jamOriginal,
+                    'override_jam'      => $overrideJam,
+                    'effective_jam_obj' => $effectiveJamObj,
+                    'effective_jam_ke'  => $effectiveJamKe,
+                    'jurnal'            => $jurnal,
                 ];
             });
+
+        // Group consecutive schedule items by same class & mapel
+        $rawBlocks = [];
+        $currentBlock = [];
+
+        foreach ($rawItems as $item) {
+            if (empty($currentBlock)) {
+                $currentBlock[] = $item;
+            } else {
+                $prev = end($currentBlock);
+                $sameKelas = (int) $prev->jadwal->id_kelas === (int) $item->jadwal->id_kelas;
+                $sameMapel = (int) $prev->jadwal->id_mapel === (int) $item->jadwal->id_mapel;
+                $isGroup = $prev->jadwal->group_id && $prev->jadwal->group_id === $item->jadwal->group_id;
+                $isConsecutive = $prev->effective_jam_ke !== null && $item->effective_jam_ke !== null && ((int) $item->effective_jam_ke === (int) $prev->effective_jam_ke + 1);
+
+                if ($sameKelas && $sameMapel && ($isConsecutive || $isGroup)) {
+                    $currentBlock[] = $item;
+                } else {
+                    $rawBlocks[] = $currentBlock;
+                    $currentBlock = [$item];
+                }
+            }
+        }
+        if (!empty($currentBlock)) {
+            $rawBlocks[] = $currentBlock;
+        }
+
+        $jadwals = collect($rawBlocks)->map(function ($block) use ($user, $today, $now, $hari, $jamPulangLookup, $isSeninShiftHariIni, $isJumatShiftHariIni, $isModeKhususHariIni) {
+            $first = $block[0];
+            $last  = end($block);
+            $primaryJadwal = $first->jadwal;
+
+            // jam_ke display formatting
+            $isMulti = count($block) > 1;
+            $jamKeUtama = $isMulti
+                ? "Jam {$first->effective_jam_ke} - {$last->effective_jam_ke}"
+                : "Jam " . ($first->effective_jam_ke ?? '-');
+
+            $jamKeSub = $first->override_jam
+                ? ($isMulti
+                    ? "Maju dari Jam {$first->jam_original?->jam_ke} - {$last->jam_original?->jam_ke}"
+                    : "Maju dari Jam {$first->jam_original?->jam_ke}")
+                : null;
+
+            if (count($block) === 1) {
+                $displayJamKe = $first->override_jam
+                    ? "{$first->effective_jam_ke} (Maju dari Jam {$first->jam_original?->jam_ke})"
+                    : ($first->effective_jam_ke ?? '-');
+            } else {
+                $displayJamKe = $first->override_jam
+                    ? "{$first->effective_jam_ke} - {$last->effective_jam_ke} (Maju dari Jam {$first->jam_original?->jam_ke} - {$last->jam_original?->jam_ke})"
+                    : "{$first->effective_jam_ke} - {$last->effective_jam_ke}";
+            }
+
+            $waktuDisplay = $this->formatWaktu(
+                $first->effective_jam_obj?->jam_mulai,
+                $last->effective_jam_obj?->jam_selesai
+            );
+
+            // Jurnal for block (first non-null journal if any)
+            $jurnalBlock = null;
+            foreach ($block as $bItem) {
+                if ($bItem->jurnal !== null) {
+                    $jurnalBlock = $bItem->jurnal;
+                    break;
+                }
+            }
+
+            $isFilled = $jurnalBlock !== null;
+            $isOwner  = (int) $primaryJadwal->id_guru === (int) $user->id;
+
+            // Time validation based on FIRST JP in the block
+            $jamMulaiStr = $first->effective_jam_obj?->jam_mulai;
+            $jamMulai    = $jamMulaiStr ? Carbon::parse($today . ' ' . $jamMulaiStr) : null;
+            $isTimeReached = $jamMulai ? $now->gte($jamMulai) : true;
+            $canFill       = $isOwner && $isTimeReached && !$isFilled;
+
+            $jurnalTanggal = $jurnalBlock && $jurnalBlock->tanggal ? $jurnalBlock->tanggal->format('Y-m-d') : $today;
+            $isToday       = $jurnalTanggal === $today;
+            $canEdit       = $isFilled && $isOwner && $isToday;
+
+            $lockReason = null;
+            if (!$isOwner) {
+                $lockReason = 'Bukan jadwal mengajar Anda';
+            } elseif ($isFilled && !$isToday) {
+                $lockReason = 'Jurnal tanggal lalu terkunci (Read-Only)';
+            } elseif ($isFilled) {
+                $lockReason = 'Jurnal sudah diisi hari ini';
+            } elseif (!$isTimeReached) {
+                $mulaiStr   = $jamMulai ? $jamMulai->format('H:i') : '-';
+                $lockReason = "Belum waktunya jam pelajaran (mulai pukul {$mulaiStr})";
+            }
+
+            // Check if LAST JP in block exceeds max_jam_ke
+            $kategoriHari = ($hari === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
+            $tingkat      = strtoupper(trim($primaryJadwal->kelas?->tingkat ?? ''));
+            $lastJamKe    = $last->effective_jam_ke;
+            $maxJamKe     = $tingkat ? $jamPulangLookup->get("{$kategoriHari}|{$tingkat}")?->max_jam_ke : null;
+            $isPulang     = $maxJamKe !== null && $lastJamKe !== null && $lastJamKe > $maxJamKe;
+
+            $lastJamSelesaiStr = $last->effective_jam_obj?->jam_selesai;
+            $statusInfo        = Jurnal::hitungStatusPengisian($jurnalBlock, $today, $lastJamSelesaiStr);
+
+            return (object) [
+                'jadwal'          => $primaryJadwal,
+                'jam_ke'          => $displayJamKe,
+                'jam_ke_utama'    => $jamKeUtama,
+                'jam_ke_sub'      => $jamKeSub,
+                'waktu'           => $waktuDisplay,
+                'kelas'           => $primaryJadwal->kelas?->nama_kelas ?? '-',
+                'mapel'           => $primaryJadwal->mapel?->nama_mapel ?? '-',
+                'is_filled'       => $isFilled,
+                'is_today'        => $isToday,
+                'can_fill'        => $canFill,
+                'can_edit'        => $canEdit,
+                'lock_reason'     => $lockReason,
+                'jurnal'          => $jurnalBlock,
+                'is_pulang'       => $isPulang,
+                'max_jam_ke'      => $maxJamKe,
+                'is_senin_shift'  => $isSeninShiftHariIni,
+                'is_jumat_shift'  => $isJumatShiftHariIni,
+                'is_mode_khusus'  => $isModeKhususHariIni,
+                'status_info'     => $statusInfo,
+            ];
+        });
 
         return view('guru.jurnal.index', compact('jadwals', 'hari', 'today', 'isModeKhususHariIni', 'isSeninShiftHariIni', 'isJumatShiftHariIni'));
     }
@@ -296,7 +468,10 @@ class JurnalController extends Controller
 
         $jadwal->load(['jamPelajaran', 'kelas', 'mapel']);
 
-        $eval = $this->evaluateJadwal($jadwal);
+        $groupSchedules = $this->getGroupSchedules($jadwal);
+        $firstJadwal = $groupSchedules->first() ?? $jadwal;
+
+        $eval = $this->evaluateJadwal($firstJadwal);
 
         if (!$eval['can_fill']) {
             return redirect()
@@ -310,7 +485,10 @@ class JurnalController extends Controller
             ->get();
 
         $today = Carbon::today()->toDateString();
-        $waktu = $eval['waktu'];
+
+        // Calculate combined time range for the block if multiple JPs
+        $lastJadwal = $groupSchedules->last();
+        $waktu = $this->formatWaktu($firstJadwal->jamPelajaran?->jam_mulai, $lastJadwal->jamPelajaran?->jam_selesai);
 
         $dispenMap = $this->dispenMapHariIni($today, $jadwal->jamPelajaran?->jam_ke);
 
@@ -337,7 +515,10 @@ class JurnalController extends Controller
         ]);
 
         $jadwal = JadwalPelajaran::with(['kelas', 'mapel', 'jamPelajaran'])->findOrFail($validated['id_jadwal']);
-        $eval = $this->evaluateJadwal($jadwal);
+        $groupSchedules = $this->getGroupSchedules($jadwal);
+        $firstJadwal = $groupSchedules->first() ?? $jadwal;
+
+        $eval = $this->evaluateJadwal($firstJadwal);
 
         if (!$eval['can_fill']) {
             return redirect()
@@ -354,7 +535,7 @@ class JurnalController extends Controller
             ->where('status_siswa', 'Aktif')
             ->get();
 
-        DB::transaction(function () use ($validated, $jadwal, $tidakHadirIds, $presensiInput, $statusMap, $keteranganMap, $request, $siswas) {
+        DB::transaction(function () use ($validated, $jadwal, $groupSchedules, $tidakHadirIds, $presensiInput, $statusMap, $keteranganMap, $request, $siswas) {
             $namaKelas = $this->sanitizeString($jadwal->kelas?->nama_kelas);
             $guruIdNip = auth()->user()?->nip ?? $jadwal->guru?->nip ?? $jadwal->id_guru ?? auth()->id();
             $tglStr    = Carbon::today()->format('Ymd');
@@ -362,13 +543,6 @@ class JurnalController extends Controller
 
             $prefixJurnal = "JRN_{$namaKelas}_{$guruIdNip}_{$tglStr}_{$jamKe}";
             $fotoKegiatanPath = $this->saveBase64OrFile($request, 'foto_kegiatan_camera', 'foto_kegiatan', 'foto_jurnal', $prefixJurnal);
-
-            // Cari semua jadwal dalam satu kelompok/sesi (group_id)
-            if ($jadwal->group_id) {
-                $groupSchedules = JadwalPelajaran::where('group_id', $jadwal->group_id)->get();
-            } else {
-                $groupSchedules = collect([$jadwal]);
-            }
 
             $todayDate = Carbon::today()->toDateString();
             $loggedGuruId = auth()->id() ?? $jadwal->id_guru;
@@ -383,15 +557,15 @@ class JurnalController extends Controller
                 }
 
                 $jurnal = Jurnal::create([
-                    'id_jadwal'        => $sched->id,
-                    'id_guru'          => $sched->id_guru ?? $loggedGuruId,
+                    'id_jadwal'         => $sched->id,
+                    'id_guru'           => $sched->id_guru ?? $loggedGuruId,
                     'id_guru_pengganti' => null,
                     'status_kehadiran'  => 'Hadir',
-                    'tanggal'          => $todayDate,
-                    'materi'           => $validated['materi'],
-                    'catatan_kejadian' => $validated['catatan_kejadian'] ?? null,
-                    'foto_kegiatan'    => $fotoKegiatanPath,
-                    'waktu_isi'        => now(),
+                    'tanggal'           => $todayDate,
+                    'materi'            => $validated['materi'],
+                    'catatan_kejadian'  => $validated['catatan_kejadian'] ?? null,
+                    'foto_kegiatan'     => $fotoKegiatanPath,
+                    'waktu_isi'         => now(),
                 ]);
 
                 $idJurnal = $jurnal->id;

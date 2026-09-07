@@ -20,6 +20,8 @@ use App\Http\Controllers\MataPelajaranController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfilController;
 use App\Http\Controllers\HelpController;
+use App\Http\Controllers\KepsekController;
+use App\Http\Controllers\WakaSdmController;
 use App\Http\Middleware\AdminScheduleAccess;
 
 // Halaman Login & Autentikasi
@@ -197,13 +199,6 @@ Route::prefix('kurikulum')->group(function () {
     Route::post('/jadwal-piket',              [JadwalPiketController::class, 'store'])->name('kurikulum.jadwal-piket.store');
     Route::delete('/jadwal-piket/{id}',       [JadwalPiketController::class, 'destroy'])->name('kurikulum.jadwal-piket.destroy');
 
-    Route::get('/izin',                               [KurikulumIzinController::class, 'index'])->name('kurikulum.izin.index');
-    Route::post('/izin/{id}/approve',                 [KurikulumIzinController::class, 'approve'])->name('kurikulum.izin.approve');
-    Route::post('/izin/{id}/reject',                  [KurikulumIzinController::class, 'reject'])->name('kurikulum.izin.reject');
-    Route::get('/izin/lampiran/{id}',                 [KurikulumIzinController::class, 'showLampiran'])->name('kurikulum.izin.lampiran');
-    Route::get('/izin/pengaturan',                    [IzinSettingController::class, 'index'])->name('kurikulum.izin.setting');
-    Route::post('/izin/pengaturan',                   [IzinSettingController::class, 'update'])->name('kurikulum.izin.setting.update');
-
     Route::get('/approval-dispensasi', [DispensasiController::class, 'indexApproval'])->name('kurikulum.dispensasi.approval.index');
     Route::post('/approval-dispensasi/{id}', [DispensasiController::class, 'storeApproval'])->name('kurikulum.dispensasi.approval.store');
 
@@ -211,6 +206,10 @@ Route::prefix('kurikulum')->group(function () {
     Route::get('/laporan/export-excel', [KurikulumLaporanController::class, 'exportExcel'])->name('kurikulum.laporan.excel');
     Route::get('/laporan/print', [KurikulumLaporanController::class, 'printPdf'])->name('kurikulum.laporan.print');
 });
+
+// Legacy redirect dari Kurikulum Izin ke Waka SDM
+Route::redirect('/kurikulum/izin', '/admin/waka-sdm/rekap-izin');
+Route::redirect('/kurikulum/izin/pengaturan', '/admin/waka-sdm/izin/pengaturan');
 
 // ================= ROUTE MASTER & PLOTTING JADWAL (ADMIN / TU) =================
 Route::prefix('admin')->middleware(['auth', AdminScheduleAccess::class])->group(function () {
@@ -235,14 +234,26 @@ Route::prefix('admin')->middleware(['auth', AdminScheduleAccess::class])->group(
 });
 
 // ================= ROUTE PORTAL WAKA SDM (KEPEGAWAIAN) =================
-use App\Http\Controllers\WakaSdmController;
-
 Route::prefix('admin/waka-sdm')->middleware(['auth'])->group(function () {
     Route::get('/dashboard',                  [WakaSdmController::class, 'dashboard'])->name('waka-sdm.dashboard');
     Route::get('/rekap-izin',                  [WakaSdmController::class, 'rekapIzin'])->name('waka-sdm.rekap-izin');
+    Route::get('/izin',                        [WakaSdmController::class, 'rekapIzin'])->name('waka-sdm.izin.index');
+    Route::post('/izin/{id}/approve',          [WakaSdmController::class, 'approveIzin'])->name('waka-sdm.izin.approve');
+    Route::post('/izin/{id}/approve-signature',[WakaSdmController::class, 'approveIzinSignature'])->name('waka-sdm.izin.approve-signature');
+    Route::post('/izin/{id}/reject',           [WakaSdmController::class, 'rejectIzin'])->name('waka-sdm.izin.reject');
+    Route::get('/izin/pengaturan',             [WakaSdmController::class, 'settingIzin'])->name('waka-sdm.izin.setting');
+    Route::post('/izin/pengaturan',            [WakaSdmController::class, 'updateSettingIzin'])->name('waka-sdm.izin.setting.update');
     Route::get('/rekap-presensi-guru',         [WakaSdmController::class, 'rekapPresensiGuru'])->name('waka-sdm.rekap-presensi-guru');
     Route::get('/rekap-presensi-guru/export-excel', [WakaSdmController::class, 'exportExcelPresensi'])->name('waka-sdm.export-excel');
     Route::get('/rekap-presensi-guru/print',   [WakaSdmController::class, 'printPresensi'])->name('waka-sdm.print-presensi');
     Route::get('/izin/{id}/lampiran',          [WakaSdmController::class, 'showLampiran'])->name('waka-sdm.izin.lampiran');
+});
+// ================= ROUTE PORTAL KEPALA SEKOLAH =================
+Route::prefix('admin/kepsek')->middleware(['auth'])->group(function () {
+    Route::get('/dashboard',                   [KepsekController::class, 'dashboard'])->name('kepsek.dashboard');
+    Route::get('/rekap-izin',                   [KepsekController::class, 'rekapIzin'])->name('kepsek.rekap-izin');
+    Route::get('/izin',                         [KepsekController::class, 'rekapIzin'])->name('kepsek.izin.index');
+    Route::post('/izin/{id}/approve-signature', [KepsekController::class, 'approveIzinSignature'])->name('kepsek.izin.approve-signature');
+    Route::post('/izin/{id}/reject',            [KepsekController::class, 'rejectIzin'])->name('kepsek.izin.reject');
 });
 

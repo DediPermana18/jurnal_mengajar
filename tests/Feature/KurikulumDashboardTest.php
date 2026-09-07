@@ -57,13 +57,10 @@ class KurikulumDashboardTest extends TestCase
         $res = $this->actingAs($waka)->get(route('kurikulum.dashboard'));
         $res->assertOk();
         $res->assertSee('Akses Cepat Modul Kurikulum');
-        $res->assertSee('Approval Izin Guru');
+        $res->assertSee('Plotting Jadwal');
         $res->assertSee('Data Mata Pelajaran');
         $res->assertSee('Laporan KBM');
-        $res->assertSee('Daftar Izin Guru Menunggu Approval');
         $res->assertSee('Ringkasan KBM Hari Ini');
-        $res->assertSee('Sakit demam tinggi');
-        $res->assertSee('Setujui');
     }
 
     public function test_dashboard_empty_state_when_no_pending()
@@ -72,6 +69,6 @@ class KurikulumDashboardTest extends TestCase
 
         $res = $this->actingAs($waka)->get(route('kurikulum.dashboard'));
         $res->assertOk();
-        $res->assertSee('Tidak ada pengajuan izin yang menunggu persetujuan.');
+        $res->assertSee('Dashboard Kurikulum');
     }
 }

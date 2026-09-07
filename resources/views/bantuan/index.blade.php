@@ -165,9 +165,9 @@
                                 <div class="d-flex align-items-start gap-2 bg-light border rounded-3 p-3" style="--bs-border-opacity: .5;">
                                     <i class="bi bi-diagram-3 text-primary mt-1" style="font-size: 1.1rem;"></i>
                                     <div class="small text-muted">
-                                        Alur persetujuan dapat disesuaikan oleh Waka Kurikulum pada menu
-                                        <a href="{{ Route::has('kurikulum.izin.setting') ? route('kurikulum.izin.setting') : '#' }}" class="link-primary">Pengaturan Alur Izin</a>:
-                                        <strong>3 level</strong> (Piket → Waka → Kepsek) / <strong>2 level</strong> (Piket → Kepsek) / <strong>1 level</strong> (Piket → final).
+                                        Alur persetujuan dapat disesuaikan oleh Waka SDM pada menu
+                                        <a href="{{ Route::has('waka-sdm.izin.setting') ? route('waka-sdm.izin.setting') : '#' }}" class="link-primary">Pengaturan Alur Izin</a>:
+                                        <strong>3 level</strong> (Piket → Waka SDM → Kepsek) / <strong>2 level</strong> (Piket → Kepsek) / <strong>1 level</strong> (Piket → final).
                                     </div>
                                 </div>
                             </div>

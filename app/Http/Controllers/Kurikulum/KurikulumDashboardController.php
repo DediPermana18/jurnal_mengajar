@@ -59,12 +59,12 @@ class KurikulumDashboardController extends Controller
         // 2. Stat Card 2: Total Mata Pelajaran
         $totalMapel = MataPelajaran::count();
 
-        // 3. Stat Card 3: Izin Menunggu Approval Waka
-        $izinMenungguApproval = IzinGuru::where('status', IzinGuru::STATUS_PENDING_WAKA)->count();
-
-        // 4. Stat Card 4: Guru Mengajar Hari Ini
+        // 3. Stat Card 3: Total Plotting Jadwal KBM
         $tahunAktif = TahunAjaran::where('is_active', true)->first() ?? TahunAjaran::first();
 
+        $totalJadwalPelajaran = JadwalPelajaran::when($tahunAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))->count();
+
+        // 4. Stat Card 4: Guru Mengajar Hari Ini
         $guruMengajarHariIni = JadwalPelajaran::where('hari', $hariIniStr)
             ->when($tahunAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
             ->distinct('id_guru')
@@ -72,10 +72,11 @@ class KurikulumDashboardController extends Controller
 
         $totalGuru = User::where('role', 'guru')->count();
 
-        // 5. Daftar izin guru menunggu approval (Pending Waka)
-        $daftarIzinPending = IzinGuru::with('user')
-            ->where('status', IzinGuru::STATUS_PENDING_WAKA)
-            ->latest()
+        // 5. Daftar Jadwal KBM Hari Ini
+        $jadwalKbmHariIni = JadwalPelajaran::with(['guru', 'kelas', 'mapel', 'jamPelajaran'])
+            ->where('hari', $hariIniStr)
+            ->when($tahunAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
+            ->orderBy('id_jam')
             ->take(10)
             ->get();
 
@@ -103,11 +104,11 @@ class KurikulumDashboardController extends Controller
             'pengaturanJadwal',
             'totalKelas',
             'totalMapel',
-            'izinMenungguApproval',
+            'totalJadwalPelajaran',
             'guruMengajarHariIni',
             'totalGuru',
             'tahunAktif',
-            'daftarIzinPending',
+            'jadwalKbmHariIni',
             'totalSesiHariIni',
             'jurnalTerisiHariIni',
             'persentaseKbmHariIni'

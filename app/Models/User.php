@@ -33,6 +33,7 @@ class User extends Authenticatable
         'admin_tu'       => 'Admin TU',
         'waka_kurikulum' => 'Waka Kurikulum',
         'waka_sdm'       => 'Waka SDM',
+        'kepsek'         => 'Kepala Sekolah',
         'guru_piket'     => 'Guru Piket',
         'guru_mapel'     => 'Guru Mapel',
         'siswa'          => 'Siswa',
@@ -41,6 +42,8 @@ class User extends Authenticatable
     public const ADMIN_SUB_ROLES = [
         'waka_kurikulum',
         'waka_sdm',
+        'kepsek',
+        'kepala_sekolah',
         'petugas_tu',
         'satpam',
     ];
@@ -219,6 +222,15 @@ class User extends Authenticatable
     {
         return ($this->role === 'admin' && $this->sub_role === 'waka_sdm')
             || $this->role === 'waka_sdm';
+    }
+
+    /**
+     * Apakah user ini adalah Kepala Sekolah?
+     */
+    public function isKepsek(): bool
+    {
+        return in_array($this->role, ['kepsek', 'kepala_sekolah'], true)
+            || ($this->role === 'admin' && in_array($this->sub_role, ['kepsek', 'kepala_sekolah', 'kepala_sekolah2'], true));
     }
 
     /**
