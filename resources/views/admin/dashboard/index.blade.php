@@ -14,7 +14,8 @@
 
     {{-- WIDGET SAKELAR: Mode Khusus Senin (Upacara Ditiadakan / KBM Dimajukan) --}}
     {{-- Hanya tampil pada hari Senin (server-side: ISO weekday 1 = Senin). --}}
-    @if(now()->isoFormat('d') == 1 && (auth()->user()->role === 'admin' || in_array(auth()->user()->role, ['waka_kurikulum', 'admin_kurikulum', 'kurikulum'])))
+    @php $currentUserRole = auth()->user()?->role; @endphp
+    @if(now()->isoFormat('d') == 1 && ($currentUserRole === 'admin' || in_array($currentUserRole, ['waka_kurikulum', 'admin_kurikulum', 'kurikulum'])))
         <div class="card border-0 rounded-4 shadow-sm mb-4 bg-white overflow-hidden">
             <div class="card-body p-4">
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">

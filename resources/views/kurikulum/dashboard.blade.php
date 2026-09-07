@@ -93,7 +93,8 @@
     {{-- 1. QUICK CONTROL / PENGATURAN KBM HARI INI                     --}}
     {{--    Tampil HANYA jika $hariAktif == 'Senin' atau 'Jumat'        --}}
     {{-- ============================================================== --}}
-    @if((auth()->user()->role === 'admin' || in_array(auth()->user()->role, ['waka_kurikulum', 'admin_kurikulum', 'kurikulum'])) && in_array($hariAktif, ['Senin', 'Jumat']))
+    @php $currentUserRole = auth()->user()?->role; @endphp
+    @if(($currentUserRole === 'admin' || in_array($currentUserRole, ['waka_kurikulum', 'admin_kurikulum', 'kurikulum'])) && in_array($hariAktif, ['Senin', 'Jumat']))
         @php
             $isSeninTanpaUpacara = $pengaturanJadwal->senin_tanpa_upacara && $pengaturanJadwal->tanggal_eksekusi;
             $isJumatTanpaPembiasaan = $pengaturanJadwal->jumat_tanpa_pembiasaan && $pengaturanJadwal->tanggal_eksekusi_jumat;
