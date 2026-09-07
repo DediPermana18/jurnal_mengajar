@@ -17,6 +17,8 @@ use App\Http\Controllers\Kurikulum\KurikulumIzinController;
 use App\Http\Controllers\Kurikulum\IzinSettingController;
 use App\Http\Controllers\Kurikulum\KurikulumLaporanController;
 use App\Http\Controllers\MataPelajaranController;
+use App\Http\Controllers\RuanganController;
+use App\Http\Controllers\TahunAjaranController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfilController;
 use App\Http\Controllers\HelpController;
@@ -45,49 +47,53 @@ Route::resource('admin/jurnal', JurnalMengajarController::class);
 Route::put('/admin/jurnal/{id}/update-piket', [JurnalMengajarController::class, 'updateByPiket'])->name('jurnal.updateByPiket');
 
 use App\Http\Controllers\GuruController;
-
-// Route Data Master Guru
-Route::get('/admin/guru', [GuruController::class, 'index'])->name('guru.index');
-Route::get('/admin/guru/create', [GuruController::class, 'create'])->name('admin.guru.create');
-Route::post('/admin/guru', [GuruController::class, 'store'])->name('guru.store');
-Route::get('/admin/guru/{id}/edit', [GuruController::class, 'edit'])->name('admin.guru.edit');
-Route::put('/admin/guru/{id}', [GuruController::class, 'update'])->name('guru.update');
-Route::delete('/admin/guru/{id}', [GuruController::class, 'destroy'])->name('guru.destroy');
-Route::post('/admin/guru/{id}/reset-password', [GuruController::class, 'resetPassword'])->name('guru.reset-password');
-Route::post('/admin/guru/{id}/update-password', [GuruController::class, 'updatePassword'])->name('guru.update-password');
-Route::post('/admin/guru/{id}/toggle-status', [GuruController::class, 'toggleStatus'])->name('guru.toggle-status');
-Route::post('/admin/guru/{id}/approve', [GuruController::class, 'approve'])->name('guru.approve');
-Route::post('/admin/guru/{id}/update-status', [GuruController::class, 'updateStatus'])->name('guru.update-status');
-
 use App\Http\Controllers\KelasController;
 use App\Http\Controllers\JurusanController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\DataImportController;
 
-// Resource Routes untuk Data Master
-Route::resource('admin/siswa', SiswaController::class);
-Route::resource('admin/kelas', KelasController::class);
+// Route Data Master (Admin / Petugas TU)
+Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
+    // Route Data Master Guru
+    Route::get('/admin/guru', [GuruController::class, 'index'])->name('guru.index');
+    Route::get('/admin/guru/create', [GuruController::class, 'create'])->name('admin.guru.create');
+    Route::post('/admin/guru', [GuruController::class, 'store'])->name('guru.store');
+    Route::get('/admin/guru/{id}/edit', [GuruController::class, 'edit'])->name('admin.guru.edit');
+    Route::put('/admin/guru/{id}', [GuruController::class, 'update'])->name('guru.update');
+    Route::delete('/admin/guru/{id}', [GuruController::class, 'destroy'])->name('guru.destroy');
+    Route::post('/admin/guru/{id}/reset-password', [GuruController::class, 'resetPassword'])->name('guru.reset-password');
+    Route::post('/admin/guru/{id}/update-password', [GuruController::class, 'updatePassword'])->name('guru.update-password');
+    Route::post('/admin/guru/{id}/toggle-status', [GuruController::class, 'toggleStatus'])->name('guru.toggle-status');
+    Route::post('/admin/guru/{id}/approve', [GuruController::class, 'approve'])->name('guru.approve');
+    Route::post('/admin/guru/{id}/update-status', [GuruController::class, 'updateStatus'])->name('guru.update-status');
 
-Route::resource('admin/users', UserController::class)
-    ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
-    ->names('admin.users');
-Route::post('/admin/users/{id}/reset-password', [UserController::class, 'resetPassword'])
-    ->name('admin.users.reset-password');
-Route::post('/admin/users/{id}/toggle-status', [UserController::class, 'toggleStatus'])
-    ->name('admin.users.toggle-status');
+    // Resource Routes untuk Data Master
+    Route::get('admin/import', [DataImportController::class, 'index'])->name('import.index');
+    Route::post('admin/import/siswa', [DataImportController::class, 'importSiswa'])->name('import.siswa');
+    Route::delete('admin/siswa/delete-all', [SiswaController::class, 'deleteAll'])->name('siswa.delete-all');
+    Route::resource('admin/siswa', SiswaController::class);
+    Route::resource('admin/kelas', KelasController::class);
 
-Route::resource('admin/jurusan', JurusanController::class);
+    Route::resource('admin/users', UserController::class)
+        ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
+        ->names('admin.users');
+    Route::post('/admin/users/{id}/reset-password', [UserController::class, 'resetPassword'])
+        ->name('admin.users.reset-password');
+    Route::post('/admin/users/{id}/toggle-status', [UserController::class, 'toggleStatus'])
+        ->name('admin.users.toggle-status');
 
-use App\Http\Controllers\RuanganController;
-Route::resource('admin/ruangan', RuanganController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::resource('admin/jurusan', JurusanController::class);
 
-use App\Http\Controllers\TahunAjaranController;
-Route::resource('admin/tahun-ajaran', TahunAjaranController::class)
-    ->only(['index', 'store', 'update', 'destroy'])
-    ->names('tahun-ajaran');
-Route::post('/admin/tahun-ajaran/{tahunAjaran}/set-aktif', [TahunAjaranController::class, 'setAktif'])
-    ->name('tahun-ajaran.set-aktif');
+    Route::resource('admin/ruangan', RuanganController::class)->only(['index', 'store', 'update', 'destroy']);
 
-Route::resource('admin/mata-pelajaran', MataPelajaranController::class)->names('mapel');
+    Route::resource('admin/tahun-ajaran', TahunAjaranController::class)
+        ->only(['index', 'store', 'update', 'destroy'])
+        ->names('tahun-ajaran');
+    Route::post('/admin/tahun-ajaran/{tahunAjaran}/set-aktif', [TahunAjaranController::class, 'setAktif'])
+        ->name('tahun-ajaran.set-aktif');
+
+    Route::resource('admin/mata-pelajaran', MataPelajaranController::class)->names('mapel');
+});
 
 Route::redirect('/admin/laporan', '/kurikulum/laporan')->name('laporan.index');
 

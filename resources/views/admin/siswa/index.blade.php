@@ -282,12 +282,27 @@
                 Kelola data identitas siswa, NISN, dan rombel kelas.
             </p>
         </div>
-        <a href="{{ route('siswa.create') }}"
-           class="btn btn-primary rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-2 flex-shrink-0"
-           style="background-color: var(--primary-blue, #1677ff); border-color: var(--primary-blue, #1677ff); font-size: 0.9rem;">
-            <i class="bi bi-plus-lg"></i>
-            <span>Tambah Siswa</span>
-        </a>
+        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+            {{-- Tombol Hapus Semua --}}
+            @if(auth()->user()?->isAdmin())
+            <button type="button"
+                    id="btnHapusSemua"
+                    class="btn btn-outline-danger rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-2"
+                    style="font-size: 0.9rem;"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalHapusSemua">
+                <i class="bi bi-trash3"></i>
+                <span>Hapus Semua</span>
+            </button>
+            @endif
+            {{-- Tombol Tambah Siswa --}}
+            <a href="{{ route('siswa.create') }}"
+               class="btn btn-primary rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-2"
+               style="background-color: var(--primary-blue, #1677ff); border-color: var(--primary-blue, #1677ff); font-size: 0.9rem;">
+                <i class="bi bi-plus-lg"></i>
+                <span>Tambah Siswa</span>
+            </a>
+        </div>
     </div>
 
     {{-- ====================================================== --}}
@@ -298,6 +313,29 @@
             <i class="bi bi-check-circle-fill fs-5"></i>
             <div>{{ session('success') }}</div>
             <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show border-0 rounded-3 mb-4 d-flex align-items-center gap-2" role="alert" style="background:#fef2f2; color:#991b1b;">
+            <i class="bi bi-x-circle-fill fs-5"></i>
+            <div>{{ session('error') }}</div>
+            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
+    @if(session('import_warnings'))
+        <div class="alert alert-warning alert-dismissible fade show border-0 rounded-3 mb-4" role="alert" style="background:#fffbeb; color:#92400e;">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                <strong>Beberapa baris dilewati:</strong>
+            </div>
+            <ul class="mb-0 ps-3" style="font-size:0.85rem;">
+                @foreach(session('import_warnings') as $warn)
+                    <li>{{ $warn }}</li>
+                @endforeach
+            </ul>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     @endif
 
@@ -571,6 +609,87 @@
 @endif
 
 </div>
+
+{{-- ====================================================== --}}
+{{-- MODAL: Hapus Semua Data Siswa (Danger Confirmation)    --}}
+{{-- ====================================================== --}}
+<div class="modal fade" id="modalHapusSemua" tabindex="-1" aria-labelledby="modalHapusSemuaLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 16px; border: none; box-shadow: 0 20px 60px rgba(127,0,0,0.18);">
+
+            {{-- Header --}}
+            <div class="modal-header" style="border-bottom: 1px solid #fee2e2; padding: 1.25rem 1.5rem; background: #fff5f5; border-radius: 16px 16px 0 0;">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#ef4444,#b91c1c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i class="bi bi-exclamation-triangle-fill text-white" style="font-size:1.2rem;"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="modalHapusSemuaLabel" style="font-size:1rem;color:#7f1d1d;">Hapus Semua Data Siswa</h5>
+                        <p class="mb-0" style="font-size:0.78rem;color:#b91c1c;">Tindakan ini bersifat permanen dan tidak dapat dibatalkan</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+
+            {{-- Body --}}
+            <form action="{{ route('siswa.delete-all') }}" method="POST" id="formHapusSemua">
+                @csrf
+                @method('DELETE')
+                <div class="modal-body" style="padding: 1.5rem;">
+
+                    {{-- Peringatan keras --}}
+                    <div class="rounded-3 p-3 mb-4" style="background:#fef2f2;border:1px solid #fecaca;">
+                        <p class="fw-bold mb-2" style="font-size:0.88rem;color:#991b1b;"><i class="bi bi-shield-exclamation me-1"></i> Peringatan!</p>
+                        <p class="mb-0" style="font-size:0.82rem;color:#b91c1c;line-height:1.6;">
+                            Apakah Anda yakin ingin menghapus <strong>SELURUH data siswa</strong>?
+                            Semua data identitas, kelas, dan riwayat yang terhubung akan ikut terpengaruh.
+                            <br><strong>Tindakan ini tidak dapat dibatalkan!</strong>
+                        </p>
+                    </div>
+
+                    {{-- Stat jumlah siswa --}}
+                    <div class="rounded-3 p-3 mb-4 d-flex align-items-center gap-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                        <i class="bi bi-people-fill" style="font-size:1.5rem;color:#64748b;"></i>
+                        <div>
+                            <div style="font-size:0.78rem;color:#64748b;font-weight:500;">Jumlah siswa yang akan dihapus</div>
+                            <div style="font-size:1.25rem;font-weight:800;color:#0f172a;">{{ number_format($totalSiswa) }} siswa</div>
+                        </div>
+                    </div>
+
+                    {{-- Input konfirmasi --}}
+                    <div class="mb-1">
+                        <label for="inputKonfirmasiHapus" class="form-label fw-semibold" style="font-size:0.875rem;color:#374151;">
+                            Ketik <code style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:0.1rem 0.4rem;font-weight:700;">HAPUS</code> untuk mengonfirmasi
+                        </label>
+                        <input type="text"
+                               class="form-control"
+                               id="inputKonfirmasiHapus"
+                               name="konfirmasi"
+                               placeholder="Ketik: HAPUS"
+                               autocomplete="off"
+                               style="border-radius:10px;border:2px solid #e2e8f0;font-size:0.875rem;font-weight:600;letter-spacing:0.05em;transition:border-color 0.2s;">
+                        <div class="mt-1" id="konfirmasiHint" style="font-size:0.78rem;color:#94a3b8;">Ketik tepat: HAPUS (huruf kapital semua)</div>
+                    </div>
+
+                </div>
+
+                {{-- Footer --}}
+                <div class="modal-footer" style="border-top:1px solid #fee2e2;padding:1rem 1.5rem;gap:0.75rem;">
+                    <button type="button" class="btn btn-light border rounded-3 px-4 py-2 fw-semibold" data-bs-dismiss="modal" style="font-size:0.875rem;">Batal</button>
+                    <button type="submit"
+                            id="btnSubmitHapusSemua"
+                            class="btn btn-danger rounded-3 px-4 py-2 fw-semibold d-flex align-items-center gap-2"
+                            style="font-size:0.875rem;"
+                            disabled>
+                        <i class="bi bi-trash3-fill"></i>
+                        <span>Ya, Hapus Semua</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -581,5 +700,46 @@
             this.closest('form').submit();
         });
     });
+
+    // ── Konfirmasi "HAPUS" untuk modal hapus semua ────────────────────────
+    (function () {
+        const input  = document.getElementById('inputKonfirmasiHapus');
+        const btn    = document.getElementById('btnSubmitHapusSemua');
+        const hint   = document.getElementById('konfirmasiHint');
+        const modal  = document.getElementById('modalHapusSemua');
+
+        if (!input || !btn) return;
+
+        function checkValue() {
+            const isValid = input.value === 'HAPUS';
+            btn.disabled  = !isValid;
+
+            if (input.value.length === 0) {
+                input.style.borderColor = '#e2e8f0';
+                hint.style.color = '#94a3b8';
+            } else if (isValid) {
+                input.style.borderColor = '#22c55e';
+                hint.textContent  = '✓ Konfirmasi diterima';
+                hint.style.color  = '#16a34a';
+            } else {
+                input.style.borderColor = '#ef4444';
+                hint.textContent  = 'Ketik tepat: HAPUS (huruf kapital semua)';
+                hint.style.color  = '#dc2626';
+            }
+        }
+
+        input.addEventListener('input', checkValue);
+
+        // Reset saat modal ditutup
+        if (modal) {
+            modal.addEventListener('hidden.bs.modal', function () {
+                input.value           = '';
+                btn.disabled          = true;
+                input.style.borderColor = '#e2e8f0';
+                hint.textContent      = 'Ketik tepat: HAPUS (huruf kapital semua)';
+                hint.style.color      = '#94a3b8';
+            });
+        }
+    })();
 </script>
 @endpush

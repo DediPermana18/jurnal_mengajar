@@ -990,7 +990,8 @@
                                        || request()->routeIs('kelas.*') 
                                        || request()->routeIs('jurusan.*') 
                                        || request()->routeIs('ruangan.*')
-                                       || request()->routeIs('tahun-ajaran.*');
+                                       || request()->routeIs('tahun-ajaran.*')
+                                       || request()->routeIs('import.*');
                 @endphp
                 <div class="nav-item-container" x-data="{ open: {{ $isDataMasterActive ? 'true' : 'false' }} }">
                     <button class="nav-btn {{ $isDataMasterActive ? 'active' : '' }}" 
@@ -1020,9 +1021,15 @@
                                 </a>
                             </li>
                             <li>
-                                <a href="{{ route('siswa.index') }}" class="submenu-item-link {{ request()->routeIs('siswa.*') ? 'active' : '' }}">
+                                <a href="{{ route('siswa.index') }}" class="submenu-item-link {{ request()->routeIs('siswa.index') ? 'active' : '' }}">
                                     <i class="bi bi-people"></i>
                                     <span>Data Siswa</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('import.index') }}" class="submenu-item-link {{ request()->routeIs('import.*') ? 'active' : '' }}">
+                                    <i class="bi bi-file-earmark-arrow-up"></i>
+                                    <span>Import Data</span>
                                 </a>
                             </li>
                             <li>
