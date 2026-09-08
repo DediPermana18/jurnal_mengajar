@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\KelasExport;
 use App\Models\Kelas;
 use App\Models\Jurusan;
 use App\Models\User;
 use App\Models\Siswa;
 use App\Models\JadwalPelajaran;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Excel as ExcelFormat;
+use Maatwebsite\Excel\Facades\Excel;
 
 class KelasController extends Controller
 {
@@ -83,7 +86,14 @@ class KelasController extends Controller
             ->orderBy('nama')
             ->get();
 
-        return view('admin.kelas.index', compact('dataKelas', 'daftarJurusan', 'daftarWaliKelas'));
+        // Jumlah rombel per kombinasi tingkat + jurusan untuk auto-increment nomor rombel
+        $countsByKombinasi = Kelas::selectRaw('tingkat, id_jurusan, count(*) as total')
+            ->groupBy('tingkat', 'id_jurusan')
+            ->get()
+            ->mapWithKeys(fn ($row) => [$row->tingkat . '|' . $row->id_jurusan => (int) $row->total])
+            ->all();
+
+        return view('admin.kelas.index', compact('dataKelas', 'daftarJurusan', 'daftarWaliKelas', 'countsByKombinasi'));
     }
 
     /**
@@ -118,13 +128,10 @@ class KelasController extends Controller
         ]);
 
         $request->validate([
-            'nama_kelas'    => 'required|string|max:50|unique:kelas,nama_kelas',
             'tingkat'       => 'required|in:X,XI,XII',
             'id_jurusan'    => 'required|exists:jurusan,id',
             'id_wali_kelas' => 'nullable|exists:users,id',
         ], [
-            'nama_kelas.required'    => 'Nama kelas wajib diisi.',
-            'nama_kelas.unique'      => 'Nama kelas sudah terdaftar dalam sistem.',
             'tingkat.required'       => 'Tingkat kelas wajib dipilih.',
             'tingkat.in'             => 'Pilihan tingkat tidak valid (harus X, XI, atau XII).',
             'id_jurusan.required'    => 'Jurusan wajib dipilih.',
@@ -140,8 +147,22 @@ class KelasController extends Controller
             }
         }
 
+        // Auto-generate Nomor Rombel & Nama Kelas untuk kombinasi tingkat + jurusan
+        $jurusan = Jurusan::findOrFail($idJurusan);
+        $latestNumber = Kelas::where('id_jurusan', $jurusan->id)
+            ->where('tingkat', $request->tingkat)
+            ->count() + 1;
+
+        // Auto-construct full class name: "X RPL 1"
+        $namaKelas = trim($request->tingkat . ' ' . $jurusan->kode_jurusan . ' ' . $latestNumber);
+
+        // Cegah duplikat nama kelas (kombinasi tingkat + jurusan + rombel)
+        if (Kelas::where('nama_kelas', $namaKelas)->withTrashed()->exists()) {
+            return back()->withErrors(['error' => "Nama kelas '{$namaKelas}' sudah terdaftar dalam sistem."])->withInput();
+        }
+
         $kelas = Kelas::create([
-            'nama_kelas'    => $request->nama_kelas,
+            'nama_kelas'    => $namaKelas,
             'tingkat'       => $request->tingkat,
             'id_jurusan'    => $idJurusan,
             'id_wali_kelas' => $idWaliKelas ?: null,
@@ -160,6 +181,25 @@ class KelasController extends Controller
     }
 
     /**
+     * Export data kelas — format xlsx (default) atau csv.
+     */
+    public function export(Request $request)
+    {
+        $this->authorizeAdmin();
+
+        $format = $request->input('format', 'xlsx');
+        $filename = 'data_kelas_' . date('Y-m-d_His');
+
+        if ($format === 'csv') {
+            return Excel::download(new KelasExport, $filename . '.csv', ExcelFormat::CSV, [
+                'Content-Type' => 'text/csv',
+            ]);
+        }
+
+        return Excel::download(new KelasExport, $filename . '.xlsx', ExcelFormat::XLSX);
+    }
+
+    /**
      * Memperbarui data kelas
      */
     public function update(Request $request, $id)
@@ -171,7 +211,7 @@ class KelasController extends Controller
         $request->validate([
             'nama_kelas'    => 'required|string|max:50',
             'tingkat'       => 'required|in:X,XI,XII',
-            'id_jurusan'    => 'required|exists:jurusans,id',
+            'id_jurusan'    => 'required|exists:jurusan,id',
             'id_wali_kelas' => 'nullable|exists:users,id',
         ], [
             'nama_kelas.required' => 'Nama kelas wajib diisi.',

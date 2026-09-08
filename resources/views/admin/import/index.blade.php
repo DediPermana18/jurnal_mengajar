@@ -235,6 +235,64 @@
     .warning-list li:last-child {
         border-bottom: none;
     }
+
+    /* ── Format Switcher (Excel / CSV) ─────────────────── */
+    .format-switcher {
+        display: flex;
+    }
+
+    .format-switcher-inner {
+        display: inline-flex;
+        gap: 0.35rem;
+        padding: 0.35rem;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        width: 100%;
+    }
+
+    .format-btn {
+        flex: 1 1 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        padding: 0.6rem 0.9rem;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #64748b;
+        background: transparent;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.18s ease;
+    }
+
+    .format-btn small {
+        font-weight: 600;
+        font-size: 0.72rem;
+        opacity: 0.8;
+    }
+
+    .format-btn:hover {
+        color: #334155;
+        background: #ffffff;
+    }
+
+    .format-btn.active-excel {
+        color: #14532d;
+        background: #ffffff;
+        box-shadow: 0 1px 4px rgba(22, 163, 74, 0.22);
+        border: 1px solid #bbf7d0;
+    }
+
+    .format-btn.active-csv {
+        color: #1e3a8a;
+        background: #ffffff;
+        box-shadow: 0 1px 4px rgba(59, 130, 246, 0.22);
+        border: 1px solid #bfdbfe;
+    }
 </style>
 @endpush
 
@@ -321,44 +379,85 @@
             <i class="bi bi-diagram-3-fill"></i>
             Import Kelas / Jurusan
         </button>
+        <button type="button"
+                class="import-tab"
+                id="tab-btn-ruangan"
+                data-tab-target="tab-ruangan"
+                role="tab"
+                aria-selected="false">
+            <i class="bi bi-building-fill"></i>
+            Import Data Ruangan
+        </button>
     </div>
 
     {{-- ====================================================== --}}
     {{-- PANEL: IMPORT DATA SISWA (DEFAULT AKTIF)               --}}
     {{-- ====================================================== --}}
-    <div class="tab-pane-item active" id="tab-siswa" role="tabpanel">
-        <div class="row g-4">
-            {{-- Kolom Kiri: Form Upload --}}
-            <div class="col-lg-7">
-                <div class="card-import">
-                    <div class="card-import-header d-flex align-items-center gap-3">
-                        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;">
-                            <i class="bi bi-file-earmark-spreadsheet text-white" style="font-size:1.1rem;"></i>
-                        </div>
-                        <div>
-                            <h5 class="card-import-title mb-0">Upload File Excel</h5>
-                            <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Format: DAFTAR PRESENSI PESERTA DIDIK (.xlsx / .xls)</p>
-                        </div>
+    <div class="tab-pane-item active" id="tab-siswa" role="tabpanel"
+     x-data="{ selectedFormat: 'excel' }">
+    <div class="row g-4">
+        {{-- Kolom Kiri: Form Upload --}}
+        <div class="col-lg-7">
+
+            {{-- Segmented Toggle: Mode Excel / Mode CSV --}}
+            <div class="format-switcher mb-3">
+                <div class="format-switcher-inner">
+                    <button type="button"
+                            class="format-btn"
+                            :class="selectedFormat === 'excel' ? 'active-excel' : ''"
+                            @click="selectedFormat = 'excel'; window.clearImportFile && window.clearImportFile()">
+                        <span>🟢</span> Mode Excel
+                        <small>(.xlsx, .xls)</small>
+                    </button>
+                    <button type="button"
+                            class="format-btn"
+                            :class="selectedFormat === 'csv' ? 'active-csv' : ''"
+                            @click="selectedFormat = 'csv'; window.clearImportFile && window.clearImportFile()">
+                        <span>⚡</span> Mode CSV
+                        <small>(.csv)</small>
+                    </button>
+                </div>
+            </div>
+
+            <div class="card-import">
+                <div class="card-import-header d-flex align-items-center gap-3">
+                    {{-- Badge: Excel (hijau) / CSV (biru) --}}
+                    <div x-show="selectedFormat === 'excel'" x-cloak
+                         style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-file-earmark-spreadsheet text-white" style="font-size:1.1rem;"></i>
                     </div>
+                    <div x-show="selectedFormat === 'csv'" x-cloak
+                         style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-filetype-csv text-white" style="font-size:1.1rem;"></i>
+                    </div>
+                    <div>
+                        <h5 class="card-import-title mb-0"
+                            x-text="selectedFormat === 'csv' ? 'Upload File CSV' : 'Upload File Excel'"></h5>
+                        <p class="mb-0" style="font-size:0.78rem;color:#64748b;"
+                           x-text="selectedFormat === 'csv'
+                               ? 'Format: DAFTAR PRESENSI PESERTA DIDIK (.csv)'
+                               : 'Format: DAFTAR PRESENSI PESERTA DIDIK (.xlsx / .xls)'"></p>
+                    </div>
+                </div>
 
-                    <div class="card-import-body">
-                        <form action="{{ route('import.siswa') }}" method="POST" enctype="multipart/form-data" id="formImportSiswa">
-                            @csrf
+                <div class="card-import-body">
+                    <form action="{{ route('import.siswa') }}" method="POST" enctype="multipart/form-data" id="formImportSiswa">
+                        @csrf
 
-                            {{-- Dropzone Upload --}}
-                            <div class="mb-4">
-                                <label for="fileExcelImport" class="form-label fw-semibold" style="font-size:0.875rem;color:#374151;">File Excel <span class="text-danger">*</span></label>
-                                <div class="dropzone-import" id="dropzoneArea">
-                                    <i class="bi bi-cloud-arrow-up dz-icon"></i>
-                                    <div class="dz-title">Klik untuk memilih file, atau seret ke sini</div>
-                                    <div class="dz-sub">Format: .xlsx, .xls (maks. 5 MB)</div>
-                                    <input type="file"
-                                           class="d-none @error('file_excel') is-invalid @enderror"
-                                           id="fileExcelImport"
-                                           name="file_excel"
-                                           accept=".xlsx,.xls"
-                                           required>
-                                </div>
+                        {{-- Dropzone Upload --}}
+                        <div class="mb-4">
+                            <label for="fileExcelImport" class="form-label fw-semibold" style="font-size:0.875rem;color:#374151;">File Excel / CSV <span class="text-danger">*</span></label>
+                            <div class="dropzone-import" id="dropzoneArea">
+                                <i class="bi bi-cloud-arrow-up dz-icon"></i>
+                                <div class="dz-title">Klik untuk memilih file, atau seret ke sini</div>
+                                <div class="dz-sub">Format file yang didukung: .xlsx, .xls, .csv (maks. 10 MB)</div>
+                                <input type="file"
+                                       class="d-none @error('file_excel') is-invalid @enderror"
+                                       id="fileExcelImport"
+                                       name="file_excel"
+                                       :accept="selectedFormat === 'csv' ? '.csv,.txt' : '.xlsx,.xls'"
+                                       required>
+                            </div>
 
                                 {{-- Info file terpilih --}}
                                 <div class="file-selected d-none mt-3" id="fileSelectedInfo">
@@ -437,12 +536,16 @@
                             <i class="bi bi-info-circle-fill text-white" style="font-size:1.1rem;"></i>
                         </div>
                         <div>
-                            <h5 class="card-import-title mb-0">Panduan Format Excel</h5>
-                            <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Agar import berjalan lancar, ikuti pedoman berikut.</p>
-                        </div>
+<h5 class="card-import-title mb-0"
+                            x-text="selectedFormat === 'csv' ? 'Panduan Format CSV' : 'Panduan Format Excel'"></h5>
+                        <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Agar import berjalan lancar, ikuti pedoman berikut.</p>
                     </div>
+                </div>
 
-                    <div class="card-import-body">
+                <div class="card-import-body">
+
+                    {{-- Panduan mode Excel --}}
+                    <div x-show="selectedFormat === 'excel'" x-cloak>
                         <div class="guide-item">
                             <div class="guide-num">1</div>
                             <div class="guide-text">
@@ -479,54 +582,523 @@
                             </div>
                         </div>
                     </div>
+
+                    {{-- Panduan mode CSV --}}
+                    <div x-show="selectedFormat === 'csv'" x-cloak>
+                        <div class="guide-item">
+                            <div class="guide-num">1</div>
+                            <div class="guide-text">
+                                Simpan file teks <strong>CSV</strong> dengan encoding <strong>UTF-8</strong>
+                                (di MS Excel: <em>File → Save As → CSV UTF-8 (Comma delimited)</em>) agar NISN/NAMA tidak rusak.
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">2</div>
+                            <div class="guide-text">
+                                Pemisah antar kolom boleh <strong>koma (",")</strong> atau <strong>titik-koma (";")</strong> —
+                                keduanya terdeteksi otomatis oleh sistem.
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">3</div>
+                            <div class="guide-text">
+                                Berbeda dari .xlsx, file CSV <strong>tidak memakai sheet</strong>.
+                                Tulis baris header kelas (mis. <strong>X TKJ 1</strong>) di atas kelompok siswanya —
+                                siswa di bawahnya otomatis masuk ke kelas itu.
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">4</div>
+                            <div class="guide-text">
+                                Kolom wajib per baris: <strong>NO</strong> • <strong>NISN</strong> (10 digit angka) •
+                                <strong>NAMA</strong> • <strong>NIS/NISS</strong> • <strong>L/P</strong>.
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">5</div>
+                            <div class="guide-text">
+                                Bila baris header kelas tidak terdeteksi, gunakan dropdown
+                                <strong>Kelas Tujuan</strong> sebagai fallback.
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">6</div>
+                            <div class="guide-text">
+                                Duplikat NISN akan <strong>di-update</strong>, bukan digandakan.
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 </div>
             </div>
         </div>
     </div>
 
     {{-- ====================================================== --}}
-    {{-- PANEL: IMPORT DATA GURU (PLACEHOLDER)                  --}}
+    {{-- PANEL: IMPORT DATA GURU                                --}}
     {{-- ====================================================== --}}
     <div class="tab-pane-item" id="tab-guru" role="tabpanel">
-        <div class="card-import">
-            <div class="card-import-header d-flex align-items-center gap-3">
-                <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;">
-                    <i class="bi bi-person-vcard-fill text-white" style="font-size:1.1rem;"></i>
+        <div class="row g-4">
+            {{-- Kolom Kiri: Form Upload --}}
+            <div class="col-lg-7">
+                <div class="card-import">
+                    <div class="card-import-header d-flex align-items-center gap-3">
+                        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-person-vcard-fill text-white" style="font-size:1.1rem;"></i>
+                        </div>
+                        <div>
+                            <h5 class="card-import-title mb-0">Import Master Guru</h5>
+                            <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Format: NIP • NAMA GURU • STATUS (.xlsx / .xls / .csv)</p>
+                        </div>
+                    </div>
+
+                    <div class="card-import-body">
+                        <form action="{{ route('import.guru') }}" method="POST" enctype="multipart/form-data" id="formImportGuru">
+                            @csrf
+
+                            <div class="mb-4">
+                                <label for="fileGuruImport" class="form-label fw-semibold" style="font-size:0.875rem;color:#374151;">File Guru <span class="text-danger">*</span></label>
+                                <div class="dropzone-import" id="dropzoneGuru">
+                                    <i class="bi bi-cloud-arrow-up dz-icon"></i>
+                                    <div class="dz-title">Klik untuk memilih file, atau seret ke sini</div>
+                                    <div class="dz-sub">Format: .xlsx, .xls, .csv (maks. 10 MB)</div>
+                                    <input type="file"
+                                           class="d-none @error('file_guru') is-invalid @enderror"
+                                           id="fileGuruImport"
+                                           name="file_guru"
+                                           accept=".xlsx,.xls,.csv,.txt"
+                                           required>
+                                </div>
+
+                                <div class="file-selected d-none mt-3" id="fileGuruSelectedInfo">
+                                    <i class="bi bi-file-earmark-check-fill"></i>
+                                    <div>
+                                        <div class="file-selected-name" id="fileGuruSelectedName"></div>
+                                        <div class="file-selected-size" id="fileGuruSelectedSize"></div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-light border ms-auto" id="btnRemoveGuruFile" title="Ganti file">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+
+                                @error('file_guru')
+                                    <div class="text-danger mt-2" style="font-size:0.8rem;">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="reset" class="btn btn-light border rounded-3 px-4 py-2 fw-semibold" style="font-size:0.875rem;">Reset</button>
+                                <button type="submit" id="btnSubmitImportGuru"
+                                        class="btn btn-success rounded-3 px-4 py-2 fw-semibold d-flex align-items-center gap-2"
+                                        style="font-size:0.875rem;" disabled>
+                                    <i class="bi bi-upload"></i>
+                                    <span>Unggah &amp; Import</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
-                <div>
-                    <h5 class="card-import-title mb-0">Import Data Guru</h5>
-                    <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Penambahan guru dari file Excel secara massal.</p>
+
+                {{-- Info jumlah guru saat ini --}}
+                <div class="card-import mt-4">
+                    <div class="card-import-body d-flex align-items-center gap-3">
+                        <div style="width:44px;height:44px;border-radius:12px;background:#fffbeb;display:flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-person-vcard-fill text-warning" style="font-size:1.2rem;"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold text-dark" style="font-size:1rem;">{{ number_format($totalGuru ?? 0) }} guru terdaftar</div>
+                            <div style="font-size:0.8rem;color:#64748b;">Import dengan NIP yang sama akan me-update data yang sudah ada (bukan duplikat).</div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="card-import-body">
-                <div class="placeholder-import">
-                    <i class="bi bi-rocket-takeoff ph-icon"></i>
-                    <div class="ph-title">Menyusul Segera</div>
-                    <div class="ph-sub">Halaman import guru sedang dikembangkan. Gunakan form manual di menu Data Pengguna / Guru.</div>
+
+            {{-- Kolom Kanan: Panduan & Template --}}
+            <div class="col-lg-5">
+                <div class="card-import">
+                    <div class="card-import-header d-flex align-items-center gap-3">
+                        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-file-earmark-spreadsheet text-white" style="font-size:1.1rem;"></i>
+                        </div>
+                        <div>
+                            <h5 class="card-import-title mb-0">Unduh Template Master Guru</h5>
+                            <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Gunakan format ekspor Data Guru yang sudah bersih.</p>
+                        </div>
+                    </div>
+
+                    <div class="card-import-body">
+                        <div class="d-grid gap-2 mb-2">
+                            <a href="{{ route('guru.export', ['format' => 'xlsx']) }}" class="btn btn-outline-success rounded-3 fw-semibold text-start" style="font-size:0.875rem;">
+                                <i class="bi bi-file-earmark-excel me-2"></i> Unduh Template Excel (.xlsx)
+                            </a>
+                            <a href="{{ route('guru.export', ['format' => 'csv']) }}" class="btn btn-outline-info rounded-3 fw-semibold text-start" style="font-size:0.875rem;">
+                                <i class="bi bi-filetype-csv me-2"></i> Unduh Template CSV (.csv)
+                            </a>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">1</div>
+                            <div class="guide-text">
+                                File berkolom: <strong>NO</strong> • <strong>NIP</strong> • <strong>NAMA GURU</strong> • <strong>STATUS</strong>.
+                                Kolom <strong>NO</strong> diabaikan.
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">2</div>
+                            <div class="guide-text">
+                                <strong>NIP</strong> adalah kunci utama: NIP yang <strong>sudah ada</strong> akan di-<strong>update</strong>,
+                                NIP baru akan dibuat sebagai akun guru.
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">3</div>
+                            <div class="guide-text">
+                                Kolom <strong>STATUS</strong> opsional: isi <strong>Aktif</strong> / <strong>Nonaktif</strong>
+                                (default <strong>Aktif</strong> bila dikosongkan).
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">4</div>
+                            <div class="guide-text">
+                                Penugasan <strong>Wali Kelas</strong> &amp; <strong>Mata Pelajaran</strong>
+                                <strong>tidak</strong> diimpor di sini — keduanya dibaca dinamis dari Data Kelas &amp; Jadwal Pelajaran.
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     {{-- ====================================================== --}}
-    {{-- PANEL: IMPORT KELAS / JURUSAN (PLACEHOLDER)            --}}
+    {{-- PANEL: IMPORT KELAS / JURUSAN                          --}}
     {{-- ====================================================== --}}
     <div class="tab-pane-item" id="tab-kelas-jurusan" role="tabpanel">
-        <div class="card-import">
-            <div class="card-import-header d-flex align-items-center gap-3">
-                <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);display:flex;align-items:center;justify-content:center;">
-                    <i class="bi bi-diagram-3-fill text-white" style="font-size:1.1rem;"></i>
+        <div class="row g-4">
+            {{-- Kolom Kiri: Upah dua form upload terpisah --}}
+            <div class="col-lg-7">
+                {{-- Form Import Jurusan --}}
+                <div class="card-import mb-4">
+                    <div class="card-import-header d-flex align-items-center gap-3">
+                        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);display:flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-diagram-3-fill text-white" style="font-size:1.1rem;"></i>
+                        </div>
+                        <div>
+                            <h5 class="card-import-title mb-0">Import Master Jurusan</h5>
+                            <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Format: KODE JURUSAN • NAMA JURUSAN (.xlsx / .xls / .csv)</p>
+                        </div>
+                    </div>
+
+                    <div class="card-import-body">
+                        <form action="{{ route('jurusan.import') }}" method="POST" enctype="multipart/form-data" id="formImportJurusan">
+                            @csrf
+
+                            <div class="mb-4">
+                                <label for="fileJurusanImport" class="form-label fw-semibold" style="font-size:0.875rem;color:#374151;">File Jurusan <span class="text-danger">*</span></label>
+                                <div class="dropzone-import" id="dropzoneJurusan">
+                                    <i class="bi bi-cloud-arrow-up dz-icon"></i>
+                                    <div class="dz-title">Klik untuk memilih file, atau seret ke sini</div>
+                                    <div class="dz-sub">Format: .xlsx, .xls, .csv (maks. 10 MB)</div>
+                                    <input type="file"
+                                           class="d-none @error('file_jurusan') is-invalid @enderror"
+                                           id="fileJurusanImport"
+                                           name="file_jurusan"
+                                           accept=".xlsx,.xls,.csv,.txt"
+                                           required>
+                                </div>
+
+                                <div class="file-selected d-none mt-3" id="fileJurusanSelectedInfo">
+                                    <i class="bi bi-file-earmark-check-fill"></i>
+                                    <div>
+                                        <div class="file-selected-name" id="fileJurusanSelectedName"></div>
+                                        <div class="file-selected-size" id="fileJurusanSelectedSize"></div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-light border ms-auto" id="btnRemoveJurusanFile" title="Ganti file">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+
+                                @error('file_jurusan')
+                                    <div class="text-danger mt-2" style="font-size:0.8rem;">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="reset" class="btn btn-light border rounded-3 px-4 py-2 fw-semibold" style="font-size:0.875rem;">Reset</button>
+                                <button type="submit" id="btnSubmitImportJurusan"
+                                        class="btn btn-success rounded-3 px-4 py-2 fw-semibold d-flex align-items-center gap-2"
+                                        style="font-size:0.875rem;" disabled>
+                                    <i class="bi bi-upload"></i>
+                                    <span>Mulai Import</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
-                <div>
-                    <h5 class="card-import-title mb-0">Import Kelas / Jurusan</h5>
-                    <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Penambahan rombel kelas dan jurusan dari file Excel secara massal.</p>
+
+                {{-- Form Import Kelas --}}
+                <div class="card-import">
+                    <div class="card-import-header d-flex align-items-center gap-3">
+                        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);display:flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-collection-fill text-white" style="font-size:1.1rem;"></i>
+                        </div>
+                        <div>
+                            <h5 class="card-import-title mb-0">Import Master Kelas</h5>
+                            <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Format: NAMA KELAS • TINGKAT • JURUSAN (.xlsx / .xls / .csv)</p>
+                        </div>
+                    </div>
+
+                    <div class="card-import-body">
+                        <form action="{{ route('import.kelas') }}" method="POST" enctype="multipart/form-data" id="formImportKelas">
+                            @csrf
+
+                            <div class="mb-4">
+                                <label for="fileKelasImport" class="form-label fw-semibold" style="font-size:0.875rem;color:#374151;">File Kelas <span class="text-danger">*</span></label>
+                                <div class="dropzone-import" id="dropzoneKelas">
+                                    <i class="bi bi-cloud-arrow-up dz-icon"></i>
+                                    <div class="dz-title">Klik untuk memilih file, atau seret ke sini</div>
+                                    <div class="dz-sub">Format: .xlsx, .xls, .csv (maks. 10 MB)</div>
+                                    <input type="file"
+                                           class="d-none @error('file_kelas') is-invalid @enderror"
+                                           id="fileKelasImport"
+                                           name="file_kelas"
+                                           accept=".xlsx,.xls,.csv,.txt"
+                                           required>
+                                </div>
+
+                                <div class="file-selected d-none mt-3" id="fileKelasSelectedInfo">
+                                    <i class="bi bi-file-earmark-check-fill"></i>
+                                    <div>
+                                        <div class="file-selected-name" id="fileKelasSelectedName"></div>
+                                        <div class="file-selected-size" id="fileKelasSelectedSize"></div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-light border ms-auto" id="btnRemoveKelasFile" title="Ganti file">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+
+                                @error('file_kelas')
+                                    <div class="text-danger mt-2" style="font-size:0.8rem;">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="reset" class="btn btn-light border rounded-3 px-4 py-2 fw-semibold" style="font-size:0.875rem;">Reset</button>
+                                <button type="submit" id="btnSubmitImportKelas"
+                                        class="btn btn-success rounded-3 px-4 py-2 fw-semibold d-flex align-items-center gap-2"
+                                        style="font-size:0.875rem;" disabled>
+                                    <i class="bi bi-upload"></i>
+                                    <span>Mulai Import</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
-            <div class="card-import-body">
-                <div class="placeholder-import">
-                    <i class="bi bi-rocket-takeoff ph-icon"></i>
-                    <div class="ph-title">Menyusul Segera</div>
-                    <div class="ph-sub">Halaman import kelas/jurusan sedang dikembangkan. Gunakan menu Data Kelas &amp; Data Jurusan.</div>
+
+            {{-- Kolom Kanan: Panduan & Template --}}
+            <div class="col-lg-5">
+                <div class="card-import mb-4">
+                    <div class="card-import-header d-flex align-items-center gap-3">
+                        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-file-earmark-spreadsheet text-white" style="font-size:1.1rem;"></i>
+                        </div>
+                        <div>
+                            <h5 class="card-import-title mb-0">Unduh Template Master Jurusan</h5>
+                            <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Gunakan format ekspor Data Jurusan yang sudah bersih.</p>
+                        </div>
+                    </div>
+
+                    <div class="card-import-body">
+                        <div class="d-grid gap-2 mb-2">
+                            <a href="{{ route('jurusan.export', ['format' => 'xlsx']) }}" class="btn btn-outline-success rounded-3 fw-semibold text-start" style="font-size:0.875rem;">
+                                <i class="bi bi-file-earmark-excel me-2"></i> Unduh Template Excel (.xlsx)
+                            </a>
+                            <a href="{{ route('jurusan.export', ['format' => 'csv']) }}" class="btn btn-outline-info rounded-3 fw-semibold text-start" style="font-size:0.875rem;">
+                                <i class="bi bi-filetype-csv me-2"></i> Unduh Template CSV (.csv)
+                            </a>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">1</div>
+                            <div class="guide-text">
+                                File berkolom: <strong>NO</strong> • <strong>KODE JURUSAN</strong> • <strong>NAMA JURUSAN</strong>.
+                                Kolom <strong>NO</strong> diabaikan.
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">2</div>
+                            <div class="guide-text">
+                                Kode jurusan yang <strong>sudah ada</strong> akan di-<strong>update</strong> nama jurusannya; yang baru akan dibuat.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-import">
+                    <div class="card-import-header d-flex align-items-center gap-3">
+                        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#1677ff,#0958d9);display:flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-download text-white" style="font-size:1.1rem;"></i>
+                        </div>
+                        <div>
+                            <h5 class="card-import-title mb-0">Unduh Template &amp; Panduan Kelas</h5>
+                            <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Format ekspor Data Kelas yang sudah bersih.</p>
+                        </div>
+                    </div>
+
+                    <div class="card-import-body">
+                        <div class="d-grid gap-2 mb-2">
+                            <a href="{{ route('kelas.export', ['format' => 'xlsx']) }}" class="btn btn-outline-success rounded-3 fw-semibold text-start" style="font-size:0.875rem;">
+                                <i class="bi bi-file-earmark-excel me-2"></i> Unduh Template Excel (.xlsx)
+                            </a>
+                            <a href="{{ route('kelas.export', ['format' => 'csv']) }}" class="btn btn-outline-info rounded-3 fw-semibold text-start" style="font-size:0.875rem;">
+                                <i class="bi bi-filetype-csv me-2"></i> Unduh Template CSV (.csv)
+                            </a>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">1</div>
+                            <div class="guide-text">
+                                File berkolom: <strong>NO</strong> • <strong>NAMA KELAS</strong> • <strong>TINGKAT</strong> • <strong>JURUSAN</strong>.
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">2</div>
+                            <div class="guide-text">
+                                Isi <strong>NAMA KELAS</strong> (mis. <em>RPL 1</em>), <strong>TINGKAT</strong> (X / XI / XII), dan
+                                <strong>JURUSAN</strong> (nama atau kode jurusan).
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">3</div>
+                            <div class="guide-text">
+                                Jika jurusan di file <strong>belum terdaftar</strong>, sistem <strong>membuat jurusan baru</strong> secara otomatis sebelum membuat kelas.
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">4</div>
+                            <div class="guide-text">
+                                Kelas dengan <strong>nama yang sama</strong> akan dilewati — tidak dibuat duplikat.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ====================================================== --}}
+    {{-- PANEL: IMPORT DATA RUANGAN                             --}}
+    {{-- ====================================================== --}}
+    <div class="tab-pane-item" id="tab-ruangan" role="tabpanel">
+        <div class="row g-4">
+            {{-- Kolom Kiri: Form Upload --}}
+            <div class="col-lg-7">
+                <div class="card-import">
+                    <div class="card-import-header d-flex align-items-center gap-3">
+                        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#0ea5e9,#0284c7);display:flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-building-fill text-white" style="font-size:1.1rem;"></i>
+                        </div>
+                        <div>
+                            <h5 class="card-import-title mb-0">Import Master Ruangan</h5>
+                            <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Format: KODE RUANGAN • NAMA RUANGAN • LOKASI / GEDUNG (.xlsx / .xls / .csv)</p>
+                        </div>
+                    </div>
+
+                    <div class="card-import-body">
+                        <form action="{{ route('import.ruangan') }}" method="POST" enctype="multipart/form-data" id="formImportRuangan">
+                            @csrf
+
+                            <div class="mb-4">
+                                <label for="fileRuanganImport" class="form-label fw-semibold" style="font-size:0.875rem;color:#374151;">File Ruangan <span class="text-danger">*</span></label>
+                                <div class="dropzone-import" id="dropzoneRuangan">
+                                    <i class="bi bi-cloud-arrow-up dz-icon"></i>
+                                    <div class="dz-title">Klik untuk memilih file, atau seret ke sini</div>
+                                    <div class="dz-sub">Format: .xlsx, .xls, .csv (maks. 10 MB)</div>
+                                    <input type="file"
+                                           class="d-none @error('file_ruangan') is-invalid @enderror"
+                                           id="fileRuanganImport"
+                                           name="file_ruangan"
+                                           accept=".xlsx,.xls,.csv,.txt"
+                                           required>
+                                </div>
+
+                                <div class="file-selected d-none mt-3" id="fileRuanganSelectedInfo">
+                                    <i class="bi bi-file-earmark-check-fill"></i>
+                                    <div>
+                                        <div class="file-selected-name" id="fileRuanganSelectedName"></div>
+                                        <div class="file-selected-size" id="fileRuanganSelectedSize"></div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-light border ms-auto" id="btnRemoveRuanganFile" title="Ganti file">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+
+                                @error('file_ruangan')
+                                    <div class="text-danger mt-2" style="font-size:0.8rem;">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="reset" class="btn btn-light border rounded-3 px-4 py-2 fw-semibold" style="font-size:0.875rem;">Reset</button>
+                                <button type="submit" id="btnSubmitImportRuangan"
+                                        class="btn btn-success rounded-3 px-4 py-2 fw-semibold d-flex align-items-center gap-2"
+                                        style="font-size:0.875rem;" disabled>
+                                    <i class="bi bi-upload"></i>
+                                    <span>Unggah &amp; Import</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Kolom Kanan: Panduan & Template --}}
+            <div class="col-lg-5">
+                <div class="card-import">
+                    <div class="card-import-header d-flex align-items-center gap-3">
+                        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-file-earmark-spreadsheet text-white" style="font-size:1.1rem;"></i>
+                        </div>
+                        <div>
+                            <h5 class="card-import-title mb-0">Unduh Template Master Ruangan</h5>
+                            <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Gunakan format ekspor Data Ruangan yang sudah bersih.</p>
+                        </div>
+                    </div>
+
+                    <div class="card-import-body">
+                        <div class="d-grid gap-2 mb-2">
+                            <a href="{{ route('ruangan.export', ['format' => 'xlsx']) }}" class="btn btn-outline-success rounded-3 fw-semibold text-start" style="font-size:0.875rem;">
+                                <i class="bi bi-file-earmark-excel me-2"></i> Unduh Template Excel (.xlsx)
+                            </a>
+                            <a href="{{ route('ruangan.export', ['format' => 'csv']) }}" class="btn btn-outline-info rounded-3 fw-semibold text-start" style="font-size:0.875rem;">
+                                <i class="bi bi-filetype-csv me-2"></i> Unduh Template CSV (.csv)
+                            </a>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">1</div>
+                            <div class="guide-text">
+                                File berkolom: <strong>NO</strong> • <strong>KODE RUANGAN</strong> • <strong>NAMA RUANGAN</strong> • <strong>LOKASI / GEDUNG</strong>.
+                                Kolom <strong>NO</strong> diabaikan.
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">2</div>
+                            <div class="guide-text">
+                                Isi <strong>KODE RUANGAN</strong> (mis. <em>R-101</em>), <strong>NAMA RUANGAN</strong> (mis. <em>Ruang Kelas 101</em>),
+                                dan <strong>LOKASI / GEDUNG</strong> (opsional, mis. <em>Gedung A Lantai 1</em>).
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">3</div>
+                            <div class="guide-text">
+                                Baris dengan <strong>KODE RUANGAN kosong</strong> akan <strong>diabaikan</strong>.
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">4</div>
+                            <div class="guide-text">
+                                Kode ruangan yang <strong>sudah ada</strong> akan di-<strong>update</strong>; yang baru akan dibuat.
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -600,6 +1172,10 @@
             btnSubmit.disabled = true;
         }
 
+        // Dipakai oleh toggle Mode Excel / Mode CSV agar file lama dibersihkan
+        // saat pengguna berpindah format.
+        window.clearImportFile = clearFile;
+
         dropzone.addEventListener('click', openPicker);
         input.addEventListener('change', function () {
             if (this.files && this.files[0]) showFile(this.files[0]);
@@ -630,6 +1206,250 @@
 
         // Reset form juga bersihkan tampilan
         document.getElementById('formImportSiswa').addEventListener('reset', clearFile);
+    })();
+
+    // ── Dropzone untuk Import Kelas ────────────────────────────────
+    (function () {
+        const dropzone  = document.getElementById('dropzoneKelas');
+        const input     = document.getElementById('fileKelasImport');
+        const btnSubmit = document.getElementById('btnSubmitImportKelas');
+        const infoBox   = document.getElementById('fileKelasSelectedInfo');
+        const nameEl    = document.getElementById('fileKelasSelectedName');
+        const sizeEl    = document.getElementById('fileKelasSelectedSize');
+        const btnRemove = document.getElementById('btnRemoveKelasFile');
+
+        if (!dropzone || !input) return;
+
+        function formatSize(bytes) {
+            if (!bytes) return '';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        function showFile(file) {
+            nameEl.textContent = file.name;
+            sizeEl.textContent = 'Ukuran: ' + formatSize(file.size) + ' • Ekstensi: .' + (file.name.split('.').pop() || 'xlsx');
+            infoBox.classList.remove('d-none');
+            btnSubmit.disabled = false;
+        }
+
+        function clearFile() {
+            input.value = '';
+            infoBox.classList.add('d-none');
+            btnSubmit.disabled = true;
+        }
+
+        dropzone.addEventListener('click', function () { input.click(); });
+        input.addEventListener('change', function () {
+            if (this.files && this.files[0]) showFile(this.files[0]);
+        });
+
+        ['dragenter', 'dragover'].forEach(evt => {
+            dropzone.addEventListener(evt, e => {
+                e.preventDefault();
+                dropzone.classList.add('dragover');
+            });
+        });
+        ['dragleave', 'drop'].forEach(evt => {
+            dropzone.addEventListener(evt, e => {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+            });
+        });
+        dropzone.addEventListener('drop', e => {
+            const files = e.dataTransfer.files;
+            if (files && files[0]) {
+                input.files = files;
+                showFile(files[0]);
+            }
+        });
+
+        btnRemove.addEventListener('click', clearFile);
+        document.getElementById('formImportKelas').addEventListener('reset', clearFile);
+    })();
+
+    // ── Dropzone untuk Import Jurusan ───────────────────────────────
+    (function () {
+        const dropzone  = document.getElementById('dropzoneJurusan');
+        const input     = document.getElementById('fileJurusanImport');
+        const btnSubmit = document.getElementById('btnSubmitImportJurusan');
+        const infoBox   = document.getElementById('fileJurusanSelectedInfo');
+        const nameEl    = document.getElementById('fileJurusanSelectedName');
+        const sizeEl    = document.getElementById('fileJurusanSelectedSize');
+        const btnRemove = document.getElementById('btnRemoveJurusanFile');
+
+        if (!dropzone || !input) return;
+
+        function formatSize(bytes) {
+            if (!bytes) return '';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        function showFile(file) {
+            nameEl.textContent = file.name;
+            sizeEl.textContent = 'Ukuran: ' + formatSize(file.size) + ' • Ekstensi: .' + (file.name.split('.').pop() || 'xlsx');
+            infoBox.classList.remove('d-none');
+            btnSubmit.disabled = false;
+        }
+
+        function clearFile() {
+            input.value = '';
+            infoBox.classList.add('d-none');
+            btnSubmit.disabled = true;
+        }
+
+        dropzone.addEventListener('click', function () { input.click(); });
+        input.addEventListener('change', function () {
+            if (this.files && this.files[0]) showFile(this.files[0]);
+        });
+
+        ['dragenter', 'dragover'].forEach(evt => {
+            dropzone.addEventListener(evt, e => {
+                e.preventDefault();
+                dropzone.classList.add('dragover');
+            });
+        });
+        ['dragleave', 'drop'].forEach(evt => {
+            dropzone.addEventListener(evt, e => {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+            });
+        });
+        dropzone.addEventListener('drop', e => {
+            const files = e.dataTransfer.files;
+            if (files && files[0]) {
+                input.files = files;
+                showFile(files[0]);
+            }
+        });
+
+        btnRemove.addEventListener('click', clearFile);
+        document.getElementById('formImportJurusan').addEventListener('reset', clearFile);
+    })();
+
+    // ── Dropzone untuk Import Ruangan ───────────────────────────────
+    (function () {
+        const dropzone  = document.getElementById('dropzoneRuangan');
+        const input     = document.getElementById('fileRuanganImport');
+        const btnSubmit = document.getElementById('btnSubmitImportRuangan');
+        const infoBox   = document.getElementById('fileRuanganSelectedInfo');
+        const nameEl    = document.getElementById('fileRuanganSelectedName');
+        const sizeEl    = document.getElementById('fileRuanganSelectedSize');
+        const btnRemove = document.getElementById('btnRemoveRuanganFile');
+
+        if (!dropzone || !input) return;
+
+        function formatSize(bytes) {
+            if (!bytes) return '';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        function showFile(file) {
+            nameEl.textContent = file.name;
+            sizeEl.textContent = 'Ukuran: ' + formatSize(file.size) + ' • Ekstensi: .' + (file.name.split('.').pop() || 'xlsx');
+            infoBox.classList.remove('d-none');
+            btnSubmit.disabled = false;
+        }
+
+        function clearFile() {
+            input.value = '';
+            infoBox.classList.add('d-none');
+            btnSubmit.disabled = true;
+        }
+
+        dropzone.addEventListener('click', function () { input.click(); });
+        input.addEventListener('change', function () {
+            if (this.files && this.files[0]) showFile(this.files[0]);
+        });
+
+        ['dragenter', 'dragover'].forEach(evt => {
+            dropzone.addEventListener(evt, e => {
+                e.preventDefault();
+                dropzone.classList.add('dragover');
+            });
+        });
+        ['dragleave', 'drop'].forEach(evt => {
+            dropzone.addEventListener(evt, e => {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+            });
+        });
+        dropzone.addEventListener('drop', e => {
+            const files = e.dataTransfer.files;
+            if (files && files[0]) {
+                input.files = files;
+                showFile(files[0]);
+            }
+        });
+
+        btnRemove.addEventListener('click', clearFile);
+        document.getElementById('formImportRuangan').addEventListener('reset', clearFile);
+    })();
+
+    // ── Dropzone untuk Import Guru ─────────────────────────────────
+    (function () {
+        const dropzone  = document.getElementById('dropzoneGuru');
+        const input     = document.getElementById('fileGuruImport');
+        const btnSubmit = document.getElementById('btnSubmitImportGuru');
+        const infoBox   = document.getElementById('fileGuruSelectedInfo');
+        const nameEl    = document.getElementById('fileGuruSelectedName');
+        const sizeEl    = document.getElementById('fileGuruSelectedSize');
+        const btnRemove = document.getElementById('btnRemoveGuruFile');
+
+        if (!dropzone || !input) return;
+
+        function formatSize(bytes) {
+            if (!bytes) return '';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        function showFile(file) {
+            nameEl.textContent = file.name;
+            sizeEl.textContent = 'Ukuran: ' + formatSize(file.size) + ' • Ekstensi: .' + (file.name.split('.').pop() || 'xlsx');
+            infoBox.classList.remove('d-none');
+            btnSubmit.disabled = false;
+        }
+
+        function clearFile() {
+            input.value = '';
+            infoBox.classList.add('d-none');
+            btnSubmit.disabled = true;
+        }
+
+        dropzone.addEventListener('click', function () { input.click(); });
+        input.addEventListener('change', function () {
+            if (this.files && this.files[0]) showFile(this.files[0]);
+        });
+
+        ['dragenter', 'dragover'].forEach(evt => {
+            dropzone.addEventListener(evt, e => {
+                e.preventDefault();
+                dropzone.classList.add('dragover');
+            });
+        });
+        ['dragleave', 'drop'].forEach(evt => {
+            dropzone.addEventListener(evt, e => {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+            });
+        });
+        dropzone.addEventListener('drop', e => {
+            const files = e.dataTransfer.files;
+            if (files && files[0]) {
+                input.files = files;
+                showFile(files[0]);
+            }
+        });
+
+        btnRemove.addEventListener('click', clearFile);
+        document.getElementById('formImportGuru').addEventListener('reset', clearFile);
     })();
 </script>
 @endpush

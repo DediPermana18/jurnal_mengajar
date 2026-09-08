@@ -56,6 +56,7 @@ use App\Http\Controllers\DataImportController;
 Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
     // Route Data Master Guru
     Route::get('/admin/guru', [GuruController::class, 'index'])->name('guru.index');
+    Route::get('/admin/guru/export', [GuruController::class, 'export'])->name('guru.export');
     Route::get('/admin/guru/create', [GuruController::class, 'create'])->name('admin.guru.create');
     Route::post('/admin/guru', [GuruController::class, 'store'])->name('guru.store');
     Route::get('/admin/guru/{id}/edit', [GuruController::class, 'edit'])->name('admin.guru.edit');
@@ -70,8 +71,13 @@ Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
     // Resource Routes untuk Data Master
     Route::get('admin/import', [DataImportController::class, 'index'])->name('import.index');
     Route::post('admin/import/siswa', [DataImportController::class, 'importSiswa'])->name('import.siswa');
+    Route::post('admin/import/guru', [DataImportController::class, 'importGuru'])->name('import.guru');
+    Route::post('admin/import/kelas', [DataImportController::class, 'importKelas'])->name('import.kelas');
+    Route::post('admin/import/ruangan', [DataImportController::class, 'importRuangan'])->name('import.ruangan');
+    Route::get('admin/siswa/export', [SiswaController::class, 'export'])->name('siswa.export');
     Route::delete('admin/siswa/delete-all', [SiswaController::class, 'deleteAll'])->name('siswa.delete-all');
     Route::resource('admin/siswa', SiswaController::class);
+    Route::get('admin/kelas/export', [KelasController::class, 'export'])->name('kelas.export');
     Route::resource('admin/kelas', KelasController::class);
 
     Route::resource('admin/users', UserController::class)
@@ -82,8 +88,11 @@ Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
     Route::post('/admin/users/{id}/toggle-status', [UserController::class, 'toggleStatus'])
         ->name('admin.users.toggle-status');
 
+    Route::get('admin/jurusan/export', [JurusanController::class, 'export'])->name('jurusan.export');
+    Route::post('admin/jurusan/import', [JurusanController::class, 'import'])->name('jurusan.import');
     Route::resource('admin/jurusan', JurusanController::class);
 
+    Route::get('admin/ruangan/export', [RuanganController::class, 'export'])->name('ruangan.export');
     Route::resource('admin/ruangan', RuanganController::class)->only(['index', 'store', 'update', 'destroy']);
 
     Route::resource('admin/tahun-ajaran', TahunAjaranController::class)
@@ -91,9 +100,14 @@ Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
         ->names('tahun-ajaran');
     Route::post('/admin/tahun-ajaran/{tahunAjaran}/set-aktif', [TahunAjaranController::class, 'setAktif'])
         ->name('tahun-ajaran.set-aktif');
-
-    Route::resource('admin/mata-pelajaran', MataPelajaranController::class)->names('mapel');
 });
+
+// Route Data Master Mata Pelajaran — diakses Admin/Petugas TU DAN Waka Kurikulum.
+// Authorization ditangani di dalam MataPelajaranController (bukan AdminScheduleAccess)
+// agar Waka Kurikulum bisa membuka halaman ini tanpa 403.
+Route::resource('admin/mata-pelajaran', MataPelajaranController::class)
+    ->names('mapel')
+    ->middleware(['auth']);
 
 Route::redirect('/admin/laporan', '/kurikulum/laporan')->name('laporan.index');
 

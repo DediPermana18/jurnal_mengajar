@@ -138,7 +138,12 @@ class JadwalPelajaranController extends Controller
         $tahunAktif = $this->resolveTahunAjaranContext($request);
         $hariList = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
 
+        // Filter pencarian nama kelas & hari (GET params).
+        $keyword = trim((string) $request->input('search', ''));
+        $selectedHari = (string) $request->input('hari', '');
+
         $kelasList = Kelas::with('jurusan')
+            ->when($keyword !== '', fn ($q) => $q->where('nama_kelas', 'like', "%{$keyword}%"))
             ->orderBy('tingkat')
             ->orderBy('nama_kelas')
             ->get();
@@ -188,6 +193,11 @@ class JadwalPelajaranController extends Controller
             $punyaKosong = false;
 
             foreach ($hariList as $hari) {
+                // Filter hari: skip hari yang tidak dipilih (bila dropdown terisi).
+                if ($selectedHari !== '' && $hari !== $selectedHari) {
+                    continue;
+                }
+
                 $kategori = ($hari === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
                 $slots = ($hari === 'Jumat') ? $slotsJumat : $slotsSeninKamis;
                 $agendaHari = $agendaAktif->get($hari, collect());
@@ -236,7 +246,9 @@ class JadwalPelajaranController extends Controller
             'totalKelas',
             'jumlahKelasLengkap',
             'totalSlotKosong',
-            'hariList'
+            'hariList',
+            'keyword',
+            'selectedHari'
         ));
     }
 

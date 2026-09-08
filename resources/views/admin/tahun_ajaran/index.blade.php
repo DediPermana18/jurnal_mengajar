@@ -38,6 +38,17 @@
         </div>
     @endif
 
+    {{-- Search Bar --}}
+    <div class="card border-0 shadow-sm rounded-4 p-3.5 bg-white mb-4">
+        <div class="position-relative" style="max-width: 450px;">
+            <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.9rem;"></i>
+            <input type="text"
+                   name="search"
+                   class="form-control bg-light rounded-3 ps-5"
+                   placeholder="Cari tahun ajaran atau semester...">
+        </div>
+    </div>
+
     {{-- Table --}}
     <div class="table-card-custom mb-4">
         <div class="table-responsive w-full overflow-x-auto">

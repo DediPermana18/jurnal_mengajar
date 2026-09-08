@@ -190,37 +190,25 @@
             <form method="GET" action="{{ route('mapel.index') }}" id="filterForm">
                 <div class="row g-3 align-items-center">
                     {{-- Input Search --}}
-                    <div class="col-12 col-md-6 col-lg-7">
+                    <div class="col-12 col-md-7 col-lg-8">
                         <div class="position-relative">
                             <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.9rem;"></i>
-                            <input type="text" name="search" class="form-control rounded-3 ps-5"
-                                   placeholder="Cari Nama Mapel atau Kode Mapel..."
+                            <input type="text" name="search" class="form-control rounded-3 ps-5 bg-light"
+                                   placeholder="Cari nama mapel atau kode mapel..."
                                    value="{{ request('search') }}" style="font-size: 0.875rem;">
                         </div>
                     </div>
 
                     {{-- Filter Jenis Mapel --}}
-                    <div class="col-12 col-md-4 col-lg-3">
-                        <select name="kelompok" onchange="this.form.submit()" class="form-select rounded-3" style="font-size: 0.875rem;">
-                            <option value="">-- Semua Jenis Mapel --</option>
+                    <div class="col-12 col-md-5 col-lg-4">
+                        <select name="kelompok" onchange="this.form.submit()" class="form-select rounded-3 bg-light" style="font-size: 0.875rem;">
+                            <option value="">Semua Jenis Mapel</option>
                             @foreach($jenisOptions as $opt)
                                 <option value="{{ $opt }}" {{ request('kelompok') === $opt ? 'selected' : '' }}>
                                     {{ $opt }}
                                 </option>
                             @endforeach
                         </select>
-                    </div>
-
-                    {{-- Tombol Filter & Reset --}}
-                    <div class="col-12 col-md-2 col-lg-2 d-flex gap-2">
-                        <button type="submit" class="btn btn-primary rounded-3 flex-fill fw-semibold d-flex align-items-center justify-content-center gap-1" style="font-size: 0.85rem;">
-                            <i class="bi bi-funnel-fill"></i> Filter
-                        </button>
-                        @if(request()->hasAny(['search', 'kelompok']))
-                            <a href="{{ route('mapel.index') }}" class="btn btn-light border rounded-3 text-muted d-flex align-items-center justify-content-center px-2" title="Reset Filter" style="font-size: 0.85rem;">
-                                <i class="bi bi-arrow-counterclockwise"></i>
-                            </a>
-                        @endif
                     </div>
                 </div>
             </form>

@@ -295,6 +295,16 @@
                 <span>Hapus Semua</span>
             </button>
             @endif
+            {{-- Tombol Export --}}
+            <button type="button"
+                    id="btnExport"
+                    class="btn btn-outline-success rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-2"
+                    style="font-size: 0.9rem;"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalExport">
+                <i class="bi bi-download"></i>
+                <span>Export</span>
+            </button>
             {{-- Tombol Tambah Siswa --}}
             <a href="{{ route('siswa.create') }}"
                class="btn btn-primary rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-2"
@@ -342,11 +352,32 @@
     {{-- ====================================================== --}}
     {{-- FILTER BAR                                              --}}
     {{-- ====================================================== --}}
+    @php
+        // Data untuk dropdown dependen Kelas ↔ Jurusan (AlpineJS)
+        $kelasFilterOpts = $dataKelas->map(fn ($k) => [
+            'id'         => (string) $k->id,
+            'jurusan_id' => (string) ($k->id_jurusan ?? ''),
+            'label'      => $k->tingkat . ' • ' . $k->nama_kelas . ($k->jurusan ? ' (' . $k->jurusan->nama_jurusan . ')' : ''),
+        ])->values()->all();
+
+        $jurusanFilterOpts = $jurusans->map(fn ($j) => [
+            'id'   => (string) $j->id,
+            'kode' => $j->kode_jurusan,
+        ])->values()->all();
+
+        $filterJsonFlags = JSON_HEX_APOS | JSON_HEX_TAG | JSON_HEX_AMP;
+    @endphp
     <div class="filter-bar">
-        <form action="{{ route('siswa.index') }}" method="GET">
+        <form action="{{ route('siswa.index') }}" method="GET"
+              x-data='siswaFilter(
+                  {!! json_encode($kelasFilterOpts, $filterJsonFlags) !!},
+                  {!! json_encode($jurusanFilterOpts, $filterJsonFlags) !!},
+                  {!! json_encode(request('id_kelas')) !!},
+                  {!! json_encode(request('id_jurusan')) !!}
+              )'>
             <div class="row g-3 align-items-center">
                 {{-- Search Input --}}
-                <div class="col-12 col-md-5">
+                <div class="col-12 col-md-4">
                     <div class="search-wrapper">
                         <i class="bi bi-search"></i>
                         <input type="text"
@@ -358,49 +389,36 @@
                 </div>
 
                 {{-- Dropdown Pilih Kelas --}}
-                <div class="col-6 col-md-2">
-                    <select name="id_kelas" class="form-select" onchange="this.form.submit()">
+                <div class="col-12 col-sm-4 col-md-3">
+                    <select name="id_kelas" class="form-select"
+                            x-model="kelasId"
+                            @change="onKelasChange()">
                         <option value="">Pilih Kelas</option>
-                        @foreach($dataKelas as $kelas)
-                            <option value="{{ $kelas->id }}" {{ request('id_kelas') == $kelas->id ? 'selected' : '' }}>
-                                {{ $kelas->tingkat }} &bull; {{ $kelas->nama_kelas }}{{ $kelas->jurusan ? ' (' . $kelas->jurusan->nama_jurusan . ')' : '' }}
-                            </option>
-                        @endforeach
+                        <template x-for="k in filteredClasses" :key="k.id">
+                            <option :value="k.id" x-text="k.label"></option>
+                        </template>
                     </select>
                 </div>
 
                 {{-- Dropdown Pilih Jurusan --}}
-                <div class="col-6 col-md-2">
-                    <select name="id_jurusan" class="form-select" onchange="this.form.submit()">
+                <div class="col-6 col-sm-4 col-md-3">
+                    <select name="id_jurusan" class="form-select"
+                            x-model="jurusanId"
+                            @change="onJurusanChange()">
                         <option value="">Semua Jurusan</option>
-                        @foreach($jurusans as $jurusan)
-                            <option value="{{ $jurusan->id }}" {{ request('id_jurusan') == $jurusan->id ? 'selected' : '' }}>
-                                {{ $jurusan->kode_jurusan }}
-                            </option>
-                        @endforeach
+                        <template x-for="j in jurusans" :key="j.id">
+                            <option :value="j.id" x-text="j.kode"></option>
+                        </template>
                     </select>
                 </div>
 
                 {{-- Dropdown Jenis Kelamin --}}
-                <div class="col-6 col-md-2">
+                <div class="col-6 col-sm-4 col-md-2">
                     <select name="jenis_kelamin" class="form-select" onchange="this.form.submit()">
                         <option value="">Jenis Kelamin</option>
                         <option value="L" {{ request('jenis_kelamin') == 'L' ? 'selected' : '' }}>Laki-laki</option>
                         <option value="P" {{ request('jenis_kelamin') == 'P' ? 'selected' : '' }}>Perempuan</option>
                     </select>
-                </div>
-
-                {{-- Tombol Filter & Reset --}}
-                <div class="col-12 col-md-1 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold flex-grow-1"
-                            style="background-color: var(--primary-blue, #1677ff); border-color: var(--primary-blue, #1677ff); font-size: 0.85rem;">
-                        <i class="bi bi-funnel me-1"></i> Filter
-                    </button>
-                    @if(request()->hasAny(['search','id_kelas','id_jurusan','jenis_kelamin']))
-                        <a href="{{ route('siswa.index') }}" class="btn btn-light border rounded-3 px-2 py-2" title="Reset Filter">
-                            <i class="bi bi-x-lg text-muted"></i>
-                        </a>
-                    @endif
                 </div>
             </div>
         </form>
@@ -690,16 +708,116 @@
     </div>
 </div>
 
+{{-- ====================================================== --}}
+{{-- MODAL: Export Data Siswa (Pilih Format xlsx / csv)    --}}
+{{-- ====================================================== --}}
+<div class="modal fade" id="modalExport" tabindex="-1" aria-labelledby="modalExportLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 16px; border: none; box-shadow: 0 20px 60px rgba(15,23,42,0.15);">
+
+            {{-- Header --}}
+            <div class="modal-header" style="border-bottom: 1px solid #e8eef5; padding: 1.25rem 1.5rem; background: #f8fafc; border-radius: 16px 16px 0 0;">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#16a34a,#15803d);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i class="bi bi-file-earmark-arrow-down-fill text-white" style="font-size:1.2rem;"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="modalExportLabel" style="font-size:1rem;color:#0f172a;">Export Data Siswa</h5>
+                        <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Pilih format file yang ingin diunduh.</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+
+            {{-- Body --}}
+            <form action="{{ route('siswa.export') }}" method="GET" id="formExport">
+                <div class="modal-body" style="padding: 1.5rem;">
+                    <label class="form-label fw-semibold" style="font-size:0.85rem;color:#374151;">Format Export</label>
+
+                    <div class="form-check mb-3 p-3 rounded-3 border" style="border-color:#bbf7d0 !important;background:#f0fdf4;cursor:pointer;"
+                         onclick="document.getElementById('formatXlsx').checked = true;">
+                        <input class="form-check-input" type="radio" name="format" value="xlsx" id="formatXlsx" checked>
+                        <label class="form-check-label fw-semibold d-flex align-items-center gap-2" for="formatXlsx" style="font-size:0.875rem;color:#166534;">
+                            <span>🟢</span> Excel (.xlsx)
+                            <span class="text-muted fw-normal">— Format standar, terbuka di Excel/Spreadsheet</span>
+                        </label>
+                    </div>
+
+                    <div class="form-check mb-1 p-3 rounded-3 border" style="border-color:#fde68a !important;background:#fffbeb;cursor:pointer;"
+                         onclick="document.getElementById('formatCsv').checked = true;">
+                        <input class="form-check-input" type="radio" name="format" value="csv" id="formatCsv">
+                        <label class="form-check-label fw-semibold d-flex align-items-center gap-2" for="formatCsv" style="font-size:0.875rem;color:#92400e;">
+                            <span>⚡</span> CSV (.csv)
+                            <span class="text-muted fw-normal">— Export teks cepat, ringan & kompatibel</span>
+                        </label>
+                    </div>
+                </div>
+
+                {{-- Footer --}}
+                <div class="modal-footer" style="border-top:1px solid #e8eef5;padding:1rem 1.5rem;gap:0.75rem;">
+                    <button type="button" class="btn btn-light border rounded-3 px-4 py-2 fw-semibold" data-bs-dismiss="modal" style="font-size:0.875rem;">Batal</button>
+                    <button type="submit" class="btn btn-success rounded-3 px-4 py-2 fw-semibold d-flex align-items-center gap-2" style="font-size:0.875rem;">
+                        <i class="bi bi-download"></i>
+                        <span>Download</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
 <script>
-    // Auto submit filter saat dropdown berubah (opsional UX improvement)
-    document.querySelectorAll('.filter-bar select[name="id_kelas"], .filter-bar select[name="id_jurusan"], .filter-bar select[name="jenis_kelamin"]').forEach(function(el) {
-        el.addEventListener('change', function() {
-            this.closest('form').submit();
-        });
-    });
+    // ── Dropdown dependen: Kelas ↔ Jurusan ──────────────────────────────────
+    // - Memilih kelas → jurusan otomatis mengikuti kelas tersebut.
+    // - Memilih jurusan → daftar kelas difilter khusus jurusan itu.
+    // - "Semua Jurusan" → semua kelas tampil lagi.
+    function siswaFilter(classes, jurusans, initialKelas, initialJurusan) {
+        return {
+            classes: classes,
+            jurusans: jurusans,
+
+            kelasId: initialKelas ? String(initialKelas) : '',
+            jurusanId: initialJurusan ? String(initialJurusan) : '',
+
+            init() {
+                // Sinkronkan kombinasi di awal (mis. URL yang diisi manual).
+                const k = this.classes.find(c => c.id === this.kelasId);
+                if (k) {
+                    this.jurusanId = k.jurusan_id;
+                }
+            },
+
+            get filteredClasses() {
+                if (!this.jurusanId) {
+                    return this.classes;
+                }
+                return this.classes.filter(c => c.jurusan_id === this.jurusanId);
+            },
+
+            onKelasChange() {
+                // Kelas dipilih → jurusan terkunci mengikuti kelas.
+                const k = this.classes.find(c => c.id === this.kelasId);
+                this.jurusanId = k ? k.jurusan_id : '';
+                this._submit();
+            },
+
+            onJurusanChange() {
+                // Jurusan dipilih → hanya kelas milik jurusan tersebut yang tampil.
+                const ok = this.filteredClasses.some(c => c.id === this.kelasId);
+                if (!ok) {
+                    this.kelasId = '';
+                }
+                this._submit();
+            },
+
+            _submit() {
+                this.$nextTick(() => this.$el.submit());
+            },
+        };
+    }
 
     // ── Konfirmasi "HAPUS" untuk modal hapus semua ────────────────────────
     (function () {

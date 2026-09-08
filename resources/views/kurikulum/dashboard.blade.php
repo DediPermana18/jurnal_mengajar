@@ -93,8 +93,7 @@
     {{-- 1. QUICK CONTROL / PENGATURAN KBM HARI INI                     --}}
     {{--    Tampil HANYA jika $hariAktif == 'Senin' atau 'Jumat'        --}}
     {{-- ============================================================== --}}
-    @php $currentUserRole = auth()->user()?->role; @endphp
-    @if(($currentUserRole === 'admin' || in_array($currentUserRole, ['waka_kurikulum', 'admin_kurikulum', 'kurikulum'])) && in_array($hariAktif, ['Senin', 'Jumat']))
+    @if((auth()->user()->role === 'admin' || in_array(auth()->user()->role, ['waka_kurikulum', 'admin_kurikulum', 'kurikulum'])) && in_array($hariAktif, ['Senin', 'Jumat']))
         @php
             $isSeninTanpaUpacara = $pengaturanJadwal->senin_tanpa_upacara && $pengaturanJadwal->tanggal_eksekusi;
             $isJumatTanpaPembiasaan = $pengaturanJadwal->jumat_tanpa_pembiasaan && $pengaturanJadwal->tanggal_eksekusi_jumat;
@@ -241,22 +240,22 @@
             </div>
         </div>
 
-        {{-- Card 3: Total Plotting Jadwal --}}
+        {{-- Card 3: Izin Menunggu Approval --}}
         <div>
             <div class="stat-card-modern p-3 md:p-4 d-flex align-items-center justify-content-between h-100">
                 <div class="min-w-0 flex-1">
-                    <div class="text-muted fw-semibold mb-1 text-xs md:text-sm truncate" style="text-transform: uppercase; letter-spacing: 0.05em;">
-                        Plotting Jadwal
+                    <div class="text-muted fw-semibold mb-1 text-xs md:text-sm truncate" style="text-transform: uppercase; letter-spacing: 0.05em;" title="Izin Menunggu Approval">
+                        Izin Approval
                     </div>
                     <h3 class="fw-black text-dark mb-0 text-2xl md:text-4xl" style="font-weight: 900;">
-                        {{ number_format($totalJadwalPelajaran) }}
+                        {{ number_format($izinMenungguApproval ?? 0) }}
                     </h3>
-                    <div class="text-muted mt-1 text-xs truncate">
-                        <i class="bi bi-calendar-range text-info me-1"></i>Sesi Terjadwal
+                    <div class="text-muted mt-1 text-xs truncate" title="Menunggu Persetujuan Waka">
+                        <i class="bi bi-hourglass-split text-info me-1"></i>Menunggu Waka
                     </div>
                 </div>
                 <div class="rounded-3 d-flex align-items-center justify-content-center bg-info-subtle text-info flex-shrink-0 ms-2" style="width: 40px; height: 40px;">
-                    <i class="bi bi-calendar3 fs-4"></i>
+                    <i class="bi bi-inbox-fill fs-4"></i>
                 </div>
             </div>
         </div>
@@ -290,18 +289,40 @@
             <i class="bi bi-lightning-fill text-warning me-1"></i> Akses Cepat Modul Kurikulum
         </h5>
         <div class="row g-3">
-            {{-- Link: Plotting Jadwal Kelas --}}
+            {{-- Link: Plotting Jadwal --}}
             <div class="col-12 col-sm-6 col-lg-3">
-                <a href="{{ route('admin.jadwal.index') }}" class="quick-link-card shadow-2xs">
+                <a href="{{ Route::has('admin.jadwal.index') ? route('admin.jadwal.index') : '#' }}" class="quick-link-card shadow-2xs">
                     <div class="rounded-3 d-flex align-items-center justify-content-center bg-primary-subtle text-primary flex-shrink-0"
                          style="width: 46px; height: 46px;">
-                        <i class="bi bi-calendar3 fs-4"></i>
+                        <i class="bi bi-calendar2-week-fill fs-4"></i>
                     </div>
                     <div class="overflow-hidden flex-grow-1">
                         <h6 class="fw-bold mb-1 text-dark" style="font-size: 0.95rem;">Plotting Jadwal</h6>
                         <div class="text-muted text-truncate" style="font-size: 0.78rem;">
-                            Kelola jadwal pelajaran & plotting kelas.
+                            Kelola jadwal pelajaran KBM.
                         </div>
+                    </div>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+            </div>
+
+            {{-- Link: Approval Izin Guru --}}
+            <div class="col-12 col-sm-6 col-lg-3">
+                <a href="{{ Route::has('kurikulum.izin.index') ? route('kurikulum.izin.index') : (Route::has('waka-sdm.rekap-izin') ? route('waka-sdm.rekap-izin') : '#') }}" class="quick-link-card shadow-2xs position-relative">
+                    <div class="rounded-3 d-flex align-items-center justify-content-center bg-info-subtle text-info flex-shrink-0"
+                         style="width: 46px; height: 46px;">
+                        <i class="bi bi-inbox-fill fs-4"></i>
+                    </div>
+                    <div class="overflow-hidden flex-grow-1">
+                        <h6 class="fw-bold mb-1 text-dark" style="font-size: 0.95rem;">Approval Izin Guru</h6>
+                        <div class="text-muted text-truncate" style="font-size: 0.78rem;">
+                            Setujui / tolak pengajuan izin guru.
+                        </div>
+                        @if(($izinMenungguApproval ?? 0) > 0)
+                            <span class="badge bg-danger text-white rounded-pill fw-bold mt-1">
+                                {{ $izinMenungguApproval ?? 0 }} Pending
+                            </span>
+                        @endif
                     </div>
                     <i class="bi bi-chevron-right text-muted"></i>
                 </a>
@@ -344,7 +365,7 @@
             {{-- Link: Jadwal Piket Guru --}}
             <div class="col-12 col-sm-6 col-lg-3">
                 <a href="{{ route('kurikulum.jadwal-piket.index') }}" class="quick-link-card shadow-2xs">
-                    <div class="rounded-3 d-flex align-items-center justify-content-center bg-info-subtle text-info flex-shrink-0"
+                    <div class="rounded-3 d-flex align-items-center justify-content-center bg-primary-subtle text-primary flex-shrink-0"
                          style="width: 46px; height: 46px;">
                         <i class="bi bi-person-badge-fill fs-4"></i>
                     </div>
@@ -361,52 +382,70 @@
     </div>
 
     {{-- ============================================================== --}}
-    {{-- 4. JADWAL KBM HARI INI + RINGKASAN KBM HARI INI               --}}
+    {{-- 4. IZIN GURU MENUNGGU APPROVAL + RINGKASAN KBM HARI INI        --}}
     {{-- ============================================================== --}}
     <div class="row g-4 mb-4">
-        {{-- Jadwal KBM Hari Ini --}}
+        {{-- Daftar Izin Menunggu Approval --}}
         <div class="col-12 col-xl-8">
             <div class="table-card-custom h-100">
                 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                     <h5 class="fw-bold text-dark mb-0">
-                        <i class="bi bi-calendar2-week me-1 text-primary"></i> Sesi KBM Hari Ini ({{ $hariIniStr }})
+                        <i class="bi bi-inbox me-1 text-info"></i> Daftar Izin Guru Menunggu Approval
                     </h5>
-                    <a href="{{ route('admin.jadwal.index') }}" class="btn btn-sm btn-outline-primary rounded-3 text-xs fw-semibold">
-                        Lihat Semua Jadwal &rarr;
+                    <a href="{{ Route::has('kurikulum.izin.index') ? route('kurikulum.izin.index') : (Route::has('waka-sdm.rekap-izin') ? route('waka-sdm.rekap-izin') : '#') }}" class="btn btn-sm btn-outline-primary rounded-3 fw-semibold">
+                        Lihat Semua <i class="bi bi-arrow-right ms-1"></i>
                     </a>
                 </div>
 
-                @if($jadwalKbmHariIni->isNotEmpty())
+                @if(isset($daftarIzinPending) && $daftarIzinPending->isNotEmpty())
                     <div class="overflow-x-auto w-full rounded-lg">
                         <table class="table table-custom align-middle mb-0 min-w-full">
                             <thead>
                                 <tr>
-                                    <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">JAM KE</th>
-                                    <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">KELAS</th>
-                                    <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">MATA PELAJARAN</th>
-                                    <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">GURU PENGAJAR</th>
+                                    <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">GURU</th>
+                                    <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">ALASAN IZIN</th>
+                                    <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm text-nowrap">TANGGAL</th>
+                                    <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm text-center">STATUS</th>
+                                    <th class="whitespace-nowrap px-3 py-2 text-xs md:text-sm text-end">AKSI</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach($jadwalKbmHariIni as $jdw)
+                                @foreach($daftarIzinPending as $izin)
                                     <tr>
                                         <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">
-                                            <span class="badge bg-light text-dark border fw-bold text-xs">
-                                                Jam Ke-{{ $jdw->jamPelajaran?->jam_ke ?? '-' }}
+                                            <div class="fw-semibold text-dark">{{ $izin->user?->nama ?? '-' }}</div>
+                                            <small class="text-muted">{{ $izin->user?->role_label ?? '' }}</small>
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">
+                                            <span class="text-secondary text-truncate d-inline-block" style="max-width: 180px;" title="{{ $izin->alasan }}">
+                                                {{ Str::limit($izin->alasan, 50) }}
                                             </span>
-                                            <div class="text-muted text-2xs mt-0.5">
-                                                {{ $jdw->jamPelajaran ? \Carbon\Carbon::parse($jdw->jamPelajaran->jam_mulai)->format('H:i') . ' - ' . \Carbon\Carbon::parse($jdw->jamPelajaran->jam_selesai)->format('H:i') : '' }}
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm text-nowrap text-dark fw-medium">
+                                            {{ $izin->tanggal?->translatedFormat('d/m/Y') ?? '-' }}
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm text-center">
+                                            <span class="badge border rounded-pill px-2.5 py-1 text-xs md:text-sm {{ $izin->status_badge }}">
+                                                {{ $izin->status_label }}
+                                            </span>
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm text-end text-nowrap">
+                                            <div class="flex items-center justify-center gap-2 whitespace-nowrap">
+                                                <form action="{{ Route::has('kurikulum.izin.approve') ? route('kurikulum.izin.approve', $izin->id) : (Route::has('waka-sdm.rekap-izin') ? route('waka-sdm.rekap-izin') : '#') }}" method="POST" class="d-inline">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-sm btn-success rounded-3 fw-semibold text-xs md:text-sm">
+                                                        <i class="bi bi-check-lg me-1"></i>Setujui
+                                                    </button>
+                                                </form>
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-danger rounded-3 fw-semibold text-xs md:text-sm"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#modalTolakIzin"
+                                                        data-izin-id="{{ $izin->id }}"
+                                                        data-izin-nama="{{ $izin->user?->nama ?? 'Guru' }}">
+                                                    <i class="bi bi-x-lg me-1"></i>Tolak
+                                                </button>
                                             </div>
-                                        </td>
-                                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">
-                                            <span class="fw-bold text-dark">{{ $jdw->kelas?->nama_kelas ?? '-' }}</span>
-                                        </td>
-                                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">
-                                            <span class="fw-semibold text-dark">{{ $jdw->mapel?->nama_mapel ?? '-' }}</span>
-                                        </td>
-                                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">
-                                            <div class="fw-semibold text-dark">{{ $jdw->guru?->nama ?? 'Belum Ditentukan' }}</div>
-                                            <small class="text-muted text-2xs">{{ $jdw->guru?->nip ? 'NIP: ' . $jdw->guru->nip : 'Non-NIP' }}</small>
                                         </td>
                                     </tr>
                                 @endforeach
@@ -415,8 +454,8 @@
                     </div>
                 @else
                     <div class="text-center py-5 text-muted">
-                        <i class="bi bi-calendar-x fs-1 d-block mb-2 opacity-50"></i>
-                        Tidak ada sesi KBM yang terjadwal untuk hari {{ $hariIniStr }}.
+                        <i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>
+                        Tidak ada pengajuan izin yang menunggu persetujuan. Semua sudah diproses.
                     </div>
                 @endif
             </div>
@@ -460,5 +499,45 @@
         </div>
     </div>
 
+    {{-- Modal Tolak Izin (quick action) --}}
+    <div class="modal fade" id="modalTolakIzin" tabindex="-1" aria-labelledby="modalTolakIzinLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <form action="" method="POST" id="formTolakIzin">
+                @csrf
+                <div class="modal-content border-0 rounded-4 shadow">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title fw-bold text-dark" id="modalTolakIzinLabel">Tolak Izin Guru</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted" id="tolakIzinDesc">Masukkan catatan penolakan.</p>
+                        <textarea name="catatan_penolakan" class="form-control rounded-3" rows="3"
+                                  placeholder="Alasan penolakan (min. 3 karakter)..." required minlength="3"></textarea>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-light border rounded-3" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-danger rounded-3 fw-semibold">Tolak Izin</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    const modalTolak = document.getElementById('modalTolakIzin');
+    if (modalTolak) {
+        modalTolak.addEventListener('show.bs.modal', function (event) {
+            const btn = event.relatedTarget;
+            const izinId = btn.getAttribute('data-izin-id');
+            const nama = btn.getAttribute('data-izin-nama');
+            const rejectUrl = "{{ Route::has('kurikulum.izin.reject') ? route('kurikulum.izin.reject', ':id') : (Route::has('waka-sdm.rekap-izin') ? route('waka-sdm.rekap-izin') : '#') }}".replace(':id', izinId);
+            document.getElementById('formTolakIzin').setAttribute('action', rejectUrl);
+            document.getElementById('tolakIzinDesc').textContent = "Tolak izin untuk " + nama + ". Isi catatan penolakan di bawah.";
+        });
+    }
+</script>
+@endpush

@@ -12,9 +12,31 @@
             <p class="text-muted mb-0" style="font-size: 0.9rem;">Kelola data ruangan sekolah beserta pengurus dan penugasan kelas.</p>
         </div>
         @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
-            <button type="button" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalTambahRuangan">
-                <i class="bi bi-plus-lg me-1"></i> Tambah Ruangan
-            </button>
+            <div class="d-flex gap-2">
+                <!-- Tombol Export Ruangan -->
+                <div class="dropdown">
+                    <button class="btn btn-outline-primary rounded-3 px-3 py-2 fw-semibold shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-download me-1"></i> Export
+                    </button>
+                    <ul class="dropdown-menu shadow-sm border-0 rounded-3" style="z-index: 1050;">
+                        <li>
+                            <a href="{{ route('ruangan.export', ['format' => 'xlsx']) }}" class="dropdown-item py-2">
+                                <i class="bi bi-file-earmark-excel me-2 text-success"></i> Export Excel (.xlsx)
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('ruangan.export', ['format' => 'csv']) }}" class="dropdown-item py-2">
+                                <i class="bi bi-filetype-csv me-2 text-info"></i> Export CSV (.csv)
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Tombol Tambah Ruangan -->
+                <button type="button" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalTambahRuangan">
+                    <i class="bi bi-plus-lg me-1"></i> Tambah Ruangan
+                </button>
+            </div>
         @endif
     </div>
 
@@ -37,6 +59,17 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif
+
+    {{-- Search Bar --}}
+    <div class="card border-0 shadow-sm rounded-4 p-3.5 bg-white mb-4">
+        <div class="position-relative" style="max-width: 450px;">
+            <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.9rem;"></i>
+            <input type="text"
+                   name="search"
+                   class="form-control bg-light rounded-3 ps-5"
+                   placeholder="Cari kode, nama ruangan, lokasi, atau pengurus...">
+        </div>
+    </div>
 
     {{-- Table --}}
     <div class="table-card-custom mb-4">

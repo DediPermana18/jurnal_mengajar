@@ -3,11 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Guru;
 use App\Models\Kelas;
+use App\Exports\GuruExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Maatwebsite\Excel\Excel as ExcelFormat;
+use Maatwebsite\Excel\Facades\Excel;
 
 class GuruController extends Controller
 {
@@ -36,8 +40,7 @@ class GuruController extends Controller
     {
         $this->authorizeAdmin();
 
-        $query = User::query()
-            ->where('role', User::ROLE_GURU);
+        $query = Guru::query();
 
         if ($request->filled('search')) {
             $search = trim($request->search);
@@ -59,20 +62,20 @@ class GuruController extends Controller
         if ($request->filled('wali_kelas') && $request->wali_kelas !== 'Semua') {
             if ($request->wali_kelas === 'Ya') {
                 $query->where(function($q) {
-                    $q->has('kelasWali')->orWhereNotNull('kelas_id');
+                    $q->has('waliKelas')->orWhereNotNull('kelas_id');
                 });
             } elseif ($request->wali_kelas === 'Tidak') {
-                $query->doesntHave('kelasWali')->whereNull('kelas_id');
+                $query->doesntHave('waliKelas')->whereNull('kelas_id');
             } elseif (str_starts_with($request->wali_kelas, 'kelas_')) {
                 $kelasId = (int) str_replace('kelas_', '', $request->wali_kelas);
                 $query->where(function($q) use ($kelasId) {
-                    $q->whereHas('kelasWali', fn($k) => $k->where('id', $kelasId))
+                    $q->whereHas('waliKelas', fn($k) => $k->where('id', $kelasId))
                       ->orWhere('kelas_id', $kelasId);
                 });
             }
         }
 
-        $dataGuru = $query->with(['kelas.jurusan', 'kelasWali.jurusan', 'mapelDiampu'])
+        $dataGuru = $query->with(['kelas.jurusan', 'waliKelas.jurusan', 'mataPelajaran'])
             ->orderBy('id', 'asc')
             ->paginate(10)
             ->withQueryString();
@@ -80,6 +83,26 @@ class GuruController extends Controller
         $daftarKelas = Kelas::with('jurusan')->orderBy('tingkat')->orderBy('nama_kelas')->get();
 
         return view('admin.guru.index', compact('dataGuru', 'daftarKelas'));
+    }
+
+    /**
+     * Unduh Data Master Guru sebagai XLSX / CSV.
+     * Format kolom: NO, NIP, NAMA GURU, STATUS.
+     */
+    public function export(Request $request)
+    {
+        $this->authorizePetugasTU();
+
+        $format = $request->input('format', 'xlsx');
+        $filename = 'data_guru_' . date('Y-m-d_His');
+
+        if ($format === 'csv') {
+            return Excel::download(new GuruExport, $filename . '.csv', ExcelFormat::CSV, [
+                'Content-Type' => 'text/csv',
+            ]);
+        }
+
+        return Excel::download(new GuruExport, $filename . '.xlsx', ExcelFormat::XLSX);
     }
 
     public function create()

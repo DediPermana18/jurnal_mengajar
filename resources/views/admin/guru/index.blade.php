@@ -150,7 +150,28 @@
             <p class="text-muted mb-0" style="font-size: 0.9rem;">Kelola data guru pengajar dan wali kelas.</p>
         </div>
         @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
-            <a href="{{ route('admin.guru.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm"><i class="bi bi-plus-lg me-1"></i> Tambah Guru</a>
+            <div class="d-flex gap-2">
+                <!-- Tombol Export Guru -->
+                <div class="dropdown">
+                    <button class="btn btn-outline-primary rounded-3 px-3 py-2 fw-semibold shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-download me-1"></i> Export
+                    </button>
+                    <ul class="dropdown-menu shadow-sm border-0 rounded-3" style="z-index: 1050;">
+                        <li>
+                            <a href="{{ route('guru.export', ['format' => 'xlsx']) }}" class="dropdown-item py-2">
+                                <i class="bi bi-file-earmark-excel me-2 text-success"></i> Export Excel (.xlsx)
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('guru.export', ['format' => 'csv']) }}" class="dropdown-item py-2">
+                                <i class="bi bi-filetype-csv me-2 text-info"></i> Export CSV (.csv)
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <a href="{{ route('admin.guru.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm"><i class="bi bi-plus-lg me-1"></i> Tambah Guru</a>
+            </div>
         @endif
     </div>
 
@@ -167,14 +188,14 @@
     <div class="filter-bar">
         <form action="{{ route('guru.index') }}" method="GET">
             <div class="row g-3 align-items-center">
-                {{-- Input Cari Nama/NIP dengan Icon Kaca Pembesar --}}
-                <div class="col-12 col-md-4">
+                {{-- Input Cari Nama/NIP --}}
+                <div class="col-12 col-md-5">
                     <div class="search-wrapper">
                         <i class="bi bi-search"></i>
                         <input type="text"
                                name="search"
                                class="form-control"
-                               placeholder="Cari nama atau NIP..."
+                               placeholder="Cari nama atau NIP guru..."
                                value="{{ request('search') }}">
                     </div>
                 </div>
@@ -189,7 +210,7 @@
                 </div>
 
                 {{-- Dropdown Penugasan Wali Kelas & Option Kelas --}}
-                <div class="col-6 col-md-3">
+                <div class="col-6 col-md-4">
                     <select name="wali_kelas" class="form-select" onchange="this.form.submit()">
                         <option value="Semua" {{ request('wali_kelas') === 'Semua' || !request()->filled('wali_kelas') ? 'selected' : '' }}>Semua Penugasan</option>
                         <option value="Ya" {{ request('wali_kelas') === 'Ya' ? 'selected' : '' }}>Wali Kelas</option>
@@ -205,20 +226,6 @@
                         @endif
                     </select>
                 </div>
-
-                {{-- Tombol Filter & Reset --}}
-                <div class="col-12 col-md-2 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold flex-grow-1 d-inline-flex align-items-center justify-content-center gap-1"
-                            style="background-color: var(--primary-blue, #1677ff); border-color: var(--primary-blue, #1677ff); font-size: 0.875rem;">
-                        <i class="bi bi-funnel"></i>
-                        <span>Filter</span>
-                    </button>
-                    @if(request()->hasAny(['search','status','wali_kelas']))
-                        <a href="{{ route('guru.index') }}" class="btn btn-light border rounded-3 px-3 py-2 d-inline-flex align-items-center justify-content-center" title="Reset Filter">
-                            <i class="bi bi-x-lg text-muted"></i>
-                        </a>
-                    @endif
-                </div>
             </div>
         </form>
     </div>
@@ -233,8 +240,8 @@
                             $words = explode(' ', trim($guru->nama));
                             $initials = strtoupper(substr($words[0], 0, 1));
                             $initials .= count($words) > 1 ? strtoupper(substr(end($words), 0, 1)) : strtoupper(substr($words[0], 1, 1));
-                            $mapelDiampu = $guru->mapelDiampu->unique('id');
-                            $namaKelasWali = $guru->kelasWali?->pluck('nama_kelas')->join(', ') ?: $guru->kelas?->nama_kelas;
+                            $mapelDiampu = $guru->mataPelajaran->unique('id');
+                            $namaKelasWali = $guru->waliKelas->isEmpty() ? $guru->kelas?->nama_kelas : $guru->waliKelas->pluck('nama_kelas')->join(', ');
                         @endphp
                         <tr>
                             {{-- 1. Guru Info (Nama & NIP) --}}
@@ -264,7 +271,17 @@
                                     </span>
                                 @endif
                             </td>
-                            <td>{{ $namaKelasWali ? 'Wali Kelas ' . $namaKelasWali : '-' }}</td>
+                            <td>
+                                @if($namaKelasWali)
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-2" style="font-size: 0.78rem; font-weight: 600;">
+                                        <i class="bi bi-person-check me-1"></i>Wali Kelas {{ $namaKelasWali }}
+                                    </span>
+                                @else
+                                    <span class="badge bg-light text-muted border px-2 py-1 rounded-pill" style="font-size: 0.78rem;">
+                                        <i class="bi bi-dash-circle me-1"></i>-
+                                    </span>
+                                @endif
+                            </td>
                             <td class="whitespace-nowrap"><span class="badge {{ $guru->is_active ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis' }} rounded-pill px-3 py-2">{{ $guru->is_active ? 'Aktif' : 'Nonaktif' }}</span></td>
                             <td class="text-end whitespace-nowrap">
                                 @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))

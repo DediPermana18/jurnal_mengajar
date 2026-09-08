@@ -66,11 +66,18 @@
     <div class="card border rounded-3 shadow-2xs mb-4">
         <div class="card-body p-3.5">
             <form method="GET" action="{{ route('waka-sdm.rekap-presensi-guru') }}">
-                <div class="row g-2.5 align-items-end">
+                <div class="row g-2.5 align-items-center">
+                    {{-- Search Input --}}
+                    <div class="col-12 col-md-5">
+                        <div class="position-relative">
+                            <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.85rem;"></i>
+                            <input type="text" name="search" class="form-control form-control-sm rounded-3 ps-5 bg-light" placeholder="Cari nama guru atau NIP...">
+                        </div>
+                    </div>
+
                     {{-- Filter Bulan --}}
-                    <div class="col-6 col-md-3">
-                        <label class="form-label text-xs fw-bold text-muted text-uppercase mb-1">Bulan</label>
-                        <select name="bulan" class="form-select form-select-sm rounded-3">
+                    <div class="col-6 col-md-2">
+                        <select name="bulan" class="form-select form-select-sm rounded-3 bg-light" onchange="this.form.submit()">
                             @foreach(range(1, 12) as $m)
                                 <option value="{{ $m }}" {{ $bulan == $m ? 'selected' : '' }}>
                                     {{ \Carbon\Carbon::createFromDate(null, $m, 1)->translatedFormat('F') }}
@@ -81,8 +88,7 @@
 
                     {{-- Filter Tahun --}}
                     <div class="col-6 col-md-2">
-                        <label class="form-label text-xs fw-bold text-muted text-uppercase mb-1">Tahun</label>
-                        <select name="tahun" class="form-select form-select-sm rounded-3">
+                        <select name="tahun" class="form-select form-select-sm rounded-3 bg-light" onchange="this.form.submit()">
                             @foreach(range(now()->year - 2, now()->year + 1) as $y)
                                 <option value="{{ $y }}" {{ $tahun == $y ? 'selected' : '' }}>
                                     {{ $y }}
@@ -92,9 +98,8 @@
                     </div>
 
                     {{-- Filter Guru --}}
-                    <div class="col-12 col-md-4">
-                        <label class="form-label text-xs fw-bold text-muted text-uppercase mb-1">Nama Guru</label>
-                        <select name="id_guru" class="form-select form-select-sm rounded-3">
+                    <div class="col-12 col-md-3">
+                        <select name="id_guru" class="form-select form-select-sm rounded-3 bg-light" onchange="this.form.submit()">
                             <option value="">Semua Guru</option>
                             @foreach($guruList as $g)
                                 <option value="{{ $g->id }}" {{ $selectedGuru == $g->id ? 'selected' : '' }}>
@@ -102,16 +107,6 @@
                                 </option>
                             @endforeach
                         </select>
-                    </div>
-
-                    {{-- Tombol Terapkan --}}
-                    <div class="col-12 col-md-3 d-flex gap-1.5">
-                        <button type="submit" class="btn btn-primary btn-sm rounded-3 w-100 fw-semibold">
-                            <i class="bi bi-funnel-fill me-1"></i> Tampilkan
-                        </button>
-                        <a href="{{ route('waka-sdm.rekap-presensi-guru') }}" class="btn btn-light border btn-sm rounded-3" title="Reset">
-                            <i class="bi bi-arrow-counterclockwise"></i>
-                        </a>
                     </div>
                 </div>
             </form>

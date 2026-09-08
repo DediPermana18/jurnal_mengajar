@@ -9,6 +9,23 @@ use Illuminate\Validation\Rule;
 class MataPelajaranController extends Controller
 {
     /**
+     * Proteksi akses: Petugas TU/Admin TU dan Waka Kurikulum diizinkan.
+     */
+    public function __construct()
+    {
+        $user = request()->user();
+
+        $isPetugasTu = ($user && $user->role === 'admin' && in_array($user->sub_role, [null, 'petugas_tu', 'admin_tu'], true))
+            || ($user && $user->role === 'admin_tu');
+        $isKurikulum = ($user && $user->role === 'admin' && $user->sub_role === 'waka_kurikulum')
+            || ($user && in_array($user->role, ['admin_kurikulum', 'waka_kurikulum', 'kurikulum'], true));
+
+        if (! $isPetugasTu && ! $isKurikulum) {
+            abort(403, 'Akses ditolak.');
+        }
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index(Request $request)

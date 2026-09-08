@@ -128,27 +128,23 @@
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-3 p-md-4">
             <form method="GET" action="{{ route('kepsek.rekap-izin') }}">
-                <div class="row g-2 align-items-center">
-                    <div class="col-12 col-md-4">
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
-                            <input type="text" name="search" class="form-control bg-light border-start-0 text-xs" placeholder="Cari nama guru atau NIP..." value="{{ request('search') }}">
+                <div class="row g-3 align-items-center">
+                    <div class="col-12 col-md-5">
+                        <div class="position-relative">
+                            <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.85rem;"></i>
+                            <input type="text" name="search" class="form-control bg-light rounded-3 ps-5 text-xs" placeholder="Cari nama guru atau NIP..." value="{{ request('search') }}">
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
-                        <input type="date" name="tanggal" class="form-control text-xs" value="{{ request('tanggal') }}">
+                        <input type="date" name="tanggal" class="form-control bg-light rounded-3 text-xs" value="{{ request('tanggal') }}" onchange="this.form.submit()" title="Filter Tanggal">
                     </div>
-                    <div class="col-6 col-md-3">
-                        <select name="status" class="form-select text-xs">
-                            <option value="">-- Semua Status --</option>
+                    <div class="col-6 col-md-4">
+                        <select name="status" class="form-select bg-light rounded-3 text-xs" onchange="this.form.submit()">
+                            <option value="">Semua Status</option>
                             <option value="{{ \App\Models\IzinGuru::STATUS_PENDING_KEPSEK }}" {{ (request('status') ?? \App\Models\IzinGuru::STATUS_PENDING_KEPSEK) === \App\Models\IzinGuru::STATUS_PENDING_KEPSEK ? 'selected' : '' }}>Menunggu Kepsek</option>
                             <option value="{{ \App\Models\IzinGuru::STATUS_DISETUJUI }}" {{ request('status') === \App\Models\IzinGuru::STATUS_DISETUJUI ? 'selected' : '' }}>Disetujui</option>
                             <option value="{{ \App\Models\IzinGuru::STATUS_DITOLAK }}" {{ request('status') === \App\Models\IzinGuru::STATUS_DITOLAK ? 'selected' : '' }}>Ditolak</option>
                         </select>
-                    </div>
-                    <div class="col-12 col-md-2 d-flex gap-2">
-                        <button type="submit" class="btn btn-primary btn-sm rounded-3 w-100 text-xs fw-semibold"><i class="bi bi-filter me-1"></i> Filter</button>
-                        <a href="{{ route('kepsek.rekap-izin') }}" class="btn btn-light border btn-sm rounded-3" title="Reset Filter"><i class="bi bi-arrow-counterclockwise"></i></a>
                     </div>
                 </div>
             </form>

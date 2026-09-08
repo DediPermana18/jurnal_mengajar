@@ -1409,6 +1409,31 @@
                 }
             });
         }
+
+        // Global Instant Live Table Search
+        document.querySelectorAll('input[name="search"], .table-instant-search, [data-table-search]').forEach(function (searchInput) {
+            searchInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                }
+            });
+
+            searchInput.addEventListener('input', function () {
+                const filter = this.value.toLowerCase();
+                const container = this.closest('.card, .filter-bar, .table-card-custom, .container-fluid') || document;
+                const table = container.querySelector('table');
+                if (table) {
+                    const rows = table.querySelectorAll('tbody tr');
+                    rows.forEach(function (row) {
+                        if (row.cells.length === 1 && row.querySelector('td[colspan]')) {
+                            return; // skip empty state row
+                        }
+                        const text = row.textContent.toLowerCase();
+                        row.style.display = text.includes(filter) ? '' : 'none';
+                    });
+                }
+            });
+        });
     });
 </script>
 @stack('scripts')

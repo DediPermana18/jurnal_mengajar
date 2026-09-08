@@ -181,7 +181,7 @@
                          x-transition:enter-start="opacity-0 -translate-y-2"
                          x-transition:enter-end="opacity-100 translate-y-0"
                          x-cloak>
-                        <label class="block text-xs font-black tracking-wider text-slate-700 uppercase mb-2">KODE AKTIVASI <span class="normal-case text-slate-400 font-medium">(Khusus Admin / Pejabat)</span></label>
+                        <label class="block text-xs font-black tracking-wider text-slate-700 uppercase mb-2">KODE AKTIVASI</label>
                         <input type="text" 
                                name="kode_aktivasi" 
                                :disabled="mode !== 'admin'"

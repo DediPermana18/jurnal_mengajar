@@ -33,43 +33,38 @@
         </div>
     @endif
 
-    <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
-        <form action="{{ route('admin.users.index') }}" method="GET" class="row g-3 align-items-end">
-            <div class="col-md-5">
-                <label class="form-label fw-bold text-secondary text-uppercase small">Cari User</label>
-                <input type="text" name="search" value="{{ request('search') }}" class="form-control bg-light rounded-3" placeholder="Nama, username, atau NIP">
+    <div class="card border-0 shadow-sm rounded-4 p-3.5 bg-white mb-4">
+        <form action="{{ route('admin.users.index') }}" method="GET" class="d-flex flex-wrap align-items-center gap-3">
+            <div class="flex-grow-1 position-relative" style="min-width: 240px; max-width: 450px;">
+                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.9rem;"></i>
+                <input type="text"
+                       name="search"
+                       id="searchUserInput"
+                       value="{{ request('search') }}"
+                       class="form-control bg-light rounded-3 ps-5"
+                       placeholder="Cari nama, username, atau NIP user...">
             </div>
-            <div class="col-md-3">
-                <label class="form-label fw-bold text-secondary text-uppercase small">Sub-Role</label>
-                <select name="sub_role" class="form-select bg-light rounded-3" onchange="this.form.submit()">
+            <div style="width: 200px;">
+                <select name="sub_role" id="subRoleSelect" class="form-select bg-light rounded-3" onchange="this.form.submit()">
                     <option value="">Semua Sub-Role</option>
                     @foreach($subRoles as $value => $label)
                         <option value="{{ $value }}" {{ request('sub_role') === $value ? 'selected' : '' }}>{{ $label }}</option>
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-2">
-                <label class="form-label fw-bold text-secondary text-uppercase small">Status</label>
-                <select name="status" class="form-select bg-light rounded-3" onchange="this.form.submit()">
+            <div style="width: 170px;">
+                <select name="status" id="statusSelect" class="form-select bg-light rounded-3" onchange="this.form.submit()">
                     <option value="Semua Status">Semua Status</option>
                     <option value="Aktif" {{ request('status') === 'Aktif' ? 'selected' : '' }}>Aktif</option>
                     <option value="Nonaktif" {{ request('status') === 'Nonaktif' || request('status') === 'Tidak Aktif' ? 'selected' : '' }}>Nonaktif</option>
                 </select>
-            </div>
-            <div class="col-md-2 d-flex gap-2">
-                <button type="submit" class="btn btn-primary rounded-3 flex-grow-1"><i class="bi bi-funnel me-1"></i> Filter</button>
-                @if(request()->hasAny(['search', 'sub_role', 'status']))
-                    <a href="{{ route('admin.users.index') }}" class="btn btn-light border rounded-3" title="Reset Filter">
-                        <i class="bi bi-x-lg text-muted"></i>
-                    </a>
-                @endif
             </div>
         </form>
     </div>
 
     <div class="table-card-custom mb-4">
         <div class="table-responsive w-full overflow-x-auto">
-            <table class="table table-custom align-middle min-w-full">
+            <table class="table table-custom align-middle min-w-full" id="tableManageUsers">
                 <thead>
                     <tr>
                         <th class="whitespace-nowrap">NO</th>
@@ -139,3 +134,4 @@
     </div>
 </div>
 @endsection
+

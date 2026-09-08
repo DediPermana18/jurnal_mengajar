@@ -68,6 +68,33 @@
         </div>
     </div>
 
+    {{-- Filter & Pencarian --}}
+    <div class="card border-0 rounded-4 shadow-sm bg-white mb-4">
+        <div class="card-body p-3.5">
+            <form action="{{ route('admin.jadwal.monitoring') }}" method="GET"
+                  class="d-flex flex-wrap align-items-center gap-3"
+                  id="formFilterMonitoring">
+                <div class="flex-grow-1 position-relative" style="min-width: 240px; max-width: 450px;">
+                    <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.9rem;"></i>
+                    <input type="text"
+                           name="search"
+                           id="searchKelasInput"
+                           value="{{ $keyword ?? '' }}"
+                           class="form-control bg-light rounded-3 ps-5"
+                           placeholder="Cari kelas (contoh: X - AK 1)...">
+                </div>
+                <div style="width: 180px;">
+                    <select name="hari" id="selectFilterHari" class="form-select bg-light rounded-3" style="cursor: pointer;" onchange="this.form.submit()">
+                        <option value="" {{ ($selectedHari ?? '') === '' ? 'selected' : '' }}>Semua Hari</option>
+                        @foreach(['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'] as $hariOpt)
+                            <option value="{{ $hariOpt }}" {{ ($selectedHari ?? '') === $hariOpt ? 'selected' : '' }}>{{ $hariOpt }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
     {{-- Tabel Daftar Slot Kosong --}}
     <div class="card border-0 rounded-4 shadow-sm bg-white overflow-hidden">
         @if(empty($rows))
@@ -152,6 +179,24 @@
                 window.location.href = row.getAttribute('data-url');
             });
         });
+
+        // Filter baris tabel secara instan berdasarkan input tanpa reload halaman.
+        const searchInput = document.getElementById('searchKelasInput');
+        const tableRows = document.querySelectorAll('#tableMonitoringKosong tbody tr');
+
+        function applyFilter() {
+            const filter = searchInput.value.toLowerCase();
+
+            tableRows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(filter) ? '' : 'none';
+            });
+        }
+
+        if (searchInput && tableRows.length) {
+            searchInput.addEventListener('input', applyFilter);
+            applyFilter(); // terapkan ulang jika halaman dimuat dengan query search
+        }
     });
 </script>
 @endpush

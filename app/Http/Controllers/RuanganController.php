@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\RuanganExport;
+use App\Imports\RuanganImport;
 use App\Models\Ruangan;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Excel as ExcelFormat;
+use Maatwebsite\Excel\Facades\Excel;
 
 class RuanganController extends Controller
 {
@@ -104,5 +108,24 @@ class RuanganController extends Controller
         $ruangan->delete();
 
         return redirect()->route('ruangan.index')->with('success', 'Data Ruangan berhasil dihapus.');
+    }
+
+    /**
+     * Export data ruangan — format xlsx (default) atau csv.
+     */
+    public function export(Request $request)
+    {
+        $this->authorizePetugasTU();
+
+        $format = $request->input('format', 'xlsx');
+        $filename = 'data_ruangan_' . date('Y-m-d_His');
+
+        if ($format === 'csv') {
+            return Excel::download(new RuanganExport, $filename . '.csv', ExcelFormat::CSV, [
+                'Content-Type' => 'text/csv',
+            ]);
+        }
+
+        return Excel::download(new RuanganExport, $filename . '.xlsx', ExcelFormat::XLSX);
     }
 }

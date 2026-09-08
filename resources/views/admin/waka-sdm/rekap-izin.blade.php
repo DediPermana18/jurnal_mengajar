@@ -109,11 +109,18 @@
     <div class="card border rounded-3 shadow-2xs mb-4">
         <div class="card-body p-3.5">
             <form method="GET" action="{{ route('waka-sdm.rekap-izin') }}">
-                <div class="row g-2.5 align-items-end">
+                <div class="row g-2.5 align-items-center">
+                    {{-- Live Search Input --}}
+                    <div class="col-12 col-md-3">
+                        <div class="position-relative">
+                            <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.85rem;"></i>
+                            <input type="text" name="search" class="form-control form-control-sm rounded-3 ps-5 bg-light" placeholder="Cari nama, NIP, alasan..." value="{{ request('search') }}">
+                        </div>
+                    </div>
+
                     {{-- Filter Guru --}}
                     <div class="col-12 col-md-3">
-                        <label class="form-label text-xs fw-bold text-muted text-uppercase mb-1">Nama Guru</label>
-                        <select name="id_guru" class="form-select form-select-sm rounded-3">
+                        <select name="id_guru" class="form-select form-select-sm rounded-3 bg-light" onchange="this.form.submit()">
                             <option value="">Semua Guru</option>
                             @foreach($guruList as $guru)
                                 <option value="{{ $guru->id }}" {{ request('id_guru') == $guru->id ? 'selected' : '' }}>
@@ -125,8 +132,7 @@
 
                     {{-- Filter Kategori Izin --}}
                     <div class="col-6 col-md-2">
-                        <label class="form-label text-xs fw-bold text-muted text-uppercase mb-1">Jenis Izin</label>
-                        <select name="kategori_izin" class="form-select form-select-sm rounded-3">
+                        <select name="kategori_izin" class="form-select form-select-sm rounded-3 bg-light" onchange="this.form.submit()">
                             <option value="semua">Semua Jenis</option>
                             <option value="sakit" {{ request('kategori_izin') == 'sakit' ? 'selected' : '' }}>Sakit</option>
                             <option value="dinas_luar" {{ request('kategori_izin') == 'dinas_luar' ? 'selected' : '' }}>Tugas Luar / Dinas</option>
@@ -139,20 +145,12 @@
 
                     {{-- Filter Tanggal Mulai --}}
                     <div class="col-6 col-md-2">
-                        <label class="form-label text-xs fw-bold text-muted text-uppercase mb-1">Tanggal Mulai</label>
-                        <input type="date" name="tanggal_mulai" class="form-control form-control-sm rounded-3" value="{{ request('tanggal_mulai') }}">
-                    </div>
-
-                    {{-- Filter Tanggal Selesai --}}
-                    <div class="col-6 col-md-2">
-                        <label class="form-label text-xs fw-bold text-muted text-uppercase mb-1">Tanggal Selesai</label>
-                        <input type="date" name="tanggal_selesai" class="form-control form-control-sm rounded-3" value="{{ request('tanggal_selesai') }}">
+                        <input type="date" name="tanggal_mulai" class="form-control form-control-sm rounded-3 bg-light" value="{{ request('tanggal_mulai') }}" onchange="this.form.submit()" title="Tanggal Mulai">
                     </div>
 
                     {{-- Filter Status Approval --}}
                     <div class="col-6 col-md-2">
-                        <label class="form-label text-xs fw-bold text-muted text-uppercase mb-1">Status</label>
-                        <select name="status" class="form-select form-select-sm rounded-3">
+                        <select name="status" class="form-select form-select-sm rounded-3 bg-light" onchange="this.form.submit()">
                             <option value="semua">Semua Status</option>
                             <option value="{{ \App\Models\IzinGuru::STATUS_DISETUJUI }}" {{ request('status') === \App\Models\IzinGuru::STATUS_DISETUJUI ? 'selected' : '' }}>Disetujui</option>
                             <option value="{{ \App\Models\IzinGuru::STATUS_PENDING_PIKET }}" {{ request('status') === \App\Models\IzinGuru::STATUS_PENDING_PIKET ? 'selected' : '' }}>Pending Piket</option>
@@ -160,16 +158,6 @@
                             <option value="{{ \App\Models\IzinGuru::STATUS_PENDING_KEPSEK }}" {{ request('status') === \App\Models\IzinGuru::STATUS_PENDING_KEPSEK ? 'selected' : '' }}>Pending Kepsek</option>
                             <option value="{{ \App\Models\IzinGuru::STATUS_DITOLAK }}" {{ request('status') === \App\Models\IzinGuru::STATUS_DITOLAK ? 'selected' : '' }}>Ditolak</option>
                         </select>
-                    </div>
-
-                    {{-- Tombol Aksi Filter --}}
-                    <div class="col-12 col-md-1 d-flex gap-1">
-                        <button type="submit" class="btn btn-primary btn-sm rounded-3 w-100 fw-semibold" title="Terapkan Filter">
-                            <i class="bi bi-funnel-fill"></i>
-                        </button>
-                        <a href="{{ route('waka-sdm.rekap-izin') }}" class="btn btn-light border btn-sm rounded-3" title="Reset Filter">
-                            <i class="bi bi-arrow-counterclockwise"></i>
-                        </a>
                     </div>
                 </div>
             </form>

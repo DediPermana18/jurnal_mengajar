@@ -28,7 +28,27 @@
 
         <!-- Tombol Tambah Kelas (Role Admin_TU, Admin, & Super Admin) -->
         @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
-            <div>
+            <div class="d-flex gap-2">
+                <!-- Tombol Export Kelas -->
+                <div class="dropdown">
+                    <button class="btn btn-outline-primary rounded-3 px-3 py-2 fw-semibold shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-download me-1"></i> Export
+                    </button>
+                    <ul class="dropdown-menu shadow-sm border-0 rounded-3" style="z-index: 1050;">
+                        <li>
+                            <a href="{{ route('kelas.export', ['format' => 'xlsx']) }}" class="dropdown-item py-2">
+                                <i class="bi bi-file-earmark-excel me-2 text-success"></i> Export Excel (.xlsx)
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('kelas.export', ['format' => 'csv']) }}" class="dropdown-item py-2">
+                                <i class="bi bi-filetype-csv me-2 text-info"></i> Export CSV (.csv)
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Tombol Tambah Kelas -->
                 <button type="button" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalTambahKelas">
                     <i class="bi bi-plus-lg me-1"></i> Tambah Kelas
                 </button>
@@ -65,28 +85,21 @@
     @endif
 
     <!-- FILTER BAR (CARD PUTIH) -->
-    <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
-        <form action="{{ route('kelas.index') }}" method="GET" class="row g-3">
+    <div class="card border-0 shadow-sm rounded-4 p-3.5 bg-white mb-4">
+        <form action="{{ route('kelas.index') }}" method="GET" class="d-flex flex-wrap align-items-center gap-3">
             
             <!-- Cari Kelas -->
-            <div class="col-md-5">
-                <label class="form-label fw-bold text-secondary text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Cari Kelas / Wali</label>
-                <div class="input-group">
-                    <span class="input-group-text bg-light border-end-0 rounded-start-3 text-muted">
-                        <i class="bi bi-search"></i>
-                    </span>
-                    <input type="text" 
-                           name="search" 
-                           value="{{ request('search') }}" 
-                           class="form-control bg-light border-start-0 rounded-end-3" 
-                           placeholder="Cari nama kelas atau wali kelas..."
-                           onchange="this.form.submit()">
-                </div>
+            <div class="flex-grow-1 position-relative" style="min-width: 240px; max-width: 450px;">
+                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.9rem;"></i>
+                <input type="text" 
+                       name="search" 
+                       value="{{ request('search') }}" 
+                       class="form-control bg-light rounded-3 ps-5" 
+                       placeholder="Cari nama kelas atau wali kelas...">
             </div>
 
             <!-- Dropdown Filter Tingkat -->
-            <div class="col-md-3">
-                <label class="form-label fw-bold text-secondary text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Tingkat</label>
+            <div style="width: 180px;">
                 <select name="tingkat" class="form-select bg-light rounded-3" onchange="this.form.submit()">
                     <option value="Semua Tingkat" {{ request('tingkat') == 'Semua Tingkat' ? 'selected' : '' }}>Semua Tingkat</option>
                     <option value="X" {{ request('tingkat') == 'X' ? 'selected' : '' }}>Kelas X</option>
@@ -96,8 +109,7 @@
             </div>
 
             <!-- Dropdown Filter Jurusan -->
-            <div class="col-md-4">
-                <label class="form-label fw-bold text-secondary text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Jurusan</label>
+            <div style="width: 220px;">
                 <select name="jurusan" class="form-select bg-light rounded-3" onchange="this.form.submit()">
                     <option value="Semua Jurusan" {{ request('jurusan') == 'Semua Jurusan' ? 'selected' : '' }}>Semua Jurusan</option>
                     @foreach($daftarJurusan as $jur)
@@ -293,17 +305,10 @@
             <form action="{{ route('kelas.store') }}" method="POST">
                 @csrf
                 <div class="modal-body py-4">
-                    <!-- NAMA KELAS -->
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-secondary small">NAMA KELAS <span class="text-danger">*</span></label>
-                        <input type="text" name="nama_kelas" value="{{ old('nama_kelas') }}" required class="form-control rounded-3" placeholder="misal: RPL 1, TKJ 2">
-                        <div class="form-text text-muted small">Isi nama rombel/jurusan tanpa tingkat, misalnya RPL 1.</div>
-                    </div>
-
                     <!-- TINGKAT -->
                     <div class="mb-3">
                         <label class="form-label fw-semibold text-secondary small">TINGKAT KELAS <span class="text-danger">*</span></label>
-                        <select name="tingkat" class="form-select rounded-3" required>
+                        <select name="tingkat" id="kelas-tingkat" class="form-select rounded-3" required>
                             <option value="">-- Pilih Tingkat --</option>
                             <option value="X" {{ old('tingkat') == 'X' ? 'selected' : '' }}>Kelas X (Sepuluh)</option>
                             <option value="XI" {{ old('tingkat') == 'XI' ? 'selected' : '' }}>Kelas XI (Sebelas)</option>
@@ -314,14 +319,28 @@
                     <!-- JURUSAN -->
                     <div class="mb-3">
                         <label class="form-label fw-semibold text-secondary small">KOMPETENSI KEAHLIAN / JURUSAN <span class="text-danger">*</span></label>
-                        <select name="id_jurusan" class="form-select rounded-3" required>
+                        <select name="id_jurusan" id="kelas-jurusan" class="form-select rounded-3" required>
                             <option value="">-- Pilih Jurusan --</option>
                             @foreach($daftarJurusan as $jurusan)
-                                <option value="{{ $jurusan->id }}" {{ old('id_jurusan') == $jurusan->id ? 'selected' : '' }}>
+                                <option value="{{ $jurusan->id }}" data-kode="{{ $jurusan->kode_jurusan }}" {{ old('id_jurusan') == $jurusan->id ? 'selected' : '' }}>
                                     {{ $jurusan->kode_jurusan }} - {{ $jurusan->nama_jurusan }}
                                 </option>
                             @endforeach
                         </select>
+                    </div>
+
+                    <!-- NOMOR ROMBEL (Auto-detected) -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary small">NOMOR ROMBEL (Otomatis) <span class="text-danger">*</span></label>
+                        <input type="number" name="nomor_rombel" id="kelas-nomor-rombel" value="{{ old('nomor_rombel') }}" min="1" readonly required class="form-control rounded-3 bg-light" placeholder="Otomatis">
+                        <div class="form-text text-muted small">Nomor rombel dihitung otomatis berdasarkan kombinasi tingkat &amp; jurusan.</div>
+                    </div>
+
+                    <!-- NAMA KELAS (Preview / Auto-generated) -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary small">NAMA KELAS (Otomatis) <span class="text-danger">*</span></label>
+                        <input type="text" id="kelas-nama-preview" name="nama_kelas" value="{{ old('nama_kelas') }}" readonly required class="form-control rounded-3 bg-light fw-bold" placeholder="X RPL 1">
+                        <div class="form-text text-muted small">Nama kelas dihasilkan otomatis: Tingkat + Kode Jurusan + Nomor Rombel.</div>
                     </div>
 
                     <!-- WALI KELAS -->
@@ -433,4 +452,49 @@
 @endforeach
 
 @endif
+
+@push('scripts')
+<script>
+    (function () {
+        const counts = @json($countsByKombinasi ?? []);
+
+        function kunci(tingkat, idJurusan) {
+            return tingkat + '|' + idJurusan;
+        }
+
+        function hitungRombel(tingkat, idJurusan) {
+            if (!tingkat || !idJurusan) return '';
+            const jumlah = counts[kunci(tingkat, idJurusan)] || 0;
+            return jumlah + 1;
+        }
+
+        function perbaruiPreview() {
+            const tingkat = document.getElementById('kelas-tingkat')?.value || '';
+            const jurusanSelect = document.getElementById('kelas-jurusan');
+            const idJurusan = jurusanSelect?.value || '';
+            const kodeJurusan = jurusanSelect?.selectedOptions?.[0]?.dataset?.kode || '';
+            const nomorRombel = hitungRombel(tingkat, idJurusan);
+
+            const nomorInput = document.getElementById('kelas-nomor-rombel');
+            const previewInput = document.getElementById('kelas-nama-preview');
+
+            if (nomorInput) {
+                nomorInput.value = nomorRombel === '' ? '' : nomorRombel;
+            }
+            if (previewInput) {
+                previewInput.value = (tingkat && kodeJurusan && nomorRombel !== '')
+                    ? tingkat + ' ' + kodeJurusan + ' ' + nomorRombel
+                    : '';
+            }
+        }
+
+        const tingkatEl = document.getElementById('kelas-tingkat');
+        const jurusanEl = document.getElementById('kelas-jurusan');
+        if (tingkatEl) tingkatEl.addEventListener('change', perbaruiPreview);
+        if (jurusanEl) jurusanEl.addEventListener('change', perbaruiPreview);
+
+        document.addEventListener('DOMContentLoaded', perbaruiPreview);
+    })();
+</script>
+@endpush
 @endsection
