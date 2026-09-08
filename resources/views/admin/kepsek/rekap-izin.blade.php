@@ -136,10 +136,10 @@
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
-                        <input type="date" name="tanggal" class="form-control bg-light rounded-3 text-xs" value="{{ request('tanggal') }}" onchange="this.form.submit()" title="Filter Tanggal">
+                        <input type="date" name="tanggal" class="form-control bg-light rounded-3 text-xs" value="{{ request('tanggal') }}" title="Filter Tanggal">
                     </div>
                     <div class="col-6 col-md-4">
-                        <select name="status" class="form-select bg-light rounded-3 text-xs" onchange="this.form.submit()">
+                        <select name="status" class="form-select bg-light rounded-3 text-xs">
                             <option value="">Semua Status</option>
                             <option value="{{ \App\Models\IzinGuru::STATUS_PENDING_KEPSEK }}" {{ (request('status') ?? \App\Models\IzinGuru::STATUS_PENDING_KEPSEK) === \App\Models\IzinGuru::STATUS_PENDING_KEPSEK ? 'selected' : '' }}>Menunggu Kepsek</option>
                             <option value="{{ \App\Models\IzinGuru::STATUS_DISETUJUI }}" {{ request('status') === \App\Models\IzinGuru::STATUS_DISETUJUI ? 'selected' : '' }}>Disetujui</option>

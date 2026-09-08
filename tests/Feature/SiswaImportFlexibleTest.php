@@ -394,4 +394,127 @@ class SiswaImportFlexibleTest extends TestCase
 
         @unlink($file);
     }
+
+    public function test_export_format_with_kelas_prefix_and_fixed_header_columns(): void
+    {
+        Kelas::create(['tingkat' => 'X', 'nama_kelas' => 'AK 1']);
+        Kelas::create(['tingkat' => 'XI', 'nama_kelas' => 'AK 1']);
+
+        // Struktur PERSIS hasil export (SiswaPerTingkatSheet):
+        // Baris 1: "KELAS: X AK 1"
+        // Baris 2: NO | NISN | NIS | NAMA SISWA | JENIS KELAMIN | STATUS
+        // Baris 3+: data siswa
+        $file = $this->makeWorkbook([
+            [
+                'title' => 'KELAS X',
+                'rows'  => [
+                    ['KELAS: X AK 1'],
+                    ['NO', 'NISN', 'NIS', 'NAMA SISWA', 'JENIS KELAMIN', 'STATUS'],
+                    [1, '1234567890', '20231001', 'Ahmad Fauzi', 'Laki-laki', 'Aktif'],
+                    [2, '1234567891', '20231002', 'Siti Nurhaliza', 'Perempuan', 'Aktif'],
+                ],
+            ],
+            [
+                'title' => 'KELAS XI',
+                'rows'  => [
+                    ['KELAS: XI AK 1'],
+                    ['NO', 'NISN', 'NIS', 'NAMA SISWA', 'JENIS KELAMIN', 'STATUS'],
+                    [1, '2234567890', '20241001', 'Rizky Ramadhan', 'Laki-laki', 'Aktif'],
+                ],
+            ],
+        ]);
+
+        $importer = new SiswaImport;
+        Excel::import($importer, $file);
+
+        $this->assertEquals(3, $importer->importedCount, 'semua siswa dari format export harus terimport');
+        $this->assertEquals(0, count(array_filter(
+            $importer->rowErrors,
+            fn ($e) => str_contains($e, 'dilewati') && ! str_contains($e, 'tanpa kelas aktif')
+        )), 'tidak boleh ada baris data siswa yang error');
+
+        $fauzi = Siswa::where('nisn', '1234567890')->first();
+        $this->assertNotNull($fauzi);
+        $this->assertEquals('Ahmad Fauzi', $fauzi->nama);
+        $this->assertEquals('AK 1', $fauzi->kelas->nama_kelas);
+        $this->assertEquals('X', $fauzi->kelas->tingkat);
+        $this->assertEquals('20231001', $fauzi->nis);
+        $this->assertEquals('L', $fauzi->jenis_kelamin, 'Laki-laki → L');
+
+        $siti = Siswa::where('nisn', '1234567891')->first();
+        $this->assertEquals('Siti Nurhaliza', $siti->nama);
+        $this->assertEquals('P', $siti->jenis_kelamin, 'Perempuan → P');
+
+        $rizky = Siswa::where('nisn', '2234567890')->first();
+        $this->assertEquals('AK 1', $rizky->kelas->nama_kelas);
+        $this->assertEquals('XI', $rizky->kelas->tingkat);
+
+        @unlink($file);
+    }
+
+    public function test_import_works_when_sheet_name_does_not_match_class(): void
+    {
+        // Kelas valid ada di DB; nama tab sheet TIDAK memuat nama kelas.
+        // Import tetap jalan selama "KELAS:" di cell A1 (Baris 1) valid.
+        Kelas::create(['tingkat' => 'XI', 'nama_kelas' => 'AK 1']);
+
+        $file = $this->makeWorkbook([
+            [
+                'title' => 'DAFTAR SISWA', // arbitrary — bukan "KELAS XI"
+                'rows'  => [
+                    ['KELAS: XI AK 1'],
+                    ['NO', 'NISN', 'NIS', 'NAMA SISWA', 'JENIS KELAMIN', 'STATUS'],
+                    [1, '2334567890', '20251001', 'Rizky Ramadhan', 'Laki-laki', 'Aktif'],
+                ],
+            ],
+        ]);
+
+        $importer = new SiswaImport;
+        Excel::import($importer, $file);
+
+        $this->assertEquals(1, $importer->importedCount, 'sheet name tidak berpengaruh selama KELAS: di A1 valid');
+        $this->assertCount(0, $importer->rowErrors);
+
+        $rizky = Siswa::where('nisn', '2334567890')->first();
+        $this->assertNotNull($rizky);
+        $this->assertEquals('AK 1', $rizky->kelas->nama_kelas);
+        $this->assertEquals('XI', $rizky->kelas->tingkat);
+
+        @unlink($file);
+    }
+
+    public function test_tolerant_headers_map_columns_and_status_defaults_to_aktif(): void
+    {
+        Kelas::create(['tingkat' => 'X', 'nama_kelas' => 'RPL 1']);
+
+        // Header varian toleran: "NAMA" (tanpa SISWA), "JENIS KELAS", "L/P".
+        $file = $this->makeWorkbook([
+            [
+                'title' => 'VARIAN',
+                'rows'  => [
+                    ['KELAS : X RPL 1'],
+                    ['NO', 'NISN', 'NIS', 'NAMA', 'JENIS KELAS', 'L/P', 'STATUS'],
+                    [1, '3334567890', '20261001', 'Dewi Lestari', 'Perempuan', '', 'Nonaktif'],
+                    [2, '3334567891', '20261002', 'Agus Salim',   'Laki-laki', '', ''],
+                ],
+            ],
+        ]);
+
+        $importer = new SiswaImport;
+        Excel::import($importer, $file);
+
+        $this->assertEquals(2, $importer->importedCount, 'header varian harus tetap terimport');
+
+        $dewi = Siswa::where('nisn', '3334567890')->first();
+        $this->assertEquals('Dewi Lestari', $dewi->nama);
+        $this->assertEquals('P', $dewi->jenis_kelamin, 'Perempuan → P');
+        $this->assertEquals('Nonaktif', $dewi->status_siswa, 'status dari kolom STATUS dihormati');
+
+        $agus = Siswa::where('nisn', '3334567891')->first();
+        $this->assertEquals('Agus Salim', $agus->nama);
+        $this->assertEquals('L', $agus->jenis_kelamin, 'Laki-laki → L');
+        $this->assertEquals('Aktif', $agus->status_siswa, 'status kosong → default Aktif');
+
+        @unlink($file);
+    }
 }

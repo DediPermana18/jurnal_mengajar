@@ -24,7 +24,7 @@
                        max="{{ $today }}"
                        class="form-control form-control-sm rounded-3"
                        style="width: auto;"
-                       onchange="this.form.submit()">
+                       >
             </form>
             <a href="{{ route('piket.dispensasi.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm">
                 <i class="bi bi-plus-lg me-1"></i> Buat Dispen

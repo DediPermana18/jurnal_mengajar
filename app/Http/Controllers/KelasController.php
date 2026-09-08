@@ -99,12 +99,21 @@ class KelasController extends Controller
     /**
      * Menampilkan detail kelas: daftar siswa & jadwal pelajaran
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $this->authorizeAdmin();
 
         $kelas = Kelas::with(['jurusan', 'waliKelas'])->withCount('siswa')->findOrFail($id);
-        $siswa = Siswa::where('id_kelas', $id)->orderBy('nama')->get();
+        $siswaQuery = Siswa::where('id_kelas', $id);
+        if ($request->filled('search')) {
+            $search = trim($request->string('search'));
+            $siswaQuery->where(function ($siswaFilter) use ($search) {
+                $siswaFilter->where('nama', 'like', "%{$search}%")
+                    ->orWhere('nis', 'like', "%{$search}%")
+                    ->orWhere('nisn', 'like', "%{$search}%");
+            });
+        }
+        $siswa = $siswaQuery->orderBy('nama')->get();
         $jadwals = JadwalPelajaran::with(['guru', 'mataPelajaran', 'jamPelajaran'])
             ->where('id_kelas', $id)
             ->get();

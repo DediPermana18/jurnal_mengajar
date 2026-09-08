@@ -202,7 +202,7 @@
 
                 {{-- Dropdown Status --}}
                 <div class="col-6 col-md-3">
-                    <select name="status" class="form-select" onchange="this.form.submit()">
+                    <select name="status" class="form-select">
                         <option value="Semua Status" {{ request('status') === 'Semua Status' || !request()->filled('status') ? 'selected' : '' }}>Semua Status</option>
                         <option value="Aktif" {{ request('status') === 'Aktif' ? 'selected' : '' }}>Aktif</option>
                         <option value="Tidak Aktif" {{ request('status') === 'Tidak Aktif' ? 'selected' : '' }}>Tidak Aktif</option>
@@ -211,7 +211,7 @@
 
                 {{-- Dropdown Penugasan Wali Kelas & Option Kelas --}}
                 <div class="col-6 col-md-4">
-                    <select name="wali_kelas" class="form-select" onchange="this.form.submit()">
+                    <select name="wali_kelas" class="form-select">
                         <option value="Semua" {{ request('wali_kelas') === 'Semua' || !request()->filled('wali_kelas') ? 'selected' : '' }}>Semua Penugasan</option>
                         <option value="Ya" {{ request('wali_kelas') === 'Ya' ? 'selected' : '' }}>Wali Kelas</option>
                         <option value="Tidak" {{ request('wali_kelas') === 'Tidak' ? 'selected' : '' }}>Bukan Wali Kelas</option>

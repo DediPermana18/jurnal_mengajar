@@ -77,7 +77,7 @@
 
                     {{-- Filter Bulan --}}
                     <div class="col-6 col-md-2">
-                        <select name="bulan" class="form-select form-select-sm rounded-3 bg-light" onchange="this.form.submit()">
+                        <select name="bulan" class="form-select form-select-sm rounded-3 bg-light">
                             @foreach(range(1, 12) as $m)
                                 <option value="{{ $m }}" {{ $bulan == $m ? 'selected' : '' }}>
                                     {{ \Carbon\Carbon::createFromDate(null, $m, 1)->translatedFormat('F') }}
@@ -88,7 +88,7 @@
 
                     {{-- Filter Tahun --}}
                     <div class="col-6 col-md-2">
-                        <select name="tahun" class="form-select form-select-sm rounded-3 bg-light" onchange="this.form.submit()">
+                        <select name="tahun" class="form-select form-select-sm rounded-3 bg-light">
                             @foreach(range(now()->year - 2, now()->year + 1) as $y)
                                 <option value="{{ $y }}" {{ $tahun == $y ? 'selected' : '' }}>
                                     {{ $y }}
@@ -99,7 +99,7 @@
 
                     {{-- Filter Guru --}}
                     <div class="col-12 col-md-3">
-                        <select name="id_guru" class="form-select form-select-sm rounded-3 bg-light" onchange="this.form.submit()">
+                        <select name="id_guru" class="form-select form-select-sm rounded-3 bg-light">
                             <option value="">Semua Guru</option>
                             @foreach($guruList as $g)
                                 <option value="{{ $g->id }}" {{ $selectedGuru == $g->id ? 'selected' : '' }}>

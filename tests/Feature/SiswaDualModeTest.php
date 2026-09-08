@@ -492,19 +492,22 @@ class SiswaDualModeTest extends TestCase
         Storage::disk('local')->delete($path);
     }
 
-    // ─── UI: FORMAT SWITCHER (EXCEL / CSV) ────────────────────────────────────
+    // ─── UI: UNIFIED UPLOAD (mode switcher Excel/CSV dihapus) ─────────────────
 
-    public function test_import_index_renders_excel_csv_format_switcher(): void
+    public function test_import_index_renders_unified_upload_form(): void
     {
         $admin = $this->makeAdmin();
 
         $response = $this->actingAs($admin)->get(route('import.index'));
 
         $response->assertOk();
-        $response->assertSee('Mode Excel');
-        $response->assertSee('Mode CSV');
-        $response->assertSee('selectedFormat');
-        $response->assertSee('clearImportFile');
+        $response->assertSee('Import Data Siswa');
+        $response->assertSee('Upload File (Excel / CSV)');
+        $response->assertSee('id="dropzoneArea"', false);
+        $response->assertSee('id="fileExcelImport"', false);
+        $response->assertSee('Unduh Contoh Format Presensi (.xlsx)');
+        $response->assertDontSee('Mode Excel');
+        $response->assertDontSee('Mode CSV');
     }
 
     // ─── UI: DEPENDENT DROPDOWN (KELAS ↔ JURUSAN) ────────────────────────────

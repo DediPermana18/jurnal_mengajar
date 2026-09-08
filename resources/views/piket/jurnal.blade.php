@@ -25,7 +25,7 @@
                    max="{{ $today }}"
                    class="form-control form-control-sm rounded-3"
                    style="width: auto;"
-                   onchange="this.form.submit()">
+                   >
         </form>
     </div>
 

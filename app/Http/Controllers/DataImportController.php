@@ -28,6 +28,22 @@ class DataImportController extends Controller
     }
 
     /**
+     * Mengunduh contoh file format presensi untuk Import Data Siswa.
+     */
+    public function downloadTemplateSiswa()
+    {
+        $path = storage_path('app/public/templates/contoh-format-presensi.xlsx');
+
+        if (! file_exists($path)) {
+            abort(404, 'Contoh format presensi tidak ditemukan.');
+        }
+
+        return response()->download($path, 'contoh-format-presensi.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    /**
      * Menangani upload & import file Excel DAFTAR PRESENSI PESERTA DIDIK.
      */
     public function importSiswa(Request $request)

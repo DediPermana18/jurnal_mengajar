@@ -235,64 +235,6 @@
     .warning-list li:last-child {
         border-bottom: none;
     }
-
-    /* ── Format Switcher (Excel / CSV) ─────────────────── */
-    .format-switcher {
-        display: flex;
-    }
-
-    .format-switcher-inner {
-        display: inline-flex;
-        gap: 0.35rem;
-        padding: 0.35rem;
-        background: #f1f5f9;
-        border: 1px solid #e2e8f0;
-        border-radius: 14px;
-        width: 100%;
-    }
-
-    .format-btn {
-        flex: 1 1 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.45rem;
-        padding: 0.6rem 0.9rem;
-        font-size: 0.85rem;
-        font-weight: 700;
-        color: #64748b;
-        background: transparent;
-        border: none;
-        border-radius: 10px;
-        cursor: pointer;
-        white-space: nowrap;
-        transition: all 0.18s ease;
-    }
-
-    .format-btn small {
-        font-weight: 600;
-        font-size: 0.72rem;
-        opacity: 0.8;
-    }
-
-    .format-btn:hover {
-        color: #334155;
-        background: #ffffff;
-    }
-
-    .format-btn.active-excel {
-        color: #14532d;
-        background: #ffffff;
-        box-shadow: 0 1px 4px rgba(22, 163, 74, 0.22);
-        border: 1px solid #bbf7d0;
-    }
-
-    .format-btn.active-csv {
-        color: #1e3a8a;
-        background: #ffffff;
-        box-shadow: 0 1px 4px rgba(59, 130, 246, 0.22);
-        border: 1px solid #bfdbfe;
-    }
 </style>
 @endpush
 
@@ -393,50 +335,19 @@
     {{-- ====================================================== --}}
     {{-- PANEL: IMPORT DATA SISWA (DEFAULT AKTIF)               --}}
     {{-- ====================================================== --}}
-    <div class="tab-pane-item active" id="tab-siswa" role="tabpanel"
-     x-data="{ selectedFormat: 'excel' }">
+    <div class="tab-pane-item active" id="tab-siswa" role="tabpanel">
     <div class="row g-4">
         {{-- Kolom Kiri: Form Upload --}}
         <div class="col-lg-7">
 
-            {{-- Segmented Toggle: Mode Excel / Mode CSV --}}
-            <div class="format-switcher mb-3">
-                <div class="format-switcher-inner">
-                    <button type="button"
-                            class="format-btn"
-                            :class="selectedFormat === 'excel' ? 'active-excel' : ''"
-                            @click="selectedFormat = 'excel'; window.clearImportFile && window.clearImportFile()">
-                        <span>🟢</span> Mode Excel
-                        <small>(.xlsx, .xls)</small>
-                    </button>
-                    <button type="button"
-                            class="format-btn"
-                            :class="selectedFormat === 'csv' ? 'active-csv' : ''"
-                            @click="selectedFormat = 'csv'; window.clearImportFile && window.clearImportFile()">
-                        <span>⚡</span> Mode CSV
-                        <small>(.csv)</small>
-                    </button>
-                </div>
-            </div>
-
             <div class="card-import">
                 <div class="card-import-header d-flex align-items-center gap-3">
-                    {{-- Badge: Excel (hijau) / CSV (biru) --}}
-                    <div x-show="selectedFormat === 'excel'" x-cloak
-                         style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;">
+                    <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;">
                         <i class="bi bi-file-earmark-spreadsheet text-white" style="font-size:1.1rem;"></i>
                     </div>
-                    <div x-show="selectedFormat === 'csv'" x-cloak
-                         style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);display:flex;align-items:center;justify-content:center;">
-                        <i class="bi bi-filetype-csv text-white" style="font-size:1.1rem;"></i>
-                    </div>
                     <div>
-                        <h5 class="card-import-title mb-0"
-                            x-text="selectedFormat === 'csv' ? 'Upload File CSV' : 'Upload File Excel'"></h5>
-                        <p class="mb-0" style="font-size:0.78rem;color:#64748b;"
-                           x-text="selectedFormat === 'csv'
-                               ? 'Format: DAFTAR PRESENSI PESERTA DIDIK (.csv)'
-                               : 'Format: DAFTAR PRESENSI PESERTA DIDIK (.xlsx / .xls)'"></p>
+                        <h5 class="card-import-title mb-0">Upload File (Excel / CSV)</h5>
+                        <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Format: DAFTAR PRESENSI PESERTA DIDIK (.xlsx / .xls / .csv)</p>
                     </div>
                 </div>
 
@@ -446,16 +357,16 @@
 
                         {{-- Dropzone Upload --}}
                         <div class="mb-4">
-                            <label for="fileExcelImport" class="form-label fw-semibold" style="font-size:0.875rem;color:#374151;">File Excel / CSV <span class="text-danger">*</span></label>
+                            <label for="fileExcelImport" class="form-label fw-semibold" style="font-size:0.875rem;color:#374151;">Upload File (Excel / CSV) <span class="text-danger">*</span></label>
                             <div class="dropzone-import" id="dropzoneArea">
                                 <i class="bi bi-cloud-arrow-up dz-icon"></i>
-                                <div class="dz-title">Klik untuk memilih file, atau seret ke sini</div>
+                                <div class="dz-title">Upload File (Excel / CSV)</div>
                                 <div class="dz-sub">Format file yang didukung: .xlsx, .xls, .csv (maks. 10 MB)</div>
                                 <input type="file"
                                        class="d-none @error('file_excel') is-invalid @enderror"
                                        id="fileExcelImport"
                                        name="file_excel"
-                                       :accept="selectedFormat === 'csv' ? '.csv,.txt' : '.xlsx,.xls'"
+                                       accept=".xlsx,.xls,.csv"
                                        required>
                             </div>
 
@@ -502,7 +413,6 @@
 
                             {{-- Aksi --}}
                             <div class="d-flex justify-content-end gap-2">
-                                <button type="reset" class="btn btn-light border rounded-3 px-4 py-2 fw-semibold" style="font-size:0.875rem;">Reset</button>
                                 <button type="submit" id="btnSubmitImport"
                                         class="btn btn-success rounded-3 px-4 py-2 fw-semibold d-flex align-items-center gap-2"
                                         style="font-size:0.875rem;" disabled>
@@ -531,26 +441,28 @@
             {{-- Kolom Kanan: Panduan Format --}}
             <div class="col-lg-5">
                 <div class="card-import">
-                    <div class="card-import-header d-flex align-items-center gap-3">
+                        <div class="card-import-header d-flex align-items-center gap-3">
                         <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#1677ff,#0958d9);display:flex;align-items:center;justify-content:center;">
                             <i class="bi bi-info-circle-fill text-white" style="font-size:1.1rem;"></i>
                         </div>
                         <div>
-<h5 class="card-import-title mb-0"
-                            x-text="selectedFormat === 'csv' ? 'Panduan Format CSV' : 'Panduan Format Excel'"></h5>
-                        <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Agar import berjalan lancar, ikuti pedoman berikut.</p>
+                            <h5 class="card-import-title mb-0">Unduh Contoh &amp; Panduan</h5>
+                            <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Unduh contoh format presensi lalu ikuti panduan berikut.</p>
+                        </div>
                     </div>
-                </div>
 
-                <div class="card-import-body">
-
-                    {{-- Panduan mode Excel --}}
-                    <div x-show="selectedFormat === 'excel'" x-cloak>
-                        <div class="guide-item">
+                    <div class="card-import-body">
+                        <div class="d-grid gap-2 mb-3">
+                            <a href="{{ route('import.template-siswa') }}" class="btn btn-outline-success rounded-3 fw-semibold text-start" style="font-size:0.875rem;">
+                                <i class="bi bi-file-earmark-excel me-2"></i> Unduh Contoh Format Presensi (.xlsx)
+                            </a>
+                        </div>
+                        <div>
+                            <div class="guide-item">
                             <div class="guide-num">1</div>
                             <div class="guide-text">
-                                Gunakan file <strong>DAFTAR PRESENSI PESERTA DIDIK</strong> dengan beberapa sheet per tingkat
-                                (contoh: <strong>KELAS X</strong>, <strong>KELAS XI</strong>, <strong>KELAS XII</strong>).
+                                Gunakan file <strong>DAFTAR PRESENSI PESERTA DIDIK</strong>. Untuk <strong>.xlsx / .xls</strong> bisa memakai
+                                beberapa sheet per tingkat (contoh: <strong>KELAS X</strong>, <strong>KELAS XI</strong>, <strong>KELAS XII</strong>).
                             </div>
                         </div>
                         <div class="guide-item">
@@ -563,48 +475,8 @@
                         <div class="guide-item">
                             <div class="guide-num">3</div>
                             <div class="guide-text">
-                                Kolom wajib: <strong>NO</strong> (kolom A) • <strong>NISN</strong> (kolom B, 10 digit angka) •
-                                <strong>NAMA</strong> (kolom C) • <strong>NIS/NISS</strong> (kolom D) • <strong>L/P</strong> (kolom E).
-                            </div>
-                        </div>
-                        <div class="guide-item">
-                            <div class="guide-num">4</div>
-                            <div class="guide-text">
-                                Kelas hanya dikenali jika valid di sistem.
-                                Teks selain nama kelas (mis. nama guru/wali) tidak akan membuat kelas baru.
-                            </div>
-                        </div>
-                        <div class="guide-item">
-                            <div class="guide-num">5</div>
-                            <div class="guide-text">
-                                Duplikat NISN akan <strong>di-update</strong>, bukan digandakan.
-                                Baris yang tidak valid (NISN salah, tanpa kelas aktif) akan dilewati dan dilaporkan.
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Panduan mode CSV --}}
-                    <div x-show="selectedFormat === 'csv'" x-cloak>
-                        <div class="guide-item">
-                            <div class="guide-num">1</div>
-                            <div class="guide-text">
-                                Simpan file teks <strong>CSV</strong> dengan encoding <strong>UTF-8</strong>
-                                (di MS Excel: <em>File → Save As → CSV UTF-8 (Comma delimited)</em>) agar NISN/NAMA tidak rusak.
-                            </div>
-                        </div>
-                        <div class="guide-item">
-                            <div class="guide-num">2</div>
-                            <div class="guide-text">
-                                Pemisah antar kolom boleh <strong>koma (",")</strong> atau <strong>titik-koma (";")</strong> —
-                                keduanya terdeteksi otomatis oleh sistem.
-                            </div>
-                        </div>
-                        <div class="guide-item">
-                            <div class="guide-num">3</div>
-                            <div class="guide-text">
-                                Berbeda dari .xlsx, file CSV <strong>tidak memakai sheet</strong>.
-                                Tulis baris header kelas (mis. <strong>X TKJ 1</strong>) di atas kelompok siswanya —
-                                siswa di bawahnya otomatis masuk ke kelas itu.
+                                Untuk file <strong>CSV</strong>, simpan dengan encoding <strong>UTF-8</strong> dan tulis baris header kelas
+                                (mis. <strong>X TKJ 1</strong>) di atas kelompok siswanya. Pemisah boleh <strong>koma</strong> atau <strong>titik-koma</strong>.
                             </div>
                         </div>
                         <div class="guide-item">
@@ -617,14 +489,15 @@
                         <div class="guide-item">
                             <div class="guide-num">5</div>
                             <div class="guide-text">
-                                Bila baris header kelas tidak terdeteksi, gunakan dropdown
-                                <strong>Kelas Tujuan</strong> sebagai fallback.
+                                Kelas hanya dikenali jika valid di sistem. Bila baris header kelas tidak terdeteksi,
+                                gunakan dropdown <strong>Kelas Tujuan</strong> sebagai fallback.
                             </div>
                         </div>
                         <div class="guide-item">
                             <div class="guide-num">6</div>
                             <div class="guide-text">
                                 Duplikat NISN akan <strong>di-update</strong>, bukan digandakan.
+                                Baris yang tidak valid (NISN salah, tanpa kelas aktif) akan dilewati dan dilaporkan.
                             </div>
                         </div>
                     </div>
@@ -687,7 +560,6 @@
                             </div>
 
                             <div class="d-flex justify-content-end gap-2">
-                                <button type="reset" class="btn btn-light border rounded-3 px-4 py-2 fw-semibold" style="font-size:0.875rem;">Reset</button>
                                 <button type="submit" id="btnSubmitImportGuru"
                                         class="btn btn-success rounded-3 px-4 py-2 fw-semibold d-flex align-items-center gap-2"
                                         style="font-size:0.875rem;" disabled>
@@ -823,7 +695,6 @@
                             </div>
 
                             <div class="d-flex justify-content-end gap-2">
-                                <button type="reset" class="btn btn-light border rounded-3 px-4 py-2 fw-semibold" style="font-size:0.875rem;">Reset</button>
                                 <button type="submit" id="btnSubmitImportJurusan"
                                         class="btn btn-success rounded-3 px-4 py-2 fw-semibold d-flex align-items-center gap-2"
                                         style="font-size:0.875rem;" disabled>
@@ -882,7 +753,6 @@
                             </div>
 
                             <div class="d-flex justify-content-end gap-2">
-                                <button type="reset" class="btn btn-light border rounded-3 px-4 py-2 fw-semibold" style="font-size:0.875rem;">Reset</button>
                                 <button type="submit" id="btnSubmitImportKelas"
                                         class="btn btn-success rounded-3 px-4 py-2 fw-semibold d-flex align-items-center gap-2"
                                         style="font-size:0.875rem;" disabled>
@@ -1037,7 +907,6 @@
                             </div>
 
                             <div class="d-flex justify-content-end gap-2">
-                                <button type="reset" class="btn btn-light border rounded-3 px-4 py-2 fw-semibold" style="font-size:0.875rem;">Reset</button>
                                 <button type="submit" id="btnSubmitImportRuangan"
                                         class="btn btn-success rounded-3 px-4 py-2 fw-semibold d-flex align-items-center gap-2"
                                         style="font-size:0.875rem;" disabled>
@@ -1172,16 +1041,11 @@
             btnSubmit.disabled = true;
         }
 
-        // Dipakai oleh toggle Mode Excel / Mode CSV agar file lama dibersihkan
-        // saat pengguna berpindah format.
-        window.clearImportFile = clearFile;
-
         dropzone.addEventListener('click', openPicker);
         input.addEventListener('change', function () {
             if (this.files && this.files[0]) showFile(this.files[0]);
         });
 
-        // Drag & drop
         ['dragenter', 'dragover'].forEach(evt => {
             dropzone.addEventListener(evt, e => {
                 e.preventDefault();

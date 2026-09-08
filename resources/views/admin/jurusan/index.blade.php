@@ -58,13 +58,16 @@
     @endif
 
     <div class="card border-0 shadow-sm rounded-4 p-3.5 bg-white mb-4">
+        <form action="{{ route('jurusan.index') }}" method="GET">
         <div class="position-relative" style="max-width: 450px;">
             <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.9rem;"></i>
-            <input type="text"
-                   name="search"
-                   class="form-control bg-light rounded-3 ps-5"
-                   placeholder="Cari kode atau nama jurusan...">
-        </div>
+                <input type="text"
+                       name="search"
+                       value="{{ request('search') }}"
+                       class="form-control bg-light rounded-3 ps-5"
+                       placeholder="Cari kode atau nama jurusan...">
+            </div>
+        </form>
     </div>
 
     <div class="table-card-custom mb-4">

@@ -22,11 +22,21 @@ class JurusanController extends Controller
         );
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $this->authorizePetugasTU();
 
-        $dataJurusan = Jurusan::withCount('kelas')
+        $query = Jurusan::withCount('kelas');
+
+        if ($request->filled('search')) {
+            $search = trim($request->string('search'));
+            $query->where(function ($jurusanQuery) use ($search) {
+                $jurusanQuery->where('kode_jurusan', 'like', "%{$search}%")
+                    ->orWhere('nama_jurusan', 'like', "%{$search}%");
+            });
+        }
+
+        $dataJurusan = $query
             ->orderBy('kode_jurusan')
             ->get();
 

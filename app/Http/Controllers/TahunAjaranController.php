@@ -19,11 +19,21 @@ class TahunAjaranController extends Controller
         );
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $this->authorizePetugasTU();
 
-        $tahunAjaranList = TahunAjaran::withCount('jadwalPelajaran')
+        $query = TahunAjaran::withCount('jadwalPelajaran');
+
+        if ($request->filled('search')) {
+            $search = trim($request->string('search'));
+            $query->where(function ($tahunQuery) use ($search) {
+                $tahunQuery->where('tahun_ajaran', 'like', "%{$search}%")
+                    ->orWhere('semester', 'like', "%{$search}%");
+            });
+        }
+
+        $tahunAjaranList = $query
             ->orderByDesc('id')
             ->get();
 

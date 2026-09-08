@@ -140,7 +140,7 @@
                             <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.9rem;"></i>
                             <input type="text" id="searchGuruInput" class="form-control rounded-3 ps-5"
                                    placeholder="Ketik nama atau NIP guru untuk menyaring..."
-                                   onkeyup="filterGuruList()" style="font-size: 0.875rem;">
+                                   style="font-size: 0.875rem;">
                         </div>
                     </div>
 
@@ -197,81 +197,4 @@
 @endsection
 
 @push('scripts')
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        updateCounter();
-    });
-
-    function toggleCardCheck(card, event) {
-        // Avoid double trigger if direct click on input
-        if (event.target.tagName.toLowerCase() === 'input') {
-            const cb = event.target;
-            if (cb.checked) {
-                card.classList.add('selected');
-            } else {
-                card.classList.remove('selected');
-            }
-            updateCounter();
-            return;
-        }
-
-        const cb = card.querySelector('.guru-checkbox');
-        if (cb) {
-            cb.checked = !cb.checked;
-            if (cb.checked) {
-                card.classList.add('selected');
-            } else {
-                card.classList.remove('selected');
-            }
-            updateCounter();
-        }
-    }
-
-    function updateCounter() {
-        const checkboxes = document.querySelectorAll('.guru-checkbox:checked');
-        const badge = document.getElementById('badgeCounter');
-        if (badge) {
-            badge.textContent = checkboxes.length + ' Guru Dipilih';
-        }
-
-        // Sync card classes
-        document.querySelectorAll('.guru-checkbox').forEach(cb => {
-            const card = cb.closest('.guru-checkbox-card');
-            if (card) {
-                if (cb.checked) {
-                    card.classList.add('selected');
-                } else {
-                    card.classList.remove('selected');
-                }
-            }
-        });
-    }
-
-    function filterGuruList() {
-        const input = document.getElementById('searchGuruInput').value.toLowerCase().trim();
-        const items = document.querySelectorAll('.guru-item-col');
-
-        items.forEach(item => {
-            const name = item.getAttribute('data-name') || '';
-            const nip  = item.getAttribute('data-nip') || '';
-            if (name.includes(input) || nip.includes(input)) {
-                item.style.display = '';
-            } else {
-                item.style.display = 'none';
-            }
-        });
-    }
-
-    function toggleSelectAll(select) {
-        const checkboxes = document.querySelectorAll('.guru-checkbox');
-        checkboxes.forEach(cb => {
-            // Only select visible items if search filter is active
-            const col = cb.closest('.guru-item-col');
-            if (col && col.style.display !== 'none') {
-                cb.checked = select;
-            }
-        });
-        updateCounter();
-    }
-</script>
 @endpush

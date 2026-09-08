@@ -70,6 +70,7 @@ Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
 
     // Resource Routes untuk Data Master
     Route::get('admin/import', [DataImportController::class, 'index'])->name('import.index');
+    Route::get('admin/import/template-siswa', [DataImportController::class, 'downloadTemplateSiswa'])->name('import.template-siswa');
     Route::post('admin/import/siswa', [DataImportController::class, 'importSiswa'])->name('import.siswa');
     Route::post('admin/import/guru', [DataImportController::class, 'importGuru'])->name('import.guru');
     Route::post('admin/import/kelas', [DataImportController::class, 'importKelas'])->name('import.kelas');

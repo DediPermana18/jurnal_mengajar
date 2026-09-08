@@ -23,11 +23,23 @@ class RuanganController extends Controller
         );
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $this->authorizePetugasTU();
 
-        $dataRuangan = Ruangan::with(['pengurus', 'jadwalPelajaran.kelas'])
+        $query = Ruangan::with(['pengurus', 'jadwalPelajaran.kelas']);
+
+        if ($request->filled('search')) {
+            $search = trim($request->string('search'));
+            $query->where(function ($ruanganQuery) use ($search) {
+                $ruanganQuery->where('kode_ruangan', 'like', "%{$search}%")
+                    ->orWhere('nama_ruangan', 'like', "%{$search}%")
+                    ->orWhere('lokasi', 'like', "%{$search}%")
+                    ->orWhereHas('pengurus', fn ($guruQuery) => $guruQuery->where('nama', 'like', "%{$search}%"));
+            });
+        }
+
+        $dataRuangan = $query
             ->orderBy('kode_ruangan')
             ->get();
 

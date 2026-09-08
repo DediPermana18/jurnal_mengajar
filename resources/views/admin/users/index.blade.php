@@ -45,7 +45,7 @@
                        placeholder="Cari nama, username, atau NIP user...">
             </div>
             <div style="width: 200px;">
-                <select name="sub_role" id="subRoleSelect" class="form-select bg-light rounded-3" onchange="this.form.submit()">
+                <select name="sub_role" id="subRoleSelect" class="form-select bg-light rounded-3">
                     <option value="">Semua Sub-Role</option>
                     @foreach($subRoles as $value => $label)
                         <option value="{{ $value }}" {{ request('sub_role') === $value ? 'selected' : '' }}>{{ $label }}</option>
@@ -53,7 +53,7 @@
                 </select>
             </div>
             <div style="width: 170px;">
-                <select name="status" id="statusSelect" class="form-select bg-light rounded-3" onchange="this.form.submit()">
+                <select name="status" id="statusSelect" class="form-select bg-light rounded-3">
                     <option value="Semua Status">Semua Status</option>
                     <option value="Aktif" {{ request('status') === 'Aktif' ? 'selected' : '' }}>Aktif</option>
                     <option value="Nonaktif" {{ request('status') === 'Nonaktif' || request('status') === 'Tidak Aktif' ? 'selected' : '' }}>Nonaktif</option>

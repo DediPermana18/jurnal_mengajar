@@ -210,10 +210,11 @@
                 Daftar Siswa Kelas {{ $kelas->nama_kelas }}
             </h5>
             {{-- Search Siswa --}}
-            <div class="position-relative" style="width: 260px;">
+            <form action="{{ route('kelas.show', $kelas->id) }}" method="GET" class="position-relative" style="width: 260px;">
                 <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.85rem;"></i>
-                <input type="text" id="searchSiswa" class="form-control rounded-3 ps-5 bg-light border-0 py-2" placeholder="Cari nama siswa...">
+                <input type="text" name="search" value="{{ request('search') }}" class="form-control rounded-3 ps-5 bg-light border-0 py-2" placeholder="Cari nama siswa...">
             </div>
+            </form>
         </div>
 
         <div class="table-responsive w-full overflow-x-auto">
@@ -305,15 +306,4 @@
 @endsection
 
 @push('scripts')
-<script>
-    // Live Search Siswa
-    document.getElementById('searchSiswa')?.addEventListener('input', function () {
-        const query = this.value.toLowerCase();
-        document.querySelectorAll('#tableSiswa tbody tr').forEach(row => {
-            const nama = row.querySelector('td:nth-child(2)')?.textContent.toLowerCase() ?? '';
-            const nis  = row.querySelector('td:nth-child(3)')?.textContent.toLowerCase() ?? '';
-            row.style.display = (nama.includes(query) || nis.includes(query)) ? '' : 'none';
-        });
-    });
-</script>
 @endpush

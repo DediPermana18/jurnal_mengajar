@@ -201,7 +201,7 @@
 
                     {{-- Filter Jenis Mapel --}}
                     <div class="col-12 col-md-5 col-lg-4">
-                        <select name="kelompok" onchange="this.form.submit()" class="form-select rounded-3 bg-light" style="font-size: 0.875rem;">
+                        <select name="kelompok" class="form-select rounded-3 bg-light" style="font-size: 0.875rem;">
                             <option value="">Semua Jenis Mapel</option>
                             @foreach($jenisOptions as $opt)
                                 <option value="{{ $opt }}" {{ request('kelompok') === $opt ? 'selected' : '' }}>

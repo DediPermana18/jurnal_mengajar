@@ -293,19 +293,6 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // ===== Filter daftar siswa =====
-        const searchInput = document.getElementById('searchSiswa');
-        const selectSiswa = document.getElementById('id_siswa');
-
-        searchInput.addEventListener('input', function () {
-            const q = searchInput.value.trim().toLowerCase();
-            for (const opt of selectSiswa.options) {
-                const nama = (opt.dataset.nama || '').toLowerCase();
-                const nisn = opt.dataset.nisn || '';
-                opt.hidden = opt.value !== '' && q !== '' && !nama.includes(q) && !nisn.includes(q);
-            }
-        });
-
         // ===== Auto-detect jadwal mapel/guru dari tanggal + siswa + jam ke- =====
         const tanggalInput   = document.querySelector('input[name="tanggal"]');
         const selectJadwal   = document.getElementById('id_jadwal');

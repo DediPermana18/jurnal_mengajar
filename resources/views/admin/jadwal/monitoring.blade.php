@@ -84,7 +84,7 @@
                            placeholder="Cari kelas (contoh: X - AK 1)...">
                 </div>
                 <div style="width: 180px;">
-                    <select name="hari" id="selectFilterHari" class="form-select bg-light rounded-3" style="cursor: pointer;" onchange="this.form.submit()">
+                    <select name="hari" id="selectFilterHari" class="form-select bg-light rounded-3" style="cursor: pointer;">
                         <option value="" {{ ($selectedHari ?? '') === '' ? 'selected' : '' }}>Semua Hari</option>
                         @foreach(['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'] as $hariOpt)
                             <option value="{{ $hariOpt }}" {{ ($selectedHari ?? '') === $hariOpt ? 'selected' : '' }}>{{ $hariOpt }}</option>
@@ -169,34 +169,4 @@
 @endsection
 
 @push('scripts')
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('#tableMonitoringKosong tbody tr[data-url]').forEach(function (row) {
-            row.addEventListener('click', function (e) {
-                if (e.target.closest('a')) {
-                    return; // biarkan link bawaan bekerja
-                }
-                window.location.href = row.getAttribute('data-url');
-            });
-        });
-
-        // Filter baris tabel secara instan berdasarkan input tanpa reload halaman.
-        const searchInput = document.getElementById('searchKelasInput');
-        const tableRows = document.querySelectorAll('#tableMonitoringKosong tbody tr');
-
-        function applyFilter() {
-            const filter = searchInput.value.toLowerCase();
-
-            tableRows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(filter) ? '' : 'none';
-            });
-        }
-
-        if (searchInput && tableRows.length) {
-            searchInput.addEventListener('input', applyFilter);
-            applyFilter(); // terapkan ulang jika halaman dimuat dengan query search
-        }
-    });
-</script>
 @endpush
