@@ -143,7 +143,18 @@ class JadwalPelajaranController extends Controller
         $selectedHari = (string) $request->input('hari', '');
 
         $kelasList = Kelas::with('jurusan')
-            ->when($keyword !== '', fn ($q) => $q->where('nama_kelas', 'like', "%{$keyword}%"))
+            ->when($keyword !== '', function ($q) use ($keyword) {
+                $q->where(function ($sub) use ($keyword) {
+                    $sub->where('nama_kelas', 'like', "%{$keyword}%")
+                        ->orWhere('tingkat', 'like', "%{$keyword}%")
+                        ->orWhereRaw("CONCAT(tingkat, ' ', nama_kelas) LIKE ?", ["%{$keyword}%"])
+                        ->orWhereRaw("CONCAT(tingkat, ' - ', nama_kelas) LIKE ?", ["%{$keyword}%"])
+                        ->orWhereHas('jurusan', function ($jQ) use ($keyword) {
+                            $jQ->where('nama_jurusan', 'like', "%{$keyword}%")
+                               ->orWhere('kode_jurusan', 'like', "%{$keyword}%");
+                        });
+                });
+            })
             ->orderBy('tingkat')
             ->orderBy('nama_kelas')
             ->get();

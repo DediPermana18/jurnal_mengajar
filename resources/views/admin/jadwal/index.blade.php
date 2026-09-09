@@ -132,7 +132,7 @@
                         <label class="form-label fw-bold text-dark mb-2" style="font-size: 0.9rem;">
                             <i class="bi bi-door-open-fill text-primary me-1"></i> Pilih Kelas
                         </label>
-                        <select name="id_kelas" id="selectKelas" class="form-select rounded-3">
+                        <select name="id_kelas" id="selectKelas" class="form-select rounded-3" onchange="this.form.submit()">
                             <option value="">-- Pilih Kelas --</option>
                             @foreach($kelasList as $kelas)
                                 <option value="{{ $kelas->id }}" {{ $selectedKelas && $selectedKelas->id == $kelas->id ? 'selected' : '' }}>

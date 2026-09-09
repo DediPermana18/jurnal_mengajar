@@ -120,7 +120,7 @@
 
                     {{-- Filter Guru --}}
                     <div class="col-12 col-md-3">
-                        <select name="id_guru" class="form-select form-select-sm rounded-3 bg-light">
+                        <select name="id_guru" class="form-select form-select-sm rounded-3 bg-light" onchange="this.form.submit()">
                             <option value="">Semua Guru</option>
                             @foreach($guruList as $guru)
                                 <option value="{{ $guru->id }}" {{ request('id_guru') == $guru->id ? 'selected' : '' }}>
@@ -132,7 +132,7 @@
 
                     {{-- Filter Kategori Izin --}}
                     <div class="col-6 col-md-2">
-                        <select name="kategori_izin" class="form-select form-select-sm rounded-3 bg-light">
+                        <select name="kategori_izin" class="form-select form-select-sm rounded-3 bg-light" onchange="this.form.submit()">
                             <option value="semua">Semua Jenis</option>
                             <option value="sakit" {{ request('kategori_izin') == 'sakit' ? 'selected' : '' }}>Sakit</option>
                             <option value="dinas_luar" {{ request('kategori_izin') == 'dinas_luar' ? 'selected' : '' }}>Tugas Luar / Dinas</option>
@@ -145,12 +145,12 @@
 
                     {{-- Filter Tanggal Mulai --}}
                     <div class="col-6 col-md-2">
-                        <input type="date" name="tanggal_mulai" class="form-control form-control-sm rounded-3 bg-light" value="{{ request('tanggal_mulai') }}" title="Tanggal Mulai">
+                        <input type="date" name="tanggal_mulai" class="form-control form-control-sm rounded-3 bg-light" value="{{ request('tanggal_mulai') }}" title="Tanggal Mulai" onchange="this.form.submit()">
                     </div>
 
                     {{-- Filter Status Approval --}}
                     <div class="col-6 col-md-2">
-                        <select name="status" class="form-select form-select-sm rounded-3 bg-light">
+                        <select name="status" class="form-select form-select-sm rounded-3 bg-light" onchange="this.form.submit()">
                             <option value="semua">Semua Status</option>
                             <option value="{{ \App\Models\IzinGuru::STATUS_DISETUJUI }}" {{ request('status') === \App\Models\IzinGuru::STATUS_DISETUJUI ? 'selected' : '' }}>Disetujui</option>
                             <option value="{{ \App\Models\IzinGuru::STATUS_PENDING_PIKET }}" {{ request('status') === \App\Models\IzinGuru::STATUS_PENDING_PIKET ? 'selected' : '' }}>Pending Piket</option>

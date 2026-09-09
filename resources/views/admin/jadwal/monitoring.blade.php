@@ -72,25 +72,46 @@
     <div class="card border-0 rounded-4 shadow-sm bg-white mb-4">
         <div class="card-body p-3.5">
             <form action="{{ route('admin.jadwal.monitoring') }}" method="GET"
-                  class="d-flex flex-wrap align-items-center gap-3"
+                  class="d-flex flex-column gap-3"
                   id="formFilterMonitoring">
-                <div class="flex-grow-1 position-relative" style="min-width: 240px; max-width: 450px;">
-                    <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.9rem;"></i>
-                    <input type="text"
-                           name="search"
-                           id="searchKelasInput"
-                           value="{{ $keyword ?? '' }}"
-                           class="form-control bg-light rounded-3 ps-5"
-                           placeholder="Cari kelas (contoh: X - AK 1)...">
+                <div class="d-flex flex-wrap align-items-center gap-3">
+                    <div class="flex-grow-1 position-relative" style="min-width: 240px; max-width: 450px;">
+                        <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.9rem;"></i>
+                        <input type="text"
+                               name="search"
+                               id="searchKelasInput"
+                               value="{{ $keyword ?? '' }}"
+                               class="form-control bg-light rounded-3 ps-5"
+                               placeholder="Cari kelas (contoh: X - AK 1)...">
+                    </div>
+                    <div style="width: 180px;">
+                        <select name="hari" id="selectFilterHari" class="form-select bg-light rounded-3" style="cursor: pointer;" onchange="this.form.submit()">
+                            <option value="" {{ ($selectedHari ?? '') === '' ? 'selected' : '' }}>Semua Hari</option>
+                            @foreach(['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'] as $hariOpt)
+                                <option value="{{ $hariOpt }}" {{ ($selectedHari ?? '') === $hariOpt ? 'selected' : '' }}>{{ $hariOpt }}</option>
+                            @endforeach
+                        </select>
+                    </div>
                 </div>
-                <div style="width: 180px;">
-                    <select name="hari" id="selectFilterHari" class="form-select bg-light rounded-3" style="cursor: pointer;">
-                        <option value="" {{ ($selectedHari ?? '') === '' ? 'selected' : '' }}>Semua Hari</option>
-                        @foreach(['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'] as $hariOpt)
-                            <option value="{{ $hariOpt }}" {{ ($selectedHari ?? '') === $hariOpt ? 'selected' : '' }}>{{ $hariOpt }}</option>
-                        @endforeach
-                    </select>
-                </div>
+
+                {{-- Indikator Filter Aktif & Reset --}}
+                @if(($keyword ?? '') !== '' || ($selectedHari ?? '') !== '')
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2 border-top" style="border-color: #f1f5f9 !important;">
+                        <div class="d-flex flex-wrap align-items-center gap-1.5" style="font-size: 0.8rem; color: #64748b;">
+                            <span class="fw-semibold text-dark"><i class="bi bi-funnel-fill text-primary me-1"></i>Filter Aktif:</span>
+                            @if(($keyword ?? '') !== '')
+                                <span class="badge bg-light text-dark border px-2 py-1">Kelas: "{{ $keyword }}"</span>
+                            @endif
+                            @if(($selectedHari ?? '') !== '')
+                                <span class="badge bg-light text-primary border border-primary-subtle px-2 py-1">Hari: {{ $selectedHari }}</span>
+                            @endif
+                        </div>
+                        <a href="{{ route('admin.jadwal.monitoring') }}" class="btn btn-sm btn-outline-secondary rounded-2 px-2 py-1 text-decoration-none d-inline-flex align-items-center gap-1" style="font-size: 0.78rem;">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                            <span>Reset Filter</span>
+                        </a>
+                    </div>
+                @endif
             </form>
         </div>
     </div>

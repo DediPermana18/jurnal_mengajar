@@ -100,7 +100,7 @@
 
             <!-- Dropdown Filter Tingkat -->
             <div style="width: 180px;">
-                <select name="tingkat" class="form-select bg-light rounded-3">
+                <select name="tingkat" class="form-select bg-light rounded-3" onchange="this.form.submit()">
                     <option value="Semua Tingkat" {{ request('tingkat') == 'Semua Tingkat' ? 'selected' : '' }}>Semua Tingkat</option>
                     <option value="X" {{ request('tingkat') == 'X' ? 'selected' : '' }}>Kelas X</option>
                     <option value="XI" {{ request('tingkat') == 'XI' ? 'selected' : '' }}>Kelas XI</option>
@@ -110,7 +110,7 @@
 
             <!-- Dropdown Filter Jurusan -->
             <div style="width: 220px;">
-                <select name="jurusan" class="form-select bg-light rounded-3">
+                <select name="jurusan" class="form-select bg-light rounded-3" onchange="this.form.submit()">
                     <option value="Semua Jurusan" {{ request('jurusan') == 'Semua Jurusan' ? 'selected' : '' }}>Semua Jurusan</option>
                     @foreach($daftarJurusan as $jur)
                         <option value="{{ $jur->id }}" {{ request('jurusan') == $jur->id ? 'selected' : '' }}>

@@ -71,13 +71,16 @@
                     <div class="col-12 col-md-5">
                         <div class="position-relative">
                             <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.85rem;"></i>
-                            <input type="text" name="search" class="form-control form-control-sm rounded-3 ps-5 bg-light" placeholder="Cari nama guru atau NIP...">
+                            <input type="text" name="search" value="{{ request('search') }}"
+                                   class="form-control form-control-sm rounded-3 ps-5 bg-light"
+                                   placeholder="Cari nama guru atau NIP..."
+                                   onkeydown="if(event.key==='Enter'){this.form.submit();}">
                         </div>
                     </div>
 
                     {{-- Filter Bulan --}}
                     <div class="col-6 col-md-2">
-                        <select name="bulan" class="form-select form-select-sm rounded-3 bg-light">
+                        <select name="bulan" class="form-select form-select-sm rounded-3 bg-light" onchange="this.form.submit()">
                             @foreach(range(1, 12) as $m)
                                 <option value="{{ $m }}" {{ $bulan == $m ? 'selected' : '' }}>
                                     {{ \Carbon\Carbon::createFromDate(null, $m, 1)->translatedFormat('F') }}
@@ -88,7 +91,7 @@
 
                     {{-- Filter Tahun --}}
                     <div class="col-6 col-md-2">
-                        <select name="tahun" class="form-select form-select-sm rounded-3 bg-light">
+                        <select name="tahun" class="form-select form-select-sm rounded-3 bg-light" onchange="this.form.submit()">
                             @foreach(range(now()->year - 2, now()->year + 1) as $y)
                                 <option value="{{ $y }}" {{ $tahun == $y ? 'selected' : '' }}>
                                     {{ $y }}
@@ -99,7 +102,7 @@
 
                     {{-- Filter Guru --}}
                     <div class="col-12 col-md-3">
-                        <select name="id_guru" class="form-select form-select-sm rounded-3 bg-light">
+                        <select name="id_guru" class="form-select form-select-sm rounded-3 bg-light" onchange="this.form.submit()">
                             <option value="">Semua Guru</option>
                             @foreach($guruList as $g)
                                 <option value="{{ $g->id }}" {{ $selectedGuru == $g->id ? 'selected' : '' }}>

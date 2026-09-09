@@ -164,21 +164,23 @@
         {{-- --- LEFT: Profile Card + Nav Tabs --- --}}
         <div class="col-12 col-lg-3">
             {{-- Profile Identity Card --}}
-            <div class="profil-card p-4 text-center mb-3">
+            <div class="profil-card p-4 text-center mb-3 d-flex flex-column align-items-center justify-content-center">
                 @php
-                    $avatarSrc = $user->foto_profil
+                    $defaultAvatar = 'https://ui-avatars.com/api/?name=' . urlencode($user->nama) . '&background=1677ff&color=fff&size=128&bold=true';
+                    $avatarSrc = ($user->foto_profil && \Illuminate\Support\Facades\Storage::disk('public')->exists($user->foto_profil))
                         ? asset('storage/' . $user->foto_profil)
-                        : 'https://ui-avatars.com/api/?name=' . urlencode($user->nama) . '&background=1677ff&color=fff&size=128&bold=true';
+                        : $defaultAvatar;
                 @endphp
                 <img src="{{ $avatarSrc }}" alt="Avatar"
-                     class="rounded-circle border mb-3"
+                     onerror="this.onerror=null;this.src='{{ $defaultAvatar }}';"
+                     class="rounded-circle border mb-3 d-block mx-auto shadow-sm"
                      style="width:80px;height:80px;object-fit:cover;border-width:3px!important;border-color:#e2e8f0!important;">
-                <div class="fw-bold text-dark" style="font-size:1rem;">{{ $user->nama }}</div>
-                <div class="text-muted" style="font-size:0.78rem;">{{ $user->role_label }}</div>
+                <div class="fw-bold text-dark text-center" style="font-size:1rem;">{{ $user->nama }}</div>
+                <div class="text-muted text-center" style="font-size:0.78rem;">{{ $user->role_label }}</div>
                 @if($user->nip)
-                    <div class="badge bg-light text-secondary border rounded-pill px-3 mt-1" style="font-size:0.72rem;">NIP: {{ $user->nip }}</div>
+                    <div class="badge bg-light text-secondary border rounded-pill px-3 mt-1 text-center" style="font-size:0.72rem;">NIP: {{ $user->nip }}</div>
                 @endif
-                <div class="mt-2">
+                <div class="mt-2 text-center">
                     @if($user->is_active)
                         <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1" style="font-size:0.72rem;">
                             <i class="bi bi-circle-fill me-1" style="font-size:0.5rem;"></i>Akun Aktif
@@ -233,7 +235,8 @@
                             {{-- Avatar Upload Row --}}
                             <div class="d-flex align-items-center gap-4 mb-4 pb-3 border-bottom">
                                 <label for="inputFoto" class="avatar-wrapper mb-0" title="Klik untuk ganti foto">
-                                    <img id="previewFoto" src="{{ $avatarSrc }}" alt="Foto Profil">
+                                    <img id="previewFoto" src="{{ $avatarSrc }}" alt="Foto Profil"
+                                         onerror="this.onerror=null;this.src='{{ $defaultAvatar }}';">
                                     <div class="avatar-overlay">
                                         <i class="bi bi-camera-fill text-white fs-5"></i>
                                     </div>

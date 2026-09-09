@@ -201,7 +201,7 @@
 
                     {{-- Filter Jenis Mapel --}}
                     <div class="col-12 col-md-5 col-lg-4">
-                        <select name="kelompok" class="form-select rounded-3 bg-light" style="font-size: 0.875rem;">
+                        <select name="kelompok" class="form-select rounded-3 bg-light" style="font-size: 0.875rem;" onchange="this.form.submit()">
                             <option value="">Semua Jenis Mapel</option>
                             @foreach($jenisOptions as $opt)
                                 <option value="{{ $opt }}" {{ request('kelompok') === $opt ? 'selected' : '' }}>
@@ -211,6 +211,25 @@
                         </select>
                     </div>
                 </div>
+
+                {{-- Indikator Filter Aktif & Reset --}}
+                @if(request()->hasAny(['search', 'kelompok']) && (request('search') || request('kelompok')))
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2 mt-3 border-top" style="border-color: #f1f5f9 !important;">
+                        <div class="d-flex flex-wrap align-items-center gap-1.5" style="font-size: 0.8rem; color: #64748b;">
+                            <span class="fw-semibold text-dark"><i class="bi bi-funnel-fill text-primary me-1"></i>Filter Aktif:</span>
+                            @if(request('search'))
+                                <span class="badge bg-light text-dark border px-2 py-1">Pencarian: "{{ request('search') }}"</span>
+                            @endif
+                            @if(request('kelompok'))
+                                <span class="badge bg-light text-primary border border-primary-subtle px-2 py-1">Jenis: {{ request('kelompok') }}</span>
+                            @endif
+                        </div>
+                        <a href="{{ route('mapel.index') }}" class="btn btn-sm btn-outline-secondary rounded-2 px-2 py-1 text-decoration-none d-inline-flex align-items-center gap-1" style="font-size: 0.78rem;">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                            <span>Reset Filter</span>
+                        </a>
+                    </div>
+                @endif
             </form>
         </div>
 

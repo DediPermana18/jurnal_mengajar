@@ -80,9 +80,15 @@ class SiswaController extends Controller
             $query->where('id_kelas', $request->id_kelas);
         }
 
-        // Filter jurusan
+        // Filter jurusan (mencakup id_jurusan di siswa atau di kelas siswa)
         if ($request->filled('id_jurusan')) {
-            $query->where('id_jurusan', $request->id_jurusan);
+            $idJurusan = $request->id_jurusan;
+            $query->where(function ($q) use ($idJurusan) {
+                $q->where('id_jurusan', $idJurusan)
+                    ->orWhereHas('kelas', function ($kQ) use ($idJurusan) {
+                        $kQ->where('id_jurusan', $idJurusan);
+                    });
+            });
         }
 
         // Filter jenis kelamin

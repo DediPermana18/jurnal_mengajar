@@ -34,31 +34,55 @@
     @endif
 
     <div class="card border-0 shadow-sm rounded-4 p-3.5 bg-white mb-4">
-        <form action="{{ route('admin.users.index') }}" method="GET" class="d-flex flex-wrap align-items-center gap-3">
-            <div class="flex-grow-1 position-relative" style="min-width: 240px; max-width: 450px;">
-                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.9rem;"></i>
-                <input type="text"
-                       name="search"
-                       id="searchUserInput"
-                       value="{{ request('search') }}"
-                       class="form-control bg-light rounded-3 ps-5"
-                       placeholder="Cari nama, username, atau NIP user...">
+        <form action="{{ route('admin.users.index') }}" method="GET" class="d-flex flex-column gap-3">
+            <div class="d-flex flex-wrap align-items-center gap-3">
+                <div class="flex-grow-1 position-relative" style="min-width: 240px; max-width: 450px;">
+                    <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.9rem;"></i>
+                    <input type="text"
+                           name="search"
+                           id="searchUserInput"
+                           value="{{ request('search') }}"
+                           class="form-control bg-light rounded-3 ps-5"
+                           placeholder="Cari nama, username, atau NIP user...">
+                </div>
+                <div style="width: 200px;">
+                    <select name="sub_role" id="subRoleSelect" class="form-select bg-light rounded-3" onchange="this.form.submit()">
+                        <option value="">Semua Sub-Role</option>
+                        @foreach($subRoles as $value => $label)
+                            <option value="{{ $value }}" {{ request('sub_role') === $value ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div style="width: 170px;">
+                    <select name="status" id="statusSelect" class="form-select bg-light rounded-3" onchange="this.form.submit()">
+                        <option value="Semua Status">Semua Status</option>
+                        <option value="Aktif" {{ request('status') === 'Aktif' ? 'selected' : '' }}>Aktif</option>
+                        <option value="Nonaktif" {{ request('status') === 'Nonaktif' || request('status') === 'Tidak Aktif' ? 'selected' : '' }}>Nonaktif</option>
+                    </select>
+                </div>
             </div>
-            <div style="width: 200px;">
-                <select name="sub_role" id="subRoleSelect" class="form-select bg-light rounded-3">
-                    <option value="">Semua Sub-Role</option>
-                    @foreach($subRoles as $value => $label)
-                        <option value="{{ $value }}" {{ request('sub_role') === $value ? 'selected' : '' }}>{{ $label }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div style="width: 170px;">
-                <select name="status" id="statusSelect" class="form-select bg-light rounded-3">
-                    <option value="Semua Status">Semua Status</option>
-                    <option value="Aktif" {{ request('status') === 'Aktif' ? 'selected' : '' }}>Aktif</option>
-                    <option value="Nonaktif" {{ request('status') === 'Nonaktif' || request('status') === 'Tidak Aktif' ? 'selected' : '' }}>Nonaktif</option>
-                </select>
-            </div>
+
+            {{-- Indikator Filter Aktif & Reset --}}
+            @if(request()->hasAny(['search', 'sub_role', 'status']) && (request('search') || request('sub_role') || (request('status') && request('status') !== 'Semua Status')))
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2 border-top" style="border-color: #f1f5f9 !important;">
+                    <div class="d-flex flex-wrap align-items-center gap-1.5" style="font-size: 0.8rem; color: #64748b;">
+                        <span class="fw-semibold text-dark"><i class="bi bi-funnel-fill text-primary me-1"></i>Filter Aktif:</span>
+                        @if(request('search'))
+                            <span class="badge bg-light text-dark border px-2 py-1">Pencarian: "{{ request('search') }}"</span>
+                        @endif
+                        @if(request('sub_role'))
+                            <span class="badge bg-light text-primary border border-primary-subtle px-2 py-1">Sub-Role: {{ $subRoles[request('sub_role')] ?? request('sub_role') }}</span>
+                        @endif
+                        @if(request('status') && request('status') !== 'Semua Status')
+                            <span class="badge bg-light text-success border border-success-subtle px-2 py-1">Status: {{ request('status') }}</span>
+                        @endif
+                    </div>
+                    <a href="{{ route('admin.users.index') }}" class="btn btn-sm btn-outline-secondary rounded-2 px-2 py-1 text-decoration-none d-inline-flex align-items-center gap-1" style="font-size: 0.78rem;">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                        <span>Reset Filter</span>
+                    </a>
+                </div>
+            @endif
         </form>
     </div>
 

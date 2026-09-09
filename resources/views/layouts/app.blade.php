@@ -1298,12 +1298,14 @@
                 <div class="dropdown">
                     <div class="user-dropdown-btn" data-bs-toggle="dropdown" aria-expanded="false">
                         @php
-                            $navUser    = auth()->user();
-                            $navAvatar  = ($navUser && $navUser->foto_profil && \Illuminate\Support\Facades\Storage::disk('public')->exists($navUser->foto_profil))
+                            $navUser          = auth()->user();
+                            $defaultNavAvatar = 'https://ui-avatars.com/api/?name=' . urlencode($navUser?->nama ?? 'User') . '&background=1677ff&color=fff&size=128&bold=true';
+                            $navAvatar        = ($navUser && $navUser->foto_profil && \Illuminate\Support\Facades\Storage::disk('public')->exists($navUser->foto_profil))
                                 ? asset('storage/' . $navUser->foto_profil)
-                                : 'https://ui-avatars.com/api/?name=' . urlencode($navUser?->nama ?? 'User') . '&background=1677ff&color=fff&size=128&bold=true';
+                                : $defaultNavAvatar;
                         @endphp
-                        <img src="{{ $navAvatar }}" alt="Avatar" class="user-avatar">
+                        <img src="{{ $navAvatar }}" alt="Avatar" class="user-avatar"
+                             onerror="this.onerror=null;this.src='{{ $defaultNavAvatar }}';">
                         <div class="user-meta">
                             <div class="user-name">{{ $navUser?->nama ?? 'Admin Utama' }}</div>
                             <div class="user-role">{{ $navUser?->role_label ?? 'Administrator' }}</div>

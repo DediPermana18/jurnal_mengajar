@@ -27,20 +27,20 @@
 
     {{-- Filter Card --}}
     <div class="table-card-custom mb-4">
-        <form method="GET" action="{{ route('kurikulum.laporan.index') }}" class="row g-3 align-items-end">
+        <form method="GET" action="{{ route('kurikulum.laporan.index') }}" class="row g-3 align-items-end" id="formLaporanFilter">
             <div class="col-12 col-md-3 col-xl-2">
                 <label class="form-label fw-bold text-secondary text-uppercase small mb-1">Tanggal Mulai</label>
                 <input type="date" name="tanggal_mulai" value="{{ old('tanggal_mulai', $mulai) }}"
-                       class="form-control rounded-3 py-2">
+                       class="form-control rounded-3 py-2" onchange="this.form.submit()">
             </div>
             <div class="col-12 col-md-3 col-xl-2">
                 <label class="form-label fw-bold text-secondary text-uppercase small mb-1">Tanggal Selesai</label>
                 <input type="date" name="tanggal_selesai" value="{{ old('tanggal_selesai', $selesai) }}"
-                       class="form-control rounded-3 py-2">
+                       class="form-control rounded-3 py-2" onchange="this.form.submit()">
             </div>
             <div class="col-12 col-md-3 col-xl-2">
                 <label class="form-label fw-bold text-secondary text-uppercase small mb-1">Tingkat</label>
-                <select name="tingkat" class="form-select rounded-3 py-2">
+                <select name="tingkat" class="form-select rounded-3 py-2" onchange="this.form.submit()">
                     <option value="">Semua Tingkat</option>
                     @foreach($tingkatList as $tgl)
                         <option value="{{ $tgl }}" {{ $tingkatInput == $tgl ? 'selected' : '' }}>{{ $tgl }}</option>
@@ -49,7 +49,7 @@
             </div>
             <div class="col-12 col-md-3 col-xl-2">
                 <label class="form-label fw-bold text-secondary text-uppercase small mb-1">Kelas</label>
-                <select name="id_kelas" class="form-select rounded-3 py-2">
+                <select name="id_kelas" class="form-select rounded-3 py-2" onchange="this.form.submit()">
                     <option value="">Semua Kelas</option>
                     @foreach($kelasList as $kelas)
                         <option value="{{ $kelas->id }}" {{ $idKelasInput == $kelas->id ? 'selected' : '' }}>
@@ -60,7 +60,7 @@
             </div>
             <div class="col-12 col-md-4 col-xl-2">
                 <label class="form-label fw-bold text-secondary text-uppercase small mb-1">Guru</label>
-                <select name="id_guru" class="form-select rounded-3 py-2">
+                <select name="id_guru" class="form-select rounded-3 py-2" onchange="this.form.submit()">
                     <option value="">Semua Guru</option>
                     @foreach($guruList as $guru)
                         <option value="{{ $guru->id }}" {{ $idGuruInput == $guru->id ? 'selected' : '' }}>
@@ -71,7 +71,7 @@
             </div>
             <div class="col-12 col-md-4 col-xl-2">
                 <label class="form-label fw-bold text-secondary text-uppercase small mb-1">Mata Pelajaran</label>
-                <select name="id_mapel" class="form-select rounded-3 py-2">
+                <select name="id_mapel" class="form-select rounded-3 py-2" onchange="this.form.submit()">
                     <option value="">Semua Mapel</option>
                     @foreach($mapelList as $mapel)
                         <option value="{{ $mapel->id }}" {{ $idMapelInput == $mapel->id ? 'selected' : '' }}>
@@ -80,14 +80,17 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-12 col-xl-2 d-flex gap-2">
-                <button type="submit" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold flex-fill">
-                    <i class="bi bi-funnel me-1"></i> Terapkan
-                </button>
-                <a href="{{ route('kurikulum.laporan.index') }}" class="btn btn-outline-secondary rounded-3 px-3 py-2">
-                    <i class="bi bi-arrow-counterclockwise"></i>
+            {{-- Reset Filter --}}
+            @if(request()->hasAny(['tanggal_mulai','tanggal_selesai','tingkat','id_kelas','id_guru','id_mapel']))
+            <div class="col-12 col-xl-auto d-flex align-items-end">
+                <a href="{{ route('kurikulum.laporan.index') }}"
+                   class="btn btn-outline-secondary rounded-3 px-3 py-2 d-flex align-items-center gap-1"
+                   title="Reset semua filter">
+                    <i class="bi bi-x-circle"></i>
+                    <span class="d-none d-sm-inline" style="font-size:0.8rem;">Reset Filter</span>
                 </a>
             </div>
+            @endif
         </form>
     </div>
 

@@ -186,7 +186,7 @@
     {{-- FILTER BAR                                              --}}
     {{-- ====================================================== --}}
     <div class="filter-bar">
-        <form action="{{ route('guru.index') }}" method="GET">
+        <form id="filterGuruForm" action="{{ route('guru.index') }}" method="GET">
             <div class="row g-3 align-items-center">
                 {{-- Input Cari Nama/NIP --}}
                 <div class="col-12 col-md-5">
@@ -202,7 +202,7 @@
 
                 {{-- Dropdown Status --}}
                 <div class="col-6 col-md-3">
-                    <select name="status" class="form-select">
+                    <select name="status" class="form-select" onchange="this.form.submit()">
                         <option value="Semua Status" {{ request('status') === 'Semua Status' || !request()->filled('status') ? 'selected' : '' }}>Semua Status</option>
                         <option value="Aktif" {{ request('status') === 'Aktif' ? 'selected' : '' }}>Aktif</option>
                         <option value="Tidak Aktif" {{ request('status') === 'Tidak Aktif' ? 'selected' : '' }}>Tidak Aktif</option>
@@ -211,7 +211,7 @@
 
                 {{-- Dropdown Penugasan Wali Kelas & Option Kelas --}}
                 <div class="col-6 col-md-4">
-                    <select name="wali_kelas" class="form-select">
+                    <select name="wali_kelas" class="form-select" onchange="this.form.submit()">
                         <option value="Semua" {{ request('wali_kelas') === 'Semua' || !request()->filled('wali_kelas') ? 'selected' : '' }}>Semua Penugasan</option>
                         <option value="Ya" {{ request('wali_kelas') === 'Ya' ? 'selected' : '' }}>Wali Kelas</option>
                         <option value="Tidak" {{ request('wali_kelas') === 'Tidak' ? 'selected' : '' }}>Bukan Wali Kelas</option>
@@ -227,6 +227,38 @@
                     </select>
                 </div>
             </div>
+
+            {{-- Indikator Filter Aktif & Tombol Reset --}}
+            @if(request()->hasAny(['search', 'status', 'wali_kelas']) && (request('search') || (request('status') && request('status') !== 'Semua Status') || (request('wali_kelas') && request('wali_kelas') !== 'Semua')))
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2 mt-3 border-top" style="border-color: #f1f5f9 !important;">
+                    <div class="d-flex flex-wrap align-items-center gap-1.5" style="font-size: 0.8rem; color: #64748b;">
+                        <span class="fw-semibold text-dark"><i class="bi bi-funnel-fill text-primary me-1"></i>Filter Aktif:</span>
+                        @if(request('search'))
+                            <span class="badge bg-light text-dark border px-2 py-1">Pencarian: "{{ request('search') }}"</span>
+                        @endif
+                        @if(request('status') && request('status') !== 'Semua Status')
+                            <span class="badge bg-light text-success border border-success-subtle px-2 py-1">Status: {{ request('status') }}</span>
+                        @endif
+                        @if(request('wali_kelas') && request('wali_kelas') !== 'Semua')
+                            @php
+                                $waliLabel = request('wali_kelas');
+                                if ($waliLabel === 'Ya') $waliLabel = 'Wali Kelas';
+                                elseif ($waliLabel === 'Tidak') $waliLabel = 'Bukan Wali Kelas';
+                                elseif (str_starts_with($waliLabel, 'kelas_')) {
+                                    $kId = (int) str_replace('kelas_', '', $waliLabel);
+                                    $kObj = $daftarKelas->firstWhere('id', $kId);
+                                    $waliLabel = 'Wali: ' . ($kObj ? $kObj->tingkat . ' ' . $kObj->nama_kelas : $waliLabel);
+                                }
+                            @endphp
+                            <span class="badge bg-light text-primary border border-primary-subtle px-2 py-1">{{ $waliLabel }}</span>
+                        @endif
+                    </div>
+                    <a href="{{ route('guru.index') }}" class="btn btn-sm btn-outline-secondary rounded-2 px-2 py-1 text-decoration-none d-inline-flex align-items-center gap-1" style="font-size: 0.78rem;">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                        <span>Reset Filter</span>
+                    </a>
+                </div>
+            @endif
         </form>
     </div>
 

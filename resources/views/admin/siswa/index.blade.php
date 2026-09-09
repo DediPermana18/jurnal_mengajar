@@ -368,7 +368,7 @@
         $filterJsonFlags = JSON_HEX_APOS | JSON_HEX_TAG | JSON_HEX_AMP;
     @endphp
     <div class="filter-bar">
-        <form action="{{ route('siswa.index') }}" method="GET"
+        <form id="filterSiswaForm" action="{{ route('siswa.index') }}" method="GET"
               x-data='siswaFilter(
                   {!! json_encode($kelasFilterOpts, $filterJsonFlags) !!},
                   {!! json_encode($jurusanFilterOpts, $filterJsonFlags) !!},
@@ -390,25 +390,34 @@
 
                 {{-- Dropdown Pilih Kelas --}}
                 <div class="col-12 col-sm-4 col-md-3">
-                    <select name="id_kelas" class="form-select"
+                    <select name="id_kelas" id="filterKelas" class="form-select"
                             x-model="kelasId"
                             @change="onKelasChange()">
                         <option value="">Pilih Kelas</option>
-                        <template x-for="k in filteredClasses" :key="k.id">
-                            <option :value="k.id" x-text="k.label"></option>
-                        </template>
+                        @foreach($dataKelas as $k)
+                            <option value="{{ $k->id }}"
+                                    data-jurusan="{{ $k->id_jurusan ?? '' }}"
+                                    :hidden="jurusanId && jurusanId != '{{ $k->id_jurusan ?? '' }}'"
+                                    :disabled="jurusanId && jurusanId != '{{ $k->id_jurusan ?? '' }}'"
+                                    {{ (string)request('id_kelas') === (string)$k->id ? 'selected' : '' }}>
+                                {{ $k->tingkat }} • {{ $k->nama_kelas }}{{ $k->jurusan ? ' (' . $k->jurusan->nama_jurusan . ')' : '' }}
+                            </option>
+                        @endforeach
                     </select>
                 </div>
 
                 {{-- Dropdown Pilih Jurusan --}}
                 <div class="col-6 col-sm-4 col-md-3">
-                    <select name="id_jurusan" class="form-select"
+                    <select name="id_jurusan" id="filterJurusan" class="form-select"
                             x-model="jurusanId"
                             @change="onJurusanChange()">
                         <option value="">Semua Jurusan</option>
-                        <template x-for="j in jurusans" :key="j.id">
-                            <option :value="j.id" x-text="j.kode"></option>
-                        </template>
+                        @foreach($jurusans as $j)
+                            <option value="{{ $j->id }}"
+                                    {{ (string)request('id_jurusan') === (string)$j->id ? 'selected' : '' }}>
+                                {{ $j->kode_jurusan }} - {{ $j->nama_jurusan }}
+                            </option>
+                        @endforeach
                     </select>
                 </div>
 
@@ -421,6 +430,33 @@
                     </select>
                 </div>
             </div>
+
+            {{-- Indikator Filter Aktif & Tombol Reset --}}
+            @if(request()->hasAny(['search', 'id_kelas', 'id_jurusan', 'jenis_kelamin']) && (request('search') || request('id_kelas') || request('id_jurusan') || request('jenis_kelamin')))
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2 mt-3 border-top" style="border-color: #f1f5f9 !important;">
+                    <div class="d-flex flex-wrap align-items-center gap-1.5" style="font-size: 0.8rem; color: #64748b;">
+                        <span class="fw-semibold text-dark"><i class="bi bi-funnel-fill text-primary me-1"></i>Filter Aktif:</span>
+                        @if(request('search'))
+                            <span class="badge bg-light text-dark border px-2 py-1">Pencarian: "{{ request('search') }}"</span>
+                        @endif
+                        @if(request('id_kelas'))
+                            @php $selK = $dataKelas->firstWhere('id', request('id_kelas')); @endphp
+                            <span class="badge bg-light text-primary border border-primary-subtle px-2 py-1">Kelas: {{ $selK ? $selK->tingkat . ' ' . $selK->nama_kelas : request('id_kelas') }}</span>
+                        @endif
+                        @if(request('id_jurusan'))
+                            @php $selJ = $jurusans->firstWhere('id', request('id_jurusan')); @endphp
+                            <span class="badge bg-light text-success border border-success-subtle px-2 py-1">Jurusan: {{ $selJ ? $selJ->kode_jurusan : request('id_jurusan') }}</span>
+                        @endif
+                        @if(request('jenis_kelamin'))
+                            <span class="badge bg-light text-dark border px-2 py-1">Gender: {{ request('jenis_kelamin') == 'L' ? 'Laki-laki' : 'Perempuan' }}</span>
+                        @endif
+                    </div>
+                    <a href="{{ route('siswa.index') }}" class="btn btn-sm btn-outline-secondary rounded-2 px-2 py-1 text-decoration-none d-inline-flex align-items-center gap-1" style="font-size: 0.78rem;">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                        <span>Reset Filter</span>
+                    </a>
+                </div>
+            @endif
         </form>
     </div>
 
@@ -784,9 +820,11 @@
 
             init() {
                 // Sinkronkan kombinasi di awal (mis. URL yang diisi manual).
-                const k = this.classes.find(c => c.id === this.kelasId);
-                if (k) {
-                    this.jurusanId = k.jurusan_id;
+                if (this.kelasId) {
+                    const k = this.classes.find(c => String(c.id) === String(this.kelasId));
+                    if (k && k.jurusan_id) {
+                        this.jurusanId = String(k.jurusan_id);
+                    }
                 }
             },
 
@@ -794,27 +832,38 @@
                 if (!this.jurusanId) {
                     return this.classes;
                 }
-                return this.classes.filter(c => c.jurusan_id === this.jurusanId);
+                return this.classes.filter(c => String(c.jurusan_id) === String(this.jurusanId));
             },
 
             onKelasChange() {
-                // Kelas dipilih → jurusan terkunci mengikuti kelas.
-                const k = this.classes.find(c => c.id === this.kelasId);
-                this.jurusanId = k ? k.jurusan_id : '';
+                // Kelas dipilih → jurusan otomatis diselaraskan dengan kelas.
+                if (this.kelasId) {
+                    const k = this.classes.find(c => String(c.id) === String(this.kelasId));
+                    if (k && k.jurusan_id) {
+                        this.jurusanId = String(k.jurusan_id);
+                    }
+                }
                 this._submit();
             },
 
             onJurusanChange() {
-                // Jurusan dipilih → hanya kelas milik jurusan tersebut yang tampil.
-                const ok = this.filteredClasses.some(c => c.id === this.kelasId);
-                if (!ok) {
-                    this.kelasId = '';
+                // Jurusan dipilih → jika kelas yang dipilih sebelumnya bukan milik jurusan baru, reset kelas.
+                if (this.jurusanId && this.kelasId) {
+                    const k = this.classes.find(c => String(c.id) === String(this.kelasId));
+                    if (!k || String(k.jurusan_id) !== String(this.jurusanId)) {
+                        this.kelasId = '';
+                    }
                 }
                 this._submit();
             },
 
             _submit() {
-                this.$nextTick(() => this.$el.submit());
+                this.$nextTick(() => {
+                    const form = document.getElementById('filterSiswaForm') || this.$root || (this.$el && this.$el.closest ? this.$el.closest('form') : null);
+                    if (form && typeof form.submit === 'function') {
+                        form.submit();
+                    }
+                });
             },
         };
     }
