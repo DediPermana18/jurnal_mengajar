@@ -414,7 +414,7 @@
 
                 {{-- Dropdown Jenis Kelamin --}}
                 <div class="col-6 col-sm-4 col-md-2">
-                    <select name="jenis_kelamin" class="form-select">
+                    <select name="jenis_kelamin" class="form-select" onchange="this.form.submit()">
                         <option value="">Jenis Kelamin</option>
                         <option value="L" {{ request('jenis_kelamin') == 'L' ? 'selected' : '' }}>Laki-laki</option>
                         <option value="P" {{ request('jenis_kelamin') == 'P' ? 'selected' : '' }}>Perempuan</option>

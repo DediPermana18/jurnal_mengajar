@@ -17,7 +17,7 @@ class SiswaImportFlexibleTest extends TestCase
 
     private function makeWorkbook(array $sheets): string
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
 
         foreach ($sheets as $i => $sheet) {
             if ($i === 0) {
@@ -35,8 +35,9 @@ class SiswaImportFlexibleTest extends TestCase
             }
         }
 
-        $path = tempnam(sys_get_temp_dir(), 'import_') . '.xlsx';
+        $path = tempnam(sys_get_temp_dir(), 'import_').'.xlsx';
         (new Xlsx($spreadsheet))->save($path);
+
         return $path;
     }
 
@@ -57,21 +58,21 @@ class SiswaImportFlexibleTest extends TestCase
         $file = $this->makeWorkbook([
             [
                 'title' => 'KELAS X',
-                'rows'  => array_merge(
+                'rows' => array_merge(
                     [['X TKJ 1']],
                     $this->studentRows(1)
                 ),
             ],
             [
                 'title' => 'KELAS XI',
-                'rows'  => array_merge(
+                'rows' => array_merge(
                     [['Kelas XI AKL 2']],
                     $this->studentRows(20)
                 ),
             ],
             [
                 'title' => 'KELAS XII',
-                'rows'  => array_merge(
+                'rows' => array_merge(
                     [['KELAS: XII DKV 1']],
                     $this->studentRows(40)
                 ),
@@ -108,7 +109,7 @@ class SiswaImportFlexibleTest extends TestCase
         $file = $this->makeWorkbook([
             [
                 'title' => 'KELAS X',
-                'rows'  => array_merge(
+                'rows' => array_merge(
                     [['KELAS : X TKJ 1']],
                     [ // siswa baris kedua punya nama mengandung "TKJ 1" → TIDAK boleh jadi header
                         [1, '1000000001', 'Andi TKJ 1 Pratama', '101', 'L'],
@@ -135,7 +136,7 @@ class SiswaImportFlexibleTest extends TestCase
         $file = $this->makeWorkbook([
             [
                 'title' => 'SHEET TANPA HEADER',
-                'rows'  => $this->studentRows(1),
+                'rows' => $this->studentRows(1),
             ],
         ]);
 
@@ -156,7 +157,7 @@ class SiswaImportFlexibleTest extends TestCase
         $file = $this->makeWorkbook([
             [
                 'title' => 'SHEET A',
-                'rows'  => [
+                'rows' => [
                     ['', 'KELAS', 'XI AKL 2'],
                     ...$this->studentRows(1),
                 ],
@@ -179,7 +180,7 @@ class SiswaImportFlexibleTest extends TestCase
         $file = $this->makeWorkbook([
             [
                 'title' => 'TANPA HEADER NO FALLBACK',
-                'rows'  => $this->studentRows(1),
+                'rows' => $this->studentRows(1),
             ],
         ]);
 
@@ -240,7 +241,7 @@ class SiswaImportFlexibleTest extends TestCase
         $file = $this->makeWorkbook([
             [
                 'title' => 'GENDER KOLOM F',
-                'rows'  => [
+                'rows' => [
                     ['X RPL 1'],
                     [1, '1000000001', 'Dewi', '101', '', 'Perempuan'],
                     [2, '1000000002', 'Agus', '102', '', 'LAKI-LAKI'],
@@ -268,7 +269,7 @@ class SiswaImportFlexibleTest extends TestCase
         $file = $this->makeWorkbook([
             [
                 'title' => 'EXTRA COL',
-                'rows'  => [
+                'rows' => [
                     ['X TKJ 1'],
                     [1, '1000000001', 'AISYAH',   '101', '66', 'P'],
                     [2, '1000000002', 'AATHIFAH', '102', '66', 'P'],
@@ -296,7 +297,7 @@ class SiswaImportFlexibleTest extends TestCase
         $file = $this->makeWorkbook([
             [
                 'title' => 'GENDER UNKNOWN',
-                'rows'  => [
+                'rows' => [
                     ['X TKJ 1'],
                     [1, '1000000001', 'SITI NUR AISYAH', '101', '???'],
                     [2, '1000000002', 'Agus',            '102', '???'],
@@ -324,7 +325,7 @@ class SiswaImportFlexibleTest extends TestCase
         $file = $this->makeWorkbook([
             [
                 'title' => 'GENDER P',
-                'rows'  => [
+                'rows' => [
                     ['X TKJ 1'],
                     [1, '1000000001', 'DEWI LESTARI', '101', 'P'],
                     [2, '1000000002', 'SITI',         '102', 'p'],
@@ -350,7 +351,7 @@ class SiswaImportFlexibleTest extends TestCase
         $file = $this->makeWorkbook([
             [
                 'title' => 'KODE ANEH',
-                'rows'  => [
+                'rows' => [
                     ['X TKJ 1'],
                     [1, '1000000001', 'AAN SYAIFUDIN',    '101', ' / /0001'],
                     [2, '1000000002', 'ABDULLOH MUSYAFA', '102', ' / /0002'],
@@ -379,7 +380,7 @@ class SiswaImportFlexibleTest extends TestCase
         $file = $this->makeWorkbook([
             [
                 'title' => 'GENDER KOSONG',
-                'rows'  => [
+                'rows' => [
                     ['X TKJ 1'],
                     [1, '1000000001', 'Bayu', '101', ''],
                 ],
@@ -407,7 +408,7 @@ class SiswaImportFlexibleTest extends TestCase
         $file = $this->makeWorkbook([
             [
                 'title' => 'KELAS X',
-                'rows'  => [
+                'rows' => [
                     ['KELAS: X AK 1'],
                     ['NO', 'NISN', 'NIS', 'NAMA SISWA', 'JENIS KELAMIN', 'STATUS'],
                     [1, '1234567890', '20231001', 'Ahmad Fauzi', 'Laki-laki', 'Aktif'],
@@ -416,7 +417,7 @@ class SiswaImportFlexibleTest extends TestCase
             ],
             [
                 'title' => 'KELAS XI',
-                'rows'  => [
+                'rows' => [
                     ['KELAS: XI AK 1'],
                     ['NO', 'NISN', 'NIS', 'NAMA SISWA', 'JENIS KELAMIN', 'STATUS'],
                     [1, '2234567890', '20241001', 'Rizky Ramadhan', 'Laki-laki', 'Aktif'],
@@ -452,6 +453,178 @@ class SiswaImportFlexibleTest extends TestCase
         @unlink($file);
     }
 
+    public function test_import_saves_nis_from_column_c_preserving_leading_zeros(): void
+    {
+        Kelas::create(['tingkat' => 'X', 'nama_kelas' => 'AK 1']);
+
+        // Format PERSIS export: kolom C = NIS, kolom D = NAMA, dst.
+        $file = $this->makeWorkbook([
+            [
+                'title' => 'KELAS X',
+                'rows' => [
+                    ['KELAS: X AK 1'],
+                    ['NO', 'NISN', 'NIS', 'NAMA SISWA', 'JENIS KELAMIN', 'STATUS'],
+                    [1, '1234567890', '0203101', 'Ahmad Fauzi',    'Laki-laki',  'Aktif'],
+                    [2, '1234567891', '0',       'Siti Nurhaliza', 'Perempuan',  'Aktif'],
+                    [3, '1234567892', 2023103,   'Rizky Ramadhan', 'Laki-laki',  'Aktif'],
+                ],
+            ],
+        ]);
+
+        $importer = new SiswaImport;
+        Excel::import($importer, $file);
+
+        $this->assertEquals(3, $importer->importedCount);
+        $this->assertCount(0, $importer->rowErrors);
+
+        $this->assertEquals('0203101', Siswa::where('nisn', '1234567890')->first()->nis, 'NIS teks dengan 0 di depan tetap utuh');
+        $this->assertEquals('0', Siswa::where('nisn', '1234567891')->first()->nis, 'NIS "0" tidak boleh hilang');
+        $this->assertEquals('2023103', Siswa::where('nisn', '1234567892')->first()->nis, 'NIS numerik tetap tersimpan sebagai teks');
+
+        @unlink($file);
+    }
+
+    public function test_import_dynamic_nis_numeric_string_not_truncated(): void
+    {
+        // Tanpa baris judul kolom → deteksi kolom DINAMIS per baris.
+        // NIS berupa angka string (mulai nol) wajib tetap utuh.
+        Kelas::create(['tingkat' => 'X', 'nama_kelas' => 'AK 1']);
+
+        $file = $this->makeWorkbook([
+            [
+                'title' => 'KELAS X',
+                'rows' => [
+                    ['X AK 1'],
+                    [1, '1234567890', '00987', 'Ahmad Fauzi', 'L'],
+                ],
+            ],
+        ]);
+
+        $importer = new SiswaImport;
+        Excel::import($importer, $file);
+
+        $this->assertEquals(1, $importer->importedCount);
+        $this->assertEquals('00987', Siswa::where('nisn', '1234567890')->first()->nis, 'NIS angka string tidak terpotong / kehilangan nol');
+
+        @unlink($file);
+    }
+
+    public function test_import_accepts_short_or_legacy_nisn(): void
+    {
+        // NISN TIDAK wajib 10 digit: format lama / kurang digit tetap ter-import.
+        Kelas::create(['tingkat' => 'X', 'nama_kelas' => 'AK 1']);
+
+        $file = $this->makeWorkbook([
+            [
+                'title' => 'KELAS X',
+                'rows' => [
+                    ['KELAS: X AK 1'],
+                    ['NO', 'NISN', 'NIS', 'NAMA SISWA', 'JENIS KELAMIN', 'STATUS'],
+                    [1, '12345',   '0203101', 'Ahmad Fauzi',  'Laki-laki', ''],
+                    [2, '2345678', '0',       'Siti Nur',     'Perempuan', ''],
+                ],
+            ],
+        ]);
+
+        $importer = new SiswaImport;
+        Excel::import($importer, $file);
+
+        $this->assertEquals(2, $importer->importedCount, 'NISN pendek/format lama tetap terimport');
+        $this->assertCount(0, $importer->rowErrors);
+
+        $this->assertEquals('12345', Siswa::where('nisn', '12345')->first()->nisn);
+        $this->assertEquals('0203101', Siswa::where('nisn', '12345')->first()->nis);
+        $this->assertEquals('2345678', Siswa::where('nisn', '2345678')->first()->nisn);
+
+        @unlink($file);
+    }
+
+    public function test_import_still_skips_rows_without_nisn_or_non_numeric_nisn(): void
+    {
+        // Longgar ≠ hilang: baris TANPA NISN / tanpa digit apa pun tetap dilewati.
+        // NISN berhuruf tapi menyimpan digit (mis. "AB123456") ditoleransi:
+        // karakter non-digit dibuang → "123456" tetap ter-import.
+        Kelas::create(['tingkat' => 'X', 'nama_kelas' => 'AK 1']);
+
+        $file = $this->makeWorkbook([
+            [
+                'title' => 'KELAS X',
+                'rows' => [
+                    ['KELAS: X AK 1'],
+                    ['NO', 'NISN', 'NIS', 'NAMA SISWA', 'JENIS KELAMIN', 'STATUS'],
+                    [1, '',         '0203101', 'Tanpa NISN',   'Laki-laki', ''],
+                    [2, 'ABCDEF',   '0203102', 'Huruf Semua',  'Perempuan', ''],
+                    [3, 'AB123456', '0203103', 'NISN Aneh',    'Laki-laki', ''],
+                    [4, '1234567',  '0203104', 'Budi Benar',   'Laki-laki', ''],
+                ],
+            ],
+        ]);
+
+        $importer = new SiswaImport;
+        Excel::import($importer, $file);
+
+        $this->assertEquals(2, $importer->importedCount, 'hanya baris dgn NISN bernomor yang terimport');
+        $this->assertEquals(3, $importer->skippedCount, 'header row (+1) dan 2 baris NISN tak bernomor dilewati');
+        $this->assertNotNull(Siswa::where('nisn', '123456')->first(), 'AB123456 disimpan sebagai 123456');
+        $this->assertNotNull(Siswa::where('nisn', '1234567')->first());
+
+        @unlink($file);
+    }
+
+    public function test_import_accepts_short_nisn_in_dynamic_mode_without_header(): void
+    {
+        // Tanpa baris judul: NISN berlaku angka terpanjang bila tak ada 10 digit.
+        Kelas::create(['tingkat' => 'X', 'nama_kelas' => 'AK 1']);
+
+        $file = $this->makeWorkbook([
+            [
+                'title' => 'KELAS X',
+                'rows' => [
+                    ['X AK 1'],
+                    [1, '12345678', 'Budi Santoso', '101', 'L'],
+                ],
+            ],
+        ]);
+
+        $importer = new SiswaImport;
+        Excel::import($importer, $file);
+
+        $this->assertEquals(1, $importer->importedCount, 'NISN kurang digit terdeteksi (angka terpanjang) dan terimport');
+        $this->assertEquals('12345678', Siswa::where('nisn', '12345678')->first()->nisn);
+        $this->assertEquals('101', Siswa::where('nisn', '12345678')->first()->nis);
+
+        @unlink($file);
+    }
+
+    public function test_import_empty_nis_does_not_cancel_the_row(): void
+    {
+        // NIS kosong di file → null (bukan membatalkan / menggagalkan baris).
+        Kelas::create(['tingkat' => 'X', 'nama_kelas' => 'AK 1']);
+
+        $file = $this->makeWorkbook([
+            [
+                'title' => 'KELAS X',
+                'rows' => [
+                    ['KELAS: X AK 1'],
+                    ['NO', 'NISN', 'NIS', 'NAMA SISWA', 'JENIS KELAMIN', 'STATUS'],
+                    [1, '1234567890', null, 'Ahmad Fauzi', 'Laki-laki', ''],
+                ],
+            ],
+        ]);
+
+        $importer = new SiswaImport;
+        Excel::import($importer, $file);
+
+        $this->assertEquals(1, $importer->importedCount, 'baris tetap terimport walau NIS kosong');
+        $this->assertCount(0, $importer->rowErrors);
+
+        $fauzi = Siswa::where('nisn', '1234567890')->first();
+        $this->assertNotNull($fauzi);
+        $this->assertNull($fauzi->nis, 'NIS kosong tersimpan sebagai null');
+
+        @unlink($file);
+    }
+
     public function test_import_works_when_sheet_name_does_not_match_class(): void
     {
         // Kelas valid ada di DB; nama tab sheet TIDAK memuat nama kelas.
@@ -461,7 +634,7 @@ class SiswaImportFlexibleTest extends TestCase
         $file = $this->makeWorkbook([
             [
                 'title' => 'DAFTAR SISWA', // arbitrary — bukan "KELAS XI"
-                'rows'  => [
+                'rows' => [
                     ['KELAS: XI AK 1'],
                     ['NO', 'NISN', 'NIS', 'NAMA SISWA', 'JENIS KELAMIN', 'STATUS'],
                     [1, '2334567890', '20251001', 'Rizky Ramadhan', 'Laki-laki', 'Aktif'],
@@ -491,7 +664,7 @@ class SiswaImportFlexibleTest extends TestCase
         $file = $this->makeWorkbook([
             [
                 'title' => 'VARIAN',
-                'rows'  => [
+                'rows' => [
                     ['KELAS : X RPL 1'],
                     ['NO', 'NISN', 'NIS', 'NAMA', 'JENIS KELAS', 'L/P', 'STATUS'],
                     [1, '3334567890', '20261001', 'Dewi Lestari', 'Perempuan', '', 'Nonaktif'],

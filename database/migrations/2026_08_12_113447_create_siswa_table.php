@@ -9,7 +9,7 @@ return new class extends Migration {
         Schema::create('siswa', function (Blueprint $table) {
             $table->id();
             $table->string('nisn', 20)->nullable()->unique();
-            $table->string('nis', 20)->nullable()->unique();
+            $table->string('nis', 50)->nullable()->unique();
             $table->string('nama');
             $table->enum('jenis_kelamin', ['L', 'P']);
             $table->foreignId('id_kelas')->constrained('kelas')->cascadeOnDelete();

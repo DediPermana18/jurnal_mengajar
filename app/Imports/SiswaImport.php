@@ -21,29 +21,43 @@ class SiswaImport implements ToCollection, WithEvents
     /** Nama sheet (tab Excel) yang sedang diproses — untuk logging saja. */
     protected ?string $sheetName = null;
 
-    /** Kelas AKTIF dari blok header terakhir (mis. "X TKJ 1"). */
+    /** Kelas AKTIF dari header kelas terakhir (mis. "XI DKV 1"). */
     protected ?Kelas $currentKelas = null;
 
-    /** Kelas yang baru saja di-resolve untuk blok header terakhir. */
+    /** Kelas yang baru saja di-resolve untuk blok terakhir. */
     protected ?Kelas $resolvedKelas = null;
 
-    /** Nama kelas (raw) dari blok header terakhir. */
+    /** Nama kelas (raw) dari blok terakhir. */
     protected ?string $parsedNamaKelasRaw = null;
+
+    /** Indeks kolom yang terdeteksi untuk header dinamis. */
+    protected ?int $nisCol = null;
+
+    protected ?int $nisnCol = null;
+
+    protected ?int $namaCol = null;
+
+    protected ?int $jkCol = null;
+
+    protected ?int $statusCol = null;
 
     public int $importedCount = 0;
 
     public int $skippedCount = 0;
 
-    public int $newKelasCount = 0;   // SELALU 0: tidak pernah auto-create kelas
+    public int $newKelasCount = 0;
 
     public array $rowErrors = [];
 
-    /** Kolom baku terdeteksi dari baris judul (mis. "NO | NISN | NIS | NAMA SISWA | ..."). */
+    /**
+     * Posisi kolom terdeteksi dari BARIS HEADER tabel.
+     * Dipakai untuk kompatibilitas dengan helper lama.
+     */
     protected ?array $headerColumns = null;
 
     /**
      * Daftar lengkap representasi kelas VALID dari DB, dipakai untuk mencocokkan
-     * header. Setiap entry: ['id', 'full' => "X TKJ 1", 'name' => "TKJ 1"].
+     * header kelas. Setiap entry: ['id', 'full' => "X TKJ 1", 'name' => "TKJ 1"].
      */
     protected array $classList = [];
 
@@ -55,7 +69,7 @@ class SiswaImport implements ToCollection, WithEvents
     }
 
     /**
-     * Reset state per-sheet. With ToCollection satu instance dipakai untuk
+     * Reset state per-sheet. Dengan ToCollection satu instance dipakai untuk
      * SEMUA sheet, jadi tanpa reset, kelas aktif dari sheet sebelumnya
      * ikut menempel pada baris pertama sheet berikutnya.
      */
@@ -67,11 +81,13 @@ class SiswaImport implements ToCollection, WithEvents
                 $this->currentKelas = null;
                 $this->resolvedKelas = null;
                 $this->parsedNamaKelasRaw = null;
+                $this->nisCol = null;
+                $this->nisnCol = null;
+                $this->namaCol = null;
+                $this->jkCol = null;
+                $this->statusCol = null;
                 $this->headerColumns = null;
 
-                // Muat DAFTAR KELAS VALID dari DB (tidak pernah auto-create).
-                // Tidak ada hardcoded regex "KELAS :" — pencocokan murni berbasis
-                // daftar kelas DB (tingkat + nama_kelas, dan nama_kelas saja).
                 $this->classList = [];
                 foreach (Kelas::select('id', 'tingkat', 'nama_kelas')->get() as $k) {
                     $this->classList[] = [
@@ -87,22 +103,13 @@ class SiswaImport implements ToCollection, WithEvents
     // ─── Entry Point ──────────────────────────────────────────────────────────
 
     /**
-     * Proses satu sheet. Setiap sheet berisi BEBERAPA tabel kelas yang
-     * ditumpuk vertikal, dipisahkan oleh header blok seperti:
-     *   "KELAS : X TKJ 1", "Kelas X DKV 2", "X AKL 1", dst.
-     *
-     * Pencocokan header TIDAK memakai regex/hardcoded "KELAS :" sama sekali —
-     * murni membandingkan teks rata baris dengan daftar kelas VALID dari DB.
-     * Jika teks baris mengandung "full" (tingkat+nama_kelas) ATAU "name"
-     * (nama_kelas) milik kelas yang ada di DB, baris tsb = header → set
-     * $currentKelas dan lompati (tidak diproses sebagai data siswa).
+     * Proses sheet menggunakan inspeksi baris dinamis.
      *
      * Alur:
-     *   1. Scan setap baris (non-data) untuk header kelas → set $currentKelas.
-     *   2. Baris dengan No Urut valid (Kolom A) + $currentKelas ada →
-     *      siswa ditetapkan PERSIS ke kelas tersebut. TIDAK pernah di-skip
-     *      hanya karena kelas tidak terdeteksi di baris itu sendiri.
-     *   3. Baris data tanpa kelas aktif → log/dump teks baris utk diagnosis.
+     *   1. Deteksi baris judul kolom (mengandung NISN / NAMA) → petakan kolom.
+     *   2. Deteksi header kelas "KELAS: ..." / cell bertuliskan "Kelas" →
+     *      set $currentKelas untuk blok berikutnya.
+     *   3. Baris data siswa: cari kelas aktif → baca kolom → simpan/update ke DB.
      */
     public function collection(Collection $rows): void
     {
@@ -113,67 +120,44 @@ class SiswaImport implements ToCollection, WithEvents
                 $cells
             ))));
 
-            // ── 0) SKIP BARIS KOSONG TOTAL (gap antar tabel kelas) ──────────
+            // 0) Baris kosong total (gap antar tabel kelas).
             if ($flatText === '') {
                 $this->skippedCount++;
 
                 continue;
             }
 
-            $noUrut = $cells[0] ?? null;
-            $isDataRow = $this->isValidNoUrut($noUrut);
+            // 1) Baris judul kolom (mengandung "NISN" / "NAMA").
+            if ($this->isHeaderRow($cells)) {
+                $this->trackHeaderColumns($cells);
+                $this->skippedCount++;
 
-            // ── 1) HEADER DETECTION ──────────────────────────────────────────
-            // a) Prioritas: ambil nama kelas langsung dari teks setelah "KELAS:"
-            //    (biasanya Baris 1 / cell A1, format baku export).
-            //    Contoh: "KELAS: XI AK 1" → kelas "XI AK 1".
-            // b) Fallback: cocokkan teks baris terhadap daftar kelas DB.
-            // GUARD: hanya baris yang BUKAN data siswa (Kolom A bukan nomor) yang
-            // bisa jadi header — mencegah nama siswa berisi teks kelas ("Andi TKJ 1
-            // Pratama") dianggap header.
-            if (! $isDataRow) {
-                $classText = $this->extractClassTextFromRow($cells);
-                $matchedKelas = $classText !== '' ? $this->resolveKelasByName($classText) : null;
-                if ($matchedKelas === null) {
-                    $matchedKelas = $this->matchKelasByRowText($flatText);
-                }
+                continue;
+            }
 
+            // 2) Header kelas ("KELAS: X TKJ 1", "Kelas XI DKV 1", cell berisi "Kelas",
+            //    atau teks kelas polos seperti "X TKJ 1"). Khusus baris yang BELUM
+            //    jelas-jelas data siswa agar nama siswa berisi teks kelas (mis.
+            //    "Andi TKJ 1 Pratama") tidak pernah salah dianggap sebagai header.
+            if (! $this->isDefinitelyDataRow($cells)) {
+                $matchedKelas = $this->resolveKelasFromRow($cells, $flatText);
                 if ($matchedKelas !== null) {
                     $this->currentKelas = $matchedKelas;
                     $this->resolvedKelas = $matchedKelas;
                     $this->parsedNamaKelasRaw = $matchedKelas->nama_lengkap;
 
-                    continue; // baris header kelas ("KELAS: X TKJ 1") — dipakai utk context
+                    continue;
                 }
             }
 
-            // ── 2) SKIP METADATA / JUDUL KOLOM ───────────────────────────────
-            // Baris seperti ["NO", "NISN", "NIS", "NAMA SISWA", "JENIS KELAMIN",
-            // "STATUS"] atau teks berawalan "KELAS:" yang tidak cocok dgn kelas DB —
-            // dilewati agar tidak terbaca sebagai data siswa.
-            if (! $isDataRow && $this->isHeaderOrHeadingRow($flatText)) {
-                // Tangkap urutan kolom baku (NO, NISN, NIS, NAMA SISWA, ...) dari
-                // baris judul agar baris data berikutnya dipetakan posisi kolomnya
-                // secara tetap (identik dengan format export).
-                if ($this->headerColumns === null) {
-                    $this->headerColumns = $this->detectHeaderColumns($cells);
-                }
-
+            // 3) Hanya baris data siswa yang diproses dari titik ini.
+            if (! $this->isLikelyDataRow($cells)) {
                 $this->skippedCount++;
 
                 continue;
             }
 
-            // ── 3) STRICT VALIDATION KOLOM A (No Urut) ───────────────────────
-            if (! $isDataRow) {
-                $this->skippedCount++;
-
-                continue;
-            }
-
-            // ── 4) BUTUH KELAS AKTIF ─────────────────────────────────────────
-            // Baris sebelum header kelas pertama tidak bisa ditetapkan → log
-            // teks barisnya supaya terlihat seperti apa sebenarnya di log/tinker.
+            // 4) Butuh kelas aktif (header kelas atau fallback dropdown UI).
             if ($this->currentKelas === null) {
                 if ($this->fallbackIdKelas !== null) {
                     $this->currentKelas = Kelas::find($this->fallbackIdKelas);
@@ -193,14 +177,10 @@ class SiswaImport implements ToCollection, WithEvents
                 }
             }
 
-            // ── 5) DYNAMIC COLUMN MAPPING ────────────────────────────────────
-            // Struktur file berbeda-beda (ekspor grup: B=NISN, C=NIS, D=NAMA;
-            // template klasik: B=NISN, C=NAMA, D=NIS). Deteksi per-baris:
-            // NISN = sel 10 digit, NIS = angka selain No-urut & NISN, Nama =
-            // sel teks terpanjang (lebih suka yang mengandung spasi).
-            [$nisn, $nama, $nis] = $this->detectStudentColumns($cells);
+            // 5) Baca kolom siswa dengan preferensi header yang sudah terdeteksi.
+            [$nisn, $nama, $nis] = $this->extractStudentColumns($cells);
 
-            // ── Skip: nama wajib ada & valid (jangan pernah simpan baris kosong) ──
+            // Nama wajib ada & valid — NAMA kosong = alasan utama skip baris.
             if ($nama === '' || $this->isReservedToken($nama) || $this->isInvalidNama($nama)) {
                 $this->skippedCount++;
                 $this->rowErrors[] = "Baris #{$rowIndex}: '".($nama ?: $nisn)."' dilewati — nama tidak valid/kosong.";
@@ -208,30 +188,30 @@ class SiswaImport implements ToCollection, WithEvents
                 continue;
             }
 
-            // ── Skip: NISN wajib numerik 10 digit ───────────────────────────
-            if ($nisn === '' || ! ctype_digit($nisn) || strlen($nisn) !== 10) {
+            // NISN dijadikan kunci unik updateOrCreate — wajib punya digit.
+            // NISS boleh kosong (kelas 10) → disimpan null, bukan alasan skip.
+            $nisn = $this->cleanNisn($nisn);
+            if ($nisn === null) {
                 $this->skippedCount++;
-                $this->rowErrors[] = "Baris #{$rowIndex}: '".($nama ?: $nisn)."' dilewati — NISN tidak valid (harus 10 digit angka).";
+                $this->rowErrors[] = "Baris #{$rowIndex}: '{$nama}' dilewati — NISN kosong/tidak bernomor.";
 
                 continue;
             }
 
-            // ── Mapping gender (enum NOT NULL, L/P) — gunakan kolom "JENIS
-            //    KELAMIN"/"JENIS KELAS"/"L/P" bila baris judul terekam, lalu
-            //    konversi nilai ("Laki-laki"/"L" → L, "Perempuan"/"P" → P).
-            //    Tanpa baris judul, lakukan scan dinamis per baris.
-            $gender = $this->detectGender($cells);
+            // NIS/NISS diambil UTUH sebagai string ("24435 / 0001 . 0411"),
+            // kosong → null.
+            $nisClean = $nis !== null && trim((string) $nis) !== ''
+                ? trim((string) $nis)
+                : null;
 
-            // ── Mapping status — baca kolom "STATUS" bila ada; kosong/tanpa
-            //    kolom status → default 'Aktif'.
+            $gender = $this->detectGender($cells);
             $status = $this->detectStatus($cells);
 
-            // ── Simpan / Update via updateOrCreate (match by NISN) ───────────
             try {
                 Siswa::updateOrCreate(
                     ['nisn' => $nisn],
                     [
-                        'nis' => ! empty($nis) ? $nis : null,
+                        'nis' => $nisClean,
                         'nama' => $nama,
                         'id_kelas' => $this->currentKelas->id,
                         'id_jurusan' => $this->currentKelas->id_jurusan ?? null,
@@ -241,7 +221,6 @@ class SiswaImport implements ToCollection, WithEvents
                 );
 
                 $this->importedCount++;
-
             } catch (\Throwable $e) {
                 $this->skippedCount++;
                 $this->rowErrors[] = "Baris #{$rowIndex} (NISN: {$nisn}): ".$e->getMessage();
@@ -249,18 +228,233 @@ class SiswaImport implements ToCollection, WithEvents
         }
     }
 
+    // ─── Deteksi Header & Kolom Dinamis ─────────────────────────────────────
+
+    /**
+     * Apakah baris saat ini merupakan BARIS JUDUL KOLOM (header tabel).
+     * Terdeteksi bila ada sel yang memuat kata "NISN" atau "NAMA"
+     * (case-insensitive, spasi diabaikan sehingga "NISN" / "N I S N" ketangkap).
+     */
+    protected function isHeaderRow(array $cells): bool
+    {
+        // Baris data siswa (kolom A berisi nomor urut ATAU ada NISN 10 digit)
+        // tidak mungkin judul kolom — mencegah nama seperti "NISN Aneh" / "Tanpa
+        // NISN" terdeteksi sebagai baris header.
+        if ($this->isDefinitelyDataRow($cells)) {
+            return false;
+        }
+
+        foreach ($cells as $raw) {
+            $normalized = $this->normalizeHeaderToken((string) $raw);
+            if ($normalized === '') {
+                continue;
+            }
+
+            if (str_contains($normalized, 'NISN') || str_contains($normalized, 'NAMA')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Tangkap indeks kolom header untuk field utama secara dinamis:
+     *   NISN, NAMA, NISS (atau "N I S S" / "NIS"), L/P (Gender), STATUS.
+     */
+    protected function trackHeaderColumns(array $cells): void
+    {
+        $this->nisCol = null;
+        $this->nisnCol = null;
+        $this->namaCol = null;
+        $this->jkCol = null;
+        $this->statusCol = null;
+
+        foreach ($cells as $index => $raw) {
+            $normalized = $this->normalizeHeaderToken((string) $raw);
+            if ($normalized === '') {
+                continue;
+            }
+
+            if ($this->nisnCol === null && str_contains($normalized, 'NISN')) {
+                $this->nisnCol = $index;
+
+                continue;
+            }
+
+            if ($this->nisCol === null && str_contains($normalized, 'NISS')) {
+                $this->nisCol = $index;
+
+                continue;
+            }
+
+            if ($this->nisCol === null && str_contains($normalized, 'NIS') && ! str_contains($normalized, 'NISN')) {
+                $this->nisCol = $index;
+
+                continue;
+            }
+
+            if ($this->namaCol === null && str_contains($normalized, 'NAMA')) {
+                $this->namaCol = $index;
+
+                continue;
+            }
+
+            if ($this->jkCol === null && (str_contains($normalized, 'LP') || str_contains($normalized, 'GENDER') || str_contains($normalized, 'JENIS'))) {
+                $this->jkCol = $index;
+
+                continue;
+            }
+
+            if ($this->statusCol === null && str_contains($normalized, 'STATUS')) {
+                $this->statusCol = $index;
+            }
+        }
+
+        $this->headerColumns = [
+            'no' => null,
+            'nisn' => $this->nisnCol,
+            'nis' => $this->nisCol,
+            'nama' => $this->namaCol,
+            'jenis_kelamin' => $this->jkCol,
+            'status' => $this->statusCol,
+        ];
+    }
+
+    /**
+     * Baca baris sebagai data siswa dengan preferensi header yang sudah terdeteksi.
+     * NIS/NISS diambil UTUH (tidak di-strip), karena bisa berupa "24435 / 0001 . 0411".
+     */
+    protected function extractStudentColumns(array $cells): array
+    {
+        $nisn = $this->nisnCol !== null
+            ? trim((string) ($cells[$this->nisnCol] ?? ''))
+            : ($this->detectNisnFromCells($cells) ?? '');
+
+        $nama = $this->namaCol !== null
+            ? trim((string) ($cells[$this->namaCol] ?? ''))
+            : $this->detectNamaFromCells($cells);
+
+        $nis = $this->nisCol !== null
+            ? $this->cleanNumericText($cells[$this->nisCol] ?? null)
+            : $this->detectNisFromCells($cells, $nisn !== '' ? $nisn : null);
+
+        return [$nisn, $nama, $nis];
+    }
+
+    // ─── Deteksi Baris (dinamis di seluruh sheet) ─────────────────────────────
+
+    /**
+     * TRUE bila baris PASTI data siswa sehingga TIDAK boleh dicoba sebagai
+     * header kelas: kolom pertama nomor urut valid ATAU berisi NISN 10 digit.
+     */
+    protected function isDefinitelyDataRow(array $cells): bool
+    {
+        if ($this->isValidNoUrut($cells[0] ?? null)) {
+            return true;
+        }
+
+        return $this->rowContainsNisn($cells);
+    }
+
+    /**
+     * TRUE bila baris memiliki pola data siswa (nomor urut, NISN, atau nama).
+     */
+    protected function isLikelyDataRow(array $cells): bool
+    {
+        $firstCell = trim((string) ($cells[0] ?? ''));
+        if ($firstCell !== '' && preg_match('/^KELAS\b/i', $firstCell)) {
+            return false;
+        }
+
+        if ($this->isValidNoUrut($cells[0] ?? null)) {
+            return true;
+        }
+
+        if ($this->rowContainsNisn($cells)) {
+            return true;
+        }
+
+        return $this->rowContainsLikelyStudentName($cells);
+    }
+
+    /** TRUE bila salah satu sel berisi angka tepat 10 digit (kandidat NISN). */
+    protected function rowContainsNisn(array $cells): bool
+    {
+        foreach ($cells as $raw) {
+            if ($raw === null || $raw === '') {
+                continue;
+            }
+
+            if (preg_match('/^\d{10}$/', trim((string) $raw))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** TRUE bila baris berisi kandidat nama siswa, meski NIS/NISN tidak hadir. */
+    protected function rowContainsLikelyStudentName(array $cells): bool
+    {
+        foreach ($cells as $raw) {
+            $trimmed = trim((string) $raw);
+            if ($trimmed === '' || str_starts_with($trimmed, '=')) {
+                continue;
+            }
+
+            if (preg_match('/^KELAS\b/i', $trimmed)) {
+                continue;
+            }
+
+            if ($this->isReservedToken($trimmed)) {
+                continue;
+            }
+
+            if (is_numeric($trimmed)) {
+                continue;
+            }
+
+            if (preg_match('/[A-Za-z]/', $trimmed) && preg_match('/\s/', $trimmed)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // ─── Resolve Kelas ────────────────────────────────────────────────────────
+
+    /**
+     * Resolve kelas dari baris non-data. Prioritaskan ekstraksi teks setelah
+     * "KELAS:" / "Kelas :" / cell bertuliskan "Kelas" (mis. "Kelas : XI DKV 1"),
+     * lalu fallback ke pencocokan teks baris terhadap daftar kelas DB.
+     */
+    protected function resolveKelasFromRow(array $cells, string $flatText): ?Kelas
+    {
+        $classText = $this->extractClassTextFromRow($cells);
+        $matched = $classText !== '' ? $this->resolveKelasByName($classText) : null;
+
+        if ($matched === null) {
+            $matched = $this->matchKelasByRowText($flatText);
+        }
+
+        if ($matched === null && preg_match('/\bKELAS\b/i', $flatText)) {
+            $matched = $this->resolveKelasByName($this->extractKelasNameFromFlatText($flatText));
+        }
+
+        return $matched;
+    }
+
     // ─── Kelas Resolution (STRICT — DB-only, TIDAK auto-create) ────────────────
 
     /**
-     * Ekstrak teks nama kelas dari baris yang memuat penanda "KELAS:".
-     * Bekerja pada cell MENTAH (bukan yang sudah di-normalisasi) sehingga
-     * prefiks "KELAS:" / "KELAS :" / "KELAS" tetap terdeteksi.
-     *
-     * Contoh:
-     *   ["KELAS: XI AK 1"]           → "XI AK 1"
-     *   ["KELAS : X AK 1", "", ...]   → "X AK 1"
-     *   ["", "KELAS", "XI AKL 2"]     → "XI AKL 2"
-     *   ["X TKJ 1"]                   → "" (bukan baris KELAS)
+     * Ekstrak teks nama kelas dari baris header kelas. Mendukung:
+     *   ["KELAS: XI AK 1"]            → "XI AK 1"
+     *   ["Kelas : X AK 1", "", ...]   → "X AK 1"
+     *   ["", "KELAS", "XI AKL 2"]     → "XI AKL 2"  (nilai di cell sebelah)
+     *   ["Kelas X DKV 2"]             → "X DKV 2"   (gabungan teks satu cell)
+     *   ["X TKJ 1"]                   → ""          (bukan baris KELAS)
      */
     protected function extractClassTextFromRow(array $cells): string
     {
@@ -269,10 +463,43 @@ class SiswaImport implements ToCollection, WithEvents
             $cells
         ));
 
-        if (preg_match('/KELAS\s*:?\s*(.+)$/i', $rowText, $m)) {
+        if (preg_match('/KELAS\s*[.:]?\s*(.+)$/i', $rowText, $m)) {
             $classText = $this->normalizeCellText($m[1]);
             if ($classText !== '' && $classText !== 'KELAS') {
                 return $classText;
+            }
+        }
+
+        foreach ($cells as $index => $value) {
+            $text = strtoupper(trim((string) $value));
+            if ($text === '') {
+                continue;
+            }
+
+            if (! preg_match('/\bKELAS\b/i', $text)) {
+                continue;
+            }
+
+            // Ambil nilai kelas dari cell di SEBELAHNYA (pertama yang tidak kosong).
+            for ($j = $index + 1; $j < count($cells); $j++) {
+                $candidate = trim((string) ($cells[$j] ?? ''));
+                if ($candidate === '') {
+                    continue;
+                }
+
+                $candidate = $this->normalizeCellText($candidate);
+                if ($candidate !== '' && $candidate !== 'KELAS') {
+                    return $candidate;
+                }
+            }
+
+            // Tidak ada cell lanjutan → ambil teks setelah "KELAS" dalam sel yang sama
+            // (mis. ": XI RPL 1" → "XI RPL 1").
+            if (preg_match('/KELAS\s*[.:]?\s*(.+)$/i', $text, $m2)) {
+                $inner = $this->normalizeCellText($m2[1]);
+                if ($inner !== '' && $inner !== 'KELAS') {
+                    return $inner;
+                }
             }
         }
 
@@ -280,9 +507,7 @@ class SiswaImport implements ToCollection, WithEvents
     }
 
     /**
-     * Resolve nama kelas (hasil ekstraksi "KELAS:") terhadap daftar kelas DB.
-     * Pencocokan: nama lengkap ("X AK 1"), nama_kelas ("AK 1"), lalu
-     * mengandung salah satunya. Tidak pernah auto-create kelas.
+     * Resolve nama kelas terhadap daftar kelas DB.
      */
     protected function resolveKelasByName(string $classText): ?Kelas
     {
@@ -318,16 +543,7 @@ class SiswaImport implements ToCollection, WithEvents
     }
 
     /**
-     * Cocokkan teks rata satu baris terhadap daftar kelas VALID dari DB
-     * ($this->classList). Tidak ada regex "KELAS :" — murni pencocokan teks.
-     *
-     * Urutan prioritas:
-     *   1. "full"  = "X TKJ 1" (tingkat + nama_kelas) → paling spesifik.
-     *   2. "name"  = "TKJ 1"   (nama_kelas saja), hindari tingkat X/XI/XII
-     *      sendirian agar tidak bentrok dengan nama siswa.
-     *
-     * Baris mana pun yang mengandung representasi kelas (di sel mana pun)
-     * dianggap header. Jika tidak ada kecocokan → null (bukan header).
+     * Cocokkan teks rata satu baris terhadap daftar kelas VALID dari DB.
      */
     protected function matchKelasByRowText(string $rowText): ?Kelas
     {
@@ -335,10 +551,6 @@ class SiswaImport implements ToCollection, WithEvents
             return null;
         }
 
-        // 0) Ambil nama kelas langsung dari teks setelah prefiks "KELAS:" (format
-        //    baku export, Baris 1). Contoh: "KELAS: X AK 1" → kelas "X AK 1".
-        //    Karena baris sudah di-normalisasi (tanda ":" dihapus), cocokkan
-        //    awalan "KELAS" lalu bandingkan sisa teks terhadap daftar kelas DB.
         if (str_starts_with($rowText, 'KELAS')) {
             $rest = trim(substr($rowText, strlen('KELAS')));
             if ($rest !== '') {
@@ -355,14 +567,12 @@ class SiswaImport implements ToCollection, WithEvents
             }
         }
 
-        // 1) Prioritas: nama lengkap tingkat + nama_kelas → "X TKJ 1", "XI AKL 2".
         foreach ($this->classList as $class) {
             if ($class['full'] !== '' && str_contains($rowText, $class['full'])) {
                 return Kelas::find($class['id']);
             }
         }
 
-        // 2) Fallback: nama_kelas saja → "TKJ 1", "DKV 2" (hindari tingkat sendirian).
         foreach ($this->classList as $class) {
             if (in_array($class['name'], self::TINGKAT_LIST, true)) {
                 continue;
@@ -387,12 +597,31 @@ class SiswaImport implements ToCollection, WithEvents
         return strtoupper(trim((string) preg_replace('/\s+/', ' ', $text)));
     }
 
-    // ─── Normalisasi ──────────────────────────────────────────────────────────
+    protected function normalizeHeaderToken(string $text): string
+    {
+        $text = strtoupper(trim((string) $text));
+        $text = preg_replace('/\s+/', '', $text);
+
+        return (string) str_replace(['/', '-'], '', $text);
+    }
+
+    protected function extractKelasNameFromFlatText(string $flatText): string
+    {
+        if (preg_match('/\bKELAS\b\s*:?(.*)$/i', $flatText, $m)) {
+            return $this->normalizeCellText($m[1]);
+        }
+
+        if (preg_match('/\bKELAS\b\s+(.*)$/i', $flatText, $m)) {
+            return $this->normalizeCellText($m[1]);
+        }
+
+        return '';
+    }
+
+    // ─── Normalisasi & Validasi ───────────────────────────────────────────────
 
     /**
      * Cek apakah Kolom A merupakan nomor urut valid (int antara 1-100).
-     * Menangani int, float (1.0), dan string numeric. Nilai lain (teks header,
-     * rumus "= 15", footer) → false.
      */
     protected function isValidNoUrut(mixed $value): bool
     {
@@ -413,6 +642,7 @@ class SiswaImport implements ToCollection, WithEvents
             if ($trimmed === '' || ! ctype_digit($trimmed)) {
                 return false;
             }
+
             $int = (int) $trimmed;
 
             return $int >= 1 && $int <= 100;
@@ -422,8 +652,7 @@ class SiswaImport implements ToCollection, WithEvents
     }
 
     /**
-     * Cek apakah nama berisi data sampah (Excel formula / footer teks).
-     * Skip jika diawali '=' atau mengandung kata kunci footer/statistik.
+     * Cek apakah nama berisi data sampah (formula Excel / baris judul / footer).
      */
     protected function isInvalidNama(string $nama): bool
     {
@@ -431,7 +660,11 @@ class SiswaImport implements ToCollection, WithEvents
             return true;
         }
 
-        $blocked = ['Mata Pelajaran', 'Wali Kelas', 'Laki-laki', 'Pengajar', 'Keterangan'];
+        $blocked = [
+            'Mata Pelajaran', 'Wali Kelas', 'Laki-laki', 'Pengajar', 'Keterangan',
+            'Daftar Hadir', 'Peserta Didik', 'Mengetahui', 'Kepala Sekolah',
+            'Jumlah', 'Total', 'Tanda Tangan', 'Guru Piket',
+        ];
         foreach ($blocked as $term) {
             if (stripos($nama, $term) !== false) {
                 return true;
@@ -442,131 +675,80 @@ class SiswaImport implements ToCollection, WithEvents
     }
 
     /**
-     * Deteksi baris metadata/judul kolom yang HARUS dilewati (bukan data siswa):
-     *   - Baris dengan teks berawalan "KELAS" (mis. "KELAS : X TKJ 1") yang tidak
-     *     cocok dengan kelas DB (aman dilewati).
-     *   - Baris judul kolom tabel (mengandung token unik "NISN", "NAMA SISWA"/
-     *     "NAMA", "JENIS KELAMIN"/"JENIS KELAS"/"L/P", "STATUS").
+     * Bersihkan NISN menjadi angka murni (maks 20 digit). Kosong → null.
      */
-    protected function isHeaderOrHeadingRow(string $flatText): bool
+    protected function cleanNisn(mixed $value): ?string
     {
-        $upper = strtoupper($flatText);
-        if (str_starts_with($upper, 'KELAS')) {
-            return true;
-        }
-
-        foreach (['NISN', 'NAMA SISWA', 'NAMA', 'JENIS KELAMIN', 'JENIS KELAS', 'L/P', 'STATUS'] as $token) {
-            if (str_contains($upper, $token)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Deteksi posisi kolom baku dari baris judul (format export):
-     *   NO | NISN | NIS | NAMA SISWA | JENIS KELAMIN | STATUS
-     * Mengembalikan peta asosiatif [key => indeks kolom] untuk kolom yang
-     * dikenali, atau null bila baris bukan judul baku.
-     */
-    protected function detectHeaderColumns(array $cells): ?array
-    {
-        $map = [
-            'no' => null,
-            'nisn' => null,
-            'nis' => null,
-            'nama' => null,
-            'jenis_kelamin' => null,
-            'status' => null,
-        ];
-
-        foreach ($cells as $index => $raw) {
-            $header = strtoupper(trim((string) $raw));
-            if ($header === '') {
-                continue;
-            }
-
-            if ($header === 'NO' && $map['no'] === null) {
-                $map['no'] = $index;
-            } elseif ($header === 'NISN' && $map['nisn'] === null) {
-                $map['nisn'] = $index;
-            } elseif ($header === 'NIS' && $map['nis'] === null) {
-                $map['nis'] = $index;
-            } elseif (in_array($header, ['NAMA SISWA', 'NAMA'], true) && $map['nama'] === null) {
-                $map['nama'] = $index;
-            } elseif (in_array($header, ['JENIS KELAMIN', 'JENIS KELAS', 'L/P'], true) && $map['jenis_kelamin'] === null) {
-                $map['jenis_kelamin'] = $index;
-            } elseif (in_array($header, ['STATUS', 'STATUS SISWA'], true) && $map['status'] === null) {
-                $map['status'] = $index;
-            }
-        }
-
-        // Baris hanya dianggap judul baku bila kolom kunci (nisn & nama) ada.
-        if ($map['nisn'] === null || $map['nama'] === null) {
+        if ($value === null) {
             return null;
         }
 
-        return $map;
+        $clean = preg_replace('/[^0-9]/', '', trim((string) $value));
+        $clean = (string) substr($clean, 0, 20);
+
+        return $clean === '' ? null : $clean;
     }
 
+    // ─── Ekstraksi & Fallback Kolom Siswa ─────────────────────────────────────
+
     /**
-     * Deteksi kolom siswa — mengutamakan urutan kolom baku yang ditangkap dari
-     * baris judul ($this->headerColumns, identik format export), lalu fallback
-     * ke deteksi DINAMIS per baris bila baris judul tidak tersedia:
-     *   - NISN : satu-satunya sel dengan tepat 10 digit angka.
-     *   - NIS  : sel angka yang bukan No-urut (kolom pertama) & bukan NISN.
-     *   - Nama : sel teks terpanjang, lebih suka yang mengandung spasi
-     *     (nama lengkap) dan bukan token khusus/header.
-     *
-     * @return array{0: string, 1: string, 2: ?string} [nisn, nama, nis]
+     * Deteksi NISN dengan fallback dinamis bila kolom header tidak tersedia.
      */
-    protected function detectStudentColumns(array $cells): array
+    protected function detectNisnFromCells(array $cells): ?string
     {
-        // ── Prioritas: urutan kolom baku dari baris judul (format export) ─────
-        if ($this->headerColumns !== null) {
-            $nisn = isset($cells[$this->headerColumns['nisn']])
-                ? trim((string) $cells[$this->headerColumns['nisn']]) : '';
-            $nama = isset($cells[$this->headerColumns['nama']])
-                ? trim((string) $cells[$this->headerColumns['nama']]) : '';
-            $nisCol = $this->headerColumns['nis'];
-            $nis = ($nisCol !== null && isset($cells[$nisCol]) && $cells[$nisCol] !== null && $cells[$nisCol] !== '')
-                ? preg_replace('/[^0-9]/', '', (string) $cells[$nisCol]) : null;
-
-            return [$nisn, $nama, $nis];
-        }
-
-        // ── Fallback: deteksi dinamis per baris ──────────────────────────────
-        $nisn = null;
-        $nisCandidates = [];
-        $nameCells = [];
-
-        foreach ($cells as $index => $raw) {
+        foreach ($cells as $raw) {
             $trimmed = trim((string) $raw);
             if ($trimmed === '') {
                 continue;
             }
 
-            if (preg_match('/^\d{10}$/', $trimmed) && $nisn === null) {
-                $nisn = $trimmed;
+            if (preg_match('/^\d{10}$/', $trimmed)) {
+                return $trimmed;
+            }
+        }
 
+        $numericCandidates = [];
+        foreach ($cells as $index => $raw) {
+            $trimmed = trim((string) $raw);
+            if ($trimmed === '' || $index === 0) {
                 continue;
             }
 
-            if (is_numeric($trimmed)) {
-                $nisCandidates[$index] = $trimmed;
+            if (ctype_digit($trimmed)) {
+                $numericCandidates[] = $trimmed;
+            }
+        }
 
+        if ($numericCandidates === []) {
+            return null;
+        }
+
+        usort($numericCandidates, fn ($a, $b) => strlen((string) $b) <=> strlen((string) $a));
+
+        return (string) $numericCandidates[0];
+    }
+
+    /**
+     * Deteksi nama siswa dengan fallback dinamis bila kolom header tidak tersedia.
+     */
+    protected function detectNamaFromCells(array $cells): string
+    {
+        $nameCells = [];
+
+        foreach ($cells as $raw) {
+            $trimmed = trim((string) $raw);
+            if ($trimmed === '') {
                 continue;
             }
 
             if ($this->looksLikeName($trimmed)) {
-                $nameCells[$index] = $trimmed;
+                $nameCells[] = $trimmed;
             }
         }
 
-        // Nama: utamakan sel teks yang mengandung spasi, lalu yang terpanjang.
         $withSpace = array_filter($nameCells, fn ($n) => str_contains($n, ' '));
         $pool = $withSpace !== [] ? $withSpace : $nameCells;
+
         $nama = '';
         foreach ($pool as $candidate) {
             if (strlen($candidate) > strlen($nama)) {
@@ -574,24 +756,75 @@ class SiswaImport implements ToCollection, WithEvents
             }
         }
 
-        // NIS: angka selain No-urut (kolom pertama) dan selain NISN.
-        unset($nisCandidates[0]);
-        $nis = $nisCandidates === [] ? null : preg_replace('/[^0-9]/', '', (string) reset($nisCandidates));
+        return $nama;
+    }
 
-        return [$nisn ?? '', $nama, $nis];
+    /**
+     * Deteksi NIS/NISS dengan fallback dinamis bila kolom header tidak tersedia.
+     * Sel tempat NISN berada dikecualikan agar NIS tidak tertukar — nilai NIS/NISS
+     * diambil UTUH sebagai string.
+     */
+    protected function detectNisFromCells(array $cells, ?string $nisn = null): ?string
+    {
+        $numericCandidates = [];
+
+        foreach ($cells as $index => $raw) {
+            $trimmed = trim((string) $raw);
+            if ($trimmed === '') {
+                continue;
+            }
+
+            if ($index === 0 && $this->isValidNoUrut($raw)) {
+                continue;
+            }
+
+            if ($nisn !== null && $this->cleanNumericText($raw) === $nisn) {
+                continue;
+            }
+
+            if (preg_match('/^\d{10}$/', $trimmed)) {
+                continue;
+            }
+
+            if (ctype_digit($trimmed) || preg_match('/\d/', $trimmed)) {
+                $numericCandidates[$index] = $trimmed;
+            }
+        }
+
+        if ($numericCandidates === []) {
+            return null;
+        }
+
+        ksort($numericCandidates);
+
+        return $this->cleanNumericText(reset($numericCandidates));
+    }
+
+    /**
+     * Normalisasi nilai NIS/NISS menjadi string bersih (trim spasi, kolaps
+     * spasi berlebih). Nilai kosong => null.
+     */
+    protected function cleanNumericText(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $text = trim((string) $value);
+        if ($text === '') {
+            return null;
+        }
+
+        return (string) preg_replace('/\s+/', ' ', $text);
     }
 
     /**
      * Deteksi jenis kelamin (L/P). Prioritas kolom baku "JENIS KELAMIN"/
      * "JENIS KELAS"/"L/P" bila baris judul terekam; tanpanya lakukan scan
      * dinamis di seluruh sel baris. Nilai tak dikenal → default 'L'.
-     *
-     * Konversi toleran: "Laki-laki"/"LAKI-LAKI"/"L" → 'L',
-     * "Perempuan"/"PEREMPUAN"/"P" → 'P'.
      */
     protected function detectGender(array $cells): string
     {
-        // 1) Prioritas: kolom baku terpetakan dari baris judul.
         if ($this->headerColumns !== null && ($this->headerColumns['jenis_kelamin'] ?? null) !== null) {
             $idx = $this->headerColumns['jenis_kelamin'];
             $val = strtoupper(trim((string) ($cells[$idx] ?? '')));
@@ -603,7 +836,6 @@ class SiswaImport implements ToCollection, WithEvents
             return 'L';
         }
 
-        // 2) Fallback: scan dinamis seluruh sel baris.
         foreach ($cells as $cell) {
             $val = strtoupper(trim((string) $cell));
             if ($val === 'P' || $val === 'PEREMPUAN') {
@@ -615,8 +847,8 @@ class SiswaImport implements ToCollection, WithEvents
     }
 
     /**
-     * Deteksi status siswa. Baca kolom "STATUS"/"STATUS SISWA" bila baris
-     * judul terekam; bila kosong / kolom tidak ada → default 'Aktif'.
+     * Deteksi status siswa. Baca kolom "STATUS" bila header terdeteksi;
+     * bila kosong / kolom tidak ada → default 'Aktif'.
      */
     protected function detectStatus(array $cells): string
     {
@@ -651,7 +883,7 @@ class SiswaImport implements ToCollection, WithEvents
         $upper = strtoupper(trim($value));
 
         return in_array($upper, [
-            'NO', 'NISN', 'NIS', 'NAMA SISWA', 'NAMA', 'KELAS', 'JENIS KELAMIN',
+            'NO', 'NISN', 'NIS', 'NISS', 'NAMA SISWA', 'NAMA', 'KELAS', 'JENIS KELAMIN',
             'JENIS KELAS', 'L/P', 'STATUS', 'STATUS SISWA',
             'LAKI-LAKI', 'PEREMPUAN', 'L', 'P', 'AKTIF', 'NON-AKTIF', 'KET',
         ], true);

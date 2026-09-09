@@ -14,7 +14,9 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use Tests\TestCase;
 
 class SiswaDualModeTest extends TestCase
@@ -487,6 +489,119 @@ class SiswaDualModeTest extends TestCase
         $this->assertSame('KELAS: XII TKJ 2', $sheetXii->getCell('A1')->getValue());
         $this->assertSame('Budi', $sheetXii->getCell('D3')->getValue());
         $this->assertEquals(1, $sheetXii->getCell('A3')->getValue(), 'nomor urut NO dimulai ulang per kelas');
+
+        $spreadsheet->disconnectWorksheets();
+        Storage::disk('local')->delete($path);
+    }
+
+    // ─── FORMAT: NISN/NIS teks, perataan, & auto-width ──────────────────
+
+    public function test_generated_xlsx_forces_nisn_nis_as_text_with_centered_alignment_and_autofit(): void
+    {
+        $kelasX = Kelas::create(['tingkat' => 'X', 'nama_kelas' => 'RPL 1']);
+        Kelas::create(['tingkat' => 'XI', 'nama_kelas' => 'TKJ 1']); // tanpa siswa → kosong
+        $kelasXII = Kelas::create(['tingkat' => 'XII', 'nama_kelas' => 'TKJ 2']);
+
+        Siswa::create(['nisn' => '1000000001', 'nis' => '101', 'nama' => 'Andi',  'id_kelas' => $kelasX->id, 'jenis_kelamin' => 'L']);
+        Siswa::create(['nisn' => '3000000002', 'nis' => '202', 'nama' => 'Sari Wulan', 'id_kelas' => $kelasXII->id, 'jenis_kelamin' => 'P']);
+
+        $path = 'test_siswa_'.Str::random(6).'.xlsx';
+        Excel::store(new SiswaExport, $path);
+
+        $spreadsheet = IOFactory::load(Storage::disk('local')->path($path));
+        $sheetX = $spreadsheet->getSheetByName('KELAS X');
+
+        // NISN (B) & NIS (C) harus bertipe string/text — bukan angka → bukan scientific.
+        $this->assertSame('1000000001', $sheetX->getCell('B3')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $sheetX->getCell('B3')->getDataType(), 'NISN harus string');
+        $this->assertSame('101', $sheetX->getCell('C3')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $sheetX->getCell('C3')->getDataType(), 'NIS harus string');
+        $sheetXII = $spreadsheet->getSheetByName('KELAS XII');
+        $this->assertSame('3000000002', $sheetXII->getCell('B3')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $sheetXII->getCell('B3')->getDataType(), 'NISN 3000000002 juga string');
+
+        // Perataan: NO, NISN, NIS, JENIS KELAMIN, STATUS di tengah; NAMA SISWA rata kiri.
+        foreach (['A', 'B', 'C', 'E', 'F'] as $centerCol) {
+            $this->assertSame(
+                Alignment::HORIZONTAL_CENTER,
+                $sheetX->getStyle($centerCol.'3')->getAlignment()->getHorizontal(),
+                "kolom {$centerCol} harus di tengah"
+            );
+        }
+        $this->assertSame(Alignment::HORIZONTAL_LEFT, $sheetX->getStyle('D3')->getAlignment()->getHorizontal(), 'NAMA SISWA rata kiri');
+
+        // Auto-size lebar kolom: setelah disimpan, lebar kolom harus terhitung (> 0).
+        foreach (['A', 'B', 'C', 'D', 'E', 'F'] as $col) {
+            $this->assertGreaterThan(0, $sheetX->getColumnDimension($col)->getWidth(), "lebar kolom {$col} terautofit");
+        }
+
+        $spreadsheet->disconnectWorksheets();
+        Storage::disk('local')->delete($path);
+    }
+
+    public function test_exported_xlsx_can_be_reimported_without_errors(): void
+    {
+        // State awal: kelas + siswa sama persis dengan isi file export.
+        $kelasX = Kelas::create(['tingkat' => 'X', 'nama_kelas' => 'AK 1']);
+        $kelasXII = Kelas::create(['tingkat' => 'XII', 'nama_kelas' => 'TKJ 1']);
+
+        Siswa::create(['nisn' => '1000000001', 'nis' => '101', 'nama' => 'Andi',  'id_kelas' => $kelasX->id,   'jenis_kelamin' => 'L']);
+        Siswa::create(['nisn' => '1000000002', 'nis' => '102', 'nama' => 'Budi',  'id_kelas' => $kelasX->id,   'jenis_kelamin' => 'L']);
+        Siswa::create(['nisn' => '2000000001', 'nis' => '201', 'nama' => 'Citra', 'id_kelas' => $kelasXII->id, 'jenis_kelamin' => 'P']);
+
+        // 1) Export → file xlsx.
+        $path = 'roundtrip_'.Str::random(6).'.xlsx';
+        Excel::store(new SiswaExport, $path);
+        $abs = Storage::disk('local')->path($path);
+
+        // 2) Import ulang file export yang sama (tanpa ubah data).
+        $importer = new SiswaImport;
+        Excel::import($importer, $abs);
+
+        $this->assertEquals(3, $importer->importedCount, 'seluruh baris siswa di file export harus terimport');
+        $this->assertEquals(0, count(array_filter(
+            $importer->rowErrors,
+            fn ($e) => str_contains($e, 'dilewati') && ! str_contains($e, 'tanpa kelas aktif')
+        )), 'tidak boleh ada baris data siswa yang error saat re-import');
+
+        // 3) Data tetap utuh: kelas & atribut sesuai input awal.
+        $andi = Siswa::where('nisn', '1000000001')->first();
+        $this->assertEquals('Andi', $andi->nama);
+        $this->assertEquals('101', $andi->nis);
+        $this->assertEquals('AK 1', $andi->kelas->nama_kelas);
+        $this->assertEquals('X', $andi->kelas->tingkat);
+        $this->assertEquals('L', $andi->jenis_kelamin, 'Laki-laki → L');
+        $this->assertEquals('Aktif', $andi->status_siswa);
+
+        $citra = Siswa::where('nisn', '2000000001')->first();
+        $this->assertEquals('Citra', $citra->nama);
+        $this->assertEquals('201', $citra->nis);
+        $this->assertEquals('TKJ 1', $citra->kelas->nama_kelas);
+        $this->assertEquals('XII', $citra->kelas->tingkat);
+        $this->assertEquals('P', $citra->jenis_kelamin, 'Perempuan → P');
+
+        Storage::disk('local')->delete($path);
+    }
+
+    public function test_export_writes_nis_to_column_c_as_text_with_leading_zero_preserved(): void
+    {
+        $kelasX = Kelas::create(['tingkat' => 'X', 'nama_kelas' => 'AK 1']);
+
+        Siswa::create(['nisn' => '1000000001', 'nis' => '0203101', 'nama' => 'Ahmad Fauzi', 'id_kelas' => $kelasX->id, 'jenis_kelamin' => 'L']);
+
+        $path = 'test_nis_'.Str::random(6).'.xlsx';
+        Excel::store(new SiswaExport, $path);
+
+        $spreadsheet = IOFactory::load(Storage::disk('local')->path($path));
+        $sheetX = $spreadsheet->getSheetByName('KELAS X');
+
+        // Kolom B & C = NISN & NIS dipetakan dari DB.
+        $this->assertSame('NISN', $sheetX->getCell('B2')->getValue());
+        $this->assertSame('NIS', $sheetX->getCell('C2')->getValue());
+
+        $this->assertSame('1000000001', $sheetX->getCell('B3')->getValue());
+        $this->assertSame('0203101', $sheetX->getCell('C3')->getValue(), 'NIS dengan 0 di depan tetap utuh');
+        $this->assertSame(DataType::TYPE_STRING, $sheetX->getCell('C3')->getDataType(), 'NIS harus bertipe teks/string');
 
         $spreadsheet->disconnectWorksheets();
         Storage::disk('local')->delete($path);
