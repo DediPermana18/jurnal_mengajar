@@ -17,14 +17,20 @@ class JadwalPiketController extends Controller
         $user = auth()->user();
         $role = $user ? $user->role : null;
 
-        $isAllowed = in_array($role, ['admin', 'admin_kurikulum', 'waka_kurikulum', 'kurikulum', 'admin_tu']);
+        $isAllowed = ($user && $user->isPetugasIt())
+            || in_array($role, ['admin', 'admin_kurikulum', 'waka_kurikulum', 'kurikulum', 'admin_tu']);
         abort_unless($isAllowed, 403, 'Akses ditolak. Anda tidak memiliki izin untuk mengelola Jadwal Piket.');
     }
 
     protected function authorizeManage()
     {
         $user = auth()->user();
-        $isAllowed = $user && in_array($user->role, ['admin', 'admin_kurikulum', 'waka_kurikulum', 'admin_tu']);
+        $manageRoles = ['admin', 'admin_kurikulum', 'waka_kurikulum', 'admin_tu'];
+
+        // Memakai effectiveRole agar Petugas IT yang impersonasi waka_kurikulum /
+        // admin_tu diizinkan menulis (data masuk mode testing), sedangkan IT mode
+        // langsung (effectiveRole 'petugas_it') hanya bisa melihat.
+        $isAllowed = $user && in_array($user->effectiveRole(), $manageRoles, true);
 
         abort_unless($isAllowed, 403, 'Akses ditolak. Anda tidak memiliki izin untuk mengubah Jadwal Piket.');
     }
@@ -52,7 +58,7 @@ class JadwalPiketController extends Controller
             ->get();
 
         $user = auth()->user();
-        $canManage = $user && in_array($user->role, ['admin', 'admin_kurikulum', 'waka_kurikulum', 'admin_tu']);
+        $canManage = $user && in_array($user->effectiveRole(), ['admin', 'admin_kurikulum', 'waka_kurikulum', 'admin_tu']);
 
         // ID guru yang sudah terpilih per hari (untuk pre-check checkbox)
         $selectedByHari = [];
@@ -74,7 +80,7 @@ class JadwalPiketController extends Controller
 
         $hariList = JadwalPiket::HARI_LIST;
         $selectedHari = $request->get('hari', 'Senin');
-        if (!in_array($selectedHari, $hariList)) {
+        if (! in_array($selectedHari, $hariList)) {
             $selectedHari = 'Senin';
         }
 
@@ -99,7 +105,7 @@ class JadwalPiketController extends Controller
         $this->authorizeManage();
 
         $hariList = JadwalPiket::HARI_LIST;
-        if (!in_array($hari, $hariList)) {
+        if (! in_array($hari, $hariList)) {
             $hari = 'Senin';
         }
 
@@ -126,27 +132,30 @@ class JadwalPiketController extends Controller
         $this->authorizeManage();
 
         // Harmonize guru_ids / user_ids / user_id
-        if (!$request->has('guru_ids') && $request->has('user_ids')) {
-            $request->merge(['guru_ids' => (array)$request->user_ids]);
-        } elseif (!$request->has('guru_ids') && $request->has('user_id')) {
-            $request->merge(['guru_ids' => (array)$request->user_id]);
+        if (! $request->has('guru_ids') && $request->has('user_ids')) {
+            $request->merge(['guru_ids' => (array) $request->user_ids]);
+        } elseif (! $request->has('guru_ids') && $request->has('user_id')) {
+            $request->merge(['guru_ids' => (array) $request->user_id]);
         }
 
         $request->validate([
-            'hari'       => 'required|in:' . implode(',', JadwalPiket::HARI_LIST),
-            'guru_ids'   => 'required|array|min:1',
+            'hari' => 'required|in:'.implode(',', JadwalPiket::HARI_LIST),
+            'guru_ids' => 'required|array|min:1',
             'guru_ids.*' => 'exists:users,id',
         ], [
-            'hari.required'     => 'Hari piket wajib dipilih.',
-            'hari.in'           => 'Hari piket tidak valid.',
+            'hari.required' => 'Hari piket wajib dipilih.',
+            'hari.in' => 'Hari piket tidak valid.',
             'guru_ids.required' => 'Pilih minimal satu guru piket.',
-            'guru_ids.array'    => 'Format guru piket tidak valid.',
-            'guru_ids.min'      => 'Pilih minimal satu guru piket.',
+            'guru_ids.array' => 'Format guru piket tidak valid.',
+            'guru_ids.min' => 'Pilih minimal satu guru piket.',
             'guru_ids.*.exists' => 'Guru yang dipilih tidak ditemukan dalam sistem.',
         ]);
 
         $hari = $request->hari;
-        $guruIds = array_unique(array_filter((array)$request->guru_ids));
+        $guruIds = array_unique(array_filter((array) $request->guru_ids));
+
+        // Guard: penggantian penugasan piket tidak boleh menimpa data testing (kecuali IT/QA).
+        $this->authorizeTestingBatch(JadwalPiket::where('hari', $hari)->where('is_testing', true));
 
         // Hapus data lama hari tersebut HANYA jika data baru valid dan tidak kosong
         JadwalPiket::where('hari', $hari)->delete();
@@ -154,13 +163,13 @@ class JadwalPiketController extends Controller
         // Masukkan data baru
         foreach ($guruIds as $userId) {
             JadwalPiket::create([
-                'hari'    => $hari,
+                'hari' => $hari,
                 'user_id' => $userId,
             ]);
         }
 
         return redirect()->route('kurikulum.jadwal-piket.index')
-            ->with('success', 'Petugas piket hari ' . $hari . ' berhasil diperbarui.');
+            ->with('success', 'Petugas piket hari '.$hari.' berhasil diperbarui.');
     }
 
     /**
@@ -170,9 +179,12 @@ class JadwalPiketController extends Controller
     {
         $this->authorizeManage();
 
-        $jadwal   = JadwalPiket::with('user')->findOrFail($id);
+        $jadwal = JadwalPiket::with('user')->findOrFail($id);
         $namaGuru = $jadwal->user ? $jadwal->user->nama : 'Petugas Piket';
-        $hari     = $jadwal->hari;
+        $hari = $jadwal->hari;
+
+        // Guard: hanya IT/QA yang dapat menghapus penugasan piket data testing.
+        $this->authorizeTestingMutation($jadwal);
 
         $jadwal->delete();
 

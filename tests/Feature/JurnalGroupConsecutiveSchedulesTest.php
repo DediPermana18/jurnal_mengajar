@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\JamPelajaran;
 use App\Models\JadwalPelajaran;
+use App\Models\JamPelajaran;
 use App\Models\Jurnal;
 use App\Models\Kelas;
 use App\Models\MataPelajaran;
@@ -12,6 +12,7 @@ use App\Models\TahunAjaran;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class JurnalGroupConsecutiveSchedulesTest extends TestCase
@@ -68,7 +69,7 @@ class JurnalGroupConsecutiveSchedulesTest extends TestCase
             'kategori_hari' => 'Senin-Kamis',
         ]);
 
-        $groupId = (string) \Illuminate\Support\Str::uuid();
+        $groupId = (string) Str::uuid();
 
         $jadwal8 = JadwalPelajaran::create([
             'group_id' => $groupId,

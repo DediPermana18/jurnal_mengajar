@@ -15,23 +15,23 @@ class AuthLoginTest extends TestCase
     {
         // Guru dengan password 'password123'
         $guru = User::create([
-            'nama'      => 'Guru A',
-            'username'  => 'guru_a',
-            'email'     => 'guru_a@school.id',
-            'password'  => Hash::make('password123'),
-            'role'      => 'guru',
-            'sub_role'  => 'guru_mapel',
+            'nama' => 'Guru A',
+            'username' => 'guru_a',
+            'email' => 'guru_a@school.id',
+            'password' => Hash::make('password123'),
+            'role' => 'guru',
+            'sub_role' => 'guru_mapel',
             'is_active' => true,
         ]);
 
         // Admin TU dengan password 'password'
         User::create([
-            'nama'      => 'Admin TU',
-            'username'  => 'admin_tu',
-            'email'     => 'admin_tu@school.id',
-            'password'  => Hash::make('password'),
-            'role'      => 'admin',
-            'sub_role'  => 'petugas_tu',
+            'nama' => 'Admin TU',
+            'username' => 'admin_tu',
+            'email' => 'admin_tu@school.id',
+            'password' => Hash::make('password'),
+            'role' => 'admin',
+            'sub_role' => 'petugas_tu',
             'is_active' => true,
         ]);
 
@@ -39,7 +39,7 @@ class AuthLoginTest extends TestCase
         $this->post(route('login.post'), [
             'login_id' => 'guru_a',
             'password' => 'password123',
-            'mode'     => 'guru',
+            'mode' => 'guru',
         ])->assertRedirect(route('guru.dashboard'));
 
         $this->assertAuthenticatedAs($guru);
@@ -49,12 +49,12 @@ class AuthLoginTest extends TestCase
     public function test_password_salah_untuk_user_yang_diresolve_mengembalikan_error(): void
     {
         User::create([
-            'nama'      => 'Guru A',
-            'username'  => 'guru_a',
-            'email'     => 'guru_a@school.id',
-            'password'  => Hash::make('password123'),
-            'role'      => 'guru',
-            'sub_role'  => 'guru_mapel',
+            'nama' => 'Guru A',
+            'username' => 'guru_a',
+            'email' => 'guru_a@school.id',
+            'password' => Hash::make('password123'),
+            'role' => 'guru',
+            'sub_role' => 'guru_mapel',
             'is_active' => true,
         ]);
 
@@ -62,7 +62,7 @@ class AuthLoginTest extends TestCase
         $this->post(route('login.post'), [
             'login_id' => 'guru_a',
             'password' => 'password',
-            'mode'     => 'guru',
+            'mode' => 'guru',
         ])->assertSessionHasErrors('password');
 
         $this->assertGuest();

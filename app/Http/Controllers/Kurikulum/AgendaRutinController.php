@@ -14,9 +14,9 @@ class AgendaRutinController extends Controller
     public function upsert(Request $request)
     {
         $validated = $request->validate([
-            'hari'         => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu',
-            'jam_ke'       => 'required|integer|min:1|max:20',
-            'is_active'    => 'nullable|boolean',
+            'hari' => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu',
+            'jam_ke' => 'required|integer|min:1|max:20',
+            'is_active' => 'nullable|boolean',
             'redirect_tab' => 'nullable|string|in:Senin-Kamis,Jumat',
         ]);
 
@@ -31,19 +31,25 @@ class AgendaRutinController extends Controller
 
         $isActive = $request->has('is_active') ? (bool) $request->input('is_active') : false;
 
+        // Guard: simpan ulang tidak boleh menimpa data testing (kecuali IT/QA).
+        $existing = AgendaRutin::where('hari', $hari)
+            ->where('jam_ke', $validated['jam_ke'])
+            ->first();
+        $this->authorizeTestingMutation($existing);
+
         AgendaRutin::updateOrCreate(
             [
-                'hari'   => $hari,
+                'hari' => $hari,
                 'jam_ke' => $validated['jam_ke'],
             ],
             [
                 'nama_agenda' => $namaAgenda,
-                'is_active'   => $isActive,
+                'is_active' => $isActive,
             ]
         );
 
         $redirectTab = $request->input('redirect_tab', ($hari === 'Jumat' ? 'Jumat' : 'Senin-Kamis'));
-        $statusText  = $isActive ? 'diaktifkan & dikunci' : 'dinonaktifkan';
+        $statusText = $isActive ? 'diaktifkan & dikunci' : 'dinonaktifkan';
 
         return redirect()
             ->route('admin.jam-pelajaran.index', ['tab' => $redirectTab])

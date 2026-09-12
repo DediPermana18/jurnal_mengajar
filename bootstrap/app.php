@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\CheckPetugasPiket;
+use App\Http\Middleware\EnsureWakaKesiswaan;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -17,7 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
 
         $middleware->alias([
-            'piket' => \App\Http\Middleware\CheckPetugasPiket::class,
+            'piket' => CheckPetugasPiket::class,
+            'waka-kesiswaan' => EnsureWakaKesiswaan::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

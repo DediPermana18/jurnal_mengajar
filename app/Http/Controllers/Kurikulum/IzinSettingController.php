@@ -13,8 +13,10 @@ class IzinSettingController extends Controller
      */
     protected function authorizeKurikulum(): void
     {
-        $role = auth()->user()?->role;
-        $isAllowed = in_array($role, ['admin', 'admin_kurikulum', 'waka_kurikulum', 'kurikulum', 'admin_tu'], true);
+        $user = auth()->user();
+        $role = $user?->role;
+        $isAllowed = ($user && $user->isPetugasIt())
+            || in_array($role, ['admin', 'admin_kurikulum', 'waka_kurikulum', 'kurikulum', 'admin_tu'], true);
 
         abort_unless($isAllowed, 403, 'Akses ditolak. Anda tidak memiliki izin untuk mengubah Pengaturan Approval Izin.');
     }
@@ -26,8 +28,8 @@ class IzinSettingController extends Controller
     {
         $this->authorizeKurikulum();
 
-        $setting  = PengaturanJadwal::getSetting();
-        $level    = PengaturanJadwal::izinApprovalLevel();
+        $setting = PengaturanJadwal::getSetting();
+        $level = PengaturanJadwal::izinApprovalLevel();
         $noWaWaka = PengaturanJadwal::noWaWakaIzin();
         $noWaKepsek = PengaturanJadwal::noWaKepsek();
 
@@ -43,21 +45,21 @@ class IzinSettingController extends Controller
 
         $validated = $request->validate([
             'izin_approval_level' => 'required|integer|in:1,2,3',
-            'no_wa_waka'          => 'nullable|string|max:20',
-            'no_wa_kepsek'        => 'nullable|string|max:20',
+            'no_wa_waka' => 'nullable|string|max:20',
+            'no_wa_kepsek' => 'nullable|string|max:20',
         ], [
             'izin_approval_level.required' => 'Level approval wajib dipilih.',
-            'izin_approval_level.in'       => 'Level approval tidak valid.',
-            'no_wa_waka.max'               => 'Nomor WA Waka maksimal :max karakter.',
-            'no_wa_kepsek.max'             => 'Nomor WA Kepsek maksimal :max karakter.',
+            'izin_approval_level.in' => 'Level approval tidak valid.',
+            'no_wa_waka.max' => 'Nomor WA Waka maksimal :max karakter.',
+            'no_wa_kepsek.max' => 'Nomor WA Kepsek maksimal :max karakter.',
         ]);
 
         $setting = PengaturanJadwal::getSetting();
 
         $setting->update([
             'izin_approval_level' => (int) $validated['izin_approval_level'],
-            'no_wa_waka'          => $this->normalize($validated['no_wa_waka'] ?? ''),
-            'no_wa_kepsek'        => $this->normalize($validated['no_wa_kepsek'] ?? ''),
+            'no_wa_waka' => $this->normalize($validated['no_wa_waka'] ?? ''),
+            'no_wa_kepsek' => $this->normalize($validated['no_wa_kepsek'] ?? ''),
         ]);
 
         return redirect()->route('kurikulum.izin.setting')
@@ -71,8 +73,9 @@ class IzinSettingController extends Controller
             return null;
         }
         if (str_starts_with($no, '0')) {
-            $no = '62' . substr($no, 1);
+            $no = '62'.substr($no, 1);
         }
+
         return $no;
     }
 }

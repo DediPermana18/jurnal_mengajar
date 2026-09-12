@@ -6,14 +6,12 @@ use App\Models\IzinGuru;
 use App\Models\JadwalPelajaran;
 use App\Models\Jurnal;
 use App\Models\Kelas;
-use App\Models\MataPelajaran;
 use App\Models\PengaturanJadwal;
 use App\Models\TahunAjaran;
 use App\Models\User;
 use App\Services\NotificationService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -27,12 +25,17 @@ class WakaSdmController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             abort(401, 'Silakan login terlebih dahulu.');
         }
 
         // Preview role Petugas IT
         if ($user->hasPreviewRole() && $user->previewRole() === 'waka_sdm') {
+            return;
+        }
+
+        // Petugas IT / QA Tester langsung: peninjau
+        if ($user->isPetugasIt()) {
             return;
         }
 
@@ -50,13 +53,13 @@ class WakaSdmController extends Controller
     protected function getHariIndonesia(Carbon $date): string
     {
         $map = [
-            'Monday'    => 'Senin',
-            'Tuesday'   => 'Selasa',
+            'Monday' => 'Senin',
+            'Tuesday' => 'Selasa',
             'Wednesday' => 'Rabu',
-            'Thursday'  => 'Kamis',
-            'Friday'    => 'Jumat',
-            'Saturday'  => 'Sabtu',
-            'Sunday'    => 'Minggu',
+            'Thursday' => 'Kamis',
+            'Friday' => 'Jumat',
+            'Saturday' => 'Sabtu',
+            'Sunday' => 'Minggu',
         ];
 
         return $map[$date->format('l')] ?? 'Senin';
@@ -83,7 +86,7 @@ class WakaSdmController extends Controller
         // 2. Total Guru Terjadwal Hari Ini
         $jadwalHariIni = JadwalPelajaran::with(['guru', 'kelas', 'mapel', 'jamPelajaran'])
             ->where('hari', $hariIniStr)
-            ->when($tahunAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
+            ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
             ->get();
 
         $idGuruTerjadwal = $jadwalHariIni->pluck('id_guru')->filter()->unique();
@@ -119,7 +122,7 @@ class WakaSdmController extends Controller
         $kelasStatus = [];
         foreach ($jadwalHariIni as $jadwal) {
             $jurnal = $jurnalHariIni->get($jadwal->id);
-            $isTerisi = $jurnal && !empty($jurnal->materi);
+            $isTerisi = $jurnal && ! empty($jurnal->materi);
 
             if ($isTerisi) {
                 $sesiTerisiHariIni++;
@@ -146,7 +149,7 @@ class WakaSdmController extends Controller
 
             $hariName = $this->getHariIndonesia($date);
             $scheduledTeachers = JadwalPelajaran::where('hari', $hariName)
-                ->when($tahunAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
+                ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
                 ->distinct('id_guru')
                 ->count('id_guru');
 
@@ -177,44 +180,46 @@ class WakaSdmController extends Controller
             ->map(function ($izin) use ($jurnalHariIni) {
                 // Cari apakah ada sesi jadwal hari ini yang sudah dicover oleh guru pengganti
                 $jurnalCover = $jurnalHariIni->first(function ($j) use ($izin) {
-                    return $j->id_guru == $izin->user_id && !empty($j->id_guru_pengganti);
+                    return $j->id_guru == $izin->user_id && ! empty($j->id_guru_pengganti);
                 });
 
                 $izin->guru_pengganti = $jurnalCover?->guruPengganti ?? $izin->approverPiket;
+
                 return $izin;
             });
 
         // 8. CARD 2: Pantauan Kelas Kosong (Jam Ini / Hari Ini Belum Diisi)
         $kelasKosongHariIniList = $jadwalHariIni->filter(function ($jadwal) use ($jurnalHariIni) {
             $jurnal = $jurnalHariIni->get($jadwal->id);
-            return !$jurnal || empty($jurnal->materi);
-        })->map(function ($jadwal) use ($jurnalHariIni, $todayStr, $daftarIzinHariIni) {
+
+            return ! $jurnal || empty($jurnal->materi);
+        })->map(function ($jadwal) use ($jurnalHariIni, $daftarIzinHariIni) {
             $jurnal = $jurnalHariIni->get($jadwal->id);
             $izin = $daftarIzinHariIni->firstWhere('user_id', $jadwal->id_guru);
 
             $waUrl = null;
-            if (!empty($jadwal->guru?->no_hp)) {
+            if (! empty($jadwal->guru?->no_hp)) {
                 $cleanPhone = preg_replace('/[^0-9]/', '', $jadwal->guru->no_hp);
                 if (str_starts_with($cleanPhone, '0')) {
-                    $cleanPhone = '62' . substr($cleanPhone, 1);
+                    $cleanPhone = '62'.substr($cleanPhone, 1);
                 }
                 $guruName = $jadwal->guru->nama ?? 'Bapak/Ibu Guru';
                 $kelasName = $jadwal->kelas->nama_kelas ?? 'Kelas';
                 $mapelName = $jadwal->mapel->nama_mapel ?? 'Mata Pelajaran';
                 $jamKe = $jadwal->jamPelajaran->jam_ke ?? '-';
                 $msg = "Halo {$guruName}, kami dari Waka SDM mengingatkan untuk pengisian Jurnal KBM pada {$kelasName} - {$mapelName} (Jam ke-{$jamKe}). Terima kasih.";
-                $waUrl = 'https://wa.me/' . $cleanPhone . '?text=' . urlencode($msg);
+                $waUrl = 'https://wa.me/'.$cleanPhone.'?text='.urlencode($msg);
             }
 
             return (object) [
                 'jadwal' => $jadwal,
                 'jurnal' => $jurnal,
-                'izin'   => $izin,
-                'guru'   => $jadwal->guru,
-                'kelas'  => $jadwal->kelas,
-                'mapel'  => $jadwal->mapel,
-                'jam'    => $jadwal->jamPelajaran,
-                'waUrl'  => $waUrl,
+                'izin' => $izin,
+                'guru' => $jadwal->guru,
+                'kelas' => $jadwal->kelas,
+                'mapel' => $jadwal->mapel,
+                'jam' => $jadwal->jamPelajaran,
+                'waUrl' => $waUrl,
             ];
         })->sortBy(function ($item) {
             return $item->jam?->jam_ke ?? 99;
@@ -239,15 +244,15 @@ class WakaSdmController extends Controller
             );
 
             return (object) [
-                'jadwal'          => $jadwal,
-                'jurnal'          => $jurnal,
-                'izin'            => $izin,
-                'statusInfo'      => $statusInfo,
-                'guru'            => $jadwal->guru,
-                'kelas'           => $jadwal->kelas,
-                'mapel'           => $jadwal->mapel,
-                'jam'             => $jadwal->jamPelajaran,
-                'guruPengganti'   => $jurnal?->guruPengganti,
+                'jadwal' => $jadwal,
+                'jurnal' => $jurnal,
+                'izin' => $izin,
+                'statusInfo' => $statusInfo,
+                'guru' => $jadwal->guru,
+                'kelas' => $jadwal->kelas,
+                'mapel' => $jadwal->mapel,
+                'jam' => $jadwal->jamPelajaran,
+                'guruPengganti' => $jurnal?->guruPengganti,
                 'statusKehadiran' => $jurnal?->status_kehadiran ?? ($izin ? 'Izin' : 'Belum Absen'),
             ];
         });
@@ -336,20 +341,20 @@ class WakaSdmController extends Controller
                     $uq->where('nama', 'like', "%{$search}%")
                         ->orWhere('nip', 'like', "%{$search}%");
                 })
-                ->orWhere('alasan', 'like', "%{$search}%")
-                ->orWhere('keterangan', 'like', "%{$search}%");
+                    ->orWhere('alasan', 'like', "%{$search}%")
+                    ->orWhere('keterangan', 'like', "%{$search}%");
             });
         }
 
         // Summary counts
         $totalPengajuan = (clone $query)->count();
         $totalDisetujui = (clone $query)->where('status', IzinGuru::STATUS_DISETUJUI)->count();
-        $totalPending   = (clone $query)->whereIn('status', [
+        $totalPending = (clone $query)->whereIn('status', [
             IzinGuru::STATUS_PENDING_PIKET,
             IzinGuru::STATUS_PENDING_WAKA,
             IzinGuru::STATUS_PENDING_KEPSEK,
         ])->count();
-        $totalDitolak   = (clone $query)->where('status', IzinGuru::STATUS_DITOLAK)->count();
+        $totalDitolak = (clone $query)->where('status', IzinGuru::STATUS_DITOLAK)->count();
 
         // Paginate results
         $daftarIzin = $query->orderBy('tanggal', 'desc')
@@ -371,6 +376,7 @@ class WakaSdmController extends Controller
             } else {
                 $izin->guru_pengganti_cover = null;
             }
+
             return $izin;
         });
 
@@ -426,12 +432,12 @@ class WakaSdmController extends Controller
 
         // Hitung frekuensi tiap hari sekolah (Senin - Jumat) dalam bulan tersebut
         $dayOccurrences = [
-            'Senin'  => 0,
+            'Senin' => 0,
             'Selasa' => 0,
-            'Rabu'   => 0,
-            'Kamis'  => 0,
-            'Jumat'  => 0,
-            'Sabtu'  => 0,
+            'Rabu' => 0,
+            'Kamis' => 0,
+            'Jumat' => 0,
+            'Sabtu' => 0,
         ];
 
         $period = CarbonPeriod::create($startOfMonth, $endOfMonth);
@@ -481,7 +487,7 @@ class WakaSdmController extends Controller
                 ->whereBetween('tanggal', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
                 ->where(function ($q) use ($guru) {
                     $q->where('id_guru', $guru->id)
-                      ->orWhereHas('jadwalPelajaran', fn($j) => $j->where('id_guru', $guru->id));
+                        ->orWhereHas('jadwalPelajaran', fn ($j) => $j->where('id_guru', $guru->id));
                 })
                 ->get();
 
@@ -492,10 +498,10 @@ class WakaSdmController extends Controller
 
             foreach ($jurnalList as $jurn) {
                 $isOriginalGuru = ($jurn->id_guru == $guru->id);
-                $hasCover = !empty($jurn->id_guru_pengganti) && $jurn->id_guru_pengganti != $guru->id;
+                $hasCover = ! empty($jurn->id_guru_pengganti) && $jurn->id_guru_pengganti != $guru->id;
 
-                if ($jurn->status_kehadiran === 'Hadir' && !empty($jurn->materi)) {
-                    if ($hasCover && !$isOriginalGuru) {
+                if ($jurn->status_kehadiran === 'Hadir' && ! empty($jurn->materi)) {
+                    if ($hasCover && ! $isOriginalGuru) {
                         $jpCover++;
                     } else {
                         $jpTerealisasi++;
@@ -545,16 +551,16 @@ class WakaSdmController extends Controller
             }
 
             $dataRekap[] = (object) [
-                'guru'            => $guru,
-                'mapel'           => $guru->mapelDiampu->unique('id')->pluck('nama_mapel')->implode(', ') ?: '-',
-                'jpWajib'         => $jpWajib,
-                'jpTerealisasi'   => $jpTerealisasi,
-                'jpCover'         => $jpCover,
-                'jpIzin'          => $jpIzin,
-                'jpAlpha'         => $jpAlpha,
-                'persentase'      => $persentase,
+                'guru' => $guru,
+                'mapel' => $guru->mapelDiampu->unique('id')->pluck('nama_mapel')->implode(', ') ?: '-',
+                'jpWajib' => $jpWajib,
+                'jpTerealisasi' => $jpTerealisasi,
+                'jpCover' => $jpCover,
+                'jpIzin' => $jpIzin,
+                'jpAlpha' => $jpAlpha,
+                'persentase' => $persentase,
                 'kategoriKinerja' => $kategoriKinerja,
-                'badgeClass'      => $badgeClass,
+                'badgeClass' => $badgeClass,
             ];
 
             $grandTotalJpWajib += $jpWajib;
@@ -569,17 +575,17 @@ class WakaSdmController extends Controller
             : 0;
 
         return [
-            'dataRekap'               => $dataRekap,
-            'grandTotalJpWajib'       => $grandTotalJpWajib,
+            'dataRekap' => $dataRekap,
+            'grandTotalJpWajib' => $grandTotalJpWajib,
             'grandTotalJpTerealisasi' => $grandTotalJpTerealisasi,
-            'grandTotalJpCover'       => $grandTotalJpCover,
-            'grandTotalJpIzin'        => $grandTotalJpIzin,
-            'grandTotalJpAlpha'       => $grandTotalJpAlpha,
-            'rataRataKedisiplinan'    => $rataRataKedisiplinan,
-            'bulan'                   => $bulan,
-            'tahun'                   => $tahun,
-            'namaBulan'               => Carbon::createFromDate($tahun, $bulan, 1)->translatedFormat('F'),
-            'tahunAktif'              => $tahunAktif,
+            'grandTotalJpCover' => $grandTotalJpCover,
+            'grandTotalJpIzin' => $grandTotalJpIzin,
+            'grandTotalJpAlpha' => $grandTotalJpAlpha,
+            'rataRataKedisiplinan' => $rataRataKedisiplinan,
+            'bulan' => $bulan,
+            'tahun' => $tahun,
+            'namaBulan' => Carbon::createFromDate($tahun, $bulan, 1)->translatedFormat('F'),
+            'tahunAktif' => $tahunAktif,
         ];
     }
 
@@ -598,7 +604,7 @@ class WakaSdmController extends Controller
         $guruList = User::where('role', User::ROLE_GURU)->orderBy('nama')->get();
 
         return view('admin.waka-sdm.rekap-presensi-guru', array_merge($stats, [
-            'guruList'   => $guruList,
+            'guruList' => $guruList,
             'selectedGuru' => $idGuru,
         ]));
     }
@@ -616,13 +622,13 @@ class WakaSdmController extends Controller
 
         $stats = $this->hitungPerformaGuruBulanan($bulan, $tahun, $idGuru);
 
-        $html = "\xEF\xBB\xBF" . view('admin.waka-sdm.excel-presensi-guru', $stats)->render();
+        $html = "\xEF\xBB\xBF".view('admin.waka-sdm.excel-presensi-guru', $stats)->render();
 
-        $filename = 'laporan-kedisiplinan-guru-' . str_pad($bulan, 2, '0', STR_PAD_LEFT) . '-' . $tahun . '.xls';
+        $filename = 'laporan-kedisiplinan-guru-'.str_pad($bulan, 2, '0', STR_PAD_LEFT).'-'.$tahun.'.xls';
 
         return response($html)
             ->header('Content-Type', 'application/vnd.ms-excel; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
+            ->header('Content-Disposition', 'attachment; filename="'.$filename.'"')
             ->header('Cache-Control', 'max-age=0');
     }
 
@@ -646,7 +652,7 @@ class WakaSdmController extends Controller
         $wakaSdm = Auth::user();
 
         return view('admin.waka-sdm.print-presensi-guru', array_merge($stats, [
-            'kepsek'  => $kepsek,
+            'kepsek' => $kepsek,
             'wakaSdm' => $wakaSdm,
         ]));
     }
@@ -660,7 +666,7 @@ class WakaSdmController extends Controller
 
         $izin = IzinGuru::findOrFail($id);
 
-        if (!$izin->lampiran) {
+        if (! $izin->lampiran) {
             abort(404, 'Lampiran surat tidak ditemukan.');
         }
 
@@ -684,6 +690,9 @@ class WakaSdmController extends Controller
 
         $izin = IzinGuru::with('user')->findOrFail($id);
 
+        // Guard: izin data testing hanya dapat diproses oleh IT/QA.
+        $this->authorizeTestingMutation($izin);
+
         $level = PengaturanJadwal::izinApprovalLevel();
 
         if ($level === 3) {
@@ -699,12 +708,12 @@ class WakaSdmController extends Controller
                 'Hanya izin berstatus Menunggu Approval yang dapat disetujui pada langkah ini.'
             );
         }
-        $data  = ['catatan_penolakan' => null];
+        $data = ['catatan_penolakan' => null];
 
         $data['approved_by_waka'] = $izin->approved_by_waka ?? auth()->id();
-        $data['status']           = match ($level) {
-            2       => IzinGuru::STATUS_DISETUJUI,
-            1       => IzinGuru::STATUS_DISETUJUI,
+        $data['status'] = match ($level) {
+            2 => IzinGuru::STATUS_DISETUJUI,
+            1 => IzinGuru::STATUS_DISETUJUI,
             default => IzinGuru::STATUS_PENDING_KEPSEK,
         };
 
@@ -743,6 +752,9 @@ class WakaSdmController extends Controller
 
         $izin = IzinGuru::with('user')->findOrFail($id);
 
+        // Guard: izin data testing hanya dapat diproses oleh IT/QA.
+        $this->authorizeTestingMutation($izin);
+
         abort_unless(
             in_array($izin->status, [
                 IzinGuru::STATUS_PENDING_WAKA,
@@ -765,10 +777,10 @@ class WakaSdmController extends Controller
         } else {
             $validated = $request->validate([
                 'waka_sdm_id' => 'required|integer|exists:users,id',
-                'ttd_waka'    => 'required|string|max:150000',
+                'ttd_waka' => 'required|string|max:150000',
             ], [
                 'waka_sdm_id.required' => 'Silakan pilih pejabat Waka SDM / Kepegawaian terlebih dahulu.',
-                'ttd_waka.required'    => 'Tanda tangan Waka SDM wajib diisi.',
+                'ttd_waka.required' => 'Tanda tangan Waka SDM wajib diisi.',
             ]);
             $wakaSdmId = (int) $validated['waka_sdm_id'];
         }
@@ -781,9 +793,9 @@ class WakaSdmController extends Controller
 
         $izin->update([
             'approved_by_waka' => $wakaSdmId,
-            'ttd_waka'         => $ttdWaka,
-            'approved_at'      => now(),
-            'status'           => IzinGuru::STATUS_PENDING_KEPSEK,
+            'ttd_waka' => $ttdWaka,
+            'approved_at' => now(),
+            'status' => IzinGuru::STATUS_PENDING_KEPSEK,
             'catatan_penolakan' => null,
         ]);
 
@@ -791,7 +803,7 @@ class WakaSdmController extends Controller
 
         return redirect()->back()
             ->with('success', "Tanda tangan Waka SDM ({$izin->fresh()->approverWaka?->nama}) berhasil dicatat untuk izin {$izin->user->nama} pada {$izin->tanggal->translatedFormat('d F Y')}."
-                ." Status dilanjutkan ke Kepala Sekolah. (Metode: ".strtoupper($approvalMethod).')');
+                .' Status dilanjutkan ke Kepala Sekolah. (Metode: '.strtoupper($approvalMethod).')');
     }
 
     /**
@@ -826,6 +838,9 @@ class WakaSdmController extends Controller
 
         $izin = IzinGuru::with('user')->findOrFail($id);
 
+        // Guard: izin data testing hanya dapat diproses oleh IT/QA.
+        $this->authorizeTestingMutation($izin);
+
         $level = PengaturanJadwal::izinApprovalLevel();
         if ($level === 3 && $izin->status === IzinGuru::STATUS_PENDING_PIKET) {
             abort(422, 'Pengajuan izin masih menunggu verifikasi Guru Piket.');
@@ -841,14 +856,14 @@ class WakaSdmController extends Controller
             'catatan_penolakan' => 'required|string|min:3|max:1000',
         ], [
             'catatan_penolakan.required' => 'Catatan penolakan wajib diisi.',
-            'catatan_penolakan.min'      => 'Catatan penolakan minimal :min karakter.',
-            'catatan_penolakan.max'      => 'Catatan penolakan maksimal :max karakter.',
+            'catatan_penolakan.min' => 'Catatan penolakan minimal :min karakter.',
+            'catatan_penolakan.max' => 'Catatan penolakan maksimal :max karakter.',
         ]);
 
         $izin->update([
-            'status'            => IzinGuru::STATUS_DITOLAK,
-            'approved_at'       => now(),
-            'approved_by_waka'  => $izin->approved_by_waka ?? auth()->id(),
+            'status' => IzinGuru::STATUS_DITOLAK,
+            'approved_at' => now(),
+            'approved_by_waka' => $izin->approved_by_waka ?? auth()->id(),
             'catatan_penolakan' => $validated['catatan_penolakan'],
         ]);
 
@@ -865,9 +880,9 @@ class WakaSdmController extends Controller
     {
         $this->authorizeWakaSdm();
 
-        $setting    = PengaturanJadwal::getSetting();
-        $level      = PengaturanJadwal::izinApprovalLevel();
-        $noWaWaka   = PengaturanJadwal::noWaWakaIzin();
+        $setting = PengaturanJadwal::getSetting();
+        $level = PengaturanJadwal::izinApprovalLevel();
+        $noWaWaka = PengaturanJadwal::noWaWakaIzin();
         $noWaKepsek = PengaturanJadwal::noWaKepsek();
 
         return view('admin.waka-sdm.setting-izin', compact('setting', 'level', 'noWaWaka', 'noWaKepsek'));
@@ -882,21 +897,24 @@ class WakaSdmController extends Controller
 
         $validated = $request->validate([
             'izin_approval_level' => 'required|integer|in:1,2,3',
-            'no_wa_waka'          => 'nullable|string|max:20',
-            'no_wa_kepsek'        => 'nullable|string|max:20',
+            'no_wa_waka' => 'nullable|string|max:20',
+            'no_wa_kepsek' => 'nullable|string|max:20',
         ], [
             'izin_approval_level.required' => 'Level approval wajib dipilih.',
-            'izin_approval_level.in'       => 'Level approval tidak valid.',
-            'no_wa_waka.max'               => 'Nomor WA Waka SDM maksimal :max karakter.',
-            'no_wa_kepsek.max'             => 'Nomor WA Kepsek maksimal :max karakter.',
+            'izin_approval_level.in' => 'Level approval tidak valid.',
+            'no_wa_waka.max' => 'Nomor WA Waka SDM maksimal :max karakter.',
+            'no_wa_kepsek.max' => 'Nomor WA Kepsek maksimal :max karakter.',
         ]);
 
         $setting = PengaturanJadwal::getSetting();
 
+        // Guard: setting data testing hanya dapat diubah oleh IT/QA.
+        $this->authorizeTestingMutation($setting);
+
         $setting->update([
             'izin_approval_level' => (int) $validated['izin_approval_level'],
-            'no_wa_waka'          => $this->normalizePhoneNumber($validated['no_wa_waka'] ?? ''),
-            'no_wa_kepsek'        => $this->normalizePhoneNumber($validated['no_wa_kepsek'] ?? ''),
+            'no_wa_waka' => $this->normalizePhoneNumber($validated['no_wa_waka'] ?? ''),
+            'no_wa_kepsek' => $this->normalizePhoneNumber($validated['no_wa_kepsek'] ?? ''),
         ]);
 
         return redirect()->route('waka-sdm.izin.setting')
@@ -913,8 +931,9 @@ class WakaSdmController extends Controller
             return null;
         }
         if (str_starts_with($no, '0')) {
-            $no = '62' . substr($no, 1);
+            $no = '62'.substr($no, 1);
         }
+
         return $no;
     }
 }

@@ -26,7 +26,7 @@ return new class extends Migration
             ->where('ttd_siswa', 'not like', 'data:%')
             ->update([
                 'bukti_surat' => DB::raw('ttd_siswa'),
-                'ttd_siswa'   => null,
+                'ttd_siswa' => null,
             ]);
     }
 
@@ -40,7 +40,7 @@ return new class extends Migration
             ->whereNull('ttd_siswa')
             ->whereNotNull('bukti_surat')
             ->update([
-                'ttd_siswa'   => DB::raw('bukti_surat'),
+                'ttd_siswa' => DB::raw('bukti_surat'),
                 'bukti_surat' => null,
             ]);
 

@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\DispensasiSiswa;
 use App\Models\JadwalPelajaran;
 use App\Models\JamPelajaran;
+use App\Models\Kelas;
+use App\Models\PengaturanJadwal;
 use App\Models\Siswa;
 use App\Models\TahunAjaran;
 use App\Models\User;
@@ -20,18 +22,27 @@ class DispensasiController extends Controller
     protected function authorizeGuruPiket(): void
     {
         $user = Auth::user();
-        abort_unless($user instanceof User && $user->isPiketHariIni(), 403, 'Akses ditolak. Anda tidak mendapat jadwal piket hari ini.');
+        abort_unless(
+            $user instanceof User
+                && ($user->isPetugasIt() || $user->activeRole() === 'guru_piket' || $user->isPiketHariIni()),
+            403,
+            'Akses ditolak. Anda tidak mendapat jadwal piket hari ini.'
+        );
     }
 
     /**
-     * Akses untuk Waka Kurikulum / Admin Kurikulum.
+     * Akses untuk Waka Kurikulum / Admin Kurikulum (termasuk Petugas IT / QA).
      */
     protected function authorizeKurikulum(): void
     {
         $user = Auth::user();
         $allowedRoles = ['admin', 'admin_kurikulum', 'waka_kurikulum', 'kurikulum', 'admin_tu'];
 
-        abort_unless($user instanceof User && in_array($user->role, $allowedRoles, true), 403, 'Akses ditolak. Anda tidak memiliki izin untuk approval dispensasi.');
+        abort_unless(
+            $user instanceof User && ($user->isPetugasIt() || in_array($user->effectiveRole(), $allowedRoles, true)),
+            403,
+            'Akses ditolak. Anda tidak memiliki izin untuk approval dispensasi.'
+        );
     }
 
     /**
@@ -41,7 +52,12 @@ class DispensasiController extends Controller
     {
         $this->authorizeGuruPiket();
 
-        $today   = now()->toDateString();
+        // Auto-Expired / Auto-Mangkir: surat aktif yang melewati batas langsung
+        // tampil Kadaluarsa / Mangkir tanpa menunggu cron.
+        DispensasiSiswa::refreshAutoExpired();
+        DispensasiSiswa::refreshAutoMangkir();
+
+        $today = now()->toDateString();
         $tanggal = $request->get('tanggal', $today);
 
         $dataDispensasi = DispensasiSiswa::with(['siswa.kelas', 'guruPiket'])
@@ -68,6 +84,23 @@ class DispensasiController extends Controller
             ->orderBy('nama')
             ->get();
 
+        // Daftar kelas untuk dropdown "Pilih Kelas" (cascading ke dropdown siswa).
+        $kelasList = Kelas::orderBy('tingkat')->orderBy('nama_kelas')->get();
+
+        // Saat validasi gagal (old()): pra-pilih kelas dari siswa yang terpilih
+        // agar dropdown siswa & filter jadwal tetap konsisten setelah redirect back.
+        $selectedKelas = null;
+        $oldSiswaId = old('id_siswa');
+        if ($oldSiswaId) {
+            $selectedKelas = $dataSiswa->firstWhere('id', $oldSiswaId)?->id_kelas;
+        }
+
+        // Jika kelas terpilih (mis. dari error validasi), siswa yang dirender awal
+        // cukup yang berasal dari kelas tersebut agar tidak perlu menunggu AJAX.
+        $dataSiswa = $selectedKelas
+            ? $dataSiswa->where('id_kelas', $selectedKelas)->values()
+            : collect();
+
         $jamOptions = JamPelajaran::whereNotNull('jam_ke')
             ->distinct('jam_ke')
             ->orderBy('jam_ke')
@@ -87,16 +120,58 @@ class DispensasiController extends Controller
         }
 
         $jadwalOptions = $jadwalQuery->get()->map(fn (JadwalPelajaran $j) => [
-            'id'       => $j->id,
-            'hari'     => $j->hari,
-            'jam_ke'   => (int) ($j->jamPelajaran?->jam_ke ?? 0),
+            'id' => $j->id,
+            'hari' => $j->hari,
+            'jam_ke' => (int) ($j->jamPelajaran?->jam_ke ?? 0),
             'id_kelas' => $j->id_kelas,
             'nama_kelas' => $j->kelas?->nama_kelas ?? 'Tanpa Kelas',
-            'mapel'    => $j->mapel?->nama_mapel ?? '-',
-            'guru'     => $j->guru?->nama ?? '-',
+            'mapel' => $j->mapel?->nama_mapel ?? '-',
+            'guru' => $j->guru?->nama ?? '-',
         ])->values();
 
-        return view('piket.dispensasi.create', compact('dataSiswa', 'jamOptions', 'jadwalOptions', 'jamPelajaran'));
+        return view('piket.dispensasi.create', compact(
+            'dataSiswa', 'jamOptions', 'jadwalOptions', 'jamPelajaran',
+            'kelasList', 'selectedKelas'
+        ));
+    }
+
+    /**
+     * API AJAX: daftar siswa aktif pada satu kelas (cascading dropdown).
+     * Query ringan: hanya id, nama, nisn untuk kelas terpilih (+ filter pencarian opsional).
+     */
+    public function siswaByKelas(Request $request)
+    {
+        $kelasId = (int) $request->query('kelas_id', 0);
+
+        if ($kelasId <= 0 || ! Kelas::whereKey($kelasId)->exists()) {
+            return response()->json([
+                'error' => true,
+                'message' => 'Kelas tidak valid.',
+                'data' => [],
+            ], 422);
+        }
+
+        $query = Siswa::where('id_kelas', $kelasId)
+            ->where('status_siswa', 'Aktif');
+
+        $search = trim((string) $request->query('q', ''));
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('nama', 'like', '%'.$search.'%')
+                    ->orWhere('nisn', 'like', '%'.$search.'%');
+            });
+        }
+
+        $siswa = $query->orderBy('nama')->get(['id', 'nama', 'nisn']);
+
+        return response()->json([
+            'error' => false,
+            'data' => $siswa->map(fn ($s) => [
+                'id' => $s->id,
+                'nama' => $s->nama,
+                'nisn' => $s->nisn,
+            ]),
+        ]);
     }
 
     /**
@@ -113,75 +188,81 @@ class DispensasiController extends Controller
 
         if ($tipe === DispensasiSiswa::TIPE_MASUK) {
             $validated = $request->validate([
-                'tanggal'        => 'required|date',
-                'id_siswa'       => 'required|exists:siswa,id',
-                'jam_masuk_jp'   => 'required|integer|min:1|max:20',
+                'tanggal' => 'required|date',
+                'id_siswa' => 'required|exists:siswa,id',
+                'jam_masuk_jp' => 'required|integer|min:1|max:20',
                 'alasan_kategori' => 'required|string|max:100',
-                'alasan_detail'  => 'nullable|string|max:250',
-                'ttd_guru'       => 'sometimes|string|max:150000',
-                'ttd_piket'      => 'sometimes|string|max:150000',
+                'alasan_detail' => 'nullable|string|max:250',
+                'ttd_guru' => 'sometimes|string|max:150000',
+                'ttd_piket' => 'sometimes|string|max:150000',
             ], [
-                'tanggal.required'          => 'Tanggal dispen wajib diisi.',
-                'tanggal.date'              => 'Format tanggal tidak valid.',
-                'id_siswa.required'         => 'Nama siswa wajib dipilih.',
-                'id_siswa.exists'           => 'Siswa yang dipilih tidak ditemukan.',
-                'jam_masuk_jp.required'     => 'Pilih JP saat siswa boleh masuk kelas.',
-                'jam_masuk_jp.integer'      => 'Nomor JP masuk tidak valid.',
-                'jam_masuk_jp.min'          => 'Nomor JP masuk tidak valid.',
-                'jam_masuk_jp.max'          => 'Nomor JP masuk terlalu besar.',
-                'alasan_kategori.required'  => 'Kategori alasan wajib dipilih.',
-                'alasan_kategori.string'    => 'Kategori alasan tidak valid.',
-                'alasan_detail.max'         => 'Detail alasan maksimal :max karakter.',
-                'ttd_guru.max'              => 'Ukuran tanda tangan Guru Piket terlalu besar.',
-                'ttd_piket.max'             => 'Ukuran tanda tangan Guru Piket terlalu besar.',
+                'tanggal.required' => 'Tanggal dispen wajib diisi.',
+                'tanggal.date' => 'Format tanggal tidak valid.',
+                'id_siswa.required' => 'Nama siswa wajib dipilih.',
+                'id_siswa.exists' => 'Siswa yang dipilih tidak ditemukan.',
+                'jam_masuk_jp.required' => 'Pilih JP saat siswa boleh masuk kelas.',
+                'jam_masuk_jp.integer' => 'Nomor JP masuk tidak valid.',
+                'jam_masuk_jp.min' => 'Nomor JP masuk tidak valid.',
+                'jam_masuk_jp.max' => 'Nomor JP masuk terlalu besar.',
+                'alasan_kategori.required' => 'Kategori alasan wajib dipilih.',
+                'alasan_kategori.string' => 'Kategori alasan tidak valid.',
+                'alasan_detail.max' => 'Detail alasan maksimal :max karakter.',
+                'ttd_guru.max' => 'Ukuran tanda tangan Guru Piket terlalu besar.',
+                'ttd_piket.max' => 'Ukuran tanda tangan Guru Piket terlalu besar.',
             ]);
 
             $alasan = trim((string) $validated['alasan_kategori']);
-            if (!empty(trim((string) ($validated['alasan_detail'] ?? '')))) {
-                $alasan .= ' — ' . trim($validated['alasan_detail']);
+            if (! empty(trim((string) ($validated['alasan_detail'] ?? '')))) {
+                $alasan .= ' — '.trim($validated['alasan_detail']);
             }
 
-            $jamKe      = null;
+            $jamKe = null;
             $jamMasukJp = (int) $validated['jam_masuk_jp'];
             $jamKeluarJp = null;
-            $idJadwal   = null;
-            $idGuru     = null;
+            $idJadwal = null;
+            $idGuru = null;
         } else {
             $validated = $request->validate([
-                'tanggal'           => 'required|date',
-                'id_siswa'          => 'required|exists:siswa,id',
-                'jam_ke'            => 'required|array|min:1',
-                'jam_ke.*'          => 'integer|min:1|max:20',
-                'jam_keluar_jp'     => 'nullable|integer|min:1|max:20',
-                'alasan'            => 'required|string|max:500',
-                'id_jadwal'         => 'nullable|exists:jadwal_pelajaran,id',
-                'ttd_guru'          => 'sometimes|string|max:150000',
-                'ttd_piket'         => 'sometimes|string|max:150000',
+                'tanggal' => 'required|date',
+                'id_siswa' => 'required|exists:siswa,id',
+                'jam_ke' => 'required|array|min:1',
+                'jam_ke.*' => 'integer|min:1|max:20',
+                'jam_keluar_jp' => 'nullable|integer|min:1|max:20',
+                'jam_kembali_jp' => 'required_if:kembali_hari_ini,1|nullable|integer|min:1|max:20',
+                'kembali_hari_ini' => 'sometimes|nullable',
+                'alasan' => 'required|string|max:500',
+                'id_jadwal' => 'nullable|exists:jadwal_pelajaran,id',
+                'ttd_guru' => 'sometimes|string|max:150000',
+                'ttd_piket' => 'sometimes|string|max:150000',
             ], [
-                'tanggal.required'          => 'Tanggal dispen wajib diisi.',
-                'tanggal.date'              => 'Format tanggal tidak valid.',
-                'id_siswa.required'         => 'Nama siswa wajib dipilih.',
-                'id_siswa.exists'           => 'Siswa yang dipilih tidak ditemukan.',
-                'jam_ke.required'           => 'Pilih minimal satu jam pelajaran.',
-                'jam_ke.array'              => 'Format jam pelajaran tidak valid.',
-                'jam_ke.min'                => 'Pilih minimal satu jam pelajaran.',
-                'jam_ke.*.integer'          => 'Nomor jam pelajaran tidak valid.',
-                'jam_ke.*.min'              => 'Nomor jam pelajaran tidak valid.',
-                'jam_ke.*.max'              => 'Nomor jam pelajaran terlalu besar.',
-                'jam_keluar_jp.integer'     => 'Nomor JP keluar tidak valid.',
-                'jam_keluar_jp.min'         => 'Nomor JP keluar tidak valid.',
-                'jam_keluar_jp.max'         => 'Nomor JP keluar terlalu besar.',
-                'alasan.required'           => 'Alasan kegiatan dispen wajib diisi.',
-                'alasan.max'                => 'Alasan maksimal :max karakter.',
-                'id_jadwal.exists'          => 'Jadwal pelajaran yang dipilih tidak valid.',
-                'ttd_guru.max'              => 'Ukuran tanda tangan Guru Piket terlalu besar.',
-                'ttd_piket.max'             => 'Ukuran tanda tangan Guru Piket terlalu besar.',
+                'tanggal.required' => 'Tanggal dispen wajib diisi.',
+                'tanggal.date' => 'Format tanggal tidak valid.',
+                'id_siswa.required' => 'Nama siswa wajib dipilih.',
+                'id_siswa.exists' => 'Siswa yang dipilih tidak ditemukan.',
+                'jam_ke.required' => 'Pilih minimal satu jam pelajaran.',
+                'jam_ke.array' => 'Format jam pelajaran tidak valid.',
+                'jam_ke.min' => 'Pilih minimal satu jam pelajaran.',
+                'jam_ke.*.integer' => 'Nomor jam pelajaran tidak valid.',
+                'jam_ke.*.min' => 'Nomor jam pelajaran tidak valid.',
+                'jam_ke.*.max' => 'Nomor jam pelajaran terlalu besar.',
+                'jam_keluar_jp.integer' => 'Nomor JP keluar tidak valid.',
+                'jam_keluar_jp.min' => 'Nomor JP keluar tidak valid.',
+                'jam_keluar_jp.max' => 'Nomor JP keluar terlalu besar.',
+                'jam_kembali_jp.required_if' => 'Pilih JP Rencana Kembali bila siswa akan kembali ke sekolah hari ini.',
+                'jam_kembali_jp.integer' => 'Nomor JP kembali tidak valid.',
+                'jam_kembali_jp.min' => 'Nomor JP kembali tidak valid.',
+                'jam_kembali_jp.max' => 'Nomor JP kembali terlalu besar.',
+                'alasan.required' => 'Alasan kegiatan dispen wajib diisi.',
+                'alasan.max' => 'Alasan maksimal :max karakter.',
+                'id_jadwal.exists' => 'Jadwal pelajaran yang dipilih tidak valid.',
+                'ttd_guru.max' => 'Ukuran tanda tangan Guru Piket terlalu besar.',
+                'ttd_piket.max' => 'Ukuran tanda tangan Guru Piket terlalu besar.',
             ]);
 
             // Mapel / Guru Mapel yang ditinggalkan (opsional).
             // Jika id_jadwal dipilih, guru terkait diambil otomatis dari jadwal tsb.
-            $idJadwal = !empty($validated['id_jadwal']) ? (int) $validated['id_jadwal'] : null;
-            $idGuru   = $idJadwal
+            $idJadwal = ! empty($validated['id_jadwal']) ? (int) $validated['id_jadwal'] : null;
+            $idGuru = $idJadwal
                 ? (int) (JadwalPelajaran::find($idJadwal)?->id_guru ?: 0) ?: null
                 : null;
 
@@ -192,36 +273,51 @@ class DispensasiController extends Controller
                 ->values()
                 ->implode(',');
 
-            $alasan      = $validated['alasan'];
-            $jamMasukJp  = null;
-            $jamKeluarJp = !empty($validated['jam_keluar_jp']) ? (int) $validated['jam_keluar_jp'] : null;
+            $alasan = $validated['alasan'];
+            $jamMasukJp = null;
+            $jamKeluarJp = ! empty($validated['jam_keluar_jp']) ? (int) $validated['jam_keluar_jp'] : null;
+        }
+
+        // Part 3 - Rencana Jam Kembali (hanya tipe keluar): default siswa berizin
+        // hingga jam pulang (tidak kembali hari ini). Bila guru mencentang "Siswa
+        // akan kembali ke sekolah hari ini", dicatat JP wajib kembali sebagai dasar
+        // konfirmasi Satpam & deteksi Mangkir/Bolos otomatis.
+        $jamKembaliJp = null;
+        $tidakKembali = true;
+        if ($tipe === DispensasiSiswa::TIPE_KELUAR) {
+            $tidakKembali = ! $request->boolean('kembali_hari_ini');
+            $jamKembaliJp = ! $tidakKembali && ! empty($validated['jam_kembali_jp'])
+                ? (int) $validated['jam_kembali_jp']
+                : null;
         }
 
         // Tanda tangan Guru Piket wajib digambar di canvas (data URL PNG) -> simpan apa adanya.
         $ttdGuruRaw = (string) ($request->input('ttd_guru') ?? $request->input('ttd_piket') ?? '');
-        $ttdGuru    = preg_match('/^data:image\/png;base64,/i', trim($ttdGuruRaw))
+        $ttdGuru = preg_match('/^data:image\/png;base64,/i', trim($ttdGuruRaw))
             ? trim($ttdGuruRaw)
             : null;
 
-        if (!$ttdGuru) {
+        if (! $ttdGuru) {
             return back()->withErrors(['ttd_guru' => 'Tanda tangan Guru Piket wajib digambar terlebih dahulu.']);
         }
 
         $dispensasi = DispensasiSiswa::create([
-            'id_siswa'       => $validated['id_siswa'],
-            'id_guru_piket'  => Auth::id(),
-            'id_jadwal'      => $idJadwal,
-            'id_guru'        => $idGuru,
-            'tanggal'        => $validated['tanggal'],
-            'tipe_dispen'    => $tipe,
-            'jam_ke'         => $jamKe,
-            'jam_keluar_jp'  => $jamKeluarJp,
-            'jam_masuk_jp'   => $jamMasukJp,
-            'alasan'         => $alasan,
-            'status'         => DispensasiSiswa::STATUS_DISETUJUI,
-            'approved_at'    => now(),
-            'approved_by'    => Auth::id(),
-            'ttd_guru'       => $ttdGuru,
+            'id_siswa' => $validated['id_siswa'],
+            'id_guru_piket' => Auth::id(),
+            'id_jadwal' => $idJadwal,
+            'id_guru' => $idGuru,
+            'tanggal' => $validated['tanggal'],
+            'tipe_dispen' => $tipe,
+            'jam_ke' => $jamKe,
+            'jam_keluar_jp' => $jamKeluarJp,
+            'jam_masuk_jp' => $jamMasukJp,
+            'jam_kembali_jp' => $jamKembaliJp,
+            'tidak_kembali_hari_ini' => $tidakKembali,
+            'alasan' => $alasan,
+            'status' => DispensasiSiswa::STATUS_DISETUJUI,
+            'approved_at' => now(),
+            'approved_by' => Auth::id(),
+            'ttd_guru' => $ttdGuru,
             'approval_token' => Str::random(32),
         ]);
 
@@ -246,7 +342,7 @@ class DispensasiController extends Controller
         $dispensasi = DispensasiSiswa::with(['siswa.kelas', 'guruPiket', 'approver'])->findOrFail($id);
 
         $allowed = $user->isPiketHariIni()
-            || in_array($user->role, [User::ROLE_ADMIN, User::ROLE_PETUGAS_IT], true)
+            || $user->isPetugasIt()
             || (int) $dispensasi->approved_by === (int) $user->id;
 
         abort_unless($allowed, 403, 'Akses ditolak. Anda tidak berwenang melihat surat dispen ini.');
@@ -262,12 +358,71 @@ class DispensasiController extends Controller
             return view('piket.dispensasi.surat_masuk', compact('dispensasi', 'piket', 'jamMasukDetail'));
         }
 
-        $wakaKesiswaan = User::wakaKesiswaan();
+        // Resolusi identitas Waka Kesiswaan untuk TTD di surat:
+        // 1. Penandatangan tersimpan (kolom waka_kesiswaan_id) — paling akurat,
+        //    karena menyimpan persis user Waka Kesiswaan yang menggambar TTD
+        //    (via approval publik ataupun portal Waka Kesiswaan).
+        // 2. Jika belum / kolom kosong tapi ttd_waka ada & approver benar-benar
+        //    Waka Kesiswaan (isWakaKesiswaan) — tampilkan user tsb (nama + NIP).
+        //    Catatan: approved_by TIDAK selalu Waka (alur piket menyimpan id guru
+        //    piket pembuat; alur waka kurikulum menyimpan waka kurikulum).
+        // 3. Fallback -> user yang ditunjuk (role admin + sub_role 'waka_kesiswaan').
+        // 4. Fallback terakhir -> setting nama_waka_kesiswaan & nip_waka_kesiswaan.
+        // Tetap bukan auth()->user(), bukan user pembuat/TU.
+        $waka = null;
+
+        if (! empty($dispensasi->ttd_waka) && $dispensasi->wakaKesiswaan) {
+            $waka = $dispensasi->wakaKesiswaan;
+        }
+
+        if (! $waka
+            && ! empty($dispensasi->ttd_waka)
+            && $dispensasi->approver
+            && $dispensasi->approver->isWakaKesiswaan()) {
+            $waka = $dispensasi->approver;
+        }
+
+        if (! $waka) {
+            $waka = User::wakaKesiswaan();
+        }
+
+        $wakaNama = null;
+        $wakaNip = null;
+
+        if ($waka) {
+            $wakaNama = trim((string) $waka->nama);
+            $wakaNip = $this->validNip($waka->nip) ? trim((string) $waka->nip) : null;
+        }
+
+        if (empty($wakaNama)) {
+            $setting = PengaturanJadwal::getSetting();
+            $namaSetting = trim((string) ($setting->nama_waka_kesiswaan ?? ''));
+            if ($namaSetting !== '') {
+                $wakaNama = $namaSetting;
+                $wakaNip = $this->validNip($setting->nip_waka_kesiswaan ?? null)
+                    ? trim((string) $setting->nip_waka_kesiswaan)
+                    : null;
+            }
+        }
+
         $jamKeluarDetail = $dispensasi->jam_keluar_jp
             ? JamPelajaran::where('jam_ke', $dispensasi->jam_keluar_jp)->orderBy('jam_mulai')->first()
             : null;
 
-        return view('piket.dispensasi.surat', compact('dispensasi', 'piket', 'wakaKesiswaan', 'jamKeluarDetail'));
+        return view('piket.dispensasi.surat', compact(
+            'dispensasi', 'piket', 'wakaNama', 'wakaNip', 'jamKeluarDetail'
+        ));
+    }
+
+    /**
+     * NIP dianggap valid (bukan dummy/placeholder) jika berisi minimal 6 digit
+     * dan tidak semua nol. Kolom tanpa nilai atau nilai placeholder disembunyikan.
+     */
+    protected function validNip(?string $nip): bool
+    {
+        $digits = preg_replace('/[^0-9]/', '', (string) $nip);
+
+        return strlen($digits) >= 6 && ! preg_match('/^0+$/', $digits);
     }
 
     /**
@@ -282,7 +437,7 @@ class DispensasiController extends Controller
         $dispensasi = DispensasiSiswa::with(['siswa.kelas', 'guruPiket', 'approver'])->findOrFail($id);
 
         $allowed = $user->isPiketHariIni()
-            || in_array($user->role, [User::ROLE_ADMIN, User::ROLE_PETUGAS_IT], true)
+            || $user->isPetugasIt()
             || (int) $dispensasi->approved_by === (int) $user->id;
 
         abort_unless($allowed, 403, 'Akses ditolak. Anda tidak berwenang melengkapi surat dispen ini.');
@@ -300,8 +455,11 @@ class DispensasiController extends Controller
 
         $dispensasi = DispensasiSiswa::with('siswa')->findOrFail($id);
 
+        // Guard: surat data testing hanya dapat dilengkapi oleh IT/QA.
+        $this->authorizeTestingMutation($dispensasi);
+
         $allowed = $user->isPiketHariIni()
-            || in_array($user->role, [User::ROLE_ADMIN, User::ROLE_PETUGAS_IT], true)
+            || $user->isPetugasIt()
             || (int) $dispensasi->approved_by === (int) $user->id;
 
         abort_unless($allowed, 403, 'Akses ditolak. Anda tidak berwenang melengkapi surat dispen ini.');
@@ -314,7 +472,7 @@ class DispensasiController extends Controller
             ? trim($validated['ttd_siswa'])
             : null;
 
-        if (!$ttdBase64) {
+        if (! $ttdBase64) {
             return back()->with('error', 'Tanda tangan siswa wajib diisi.');
         }
 
@@ -322,6 +480,60 @@ class DispensasiController extends Controller
 
         return redirect()->route('piket.dispensasi.surat', $dispensasi->id)
             ->with('success', 'Tanda tangan siswa berhasil disimpan. Surat dispensasi kini lengkap dan sah.');
+    }
+
+    /**
+     * Pembatalan Dispensasi wajib ditandatangani (TTD) oleh siswa.
+     * Surat yang sudah Kadaluarsa / Ditolak / Dibatalkan / sudah "Siswa Out"
+     * tidak dapat dibatalkan lagi.
+     */
+    public function pembatalanStore(Request $request, $id)
+    {
+        $user = Auth::user();
+        abort_unless($user instanceof User, 403, 'Silakan login terlebih dahulu.');
+
+        $dispensasi = DispensasiSiswa::findOrFail($id);
+
+        // Guard: surat data testing hanya dapat dibatalkan oleh IT/QA.
+        $this->authorizeTestingMutation($dispensasi);
+
+        $allowed = $user->isPiketHariIni()
+            || $user->isPetugasIt()
+            || (int) $dispensasi->approved_by === (int) $user->id;
+
+        abort_unless($allowed, 403, 'Akses ditolak. Anda tidak berwenang membatalkan surat dispen ini.');
+
+        abort_unless($dispensasi->isBisaDibatalkan(), 422, 'Surat dispensasi ini tidak dapat dibatalkan (sudah keluar / ditolak / kadaluarsa / dibatalkan).');
+
+        $validated = $request->validate([
+            'ttd_pembatalan' => 'required|string|max:150000',
+        ], [
+            'ttd_pembatalan.required' => 'Tanda tangan pembatalan siswa wajib diisi.',
+            'ttd_pembatalan.max' => 'Ukuran tanda tangan pembatalan terlalu besar.',
+        ]);
+
+        $ttdPembatalan = preg_match('/^data:image\/png;base64,/i', trim($validated['ttd_pembatalan']))
+            ? trim($validated['ttd_pembatalan'])
+            : null;
+
+        if (! $ttdPembatalan) {
+            return back()->with('error', 'Siswa wajib menandatangani canvas pembatalan terlebih dahulu.');
+        }
+
+        // Tarik status "Dispen" pada baris absensi jurnal yang dihasilkan
+        // otomatis oleh surat ini (dikembalikan ke status sebelum dispensasi).
+        $dicabut = $dispensasi->cabutDariAbsensi();
+
+        $dispensasi->update([
+            'status' => DispensasiSiswa::STATUS_DIBATALKAN,
+            'ttd_pembatalan' => $ttdPembatalan,
+            'dibatalkan_at' => now(),
+            'dibatalkan_by' => $user->id,
+        ]);
+
+        return redirect()->route('piket.dispensasi.index', ['tanggal' => $dispensasi->tanggal?->toDateString()])
+            ->with('success', 'Dispensasi '.$dispensasi->nomor_surat.' dibatalkan dengan tanda tangan siswa. '
+                .($dicabut > 0 ? $dicabut.' baris absensi dispen dicabut dari jurnal.' : 'Absensi jurnal sudah selaras.'));
     }
 
     /**
@@ -333,29 +545,42 @@ class DispensasiController extends Controller
             ->where('approval_token', $token)
             ->first();
 
-        if (!$dispensasi) {
-            return view('public.dispen-approval', [
+        // Daftar user Waka Kesiswaan aktif untuk dropdown "Pilih Waka Kesiswaan".
+        $wakaList = User::wakaKesiswaanList();
+
+        // Auto-detect: bila user yang sedang login adalah Waka Kesiswaan,
+        // dropdown dikunci ke user tersebut (tidak bisa diganti).
+        $authUser = Auth::user();
+        $loggedInWakaId = ($authUser instanceof User && $authUser->isWakaKesiswaan())
+            ? (int) $authUser->id
+            : null;
+
+        $data = [
+            'token' => $token,
+            'wakaList' => $wakaList,
+            'loggedInWakaId' => $loggedInWakaId,
+        ];
+
+        if (! $dispensasi) {
+            return view('public.dispen-approval', array_merge($data, [
                 'dispensasi' => null,
-                'token' => $token,
                 'invalid' => true,
-            ]);
+            ]));
         }
 
-        if (!empty($dispensasi->ttd_waka) || $dispensasi->status === DispensasiSiswa::STATUS_APPROVED) {
-            return view('public.dispen-approval', [
+        if (! empty($dispensasi->ttd_waka) || $dispensasi->status === DispensasiSiswa::STATUS_APPROVED) {
+            return view('public.dispen-approval', array_merge($data, [
                 'dispensasi' => $dispensasi,
-                'token' => $token,
                 'invalid' => false,
                 'alreadySigned' => true,
-            ]);
+            ]));
         }
 
-        return view('public.dispen-approval', [
+        return view('public.dispen-approval', array_merge($data, [
             'dispensasi' => $dispensasi,
-            'token' => $token,
             'invalid' => false,
             'alreadySigned' => false,
-        ]);
+        ]));
     }
 
     /**
@@ -365,36 +590,57 @@ class DispensasiController extends Controller
     {
         $dispensasi = DispensasiSiswa::where('approval_token', $token)->first();
 
-        if (!$dispensasi) {
+        if (! $dispensasi) {
             return redirect()->route('dispen.approval.show', $token)
                 ->with('error', 'Token approval dispensasi tidak valid atau sudah kedaluwarsa.');
         }
 
-        if (!empty($dispensasi->ttd_waka) || $dispensasi->status === DispensasiSiswa::STATUS_APPROVED) {
+        // Guard: surat data testing tidak dapat ditandatangani oleh non-IT.
+        $this->authorizeTestingMutation($dispensasi);
+
+        if (! empty($dispensasi->ttd_waka) || $dispensasi->status === DispensasiSiswa::STATUS_APPROVED) {
             return redirect()->route('dispen.approval.show', $token)
                 ->with('info', 'Sudah Ditandatangani');
         }
 
         $validated = $request->validate([
             'ttd_waka' => 'required|string|max:150000',
+            'waka_kesiswaan_id' => 'required|integer|exists:users,id',
         ], [
             'ttd_waka.required' => 'Tanda tangan Waka Kesiswaan wajib diisi.',
             'ttd_waka.max' => 'Ukuran tanda tangan terlalu besar.',
+            'waka_kesiswaan_id.required' => 'Silakan pilih Waka Kesiswaan terlebih dahulu.',
+            'waka_kesiswaan_id.exists' => 'Waka Kesiswaan yang dipilih tidak ditemukan.',
         ]);
 
         $ttdWaka = preg_match('/^data:image\/png;base64,/i', trim((string) $validated['ttd_waka']))
             ? trim((string) $validated['ttd_waka'])
             : null;
 
-        if (!$ttdWaka) {
+        if (! $ttdWaka) {
             return back()->withErrors(['ttd_waka' => 'Tanda tangan Waka Kesiswaan wajib digambar terlebih dahulu.']);
         }
 
+        // Auto-detect saat login: TTD milik Waka Kesiswaan yang sedang login.
+        $loggedInWaka = Auth::user();
+        if ($loggedInWaka instanceof User && $loggedInWaka->isWakaKesiswaan()) {
+            $wakaId = (int) $loggedInWaka->id;
+        } else {
+            $wakaId = (int) $validated['waka_kesiswaan_id'];
+        }
+
+        // Pengaman: pastikan user yang dipilih benar-benar Waka Kesiswaan.
+        $wakaUser = User::find($wakaId);
+        abort_unless($wakaUser instanceof User && $wakaUser->isWakaKesiswaan(), 422, 'Waka Kesiswaan yang dipilih tidak valid.');
+
         $dispensasi->update([
             'ttd_waka' => $ttdWaka,
+            'waka_kesiswaan_id' => $wakaId,
             'status' => DispensasiSiswa::STATUS_APPROVED,
             'approved_at' => now(),
-            'approved_by' => null,
+            // Rekam siapa Waka Kesiswaan yang menandatangani surat ini,
+            // agar template surat menampilkan nama & NIP penandatangan.
+            'approved_by' => $wakaId,
         ]);
 
         return redirect()->route('dispen.approval.show', $token)
@@ -425,6 +671,9 @@ class DispensasiController extends Controller
 
         $dispensasi = DispensasiSiswa::findOrFail($id);
 
+        // Guard: surat data testing hanya dapat disetujui oleh IT/QA.
+        $this->authorizeTestingMutation($dispensasi);
+
         abort_unless($dispensasi->status === DispensasiSiswa::STATUS_PENDING_WAKA, 422, 'Hanya dispensasi dengan status Pending Waka yang dapat disetujui pada tahap ini.');
 
         $validated = $request->validate([
@@ -438,7 +687,7 @@ class DispensasiController extends Controller
             ? trim((string) $validated['ttd_waka'])
             : null;
 
-        if (!$ttdWaka) {
+        if (! $ttdWaka) {
             return back()->withErrors(['ttd_waka' => 'Tanda tangan Waka Kurikulum wajib digambar terlebih dahulu.']);
         }
 

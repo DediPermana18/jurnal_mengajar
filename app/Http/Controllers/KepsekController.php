@@ -6,6 +6,7 @@ use App\Models\IzinGuru;
 use App\Models\User;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
 class KepsekController extends Controller
@@ -21,6 +22,10 @@ class KepsekController extends Controller
             if ($user->previewRole() === 'kepsek') {
                 return;
             }
+        }
+
+        if ($user->isPetugasIt()) {
+            return;
         }
 
         if (! $user->isKepsek() && ! $user->isAdmin()) {
@@ -42,7 +47,7 @@ class KepsekController extends Controller
         return $user->isKepsek();
     }
 
-    protected function daftarKepsek(): \Illuminate\Support\Collection
+    protected function daftarKepsek(): Collection
     {
         return User::where(function ($q) {
             $q->whereIn('role', ['kepsek', 'kepala_sekolah'])
@@ -134,6 +139,9 @@ class KepsekController extends Controller
 
         $izin = IzinGuru::with('user')->findOrFail($id);
 
+        // Guard: izin data testing hanya dapat diproses oleh IT/QA.
+        $this->authorizeTestingMutation($izin);
+
         abort_unless(
             $izin->status === IzinGuru::STATUS_PENDING_KEPSEK,
             422,
@@ -157,6 +165,7 @@ class KepsekController extends Controller
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json(['success' => false, 'message' => 'Tanda tangan Kepala Sekolah wajib diisi.'], 422);
             }
+
             return back()->with('error', 'Tanda tangan Kepala Sekolah wajib diisi.');
         }
 
@@ -173,7 +182,7 @@ class KepsekController extends Controller
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([
                 'success' => true,
-                'message' => "Izin {$izin->user->nama} berhasil DISETUJUI dan ditandatangani Kepala Sekolah."
+                'message' => "Izin {$izin->user->nama} berhasil DISETUJUI dan ditandatangani Kepala Sekolah.",
             ]);
         }
 
@@ -186,6 +195,9 @@ class KepsekController extends Controller
         $this->authorizeKepsek();
 
         $izin = IzinGuru::with('user')->findOrFail($id);
+
+        // Guard: izin data testing hanya dapat diproses oleh IT/QA.
+        $this->authorizeTestingMutation($izin);
 
         abort_if(
             $izin->status === IzinGuru::STATUS_DISETUJUI || $izin->status === IzinGuru::STATUS_DITOLAK,

@@ -3,11 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Exports\KelasExport;
-use App\Models\Kelas;
-use App\Models\Jurusan;
-use App\Models\User;
-use App\Models\Siswa;
 use App\Models\JadwalPelajaran;
+use App\Models\Jurusan;
+use App\Models\Kelas;
+use App\Models\Siswa;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Excel as ExcelFormat;
 use Maatwebsite\Excel\Facades\Excel;
@@ -19,8 +19,11 @@ class KelasController extends Controller
      */
     protected function authorizeAdmin()
     {
-        $role = auth()->check() ? auth()->user()->role : null;
-        abort_if($role !== 'admin' && !in_array($role, ['admin_tu', 'admin', 'super_admin']), 403, 'Akses ditolak. Anda tidak memiliki izin untuk fitur manajemen kelas.');
+        abort_unless(
+            $this->isAuthorizedAdminArea(),
+            403,
+            'Akses ditolak. Anda tidak memiliki izin untuk fitur manajemen kelas.'
+        );
     }
 
     /**
@@ -28,8 +31,11 @@ class KelasController extends Controller
      */
     protected function authorizePetugasTU()
     {
-        $role = auth()->check() ? auth()->user()->role : null;
-        abort_if($role !== 'admin' && !in_array($role, ['admin_tu', 'admin', 'super_admin']), 403, 'Akses ditolak. Hanya Admin yang dapat menambah/mengubah data kelas.');
+        abort_unless(
+            $this->isAuthorizedAdminArea(),
+            403,
+            'Akses ditolak. Hanya Admin yang dapat menambah/mengubah data kelas.'
+        );
     }
 
     /**
@@ -46,15 +52,15 @@ class KelasController extends Controller
             $search = trim($request->search);
             $query->where(function ($q) use ($search) {
                 $q->where('nama_kelas', 'like', "%{$search}%")
-                  ->orWhere('tingkat', 'like', "%{$search}%")
-                  ->orWhereHas('jurusan', function ($jQ) use ($search) {
-                      $jQ->where('kode_jurusan', 'like', "%{$search}%")
-                         ->orWhere('nama_jurusan', 'like', "%{$search}%");
-                  })
-                  ->orWhereHas('waliKelas', function ($wQ) use ($search) {
-                      $wQ->where('nama', 'like', "%{$search}%")
-                         ->orWhere('nip', 'like', "%{$search}%");
-                  });
+                    ->orWhere('tingkat', 'like', "%{$search}%")
+                    ->orWhereHas('jurusan', function ($jQ) use ($search) {
+                        $jQ->where('kode_jurusan', 'like', "%{$search}%")
+                            ->orWhere('nama_jurusan', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('waliKelas', function ($wQ) use ($search) {
+                        $wQ->where('nama', 'like', "%{$search}%")
+                            ->orWhere('nip', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -68,9 +74,9 @@ class KelasController extends Controller
             $jurusanFilter = $request->jurusan;
             $query->where(function ($q) use ($jurusanFilter) {
                 $q->where('id_jurusan', $jurusanFilter)
-                  ->orWhereHas('jurusan', function ($jQ) use ($jurusanFilter) {
-                      $jQ->where('kode_jurusan', $jurusanFilter);
-                  });
+                    ->orWhereHas('jurusan', function ($jQ) use ($jurusanFilter) {
+                        $jQ->where('kode_jurusan', $jurusanFilter);
+                    });
             });
         }
 
@@ -90,7 +96,7 @@ class KelasController extends Controller
         $countsByKombinasi = Kelas::selectRaw('tingkat, id_jurusan, count(*) as total')
             ->groupBy('tingkat', 'id_jurusan')
             ->get()
-            ->mapWithKeys(fn ($row) => [$row->tingkat . '|' . $row->id_jurusan => (int) $row->total])
+            ->mapWithKeys(fn ($row) => [$row->tingkat.'|'.$row->id_jurusan => (int) $row->total])
             ->all();
 
         return view('admin.kelas.index', compact('dataKelas', 'daftarJurusan', 'daftarWaliKelas', 'countsByKombinasi'));
@@ -132,24 +138,24 @@ class KelasController extends Controller
         $idWaliKelas = $request->id_wali_kelas ?? $request->wali_kelas_id;
 
         $request->merge([
-            'id_jurusan'    => $idJurusan,
+            'id_jurusan' => $idJurusan,
             'id_wali_kelas' => $idWaliKelas ?: null,
         ]);
 
         $request->validate([
-            'tingkat'       => 'required|in:X,XI,XII',
-            'id_jurusan'    => 'required|exists:jurusan,id',
+            'tingkat' => 'required|in:X,XI,XII',
+            'id_jurusan' => 'required|exists:jurusan,id',
             'id_wali_kelas' => 'nullable|exists:users,id',
         ], [
-            'tingkat.required'       => 'Tingkat kelas wajib dipilih.',
-            'tingkat.in'             => 'Pilihan tingkat tidak valid (harus X, XI, atau XII).',
-            'id_jurusan.required'    => 'Jurusan wajib dipilih.',
-            'id_jurusan.exists'      => 'Jurusan yang dipilih tidak ditemukan.',
-            'id_wali_kelas.exists'   => 'Wali kelas yang dipilih tidak ditemukan.',
+            'tingkat.required' => 'Tingkat kelas wajib dipilih.',
+            'tingkat.in' => 'Pilihan tingkat tidak valid (harus X, XI, atau XII).',
+            'id_jurusan.required' => 'Jurusan wajib dipilih.',
+            'id_jurusan.exists' => 'Jurusan yang dipilih tidak ditemukan.',
+            'id_wali_kelas.exists' => 'Wali kelas yang dipilih tidak ditemukan.',
         ]);
 
         // Validasi: 1 Guru hanya boleh menjadi Wali Kelas pada 1 kelas
-        if (!empty($idWaliKelas)) {
+        if (! empty($idWaliKelas)) {
             $isAssigned = Kelas::where('id_wali_kelas', $idWaliKelas)->exists();
             if ($isAssigned) {
                 return back()->withErrors(['id_wali_kelas' => 'Guru yang dipilih sudah menjadi Wali Kelas di kelas lain.'])->withInput();
@@ -163,7 +169,7 @@ class KelasController extends Controller
             ->count() + 1;
 
         // Auto-construct full class name: "X RPL 1"
-        $namaKelas = trim($request->tingkat . ' ' . $jurusan->kode_jurusan . ' ' . $latestNumber);
+        $namaKelas = trim($request->tingkat.' '.$jurusan->kode_jurusan.' '.$latestNumber);
 
         // Cegah duplikat nama kelas (kombinasi tingkat + jurusan + rombel)
         if (Kelas::where('nama_kelas', $namaKelas)->withTrashed()->exists()) {
@@ -171,16 +177,16 @@ class KelasController extends Controller
         }
 
         $kelas = Kelas::create([
-            'nama_kelas'    => $namaKelas,
-            'tingkat'       => $request->tingkat,
-            'id_jurusan'    => $idJurusan,
+            'nama_kelas' => $namaKelas,
+            'tingkat' => $request->tingkat,
+            'id_jurusan' => $idJurusan,
             'id_wali_kelas' => $idWaliKelas ?: null,
         ]);
 
         // Sinkronisasi kelas_id pada tabel users
-        if (!empty($idWaliKelas)) {
+        if (! empty($idWaliKelas)) {
             User::where('id', $idWaliKelas)->update([
-                'role'     => 'guru',
+                'role' => 'guru',
                 'sub_role' => 'wali_kelas',
                 'kelas_id' => $kelas->id,
             ]);
@@ -197,15 +203,15 @@ class KelasController extends Controller
         $this->authorizeAdmin();
 
         $format = $request->input('format', 'xlsx');
-        $filename = 'data_kelas_' . date('Y-m-d_His');
+        $filename = 'data_kelas_'.date('Y-m-d_His');
 
         if ($format === 'csv') {
-            return Excel::download(new KelasExport, $filename . '.csv', ExcelFormat::CSV, [
+            return Excel::download(new KelasExport, $filename.'.csv', ExcelFormat::CSV, [
                 'Content-Type' => 'text/csv',
             ]);
         }
 
-        return Excel::download(new KelasExport, $filename . '.xlsx', ExcelFormat::XLSX);
+        return Excel::download(new KelasExport, $filename.'.xlsx', ExcelFormat::XLSX);
     }
 
     /**
@@ -215,20 +221,25 @@ class KelasController extends Controller
     {
         $this->authorizePetugasTU();
 
+        // Guard: Data Master tidak dapat diubah saat dalam mode preview/testing.
+        if (auth()->user()?->isTestingUser()) {
+            return back()->with('error', 'Data Master asli tidak dapat diubah saat dalam mode preview/testing.');
+        }
+
         $kelas = Kelas::findOrFail($id);
 
         $request->validate([
-            'nama_kelas'    => 'required|string|max:50',
-            'tingkat'       => 'required|in:X,XI,XII',
-            'id_jurusan'    => 'required|exists:jurusan,id',
+            'nama_kelas' => 'required|string|max:50',
+            'tingkat' => 'required|in:X,XI,XII',
+            'id_jurusan' => 'required|exists:jurusan,id',
             'id_wali_kelas' => 'nullable|exists:users,id',
         ], [
             'nama_kelas.required' => 'Nama kelas wajib diisi.',
-            'tingkat.required'    => 'Tingkat kelas wajib dipilih.',
-            'tingkat.in'          => 'Tingkat kelas harus X, XI, atau XII.',
+            'tingkat.required' => 'Tingkat kelas wajib dipilih.',
+            'tingkat.in' => 'Tingkat kelas harus X, XI, atau XII.',
             'id_jurusan.required' => 'Jurusan wajib dipilih.',
-            'id_jurusan.exists'   => 'Jurusan yang dipilih tidak valid.',
-            'id_wali_kelas.exists'=> 'Wali kelas yang dipilih tidak valid.',
+            'id_jurusan.exists' => 'Jurusan yang dipilih tidak valid.',
+            'id_wali_kelas.exists' => 'Wali kelas yang dipilih tidak valid.',
         ]);
 
         $idJurusan = $request->id_jurusan;
@@ -236,7 +247,7 @@ class KelasController extends Controller
         $oldWaliKelasId = $kelas->id_wali_kelas;
 
         // Validasi: Cegah guru yang sudah menjadi wali kelas lain dipilih lagi
-        if (!empty($idWaliKelas) && $idWaliKelas != $oldWaliKelasId) {
+        if (! empty($idWaliKelas) && $idWaliKelas != $oldWaliKelasId) {
             $isAlreadyWali = Kelas::where('id_wali_kelas', $idWaliKelas)
                 ->where('id', '!=', $id)
                 ->exists();
@@ -247,20 +258,20 @@ class KelasController extends Controller
         }
 
         $kelas->update([
-            'nama_kelas'    => $request->nama_kelas,
-            'tingkat'       => $request->tingkat,
-            'id_jurusan'    => $idJurusan,
+            'nama_kelas' => $request->nama_kelas,
+            'tingkat' => $request->tingkat,
+            'id_jurusan' => $idJurusan,
             'id_wali_kelas' => $idWaliKelas ?: null,
         ]);
 
         // Sinkronisasi kelas_id pada tabel users
-        if (!empty($oldWaliKelasId) && $oldWaliKelasId != $idWaliKelas) {
+        if (! empty($oldWaliKelasId) && $oldWaliKelasId != $idWaliKelas) {
             User::where('id', $oldWaliKelasId)->where('kelas_id', $kelas->id)->update(['kelas_id' => null]);
         }
 
-        if (!empty($idWaliKelas)) {
+        if (! empty($idWaliKelas)) {
             User::where('id', $idWaliKelas)->update([
-                'role'     => 'guru',
+                'role' => 'guru',
                 'sub_role' => 'wali_kelas',
                 'kelas_id' => $kelas->id,
             ]);
@@ -276,12 +287,17 @@ class KelasController extends Controller
     {
         $this->authorizePetugasTU();
 
+        // Guard: Data Master tidak dapat dihapus saat dalam mode preview/testing.
+        if (auth()->user()?->isTestingUser()) {
+            return back()->with('error', 'Data Master asli tidak dapat dihapus saat dalam mode preview/testing.');
+        }
+
         $kelas = Kelas::withCount(['siswa', 'jadwalPelajaran'])->findOrFail($id);
 
         // Cek constraint: cegah penghapusan jika masih ada siswa di kelas
         if ($kelas->siswa_count > 0) {
             return back()->withErrors([
-                'error' => 'Kelas "' . $kelas->nama_kelas . '" tidak dapat dihapus karena masih memiliki ' . $kelas->siswa_count . ' siswa terdaftar. Silakan pindahkan data siswa terlebih dahulu.'
+                'error' => 'Kelas "'.$kelas->nama_kelas.'" tidak dapat dihapus karena masih memiliki '.$kelas->siswa_count.' siswa terdaftar. Silakan pindahkan data siswa terlebih dahulu.',
             ]);
         }
 
@@ -292,6 +308,6 @@ class KelasController extends Controller
 
         $kelas->delete();
 
-        return redirect()->route('kelas.index')->with('success', 'Data Kelas "' . $kelas->nama_kelas . '" berhasil dihapus!');
+        return redirect()->route('kelas.index')->with('success', 'Data Kelas "'.$kelas->nama_kelas.'" berhasil dihapus!');
     }
 }

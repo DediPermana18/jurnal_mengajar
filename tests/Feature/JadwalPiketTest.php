@@ -14,39 +14,39 @@ class JadwalPiketTest extends TestCase
     public function test_sync_jadwal_piket_updates_schedule_and_flashes_correct_message(): void
     {
         $admin = User::create([
-            'nama'      => 'Admin Kurikulum',
-            'username'  => 'admin_kurikulum',
-            'password'  => bcrypt('password'),
-            'role'      => 'admin',
+            'nama' => 'Admin Kurikulum',
+            'username' => 'admin_kurikulum',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
             'is_active' => true,
         ]);
 
         $guru1 = User::create([
-            'nama'      => 'Guru A',
-            'username'  => 'gurua',
-            'password'  => bcrypt('password'),
-            'role'      => 'guru',
+            'nama' => 'Guru A',
+            'username' => 'gurua',
+            'password' => bcrypt('password'),
+            'role' => 'guru',
             'is_active' => true,
         ]);
 
         $guru2 = User::create([
-            'nama'      => 'Guru B',
-            'username'  => 'gurub',
-            'password'  => bcrypt('password'),
-            'role'      => 'guru',
+            'nama' => 'Guru B',
+            'username' => 'gurub',
+            'password' => bcrypt('password'),
+            'role' => 'guru',
             'is_active' => true,
         ]);
 
         // Existing schedule for Tuesday
         $selasaPiket = JadwalPiket::create([
-            'hari'    => 'Selasa',
+            'hari' => 'Selasa',
             'user_id' => $guru1->id,
         ]);
 
         // Submit sync for Senin
         $response = $this->actingAs($admin)
             ->post(route('kurikulum.jadwal-piket.store'), [
-                'hari'     => 'Senin',
+                'hari' => 'Senin',
                 'guru_ids' => [$guru1->id, $guru2->id],
             ]);
 
@@ -55,17 +55,17 @@ class JadwalPiketTest extends TestCase
 
         // Assert database has both teachers on Senin
         $this->assertDatabaseHas('jadwal_piket', [
-            'hari'    => 'Senin',
+            'hari' => 'Senin',
             'user_id' => $guru1->id,
         ]);
         $this->assertDatabaseHas('jadwal_piket', [
-            'hari'    => 'Senin',
+            'hari' => 'Senin',
             'user_id' => $guru2->id,
         ]);
 
         // Assert Tuesday schedule is still intact
         $this->assertDatabaseHas('jadwal_piket', [
-            'id'   => $selasaPiket->id,
+            'id' => $selasaPiket->id,
             'hari' => 'Selasa',
         ]);
     }
@@ -73,31 +73,31 @@ class JadwalPiketTest extends TestCase
     public function test_sync_jadwal_piket_fails_validation_and_does_not_delete_if_no_guru_selected(): void
     {
         $admin = User::create([
-            'nama'      => 'Admin Kurikulum',
-            'username'  => 'admin_kurikulum',
-            'password'  => bcrypt('password'),
-            'role'      => 'admin',
+            'nama' => 'Admin Kurikulum',
+            'username' => 'admin_kurikulum',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
             'is_active' => true,
         ]);
 
         $guru1 = User::create([
-            'nama'      => 'Guru A',
-            'username'  => 'gurua',
-            'password'  => bcrypt('password'),
-            'role'      => 'guru',
+            'nama' => 'Guru A',
+            'username' => 'gurua',
+            'password' => bcrypt('password'),
+            'role' => 'guru',
             'is_active' => true,
         ]);
 
         // Existing schedule for Senin
         $seninPiket = JadwalPiket::create([
-            'hari'    => 'Senin',
+            'hari' => 'Senin',
             'user_id' => $guru1->id,
         ]);
 
         // Submit sync without guru_ids
         $response = $this->actingAs($admin)
             ->post(route('kurikulum.jadwal-piket.store'), [
-                'hari'     => 'Senin',
+                'hari' => 'Senin',
                 'guru_ids' => [],
             ]);
 
@@ -105,8 +105,8 @@ class JadwalPiketTest extends TestCase
 
         // Existing schedule must NOT be deleted
         $this->assertDatabaseHas('jadwal_piket', [
-            'id'      => $seninPiket->id,
-            'hari'    => 'Senin',
+            'id' => $seninPiket->id,
+            'hari' => 'Senin',
             'user_id' => $guru1->id,
         ]);
     }

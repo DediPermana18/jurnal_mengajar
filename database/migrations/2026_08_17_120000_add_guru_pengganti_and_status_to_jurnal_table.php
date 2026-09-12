@@ -2,10 +2,11 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     /**
      * Run the migrations.
      */
@@ -19,12 +20,12 @@ return new class extends Migration {
 
         // Backfill id_guru untuk data jurnal lama berdasarkan id_guru di jadwal_pelajaran
         if (DB::getDriverName() === 'mysql') {
-            DB::statement("
+            DB::statement('
                 UPDATE jurnal j 
                 JOIN jadwal_pelajaran jp ON j.id_jadwal = jp.id 
                 SET j.id_guru = jp.id_guru 
                 WHERE j.id_guru IS NULL
-            ");
+            ');
         }
     }
 

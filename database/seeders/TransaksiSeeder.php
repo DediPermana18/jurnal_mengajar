@@ -29,14 +29,14 @@ class TransaksiSeeder extends Seeder
      */
     public function run(): void
     {
-        $today     = Carbon::today()->toDateString();
+        $today = Carbon::today()->toDateString();
         $yesterday = Carbon::yesterday()->toDateString();
 
-        $guruBudi  = User::where('username', 'budi.santoso')->first();
-        $guruEko   = User::where('username', 'eko.prasetyo')->first();
+        $guruBudi = User::where('username', 'budi.santoso')->first();
+        $guruEko = User::where('username', 'eko.prasetyo')->first();
         $guruAhmad = User::where('username', 'ahmad.fauzi')->first();
         $guruPiket = User::where('username', 'siti.rahmawati')->first();
-        $satpam    = User::where('username', 'satpam')->first();
+        $satpam = User::where('username', 'satpam')->first();
 
         // ----------------------------------------------------
         // 1. IZIN GURU
@@ -46,12 +46,12 @@ class TransaksiSeeder extends Seeder
                 ['user_id' => $guruBudi->id, 'tanggal' => $today],
                 [
                     'kategori_izin' => 'dinas_luar',
-                    'alasan'        => 'Menghadiri Workshop Kurikulum Merdeka tingkat Provinsi.',
-                    'keterangan'    => 'Kegiatan di Dinas Pendidikan Provinsi Jawa Tengah.',
-                    'tugas_siswa'   => 'Mengerjakan tugas praktikum halaman 45-50.',
-                    'status'        => IzinGuru::STATUS_DISETUJUI,
+                    'alasan' => 'Menghadiri Workshop Kurikulum Merdeka tingkat Provinsi.',
+                    'keterangan' => 'Kegiatan di Dinas Pendidikan Provinsi Jawa Tengah.',
+                    'tugas_siswa' => 'Mengerjakan tugas praktikum halaman 45-50.',
+                    'status' => IzinGuru::STATUS_DISETUJUI,
                     'approved_by_piket' => $guruPiket?->id,
-                    'approved_at'   => now(),
+                    'approved_at' => now(),
                 ]
             );
         }
@@ -61,10 +61,10 @@ class TransaksiSeeder extends Seeder
                 ['user_id' => $guruEko->id, 'tanggal' => $yesterday],
                 [
                     'kategori_izin' => 'sakit',
-                    'alasan'        => 'Demam tinggi dan flu berat.',
-                    'keterangan'    => 'Istirahat sesuai anjuran dokter.',
-                    'tugas_siswa'   => 'Studi literatur modul Desain Grafis.',
-                    'status'        => IzinGuru::STATUS_PENDING_WAKA,
+                    'alasan' => 'Demam tinggi dan flu berat.',
+                    'keterangan' => 'Istirahat sesuai anjuran dokter.',
+                    'tugas_siswa' => 'Studi literatur modul Desain Grafis.',
+                    'status' => IzinGuru::STATUS_PENDING_WAKA,
                 ]
             );
         }
@@ -80,11 +80,11 @@ class TransaksiSeeder extends Seeder
             $jurnal = Jurnal::updateOrCreate(
                 ['id_jadwal' => $jadwal->id, 'tanggal' => $today],
                 [
-                    'id_guru'          => $jadwal->id_guru,
+                    'id_guru' => $jadwal->id_guru,
                     'status_kehadiran' => 'Hadir',
-                    'materi'           => 'Pendalaman Konsep dan Diskusi Kelompok',
+                    'materi' => 'Pendalaman Konsep dan Diskusi Kelompok',
                     'catatan_kejadian' => 'Siswa mengikuti KBM dengan kondusif dan aktif.',
-                    'waktu_isi'        => now()->setTime(8, 15),
+                    'waktu_isi' => now()->setTime(8, 15),
                 ]
             );
 
@@ -97,7 +97,7 @@ class TransaksiSeeder extends Seeder
                 AbsensiJurnal::updateOrCreate(
                     ['id_jurnal' => $jurnal->id, 'id_siswa' => $sis->id],
                     [
-                        'status'     => $st,
+                        'status' => $st,
                         'keterangan' => $st === 'Hadir' ? null : "Keterangan status {$st}",
                     ]
                 );
@@ -115,9 +115,9 @@ class TransaksiSeeder extends Seeder
             PresensiSiswa::updateOrCreate(
                 ['id_siswa' => $sis->id, 'tanggal' => $today],
                 [
-                    'id_kelas'      => $sis->id_kelas,
-                    'status'        => $st,
-                    'keterangan'    => $st === 'Hadir' ? null : 'Izin acara keluarga',
+                    'id_kelas' => $sis->id_kelas,
+                    'status' => $st,
+                    'keterangan' => $st === 'Hadir' ? null : 'Izin acara keluarga',
                     'id_guru_piket' => $guruPiket?->id,
                 ]
             );
@@ -133,14 +133,14 @@ class TransaksiSeeder extends Seeder
             DispensasiSiswa::updateOrCreate(
                 ['id_siswa' => $siswaDispen->id, 'tanggal' => $today],
                 [
-                    'id_guru_piket'  => $guruPiket->id,
-                    'jenis'          => DispensasiSiswa::JENIS_ACARA,
-                    'tipe_dispen'    => DispensasiSiswa::TIPE_KELUAR,
-                    'jam_ke'         => '3,4',
-                    'alasan'         => 'Mewakili Sekolah dalam Lomba FLS2N Tingkat Kota.',
-                    'status'         => DispensasiSiswa::STATUS_DISETUJUI,
-                    'approved_at'    => now(),
-                    'approved_by'    => $guruPiket->id,
+                    'id_guru_piket' => $guruPiket->id,
+                    'jenis' => DispensasiSiswa::JENIS_ACARA,
+                    'tipe_dispen' => DispensasiSiswa::TIPE_KELUAR,
+                    'jam_ke' => '3,4',
+                    'alasan' => 'Mewakili Sekolah dalam Lomba FLS2N Tingkat Kota.',
+                    'status' => DispensasiSiswa::STATUS_DISETUJUI,
+                    'approved_at' => now(),
+                    'approved_by' => $guruPiket->id,
                 ]
             );
         }
@@ -155,9 +155,9 @@ class TransaksiSeeder extends Seeder
             $catatTelat = CatatanTerlambat::updateOrCreate(
                 ['id_siswa' => $siswaTelat->id, 'tanggal' => $today],
                 [
-                    'jam_masuk'  => now()->setTime(7, 40),
+                    'jam_masuk' => now()->setTime(7, 40),
                     'keterangan' => 'Ban sepeda motor bocor di jalan.',
-                    'id_satpam'  => $satpam->id,
+                    'id_satpam' => $satpam->id,
                 ]
             );
 
@@ -193,8 +193,8 @@ class TransaksiSeeder extends Seeder
                     ['id_siswa' => $siswaBermasalah->id, 'id_wali_kelas' => $waliKelas->id],
                     [
                         'jenis_tindakan' => CatatanSiswaBermasalah::JENIS_PANGGIL_ORTU,
-                        'catatan'        => 'Keterlambatan berturut-turut 3 hari dan tidak mengumpulkan tugas.',
-                        'status'         => CatatanSiswaBermasalah::STATUS_DIPANGGIL,
+                        'catatan' => 'Keterlambatan berturut-turut 3 hari dan tidak mengumpulkan tugas.',
+                        'status' => CatatanSiswaBermasalah::STATUS_DIPANGGIL,
                     ]
                 );
             }

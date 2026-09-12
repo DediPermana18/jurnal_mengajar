@@ -15,7 +15,7 @@ class PengurusRuanganSeeder extends Seeder
     public function run(): void
     {
         $labKomputer = Ruangan::where('kode_ruangan', 'LAB-01')->first();
-        $studioDkv   = Ruangan::where('kode_ruangan', 'STD-01')->first();
+        $studioDkv = Ruangan::where('kode_ruangan', 'STD-01')->first();
 
         $guruTkj = User::where('username', 'ahmad.fauzi')->first();
         $guruDkv = User::where('username', 'eko.prasetyo')->first();

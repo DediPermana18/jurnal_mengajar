@@ -40,11 +40,11 @@ class SatpamPortalTest extends TestCase
     protected function makeUser(string $role, ?string $subRole = null): User
     {
         return User::create([
-            'nama'      => 'User ' . Str::random(5),
-            'username'  => 'user_' . Str::random(8),
-            'password'  => bcrypt('password'),
-            'role'      => $role,
-            'sub_role'  => $subRole,
+            'nama' => 'User '.Str::random(5),
+            'username' => 'user_'.Str::random(8),
+            'password' => bcrypt('password'),
+            'role' => $role,
+            'sub_role' => $subRole,
             'is_active' => true,
         ]);
     }
@@ -57,17 +57,17 @@ class SatpamPortalTest extends TestCase
     protected function makeSiswaBudi(?User $waliKelas = null): array
     {
         $kelas = Kelas::create([
-            'nama_kelas'   => 'X IPA 1',
-            'tingkat'      => 'X',
+            'nama_kelas' => 'X IPA 1',
+            'tingkat' => 'X',
             'id_wali_kelas' => $waliKelas?->id,
         ]);
 
         $siswa = Siswa::create([
-            'nisn'          => '0000000001',
-            'nis'           => '23101',
-            'nama'          => 'Budi Santoso',
+            'nisn' => '0000000001',
+            'nis' => '23101',
+            'nama' => 'Budi Santoso',
             'jenis_kelamin' => 'L',
-            'id_kelas'      => $kelas->id,
+            'id_kelas' => $kelas->id,
         ]);
 
         return [$kelas, $siswa];
@@ -82,7 +82,7 @@ class SatpamPortalTest extends TestCase
     {
         $tahun = TahunAjaran::create([
             'tahun_ajaran' => '2025/2026',
-            'semester'     => 'Ganjil',
+            'semester' => 'Ganjil',
             'is_active' => true,
         ]);
 
@@ -90,26 +90,26 @@ class SatpamPortalTest extends TestCase
 
         $jam = JamPelajaran::create([
             'kategori_hari' => 'Senin-Kamis',
-            'jam_ke'        => 2,
-            'jam_mulai'     => '07:40',
-            'jam_selesai'   => '08:20',
-            'jenis'         => 'kbm',
+            'jam_ke' => 2,
+            'jam_mulai' => '07:40',
+            'jam_selesai' => '08:20',
+            'jenis' => 'kbm',
         ]);
 
         $jadwal = JadwalPelajaran::create([
-            'group_id'       => Str::uuid(),
-            'hari'           => 'Senin',
-            'id_jam'         => $jam->id,
-            'id_kelas'       => $kelas->id,
-            'id_mapel'       => $mapel->id,
-            'id_guru'        => $guru->id,
-            'id_tahun_ajaran'=> $tahun->id,
+            'group_id' => Str::uuid(),
+            'hari' => 'Senin',
+            'id_jam' => $jam->id,
+            'id_kelas' => $kelas->id,
+            'id_mapel' => $mapel->id,
+            'id_guru' => $guru->id,
+            'id_tahun_ajaran' => $tahun->id,
         ]);
 
         Jurnal::create([
             'id_jadwal' => $jadwal->id,
-            'tanggal'   => '2026-08-10',
-            'materi'    => 'Operasi hitung',
+            'tanggal' => '2026-08-10',
+            'materi' => 'Operasi hitung',
         ]);
 
         return [$jadwal, $guru];
@@ -118,13 +118,13 @@ class SatpamPortalTest extends TestCase
     protected function makeDispen(User $satpam, Siswa $siswa, array $extra = []): DispensasiSiswa
     {
         return DispensasiSiswa::create(array_merge([
-            'id_siswa'       => $siswa->id,
-            'id_guru_piket'  => $satpam->id,
-            'tanggal'        => now()->toDateString(),
-            'jenis'          => DispensasiSiswa::JENIS_KELUAR,
-            'jam_ke'         => '5,6',
-            'alasan'         => 'Ada keperluan keluarga',
-            'status'         => DispensasiSiswa::STATUS_DISETUJUI,
+            'id_siswa' => $siswa->id,
+            'id_guru_piket' => $satpam->id,
+            'tanggal' => now()->toDateString(),
+            'jenis' => DispensasiSiswa::JENIS_KELUAR,
+            'jam_ke' => '5,6',
+            'alasan' => 'Ada keperluan keluarga',
+            'status' => DispensasiSiswa::STATUS_DISETUJUI,
             'approval_token' => Str::random(16),
         ], $extra));
     }
@@ -154,10 +154,10 @@ class SatpamPortalTest extends TestCase
 
     public function test_catat_siswa_terlambat_diteruskan_ke_guru_piket_dan_wali_kelas(): void
     {
-        $satpam    = $this->makeSatpam();
-        $wali      = $this->makeUser('guru', 'wali_kelas');
-        $piketA    = $this->makeUser('guru', 'guru_mapel');
-        $piketB    = $this->makeUser('guru', 'guru_mapel');
+        $satpam = $this->makeSatpam();
+        $wali = $this->makeUser('guru', 'wali_kelas');
+        $piketA = $this->makeUser('guru', 'guru_mapel');
+        $piketB = $this->makeUser('guru', 'guru_mapel');
         $guruBukanPiket = $this->makeUser('guru', 'guru_mapel');
         $this->jadwalkanPiket($piketA);
         $this->jadwalkanPiket($piketB);
@@ -171,9 +171,9 @@ class SatpamPortalTest extends TestCase
 
         $this->actingAs($satpam)
             ->post(route('satpam.terlambat.store'), [
-                'id_siswa'   => $kelas->siswa->first()->id,
-                'tanggal'    => '2026-08-10',
-                'jam_masuk'  => '07:45',
+                'id_siswa' => $kelas->siswa->first()->id,
+                'tanggal' => '2026-08-10',
+                'jam_masuk' => '07:45',
                 'keterangan' => 'Bangun kesiangan',
             ])
             ->assertRedirect(route('satpam.dashboard'))
@@ -216,11 +216,11 @@ class SatpamPortalTest extends TestCase
 
         $this->actingAs($satpam)
             ->post(route('satpam.dispensasi.store'), [
-                'tanggal'   => '2026-08-10',
-                'id_siswa'  => $siswa->id,
-                'jenis'     => DispensasiSiswa::JENIS_KELUAR,
+                'tanggal' => '2026-08-10',
+                'id_siswa' => $siswa->id,
+                'jenis' => DispensasiSiswa::JENIS_KELUAR,
                 'id_jadwal' => $jadwal->id,
-                'alasan'    => 'Dibawa orang tua ke dokter',
+                'alasan' => 'Dibawa orang tua ke dokter',
             ])
             ->assertRedirect(route('satpam.dashboard', ['tab' => 'dispensasi']))
             ->assertSessionHas('success');
@@ -255,10 +255,10 @@ class SatpamPortalTest extends TestCase
 
         $this->actingAs($satpam)
             ->post(route('satpam.dispensasi.store'), [
-                'tanggal'  => '2026-08-10',
+                'tanggal' => '2026-08-10',
                 'id_siswa' => $siswa->id,
-                'jenis'    => DispensasiSiswa::JENIS_SAKIT,
-                'alasan'   => 'Sakit, pulang lebih awal',
+                'jenis' => DispensasiSiswa::JENIS_SAKIT,
+                'alasan' => 'Sakit, pulang lebih awal',
             ])
             ->assertRedirect(route('satpam.dashboard', ['tab' => 'dispensasi']))
             ->assertSessionHas('success');
@@ -285,7 +285,7 @@ class SatpamPortalTest extends TestCase
 
         $this->actingAs($satpam)
             ->post(route('satpam.dispen.keluar', $dispen))
-            ->assertRedirect(route('satpam.verifikasi', ['q' => $dispen->approval_token]))
+            ->assertRedirect(route('satpam.dispensasi.index', ['q' => $dispen->approval_token]))
             ->assertSessionHas('success');
 
         $this->assertNotNull($dispen->fresh()->keluar_gerbang_at);
@@ -309,7 +309,7 @@ class SatpamPortalTest extends TestCase
 
         $this->actingAs($satpam)
             ->post(route('satpam.dispen.keluar', $dispen))
-            ->assertRedirect(route('satpam.verifikasi', ['q' => $dispen->approval_token]))
+            ->assertRedirect(route('satpam.dispensasi.index', ['q' => $dispen->approval_token]))
             ->assertSessionHas('info');
     }
 

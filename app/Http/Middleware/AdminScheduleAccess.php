@@ -12,8 +12,11 @@ class AdminScheduleAccess
     {
         $user = $request->user();
 
+        // Petugas IT / QA Tester (dan aktif impersonasi admin_tu via active_role)
+        // diizinkan mengakses group route admin sebagai peninjau/penguji.
         abort_unless(
-            $user && (($user->role === 'admin' && in_array($user->sub_role, [null, 'petugas_tu', 'admin_tu'], true)) || $user->role === 'admin_tu'),
+            $user && ($user->isPetugasIt()
+                || (($user->role === 'admin' && in_array($user->sub_role, [null, 'petugas_tu', 'admin_tu'], true)) || $user->role === 'admin_tu')),
             403
         );
 

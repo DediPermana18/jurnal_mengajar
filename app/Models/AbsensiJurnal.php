@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTestingData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AbsensiJurnal extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, HasTestingData, SoftDeletes;
 
     protected $table = 'absensi_jurnal';
 
@@ -19,6 +20,10 @@ class AbsensiJurnal extends Model
         'status',
         'keterangan',
         'foto_surat',
+    ];
+
+    protected $casts = [
+        'is_testing' => 'boolean',
     ];
 
     /**

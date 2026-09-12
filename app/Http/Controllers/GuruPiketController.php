@@ -10,9 +10,9 @@ use App\Models\Kelas;
 use App\Models\PresensiSiswa;
 use App\Models\Siswa;
 use App\Models\TahunAjaran;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Http\Request;
 use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class GuruPiketController extends Controller
 {
@@ -22,7 +22,12 @@ class GuruPiketController extends Controller
     protected function authorizeGuruPiket()
     {
         $user = Auth::user();
-        abort_unless($user instanceof User && $user->isPiketHariIni(), 403, 'Akses ditolak. Anda tidak mendapat jadwal piket hari ini.');
+        abort_unless(
+            $user instanceof User
+                && ($user->isPetugasIt() || $user->activeRole() === 'guru_piket' || $user->isPiketHariIni()),
+            403,
+            'Akses ditolak. Anda tidak mendapat jadwal piket hari ini.'
+        );
     }
 
     /**
@@ -32,7 +37,7 @@ class GuruPiketController extends Controller
     {
         $this->authorizeGuruPiket();
 
-        $today   = now()->toDateString();
+        $today = now()->toDateString();
         $hariIni = now()->translatedFormat('l');
 
         $tahunAktif = TahunAjaran::where('is_active', true)->first();
@@ -103,6 +108,7 @@ class GuruPiketController extends Controller
     public function presensiGuru()
     {
         $this->authorizeGuruPiket();
+
         return view('piket.presensi_guru');
     }
 
@@ -124,17 +130,18 @@ class GuruPiketController extends Controller
             'jadwal.kelas',
             'jadwal.jamPelajaran',
         ])
-        ->whereDate('tanggal', $tanggal)
-        ->orderBy('tanggal', 'desc')
-        ->orderBy('id', 'desc')
-        ->get()
-        ->map(function ($jurnal) use ($today) {
-            // Tambah flag editable: hanya bisa edit jika tanggal jurnal = hari ini
-            $jurnal->is_editable = $jurnal->tanggal === $today;
-            return $jurnal;
-        });
+            ->whereDate('tanggal', $tanggal)
+            ->orderBy('tanggal', 'desc')
+            ->orderBy('id', 'desc')
+            ->get()
+            ->map(function ($jurnal) use ($today) {
+                // Tambah flag editable: hanya bisa edit jika tanggal jurnal = hari ini
+                $jurnal->is_editable = $jurnal->tanggal === $today;
 
-        $gurus = \App\Models\User::orderBy('nama')->get();
+                return $jurnal;
+            });
+
+        $gurus = User::orderBy('nama')->get();
 
         return view('piket.jurnal', compact('dataJurnal', 'tanggal', 'today', 'gurus'));
     }
@@ -191,11 +198,11 @@ class GuruPiketController extends Controller
         $this->authorizeGuruPiket();
 
         $validated = $request->validate([
-            'tanggal'    => 'required|date',
-            'id_kelas'   => 'required|exists:kelas,id',
-            'presensi'   => 'required|array',
+            'tanggal' => 'required|date',
+            'id_kelas' => 'required|exists:kelas,id',
+            'presensi' => 'required|array',
             'presensi.*.id_siswa' => 'required|exists:siswa,id',
-            'presensi.*.status'   => 'required|in:Hadir,Sakit,Izin,Alpha',
+            'presensi.*.status' => 'required|in:Hadir,Sakit,Izin,Alpha',
             'presensi.*.keterangan' => 'nullable|string|max:255',
         ]);
 
@@ -206,24 +213,29 @@ class GuruPiketController extends Controller
             // temukan termasuk baris trashed, lalu restore & perbarui baris yang sama.
             $presensi = PresensiSiswa::withTrashed()->firstOrNew([
                 'id_siswa' => $item['id_siswa'],
-                'tanggal'  => $validated['tanggal'],
+                'tanggal' => $validated['tanggal'],
             ]);
+
+            // Guard: presensi data testing hanya dapat diubah oleh IT/QA.
+            if ($presensi->exists) {
+                $this->authorizeTestingMutation($presensi);
+            }
 
             if ($presensi->trashed()) {
                 $presensi->restore();
             }
 
             $presensi->fill([
-                'id_kelas'      => $validated['id_kelas'],
-                'status'        => $item['status'],
-                'keterangan'    => $item['keterangan'] ?? null,
+                'id_kelas' => $validated['id_kelas'],
+                'status' => $item['status'],
+                'keterangan' => $item['keterangan'] ?? null,
                 'id_guru_piket' => $user->id,
             ])->save();
         }
 
         return redirect()->route('piket.presensi-siswa', [
-            'tanggal'   => $validated['tanggal'],
-            'id_kelas'  => $validated['id_kelas'],
+            'tanggal' => $validated['tanggal'],
+            'id_kelas' => $validated['id_kelas'],
         ])->with('success', 'Presensi siswa berhasil disimpan.');
     }
 }

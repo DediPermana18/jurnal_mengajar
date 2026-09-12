@@ -72,7 +72,6 @@
     @php
         $penandatangan = $dispensasi->approver ?? $dispensasi->guruPiket;
         $piket = $dispensasi->piket ?? $dispensasi->guruPiket ?? auth()->user();
-        $wakaKesiswaan = \App\Models\User::wakaKesiswaan();
     @endphp
 
     {{-- Toolbar (tidak tercetak) --}}
@@ -163,6 +162,33 @@
                             @endif
                         </td>
                     </tr>
+                    {{-- Baris Rencana Jam Kembali (Part 3) --}}
+                    @if(!empty($dispensasi->jam_kembali_jp) || $dispensasi->isTidakKembaliHariIni())
+                    <tr>
+                        <td class="text-muted">Rencana Kembali</td>
+                        <td>:</td>
+                        <td class="fw-semibold text-dark">
+                            @if($dispensasi->isTidakKembaliHariIni())
+                                Tidak kembali hari ini (izin hingga pulang)
+                            @else
+                                Jam Ke-{{ $dispensasi->jam_kembali_jp }}
+                                @php
+                                    $jamKembaliDetail = $dispensasi->jam_kembali_jp
+                                        ? \App\Models\JamPelajaran::where('jam_ke', $dispensasi->jam_kembali_jp)->orderBy('jam_mulai')->first()
+                                        : null;
+                                @endphp
+                                @if($jamKembaliDetail)
+                                    ({{ substr($jamKembaliDetail->jam_mulai, 0, 5) }} WIB)
+                                @endif
+                                @if($dispensasi->isKembali())
+                                    — <span class="text-success fw-bold">Kembali {{ $dispensasi->kembali_at->format('H:i') }}</span>
+                                @elseif($dispensasi->isMangkir())
+                                    — <span class="text-danger fw-bold">MANGKIR / BOLOS</span>
+                                @endif
+                            @endif
+                        </td>
+                    </tr>
+                    @endif
                     <tr>
                         <td class="text-muted">Alasan Kegiatan</td>
                         <td>:</td>
@@ -175,9 +201,12 @@
             <p class="mb-5">
                 Diperkenankan untuk tidak mengikuti kegiatan belajar mengajar pada jam tersebut di atas
                 dengan alasan <strong>{{ $dispensasi->alasan }}</strong>.
-                @if($dispensasi->isApproved())
+                @if($dispensasi->isApproved() && !$dispensasi->isDibatalkan() && !$dispensasi->isExpired())
                     Sesuai persetujuan yang telah disahkan, absensi siswa pada jam terkait otomatis
                     tercatat sebagai <strong>Dispen</strong> pada jurnal mengajar.
+                @elseif($dispensasi->isMangkir())
+                    Siswa tidak kembali sesuai Rencana Jam Kembali sehingga surat ini tercatat sebagai
+                    <strong>Mangkir / Bolos</strong> dan absensi JP terkait otomatis menjadi <strong>Alfa</strong>.
                 @endif
                 Demikian surat dispensasi ini dibuat dengan sebenarnya untuk digunakan sebagaimana mestinya.
             </p>
@@ -222,11 +251,22 @@
                     <div style="height: 80px; width: 100%; border: 1px solid #e5e7eb; border-radius: 8px; background-color: #f9fafb; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 4px;">
                         @if(!empty($dispensasi->ttd_waka))
                             <img src="{{ $dispensasi->ttd_waka }}" style="max-height: 70px; width: auto; max-width: 100%; object-fit: contain;" alt="TTD Waka">
+                        @elseif(!in_array($dispensasi->status, [
+                            \App\Models\DispensasiSiswa::STATUS_PENDING,
+                            \App\Models\DispensasiSiswa::STATUS_PENDING_WAKA,
+                            \App\Models\DispensasiSiswa::STATUS_DISETUJUI,
+                            \App\Models\DispensasiSiswa::STATUS_APPROVED,
+                            \App\Models\DispensasiSiswa::STATUS_FINAL,
+                        ], true))
+                            <span style="font-size: 12px; color: #dc2626; font-style: italic; font-weight: 600;">({{ $dispensasi->status_label }})</span>
                         @else
                             <span style="font-size: 12px; color: #9ca3af; font-style: italic;">(Menunggu Approval)</span>
                         @endif
                     </div>
-                    <p style="font-weight: bold; font-size: 14px; margin-top: 8px;">{{ $wakaKesiswaan->nama ?? 'Budi Santoso, S.Kom.' }}</p>
+                    <p style="font-weight: bold; font-size: 14px; margin-top: 8px;">{{ $wakaNama ?? '. . .' }}</p>
+                    @if(!empty($wakaNip))
+                        <p style="font-size: 12px; color: #6b7280;">NIP. {{ $wakaNip }}</p>
+                    @endif
                     <p style="font-size: 12px; color: #6b7280;">Waka Kesiswaan</p>
                 </div>
 
@@ -234,5 +274,14 @@
 
             </div>
     </div>
+
+    {{-- Auto print saat dibuka dengan ?print=1 (dipakai tombol "Cetak PDF" di portal Waka Kesiswaan) --}}
+    @if(request()->has('print'))
+        <script>
+            window.addEventListener('load', function () {
+                window.print();
+            });
+        </script>
+    @endif
 </body>
 </html>

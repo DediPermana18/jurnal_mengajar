@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTestingData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class JadwalPelajaran extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, HasTestingData, SoftDeletes;
 
     protected $table = 'jadwal_pelajaran';
 
@@ -23,6 +24,10 @@ class JadwalPelajaran extends Model
         'id_guru',
         'id_ruangan',
         'id_tahun_ajaran',
+    ];
+
+    protected $casts = [
+        'is_testing' => 'boolean',
     ];
 
     /**

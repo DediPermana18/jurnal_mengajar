@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Jurnal;
 use App\Models\JadwalPelajaran;
+use App\Models\Jurnal;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Carbon\Carbon;
 
 class JurnalMengajarController extends Controller
 {
@@ -24,18 +24,19 @@ class JurnalMengajarController extends Controller
             'jadwal.guru',
             'jadwal.mapel',
             'jadwal.kelas',
-            'jadwal.jamPelajaran'
+            'jadwal.jamPelajaran',
         ])
-        ->orderBy('tanggal', 'desc')
-        ->orderBy('id', 'desc')
-        ->get()
-        ->map(function ($jurnal) use ($today) {
-            // is_editable: Admin selalu bisa edit; Guru hanya bisa edit jurnal hari ini
-            $role = auth()->check() ? auth()->user()->role : null;
-            $isGuru = in_array($role, ['guru_mapel', 'guru', 'wali_kelas']);
-            $jurnal->is_editable = !$isGuru || $jurnal->tanggal === $today;
-            return $jurnal;
-        });
+            ->orderBy('tanggal', 'desc')
+            ->orderBy('id', 'desc')
+            ->get()
+            ->map(function ($jurnal) use ($today) {
+                // is_editable: Admin selalu bisa edit; Guru hanya bisa edit jurnal hari ini
+                $role = auth()->check() ? auth()->user()->role : null;
+                $isGuru = in_array($role, ['guru_mapel', 'guru', 'wali_kelas']);
+                $jurnal->is_editable = ! $isGuru || $jurnal->tanggal === $today;
+
+                return $jurnal;
+            });
 
         return view('admin.jurnal.index', compact('dataJurnal', 'today'));
     }
@@ -50,7 +51,7 @@ class JurnalMengajarController extends Controller
             'kelas',
             'mapel',
             'jamPelajaran',
-            'tahunAjaran'
+            'tahunAjaran',
         ])->get();
 
         $gurus = User::orderBy('nama')->get();
@@ -63,11 +64,12 @@ class JurnalMengajarController extends Controller
      */
     protected function sanitizeString(?string $string): string
     {
-        if (!$string) {
+        if (! $string) {
             return 'UNKNOWN';
         }
         $sanitized = preg_replace('/[^a-zA-Z0-9\s-]/', '', $string);
         $sanitized = preg_replace('/[\s-]+/', '-', trim($sanitized));
+
         return strtoupper($sanitized) ?: 'UNKNOWN';
     }
 
@@ -77,12 +79,12 @@ class JurnalMengajarController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'id_jadwal'         => 'required|exists:jadwal_pelajaran,id',
-            'tanggal'           => 'required|date',
-            'materi'            => 'required|string',
-            'catatan_kejadian'  => 'nullable|string',
-            'foto_kegiatan'     => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
-            'status_kehadiran'   => 'nullable|in:Hadir,Izin,Sakit,Disposisi',
+            'id_jadwal' => 'required|exists:jadwal_pelajaran,id',
+            'tanggal' => 'required|date',
+            'materi' => 'required|string',
+            'catatan_kejadian' => 'nullable|string',
+            'foto_kegiatan' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'status_kehadiran' => 'nullable|in:Hadir,Izin,Sakit,Disposisi',
             'id_guru_pengganti' => 'nullable|exists:users,id',
         ]);
 
@@ -92,12 +94,12 @@ class JurnalMengajarController extends Controller
         if ($request->hasFile('foto_kegiatan')) {
             $namaKelas = $this->sanitizeString($targetJadwal->kelas?->nama_kelas);
             $guruIdNip = $targetJadwal->guru?->nip ?? $targetJadwal->id_guru ?? auth()->id();
-            $tglStr    = Carbon::parse($validated['tanggal'])->format('Ymd');
-            $jamKe     = $targetJadwal->jamPelajaran?->jam_ke ?? 1;
-            $hash      = substr(md5(uniqid((string) time(), true)), 0, 6);
-            $ext       = $request->file('foto_kegiatan')->getClientOriginalExtension() ?: 'jpg';
+            $tglStr = Carbon::parse($validated['tanggal'])->format('Ymd');
+            $jamKe = $targetJadwal->jamPelajaran?->jam_ke ?? 1;
+            $hash = substr(md5(uniqid((string) time(), true)), 0, 6);
+            $ext = $request->file('foto_kegiatan')->getClientOriginalExtension() ?: 'jpg';
 
-            $filename  = "JRN_{$namaKelas}_{$guruIdNip}_{$tglStr}_{$jamKe}_{$hash}.{$ext}";
+            $filename = "JRN_{$namaKelas}_{$guruIdNip}_{$tglStr}_{$jamKe}_{$hash}.{$ext}";
             $fotoKegiatanPath = $request->file('foto_kegiatan')->storeAs('foto_jurnal', $filename, 'local');
         }
 
@@ -116,16 +118,16 @@ class JurnalMengajarController extends Controller
             Jurnal::firstOrCreate(
                 [
                     'id_jadwal' => $sched->id,
-                    'tanggal'   => $validated['tanggal'],
+                    'tanggal' => $validated['tanggal'],
                 ],
                 [
-                    'id_guru'           => $sched->id_guru,
+                    'id_guru' => $sched->id_guru,
                     'id_guru_pengganti' => $idGuruPengganti,
-                    'status_kehadiran'  => $statusKehadiran,
-                    'materi'            => $validated['materi'],
-                    'catatan_kejadian'  => $validated['catatan_kejadian'] ?? null,
-                    'foto_kegiatan'     => $fotoKegiatanPath,
-                    'waktu_isi'         => now(),
+                    'status_kehadiran' => $statusKehadiran,
+                    'materi' => $validated['materi'],
+                    'catatan_kejadian' => $validated['catatan_kejadian'] ?? null,
+                    'foto_kegiatan' => $fotoKegiatanPath,
+                    'waktu_isi' => now(),
                 ]
             );
         }
@@ -144,7 +146,7 @@ class JurnalMengajarController extends Controller
         $role = auth()->check() ? auth()->user()->role : null;
         $isGuru = in_array($role, ['guru_mapel', 'guru', 'wali_kelas']);
         if ($isGuru && $jurnal->tanggal !== Carbon::today()->toDateString()) {
-            return redirect()->back()->with('error', 'Jurnal tanggal ' . $jurnal->tanggal . ' sudah terkunci dan tidak dapat diedit.');
+            return redirect()->back()->with('error', 'Jurnal tanggal '.$jurnal->tanggal.' sudah terkunci dan tidak dapat diedit.');
         }
 
         $jadwals = JadwalPelajaran::with([
@@ -152,7 +154,7 @@ class JurnalMengajarController extends Controller
             'kelas',
             'mapel',
             'jamPelajaran',
-            'tahunAjaran'
+            'tahunAjaran',
         ])->get();
 
         $gurus = User::orderBy('nama')->get();
@@ -167,6 +169,9 @@ class JurnalMengajarController extends Controller
     {
         $jurnal = Jurnal::findOrFail($id);
 
+        // Guard: jurnal data testing hanya dapat diubah oleh IT/QA.
+        $this->authorizeTestingMutation($jurnal);
+
         // DATE-LOCK: Guru Piket & Guru Mapel hanya bisa update jurnal hari ini
         $role = auth()->check() ? auth()->user()->role : null;
         $isGuru = in_array($role, ['guru_mapel', 'guru', 'wali_kelas']);
@@ -175,12 +180,12 @@ class JurnalMengajarController extends Controller
         }
 
         $validated = $request->validate([
-            'id_jadwal'         => 'required|exists:jadwal_pelajaran,id',
-            'tanggal'           => 'required|date',
-            'materi'            => 'required|string',
-            'catatan_kejadian'  => 'nullable|string',
-            'foto_kegiatan'     => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
-            'status_kehadiran'   => 'required|in:Hadir,Izin,Sakit,Disposisi',
+            'id_jadwal' => 'required|exists:jadwal_pelajaran,id',
+            'tanggal' => 'required|date',
+            'materi' => 'required|string',
+            'catatan_kejadian' => 'nullable|string',
+            'foto_kegiatan' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'status_kehadiran' => 'required|in:Hadir,Izin,Sakit,Disposisi',
             'id_guru_pengganti' => 'nullable|exists:users,id',
         ]);
 
@@ -195,14 +200,14 @@ class JurnalMengajarController extends Controller
             }
 
             $targetJadwal = JadwalPelajaran::with(['kelas', 'guru', 'jamPelajaran'])->find($validated['id_jadwal']) ?? $jurnal->jadwal;
-            $namaKelas    = $this->sanitizeString($targetJadwal?->kelas?->nama_kelas);
-            $guruIdNip    = $targetJadwal?->guru?->nip ?? $targetJadwal?->id_guru ?? auth()->id();
-            $tglStr       = Carbon::parse($validated['tanggal'])->format('Ymd');
-            $jamKe        = $targetJadwal?->jamPelajaran?->jam_ke ?? 1;
-            $hash         = substr(md5(uniqid((string) time(), true)), 0, 6);
-            $ext          = $request->file('foto_kegiatan')->getClientOriginalExtension() ?: 'jpg';
+            $namaKelas = $this->sanitizeString($targetJadwal?->kelas?->nama_kelas);
+            $guruIdNip = $targetJadwal?->guru?->nip ?? $targetJadwal?->id_guru ?? auth()->id();
+            $tglStr = Carbon::parse($validated['tanggal'])->format('Ymd');
+            $jamKe = $targetJadwal?->jamPelajaran?->jam_ke ?? 1;
+            $hash = substr(md5(uniqid((string) time(), true)), 0, 6);
+            $ext = $request->file('foto_kegiatan')->getClientOriginalExtension() ?: 'jpg';
 
-            $filename     = "JRN_{$namaKelas}_{$guruIdNip}_{$tglStr}_{$jamKe}_{$hash}.{$ext}";
+            $filename = "JRN_{$namaKelas}_{$guruIdNip}_{$tglStr}_{$jamKe}_{$hash}.{$ext}";
             $validated['foto_kegiatan'] = $request->file('foto_kegiatan')->storeAs('foto_jurnal', $filename, 'local');
         }
 
@@ -225,17 +230,20 @@ class JurnalMengajarController extends Controller
         $user = auth()->user();
         $role = $user ? $user->role : null;
 
-        if (!(($user && $user->isPiketHariIni()) || in_array($role, ['admin_tu', 'admin', 'superadmin']))) {
+        if (! (($user && $user->isPiketHariIni()) || in_array($role, ['admin_tu', 'admin', 'superadmin']) || ($user && $user->isPetugasIt()))) {
             abort(403, 'Akses ditolak. Fitur ini khusus untuk guru yang mendapat jadwal piket atau Admin TU.');
         }
 
         $jurnal = Jurnal::findOrFail($id);
 
+        // Guard: jurnal data testing hanya dapat diubah oleh IT/QA.
+        $this->authorizeTestingMutation($jurnal);
+
         $validated = $request->validate([
-            'status_kehadiran'   => 'required|in:Hadir,Izin,Sakit,Disposisi',
+            'status_kehadiran' => 'required|in:Hadir,Izin,Sakit,Disposisi',
             'id_guru_pengganti' => 'nullable|exists:users,id',
-            'catatan_kejadian'  => 'nullable|string',
-            'materi'            => 'nullable|string',
+            'catatan_kejadian' => 'nullable|string',
+            'materi' => 'nullable|string',
         ]);
 
         // Jika status bukan Hadir dan guru pengganti belum dipilih, otomatis isi dengan ID Guru Piket yang login
@@ -261,9 +269,9 @@ class JurnalMengajarController extends Controller
         $filename = basename($filename);
 
         $paths = [
-            'foto_jurnal/' . $filename,
-            'foto_surat/' . $filename,
-            'foto_kegiatan/' . $filename,
+            'foto_jurnal/'.$filename,
+            'foto_surat/'.$filename,
+            'foto_kegiatan/'.$filename,
             $filename,
         ];
 
@@ -278,12 +286,12 @@ class JurnalMengajarController extends Controller
 
         // Direct storage_path fallback (private storage)
         $directPaths = [
-            storage_path('app/private/foto_jurnal/' . $filename),
-            storage_path('app/private/foto_surat/' . $filename),
-            storage_path('app/private/foto_kegiatan/' . $filename),
-            storage_path('app/public/foto_jurnal/' . $filename),
-            storage_path('app/public/foto_surat/' . $filename),
-            storage_path('app/public/foto_kegiatan/' . $filename),
+            storage_path('app/private/foto_jurnal/'.$filename),
+            storage_path('app/private/foto_surat/'.$filename),
+            storage_path('app/private/foto_kegiatan/'.$filename),
+            storage_path('app/public/foto_jurnal/'.$filename),
+            storage_path('app/public/foto_surat/'.$filename),
+            storage_path('app/public/foto_kegiatan/'.$filename),
         ];
 
         foreach ($directPaths as $dp) {
@@ -301,6 +309,9 @@ class JurnalMengajarController extends Controller
     public function destroy($id)
     {
         $jurnal = Jurnal::findOrFail($id);
+
+        // Guard: jurnal data testing hanya dapat dihapus oleh IT/QA.
+        $this->authorizeTestingMutation($jurnal);
 
         if ($jurnal->foto_kegiatan) {
             if (Storage::disk('local')->exists($jurnal->foto_kegiatan)) {

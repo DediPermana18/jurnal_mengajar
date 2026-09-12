@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTestingData;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Jurnal extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, HasTestingData, SoftDeletes;
 
     protected $table = 'jurnal';
 
@@ -29,8 +31,9 @@ class Jurnal extends Model
     protected function casts(): array
     {
         return [
-            'tanggal'   => 'date',
+            'tanggal' => 'date',
             'waktu_isi' => 'datetime',
+            'is_testing' => 'boolean',
         ];
     }
 
@@ -84,87 +87,87 @@ class Jurnal extends Model
 
     /**
      * Hitung logika status pengisian jurnal & keterlambatan (Real-Time Check).
-     * 
+     *
      * Aturan:
      * JIKA BELUM TERISI:
      * - Tanggal KBM == Hari ini & waktu saat ini > jam_selesai -> "Belum Terisi (Terlambat)" (Merah)
      * - Tanggal KBM == Hari ini & waktu saat ini <= jam_selesai -> "Belum Terisi" (Kuning)
      * - Tanggal KBM < Hari ini -> "Belum Terisi (Terlambat)" (Merah)
-     * 
+     *
      * JIKA SUDAH TERISI:
      * - jam_isi <= jam_selesai (pada Hari H) -> "Sudah Terisi" (Hijau)
      * - jam_isi > jam_selesai atau diisi di Hari H+1 dst -> "Terisi (Terlambat)" (Oranye)
      */
     public static function hitungStatusPengisian(?Jurnal $jurnal, string $tanggalKbm, ?string $jamSelesaiStr = null): array
     {
-        $now = \Carbon\Carbon::now();
+        $now = Carbon::now();
         $todayStr = $now->toDateString();
         $nowTimeStr = $now->format('H:i:s');
-        $kbmDateStr = \Carbon\Carbon::parse($tanggalKbm)->toDateString();
+        $kbmDateStr = Carbon::parse($tanggalKbm)->toDateString();
 
-        $jamSelesaiTime = $jamSelesaiStr ? \Carbon\Carbon::parse($jamSelesaiStr)->format('H:i:s') : null;
+        $jamSelesaiTime = $jamSelesaiStr ? Carbon::parse($jamSelesaiStr)->format('H:i:s') : null;
 
-        if (!$jurnal) {
+        if (! $jurnal) {
             // Tanggal KBM sudah berlalu
             if ($kbmDateStr < $todayStr) {
                 return [
-                    'status'      => 'belum_terisi_terlambat',
-                    'label'       => 'Belum Terisi (Terlambat)',
+                    'status' => 'belum_terisi_terlambat',
+                    'label' => 'Belum Terisi (Terlambat)',
                     'badge_class' => 'bg-danger-subtle text-danger border border-danger-subtle',
-                    'icon'        => 'bi-exclamation-octagon-fill',
+                    'icon' => 'bi-exclamation-octagon-fill',
                 ];
             }
 
             // Tanggal KBM hari ini dan waktu server sudah melewati jam_selesai KBM
             if ($kbmDateStr === $todayStr && $jamSelesaiTime && $nowTimeStr > $jamSelesaiTime) {
                 return [
-                    'status'      => 'belum_terisi_terlambat',
-                    'label'       => 'Belum Terisi (Terlambat)',
+                    'status' => 'belum_terisi_terlambat',
+                    'label' => 'Belum Terisi (Terlambat)',
                     'badge_class' => 'bg-danger-subtle text-danger border border-danger-subtle',
-                    'icon'        => 'bi-exclamation-octagon-fill',
+                    'icon' => 'bi-exclamation-octagon-fill',
                 ];
             }
 
             return [
-                'status'      => 'belum_terisi',
-                'label'       => 'Belum Terisi',
+                'status' => 'belum_terisi',
+                'label' => 'Belum Terisi',
                 'badge_class' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle',
-                'icon'        => 'bi-clock-history',
+                'icon' => 'bi-clock-history',
             ];
         }
 
         // Jurnal Sudah Terisi
         $waktuIsi = $jurnal->waktu_isi ?? $jurnal->created_at ?? $jurnal->updated_at;
-        $inputDateStr = \Carbon\Carbon::parse($waktuIsi)->toDateString();
-        $inputTimeStr = \Carbon\Carbon::parse($waktuIsi)->format('H:i:s');
+        $inputDateStr = Carbon::parse($waktuIsi)->toDateString();
+        $inputTimeStr = Carbon::parse($waktuIsi)->format('H:i:s');
 
         // Diisi pada hari setelah tanggal KBM (Hari H+1 dst)
         if ($inputDateStr > $kbmDateStr) {
             return [
-                'status'      => 'terisi_terlambat',
-                'label'       => 'Terisi (Terlambat)',
+                'status' => 'terisi_terlambat',
+                'label' => 'Terisi (Terlambat)',
                 'badge_class' => 'bg-orange-subtle text-orange border border-orange-subtle',
-                'style'       => 'background-color: #fff7ed; color: #c05500; border: 1px solid #fed7aa;',
-                'icon'        => 'bi-clock-fill',
+                'style' => 'background-color: #fff7ed; color: #c05500; border: 1px solid #fed7aa;',
+                'icon' => 'bi-clock-fill',
             ];
         }
 
         // Diisi pada Hari H tetapi jam pengisian melewati jam_selesai KBM
         if ($inputDateStr === $kbmDateStr && $jamSelesaiTime && $inputTimeStr > $jamSelesaiTime) {
             return [
-                'status'      => 'terisi_terlambat',
-                'label'       => 'Terisi (Terlambat)',
+                'status' => 'terisi_terlambat',
+                'label' => 'Terisi (Terlambat)',
                 'badge_class' => 'bg-orange-subtle text-orange border border-orange-subtle',
-                'style'       => 'background-color: #fff7ed; color: #c05500; border: 1px solid #fed7aa;',
-                'icon'        => 'bi-clock-fill',
+                'style' => 'background-color: #fff7ed; color: #c05500; border: 1px solid #fed7aa;',
+                'icon' => 'bi-clock-fill',
             ];
         }
 
         return [
-            'status'      => 'sudah_terisi',
-            'label'       => 'Sudah Terisi',
+            'status' => 'sudah_terisi',
+            'label' => 'Sudah Terisi',
             'badge_class' => 'bg-success-subtle text-success border border-success-subtle',
-            'icon'        => 'bi-check-circle-fill',
+            'icon' => 'bi-check-circle-fill',
         ];
     }
 
@@ -173,8 +176,9 @@ class Jurnal extends Model
      */
     public function getStatusInfoAttribute(): array
     {
-        $tanggalKbm = $this->tanggal ? $this->tanggal->toDateString() : \Carbon\Carbon::today()->toDateString();
+        $tanggalKbm = $this->tanggal ? $this->tanggal->toDateString() : Carbon::today()->toDateString();
         $jamSelesai = $this->jadwalPelajaran?->jamPelajaran?->jam_selesai;
+
         return static::hitungStatusPengisian($this, $tanggalKbm, $jamSelesai);
     }
 }

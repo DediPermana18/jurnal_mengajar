@@ -39,11 +39,11 @@ class WaliKelasBermasalahTest extends TestCase
     protected function makeWaliKelas(): User
     {
         return User::create([
-            'nama'      => 'Wali Kelas Test',
-            'username'  => 'walikelas_' . Str::random(6),
-            'password'  => bcrypt('password'),
-            'role'      => 'guru',
-            'sub_role'  => 'wali_kelas',
+            'nama' => 'Wali Kelas Test',
+            'username' => 'walikelas_'.Str::random(6),
+            'password' => bcrypt('password'),
+            'role' => 'guru',
+            'sub_role' => 'wali_kelas',
             'is_active' => true,
         ]);
     }
@@ -51,17 +51,17 @@ class WaliKelasBermasalahTest extends TestCase
     protected function makeSiswa(User $wali): array
     {
         $kelas = Kelas::create([
-            'nama_kelas'    => 'X IPA 1',
-            'tingkat'       => 'X',
+            'nama_kelas' => 'X IPA 1',
+            'tingkat' => 'X',
             'id_wali_kelas' => $wali->id,
         ]);
 
         $siswa = Siswa::create([
-            'nisn'          => '0000000101',
-            'nis'           => '23102',
-            'nama'          => 'Andi Pratama',
+            'nisn' => '0000000101',
+            'nis' => '23102',
+            'nama' => 'Andi Pratama',
             'jenis_kelamin' => 'L',
-            'id_kelas'      => $kelas->id,
+            'id_kelas' => $kelas->id,
         ]);
 
         return [$kelas, $siswa];
@@ -69,21 +69,21 @@ class WaliKelasBermasalahTest extends TestCase
 
     public function test_wali_kelas_melihat_rekap_keterlambatan_siswa_real(): void
     {
-        $wali  = $this->makeWaliKelas();
+        $wali = $this->makeWaliKelas();
         [, $siswa] = $this->makeSiswa($wali);
 
         $catatan = CatatanTerlambat::create([
-            'id_siswa'   => $siswa->id,
-            'tanggal'    => '2026-08-10',
-            'jam_masuk'  => '07:45',
+            'id_siswa' => $siswa->id,
+            'tanggal' => '2026-08-10',
+            'jam_masuk' => '07:45',
             'keterangan' => 'Bangun kesiangan',
-            'id_satpam'  => $wali->id,
+            'id_satpam' => $wali->id,
         ]);
 
         PenerimaTerlambat::create([
             'catatan_terlambat_id' => $catatan->id,
-            'user_id'              => $wali->id,
-            'peran'                => PenerimaTerlambat::PERAN_WALI_KELAS,
+            'user_id' => $wali->id,
+            'peran' => PenerimaTerlambat::PERAN_WALI_KELAS,
         ]);
 
         $this->actingAs($wali)
@@ -98,55 +98,55 @@ class WaliKelasBermasalahTest extends TestCase
 
     public function test_wali_kelas_melihat_badge_dispen_dan_alpha(): void
     {
-        $wali  = $this->makeWaliKelas();
+        $wali = $this->makeWaliKelas();
         [$kelas, $siswa] = $this->makeSiswa($wali);
 
         DispensasiSiswa::create([
-            'id_siswa'       => $siswa->id,
-            'id_guru_piket'  => $wali->id,
-            'tanggal'        => '2026-08-10',
-            'jenis'          => DispensasiSiswa::JENIS_KELUAR,
-            'jam_ke'         => '3',
-            'alasan'         => 'Ke dokter',
-            'status'         => DispensasiSiswa::STATUS_DISETUJUI,
+            'id_siswa' => $siswa->id,
+            'id_guru_piket' => $wali->id,
+            'tanggal' => '2026-08-10',
+            'jenis' => DispensasiSiswa::JENIS_KELUAR,
+            'jam_ke' => '3',
+            'alasan' => 'Ke dokter',
+            'status' => DispensasiSiswa::STATUS_DISETUJUI,
             'approval_token' => Str::random(16),
         ]);
 
         $tahun = TahunAjaran::create([
             'tahun_ajaran' => '2025/2026',
-            'semester'     => 'Ganjil',
+            'semester' => 'Ganjil',
             'is_active' => true,
         ]);
 
         $mapel = MataPelajaran::create(['nama_mapel' => 'Matematika', 'kode_mapel' => 'MTK']);
-        $jam   = JamPelajaran::create([
+        $jam = JamPelajaran::create([
             'kategori_hari' => 'Senin-Kamis',
-            'jam_ke'        => 2,
-            'jam_mulai'     => '07:40',
-            'jam_selesai'   => '08:20',
-            'jenis'         => 'kbm',
+            'jam_ke' => 2,
+            'jam_mulai' => '07:40',
+            'jam_selesai' => '08:20',
+            'jenis' => 'kbm',
         ]);
 
         $jadwal = JadwalPelajaran::create([
-            'group_id'        => Str::uuid(),
-            'hari'            => 'Senin',
-            'id_jam'          => $jam->id,
-            'id_kelas'        => $kelas->id,
-            'id_mapel'        => $mapel->id,
-            'id_guru'         => $wali->id,
+            'group_id' => Str::uuid(),
+            'hari' => 'Senin',
+            'id_jam' => $jam->id,
+            'id_kelas' => $kelas->id,
+            'id_mapel' => $mapel->id,
+            'id_guru' => $wali->id,
             'id_tahun_ajaran' => $tahun->id,
         ]);
 
         $jurnal = Jurnal::create([
             'id_jadwal' => $jadwal->id,
-            'tanggal'   => '2026-08-10',
-            'materi'    => 'x',
+            'tanggal' => '2026-08-10',
+            'materi' => 'x',
         ]);
 
         AbsensiJurnal::create([
             'id_jurnal' => $jurnal->id,
-            'id_siswa'  => $siswa->id,
-            'status'    => 'Alpa',
+            'id_siswa' => $siswa->id,
+            'status' => 'Alpa',
         ]);
 
         $this->actingAs($wali)
@@ -159,15 +159,15 @@ class WaliKelasBermasalahTest extends TestCase
 
     public function test_wali_kelas_simpan_tindak_lanjut_panggil_ortu(): void
     {
-        $wali  = $this->makeWaliKelas();
+        $wali = $this->makeWaliKelas();
         [$kelas, $siswa] = $this->makeSiswa($wali);
 
         $this->actingAs($wali)
             ->post(route('walikelas.siswa-bermasalah.store'), [
-                'id_siswa'       => $siswa->id,
+                'id_siswa' => $siswa->id,
                 'jenis_tindakan' => 'panggil_ortu',
-                'status'         => 'dipanggil',
-                'catatan'        => 'Ortu sudah dihubungi via WA',
+                'status' => 'dipanggil',
+                'catatan' => 'Ortu sudah dihubungi via WA',
             ])
             ->assertRedirect()
             ->assertSessionHas('success');
@@ -190,22 +190,22 @@ class WaliKelasBermasalahTest extends TestCase
 
     public function test_wali_kelas_tidak_bisa_tindak_lanjut_siswa_luar_kelasnya(): void
     {
-        $wali   = $this->makeWaliKelas();
-        $wali2  = $this->makeWaliKelas();
-        $kelas  = Kelas::create(['nama_kelas' => 'XI IPA 2', 'tingkat' => 'XI', 'id_wali_kelas' => $wali2->id]);
+        $wali = $this->makeWaliKelas();
+        $wali2 = $this->makeWaliKelas();
+        $kelas = Kelas::create(['nama_kelas' => 'XI IPA 2', 'tingkat' => 'XI', 'id_wali_kelas' => $wali2->id]);
         $siswa = Siswa::create([
-            'nisn'          => '0000000202',
-            'nis'           => '23203',
-            'nama'          => 'Siswa Kelas Lain',
+            'nisn' => '0000000202',
+            'nis' => '23203',
+            'nama' => 'Siswa Kelas Lain',
             'jenis_kelamin' => 'P',
-            'id_kelas'      => $kelas->id,
+            'id_kelas' => $kelas->id,
         ]);
 
         $this->actingAs($wali)
             ->post(route('walikelas.siswa-bermasalah.store'), [
-                'id_siswa'       => $siswa->id,
+                'id_siswa' => $siswa->id,
                 'jenis_tindakan' => 'catatan',
-                'status'         => 'belum',
+                'status' => 'belum',
             ])
             ->assertForbidden();
     }

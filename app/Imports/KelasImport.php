@@ -2,8 +2,8 @@
 
 namespace App\Imports;
 
-use App\Models\Kelas;
 use App\Models\Jurusan;
+use App\Models\Kelas;
 use Illuminate\Database\Eloquent\Model;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;

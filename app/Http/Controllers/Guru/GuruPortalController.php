@@ -8,7 +8,6 @@ use App\Models\JadwalPelajaran;
 use App\Models\Jurnal;
 use App\Models\TahunAjaran;
 use Carbon\Carbon;
-use Illuminate\Http\Request;
 
 class GuruPortalController extends Controller
 {
@@ -18,13 +17,13 @@ class GuruPortalController extends Controller
     protected function hariIndonesia(): string
     {
         $map = [
-            'Monday'    => 'Senin',
-            'Tuesday'   => 'Selasa',
+            'Monday' => 'Senin',
+            'Tuesday' => 'Selasa',
             'Wednesday' => 'Rabu',
-            'Thursday'  => 'Kamis',
-            'Friday'    => 'Jumat',
-            'Saturday'  => 'Sabtu',
-            'Sunday'    => 'Minggu',
+            'Thursday' => 'Kamis',
+            'Friday' => 'Jumat',
+            'Saturday' => 'Sabtu',
+            'Sunday' => 'Minggu',
         ];
 
         return $map[Carbon::now()->format('l')] ?? Carbon::now()->locale('id')->isoFormat('dddd');
@@ -35,18 +34,19 @@ class GuruPortalController extends Controller
      */
     public function dashboard()
     {
-        $user  = auth()->user();
+        $user = auth()->user();
         $today = Carbon::today()->toDateString();
 
-        if (!$user) {
+        if (! $user) {
             abort(403, 'Silakan login terlebih dahulu.');
         }
 
-        if (!in_array($user->role, ['guru', 'guru_mapel', 'wali_kelas'], true)) {
+        if (! $user->isPetugasIt()
+            && ! in_array($user->effectiveRole(), ['guru', 'guru_mapel', 'wali_kelas'], true)) {
             abort(403, 'Akses ditolak. Halaman ini khusus untuk Guru.');
         }
 
-        $hari       = $this->hariIndonesia();
+        $hari = $this->hariIndonesia();
         $tahunAktif = TahunAjaran::where('is_active', true)->first();
 
         // ===== Jadwal mengajar hari ini milik guru ini =====

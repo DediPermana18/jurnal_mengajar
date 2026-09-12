@@ -3,11 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\CatatanTerlambat;
-use App\Models\IzinGuru;
 use App\Models\Kelas;
 use App\Models\PenerimaTerlambat;
 use App\Models\Siswa;
 use App\Models\User;
+use App\Services\NotificationService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -32,28 +32,28 @@ class NotificationTest extends TestCase
     protected function makeUser(string $role, string $subRole, string $username): User
     {
         return User::create([
-            'nama'      => $username,
-            'username'  => $username . '_' . Str::random(4),
-            'password'  => bcrypt('password123'),
-            'role'      => $role,
-            'sub_role'  => $subRole,
+            'nama' => $username,
+            'username' => $username.'_'.Str::random(4),
+            'password' => bcrypt('password123'),
+            'role' => $role,
+            'sub_role' => $subRole,
             'is_active' => true,
         ]);
     }
 
     public function test_izin_baru_memunculkan_notifikasi_untuk_approver(): void
     {
-        $guru   = $this->makeUser('guru', 'guru_mapel', 'gurub');
-        $waka   = $this->makeUser('admin', 'waka_kurikulum', 'waka');
+        $guru = $this->makeUser('guru', 'guru_mapel', 'gurub');
+        $waka = $this->makeUser('admin', 'waka_kurikulum', 'waka');
 
         $this->actingAs($guru)
             ->post(route('guru.izin.store'), [
-                'tanggal'       => '2026-08-11',
+                'tanggal' => '2026-08-11',
                 'kategori_izin' => 'sakit',
-                'alasan'        => 'Sakit',
-                'lampiran'      => null,
-                'tugas_siswa'   => null,
-                'ttd_guru'      => null,
+                'alasan' => 'Sakit',
+                'lampiran' => null,
+                'tugas_siswa' => null,
+                'ttd_guru' => null,
             ]);
 
         $this->assertSame(1, $waka->unreadNotifications()->count());
@@ -94,37 +94,37 @@ class NotificationTest extends TestCase
     public function test_siswa_terlambat_munculkan_notifikasi_untuk_wali_kelas(): void
     {
         $walikelas = $this->makeUser('guru', 'wali_kelas', 'walikel');
-        $satpam    = $this->makeUser('admin', 'satpam', 'satpam');
+        $satpam = $this->makeUser('admin', 'satpam', 'satpam');
 
         $kelas = Kelas::create([
-            'nama_kelas'    => 'X IPA 1',
-            'tingkat'       => 'X',
+            'nama_kelas' => 'X IPA 1',
+            'tingkat' => 'X',
             'id_wali_kelas' => $walikelas->id,
         ]);
 
         $siswa = Siswa::create([
-            'nisn'          => '0000000101',
-            'nis'           => '23102',
-            'nama'          => 'Andi',
+            'nisn' => '0000000101',
+            'nis' => '23102',
+            'nama' => 'Andi',
             'jenis_kelamin' => 'L',
-            'id_kelas'      => $kelas->id,
+            'id_kelas' => $kelas->id,
         ]);
 
         $catatan = CatatanTerlambat::create([
-            'id_siswa'   => $siswa->id,
-            'tanggal'    => '2026-08-10',
-            'jam_masuk'  => '07:45',
+            'id_siswa' => $siswa->id,
+            'tanggal' => '2026-08-10',
+            'jam_masuk' => '07:45',
             'keterangan' => 'x',
-            'id_satpam'  => $satpam->id,
+            'id_satpam' => $satpam->id,
         ]);
 
         PenerimaTerlambat::create([
             'catatan_terlambat_id' => $catatan->id,
-            'user_id'              => $walikelas->id,
-            'peran'                => PenerimaTerlambat::PERAN_WALI_KELAS,
+            'user_id' => $walikelas->id,
+            'peran' => PenerimaTerlambat::PERAN_WALI_KELAS,
         ]);
 
-        \App\Services\NotificationService::siswaTerlambat($catatan->load('penerima'));
+        NotificationService::siswaTerlambat($catatan->load('penerima'));
 
         $this->assertSame(1, $walikelas->unreadNotifications()->count());
         $first = $walikelas->unreadNotifications()->first();

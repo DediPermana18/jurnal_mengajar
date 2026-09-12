@@ -20,11 +20,11 @@ class MonitoringSlotKosongTest extends TestCase
     private function adminTu(): User
     {
         return User::create([
-            'nama'      => 'Petugas TU',
-            'username'  => 'admin_tu_monitor',
-            'password'  => bcrypt('password'),
-            'role'      => 'admin',
-            'sub_role'  => 'petugas_tu',
+            'nama' => 'Petugas TU',
+            'username' => 'admin_tu_monitor',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+            'sub_role' => 'petugas_tu',
             'is_active' => true,
         ]);
     }
@@ -32,11 +32,11 @@ class MonitoringSlotKosongTest extends TestCase
     private function guru(): User
     {
         return User::create([
-            'nama'      => 'Guru A',
-            'username'  => 'guru_monitor',
-            'password'  => bcrypt('password'),
-            'role'      => 'guru',
-            'sub_role'  => 'guru_mapel',
+            'nama' => 'Guru A',
+            'username' => 'guru_monitor',
+            'password' => bcrypt('password'),
+            'role' => 'guru',
+            'sub_role' => 'guru_mapel',
             'is_active' => true,
         ]);
     }
@@ -45,10 +45,10 @@ class MonitoringSlotKosongTest extends TestCase
     {
         return collect(range(1, $jumlah))->map(fn ($jamKe) => JamPelajaran::create([
             'kategori_hari' => 'Senin-Kamis',
-            'jam_ke'        => $jamKe,
-            'jam_mulai'     => sprintf('%02d:00:00', 7 + $jamKe),
-            'jam_selesai'   => sprintf('%02d:00:00', 7 + $jamKe + 1),
-            'jenis'         => 'kbm',
+            'jam_ke' => $jamKe,
+            'jam_mulai' => sprintf('%02d:00:00', 7 + $jamKe),
+            'jam_selesai' => sprintf('%02d:00:00', 7 + $jamKe + 1),
+            'jenis' => 'kbm',
         ]))->all();
     }
 
@@ -57,12 +57,12 @@ class MonitoringSlotKosongTest extends TestCase
         $jurusan = Jurusan::create(['nama_jurusan' => 'MIPA', 'kode_jurusan' => 'MIPA']);
         $tahun = TahunAjaran::create([
             'tahun_ajaran' => '2026/2027',
-            'semester'     => 'Ganjil',
+            'semester' => 'Ganjil',
             'is_active' => true,
         ]);
         $kelas = Kelas::create([
             'nama_kelas' => 'A',
-            'tingkat'    => '10',
+            'tingkat' => '10',
             'id_jurusan' => $jurusan->id,
         ]);
         $mapel = MataPelajaran::create(['nama_mapel' => 'Matematika', 'kode_mapel' => 'MTK']);
@@ -103,12 +103,12 @@ class MonitoringSlotKosongTest extends TestCase
         foreach (['Senin', 'Selasa', 'Rabu', 'Kamis'] as $hari) {
             foreach ($slots as $slot) {
                 JadwalPelajaran::create([
-                    'group_id'        => (string) Str::uuid(),
-                    'hari'            => $hari,
-                    'id_jam'          => $slot->id,
-                    'id_kelas'        => $kelas->id,
-                    'id_mapel'        => $mapel->id,
-                    'id_guru'         => $guru->id,
+                    'group_id' => (string) Str::uuid(),
+                    'hari' => $hari,
+                    'id_jam' => $slot->id,
+                    'id_kelas' => $kelas->id,
+                    'id_mapel' => $mapel->id,
+                    'id_guru' => $guru->id,
                     'id_tahun_ajaran' => $tahun->id,
                 ]);
             }

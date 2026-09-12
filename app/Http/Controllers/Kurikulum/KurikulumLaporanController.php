@@ -41,7 +41,7 @@ class KurikulumLaporanController extends Controller
      */
     protected function buatQuery(Request $request): array
     {
-        $mulai  = trim((string) $request->input('tanggal_mulai'));
+        $mulai = trim((string) $request->input('tanggal_mulai'));
         $selesai = trim((string) $request->input('tanggal_selesai'));
 
         if ($mulai === '') {
@@ -82,27 +82,27 @@ class KurikulumLaporanController extends Controller
      */
     protected function hitungRingkasan(Builder $baseQuery, string $mulai, string $selesai): array
     {
-        $totalJamKBM     = (clone $baseQuery)->count();
+        $totalJamKBM = (clone $baseQuery)->count();
         $totalJurnalTerisi = (clone $baseQuery)
             ->whereNotNull('materi')
             ->where('materi', '!=', '')
             ->count();
 
         $guruHadir = (clone $baseQuery)->where('status_kehadiran', 'Hadir')->count();
-        $guruIzin  = (clone $baseQuery)->where('status_kehadiran', 'Izin')->count();
+        $guruIzin = (clone $baseQuery)->where('status_kehadiran', 'Izin')->count();
         $guruSakit = (clone $baseQuery)->where('status_kehadiran', 'Sakit')->count();
         $guruDinas = (clone $baseQuery)->where('status_kehadiran', 'Disposisi')->count();
 
         return [
-            'totalJamKBM'       => $totalJamKBM,
+            'totalJamKBM' => $totalJamKBM,
             'totalJurnalTerisi' => $totalJurnalTerisi,
-            'guruHadir'         => $guruHadir,
-            'guruIzin'          => $guruIzin,
-            'guruSakit'         => $guruSakit,
-            'guruDinas'         => $guruDinas,
-            'guruTidakHadir'    => $guruIzin + $guruSakit + $guruDinas,
-            'periodeMulai'      => Carbon::parse($mulai)->translatedFormat('d F Y'),
-            'periodeSelesai'    => Carbon::parse($selesai)->translatedFormat('d F Y'),
+            'guruHadir' => $guruHadir,
+            'guruIzin' => $guruIzin,
+            'guruSakit' => $guruSakit,
+            'guruDinas' => $guruDinas,
+            'guruTidakHadir' => $guruIzin + $guruSakit + $guruDinas,
+            'periodeMulai' => Carbon::parse($mulai)->translatedFormat('d F Y'),
+            'periodeSelesai' => Carbon::parse($selesai)->translatedFormat('d F Y'),
         ];
     }
 
@@ -113,14 +113,14 @@ class KurikulumLaporanController extends Controller
         return [
             'tingkatInput' => $tingkat,
             'idKelasInput' => (int) $request->input('id_kelas'),
-            'idGuruInput'  => (int) $request->input('id_guru'),
+            'idGuruInput' => (int) $request->input('id_guru'),
             'idMapelInput' => (int) $request->input('id_mapel'),
-            'tingkatList'  => Kelas::distinct()->orderBy('tingkat')->pluck('tingkat'),
-            'kelasList'    => Kelas::when($tingkat !== '', fn ($q) => $q->where('tingkat', $tingkat))
+            'tingkatList' => Kelas::distinct()->orderBy('tingkat')->pluck('tingkat'),
+            'kelasList' => Kelas::when($tingkat !== '', fn ($q) => $q->where('tingkat', $tingkat))
                 ->orderBy('tingkat')
                 ->orderBy('nama_kelas')
                 ->get(),
-            'guruList'  => User::where('role', 'guru')->orderBy('nama')->get(),
+            'guruList' => User::where('role', 'guru')->orderBy('nama')->get(),
             'mapelList' => MataPelajaran::orderBy('nama_mapel')->get(),
         ];
     }
@@ -159,19 +159,19 @@ class KurikulumLaporanController extends Controller
             ->latest('id')
             ->get();
 
-        $ringkasan   = $this->hitungRingkasan($query, $mulai, $selesai);
+        $ringkasan = $this->hitungRingkasan($query, $mulai, $selesai);
         $tahunAjaran = TahunAjaran::where('is_active', true)->first();
 
-        $html = "\xEF\xBB\xBF" . view('kurikulum.laporan.excel', array_merge(
+        $html = "\xEF\xBB\xBF".view('kurikulum.laporan.excel', array_merge(
             $ringkasan,
             compact('daftarJurnal', 'tahunAjaran', 'mulai', 'selesai')
         ))->render();
 
-        $filename = 'laporan-kbm-' . str_replace('-', '', $mulai) . '-' . str_replace('-', '', $selesai) . '.xls';
+        $filename = 'laporan-kbm-'.str_replace('-', '', $mulai).'-'.str_replace('-', '', $selesai).'.xls';
 
         return response($html)
             ->header('Content-Type', 'application/vnd.ms-excel; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
+            ->header('Content-Disposition', 'attachment; filename="'.$filename.'"')
             ->header('Cache-Control', 'max-age=0');
     }
 
@@ -188,7 +188,7 @@ class KurikulumLaporanController extends Controller
             ->latest('id')
             ->get();
 
-        $ringkasan   = $this->hitungRingkasan($query, $mulai, $selesai);
+        $ringkasan = $this->hitungRingkasan($query, $mulai, $selesai);
         $tahunAjaran = TahunAjaran::where('is_active', true)->first();
         $filterLabel = $this->labelFilter($request);
 
@@ -206,24 +206,24 @@ class KurikulumLaporanController extends Controller
         $bagian = [];
 
         if ($tingkat = trim((string) $request->input('tingkat'))) {
-            $bagian[] = 'Tingkat ' . $tingkat;
+            $bagian[] = 'Tingkat '.$tingkat;
         }
         if ($idKelas = (int) $request->input('id_kelas')) {
             $kelas = Kelas::find($idKelas);
             if ($kelas) {
-                $bagian[] = 'Kelas ' . $kelas->nama_kelas;
+                $bagian[] = 'Kelas '.$kelas->nama_kelas;
             }
         }
         if ($idGuru = (int) $request->input('id_guru')) {
             $guru = User::find($idGuru);
             if ($guru) {
-                $bagian[] = 'Guru: ' . $guru->nama;
+                $bagian[] = 'Guru: '.$guru->nama;
             }
         }
         if ($idMapel = (int) $request->input('id_mapel')) {
             $mapel = MataPelajaran::find($idMapel);
             if ($mapel) {
-                $bagian[] = 'Mapel: ' . $mapel->nama_mapel;
+                $bagian[] = 'Mapel: '.$mapel->nama_mapel;
             }
         }
 

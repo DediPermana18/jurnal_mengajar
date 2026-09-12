@@ -573,17 +573,11 @@
                 $userRole = $user ? $user->role : null;
                 $userSubRole = $user ? $user->sub_role : null;
 
-                // ============ PREVIEW ROLE (Petugas IT - Switch View As) ============
-                $previewRole = $user && $user->hasPreviewRole() ? $user->previewRole() : null;
+                // ============ ACTIVE ROLE (Petugas IT / QA - Switch View As) ============
+                $previewRole = $user && $user->hasActiveRole() ? $user->activeRole() : null;
 
                 if ($previewRole && $previewRole !== 'siswa') {
-                    $previewRoleMap = [
-                        'admin_tu'       => ['role' => 'admin', 'sub_role' => 'petugas_tu'],
-                        'waka_kurikulum' => ['role' => 'admin', 'sub_role' => 'waka_kurikulum'],
-                        'waka_sdm'       => ['role' => 'admin', 'sub_role' => 'waka_sdm'],
-                        'guru_mapel'     => ['role' => 'guru',  'sub_role' => 'guru_mapel'],
-                        'guru_piket'     => ['role' => 'guru',  'sub_role' => 'guru'],
-                    ];
+                    $previewRoleMap = \App\Models\User::PREVIEW_ROLE_MAP;
                     if (isset($previewRoleMap[$previewRole])) {
                         $userRole    = $previewRoleMap[$previewRole]['role'];
                         $userSubRole = $previewRoleMap[$previewRole]['sub_role'];
@@ -598,6 +592,11 @@
                 // 1b. Role Waka SDM (role=admin & sub_role=waka_sdm)
                 $isWakaSdmRole = ($userRole === 'admin' && $userSubRole === 'waka_sdm') 
                               || in_array($userRole, ['waka_sdm', 'admin_sdm', 'sdm']);
+
+                // 1b2. Role Waka Kesiswaan (role=admin & sub_role=waka_kesiswaan)
+                $isWakaKesiswaanRole = ($userRole === 'admin' && $userSubRole === 'waka_kesiswaan')
+                                     || in_array($userRole, ['waka_kesiswaan', 'admin_kesiswaan', 'kesiswaan'])
+                                     || ($user ? $user->isWakaKesiswaan() : false);
 
                 // 1c. Role Kepala Sekolah (role=kepsek / kepala_sekolah / admin & sub_role=kepsek)
                 $isKepsekRole = ($userRole === 'admin' && in_array($userSubRole, ['kepsek', 'kepala_sekolah'])) 
@@ -643,6 +642,10 @@
                 {{-- ================= NAVIGASI WAKA SDM ================= --}}
                 <x-sidebar-waka-sdm :pendingIzinCount="\App\Models\IzinGuru::whereIn('status', [\App\Models\IzinGuru::STATUS_PENDING_PIKET, \App\Models\IzinGuru::STATUS_PENDING_WAKA, \App\Models\IzinGuru::STATUS_PENDING_KEPSEK])->count()" />
 
+            @elseif($isWakaKesiswaanRole)
+                {{-- ================= NAVIGASI WAKA KESISWAAN ================= --}}
+                <x-sidebar-waka-kesiswaan :pendingTtdCount="\App\Models\DispensasiSiswa::whereNull('ttd_waka')->where('tipe_dispen', '!=', \App\Models\DispensasiSiswa::TIPE_MASUK)->whereIn('status', [\App\Models\DispensasiSiswa::STATUS_PENDING, \App\Models\DispensasiSiswa::STATUS_PENDING_WAKA, \App\Models\DispensasiSiswa::STATUS_DISETUJUI])->count()" />
+
             @elseif($isKepsekRole)
                 {{-- ================= NAVIGASI KEPALA SEKOLAH ================= --}}
                 <x-sidebar-kepsek :pendingIzinCount="\App\Models\IzinGuru::where('status', \App\Models\IzinGuru::STATUS_PENDING_KEPSEK)->count()" />
@@ -671,6 +674,16 @@
                         <span class="btn-left">
                             <i class="bi bi-door-open-fill"></i>
                             <span>Verifikasi Izin Keluar</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Verifikasi Dispensasi -->
+                <div class="nav-item-container">
+                    <a href="{{ route('satpam.dispensasi.index') }}" class="nav-btn {{ request()->routeIs('satpam.dispensasi.index') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-qr-code-scan"></i>
+                            <span>Verifikasi Dispensasi</span>
                         </span>
                     </a>
                 </div>
@@ -925,7 +938,7 @@
 
                 <!-- Switch View As -->
                 <div class="nav-item-container">
-                    <a href="#switchViewAs" class="nav-btn {{ session('preview_role') ? 'active' : '' }}">
+                    <a href="#switchViewAs" class="nav-btn {{ session('active_role') ? 'active' : '' }}">
                         <span class="btn-left">
                             <i class="bi bi-arrows-fullscreen"></i>
                             <span>Switch View As</span>
@@ -1188,7 +1201,7 @@
             <div class="topbar-actions">
                 @if(auth()->user() && auth()->user()->isPetugasIt())
                     @php
-                        $itPreviewRole = $previewRole ?? (auth()->user()->hasPreviewRole() ? auth()->user()->previewRole() : null);
+                        $itPreviewRole = $previewRole ?? (auth()->user()->hasActiveRole() ? auth()->user()->activeRole() : null);
                         $itPreviewLabel = $itPreviewRole ? (\App\Models\User::PREVIEW_ROLES[$itPreviewRole] ?? ucfirst($itPreviewRole)) : null;
                     @endphp
 
@@ -1213,7 +1226,10 @@
                             <i class="bi bi-chevron-down"></i>
                         </button>
 
-                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-4 mt-2">
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-4 mt-2" style="max-height: 420px; overflow-y: auto;">
+                            <li class="px-3 py-2">
+                                <span class="text-uppercase fw-bold text-muted small" style="font-size: 0.68rem; letter-spacing: 0.06em;">Pilih Role Portal</span>
+                            </li>
                             @foreach(\App\Models\User::PREVIEW_ROLES as $previewKey => $previewName)
                                 <li>
                                     <form action="{{ route('it.switch-view') }}" method="POST" class="d-inline">

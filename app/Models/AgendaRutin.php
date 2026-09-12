@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTestingData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class AgendaRutin extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTestingData;
 
     protected $table = 'agenda_rutin';
 
@@ -19,7 +20,8 @@ class AgendaRutin extends Model
     ];
 
     protected $casts = [
-        'jam_ke'    => 'integer',
+        'jam_ke' => 'integer',
         'is_active' => 'boolean',
+        'is_testing' => 'boolean',
     ];
 }

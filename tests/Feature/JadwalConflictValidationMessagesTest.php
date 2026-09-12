@@ -3,14 +3,15 @@
 namespace Tests\Feature;
 
 use App\Models\AgendaRutin;
-use App\Models\JamPelajaran;
 use App\Models\JadwalPelajaran;
+use App\Models\JamPelajaran;
 use App\Models\Kelas;
 use App\Models\MataPelajaran;
 use App\Models\Ruangan;
 use App\Models\TahunAjaran;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class JadwalConflictValidationMessagesTest extends TestCase
@@ -18,15 +19,25 @@ class JadwalConflictValidationMessagesTest extends TestCase
     use RefreshDatabase;
 
     protected User $admin;
+
     protected TahunAjaran $tahun;
+
     protected Kelas $kelasA;
+
     protected Kelas $kelasB;
+
     protected MataPelajaran $mapelMath;
+
     protected MataPelajaran $mapelPhys;
+
     protected User $guru1;
+
     protected Ruangan $ruangan1;
+
     protected JamPelajaran $jam1;
+
     protected JamPelajaran $jam2;
+
     protected JamPelajaran $jamBreak;
 
     protected function setUp(): void
@@ -96,7 +107,7 @@ class JadwalConflictValidationMessagesTest extends TestCase
     {
         // Setup: Guru1 already assigned to Kelas A for Matematika at Jam 1
         JadwalPelajaran::create([
-            'group_id' => (string) \Illuminate\Support\Str::uuid(),
+            'group_id' => (string) Str::uuid(),
             'hari' => 'Senin',
             'id_jam' => $this->jam1->id,
             'id_kelas' => $this->kelasA->id,
@@ -127,7 +138,7 @@ class JadwalConflictValidationMessagesTest extends TestCase
     {
         // Setup: Ruangan1 already used by Kelas A for Matematika at Jam 1
         JadwalPelajaran::create([
-            'group_id' => (string) \Illuminate\Support\Str::uuid(),
+            'group_id' => (string) Str::uuid(),
             'hari' => 'Senin',
             'id_jam' => $this->jam1->id,
             'id_kelas' => $this->kelasA->id,
@@ -209,10 +220,10 @@ class JadwalConflictValidationMessagesTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertJson([
-            'success'  => true,
-            'message'  => 'Berhasil menambahkan jadwal Matematika (Drs. Supriyanto, M.M.) pada Jam Ke-1 s/d 2 untuk Tahun Ajaran 2025/2026 (Ganjil).',
+            'success' => true,
+            'message' => 'Berhasil menambahkan jadwal Matematika (Drs. Supriyanto, M.M.) pada Jam Ke-1 s/d 2 untuk Tahun Ajaran 2025/2026 (Ganjil).',
             'id_kelas' => $this->kelasA->id,
-            'hari'     => 'Senin',
+            'hari' => 'Senin',
         ]);
         $response->assertJsonStructure(['data' => [['id', 'id_kelas', 'hari', 'id_jam', 'mata_pelajaran', 'guru']]]);
 
@@ -239,7 +250,7 @@ class JadwalConflictValidationMessagesTest extends TestCase
     public function test_index_returns_json_schedule_matrix_when_wants_json(): void
     {
         JadwalPelajaran::create([
-            'group_id' => (string) \Illuminate\Support\Str::uuid(),
+            'group_id' => (string) Str::uuid(),
             'hari' => 'Senin',
             'id_jam' => $this->jam1->id,
             'id_kelas' => $this->kelasA->id,
@@ -265,7 +276,7 @@ class JadwalConflictValidationMessagesTest extends TestCase
     {
         // 1. Create a schedule for Guru1 on Kelas A at Jam 1, then soft-delete it
         $jadwalLama = JadwalPelajaran::create([
-            'group_id' => (string) \Illuminate\Support\Str::uuid(),
+            'group_id' => (string) Str::uuid(),
             'hari' => 'Senin',
             'id_jam' => $this->jam1->id,
             'id_kelas' => $this->kelasA->id,

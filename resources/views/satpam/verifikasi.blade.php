@@ -133,6 +133,9 @@
                         @if($dispen->isKeluarGerbang())
                             <strong>Siswa sudah diizinkan keluar.</strong><br>
                             <span class="small">{{ $dispen->keluar_gerbang_at->translatedFormat('l, d M Y H:i') }} oleh {{ $dispen->verifier?->nama ?? '-' }}</span>
+                        @elseif($dispen->isExpired())
+                            <strong>Surat izin KADALUARSA.</strong><br>
+                            <span class="small">Melewati batas Jam Berangkat + 1 JP. Siswa tidak dapat keluar dengan surat ini.</span>
                         @elseif(!$dispen->isApproved())
                             <strong>Surat izin belum disetujui.</strong><br>
                             <span class="small">Siswa belum dapat keluar gerbang tanpa persetujuan Guru Piket / Waka Kesiswaan.</span>

@@ -14,13 +14,13 @@ class AuthRedirectTest extends TestCase
     protected function makeUser(string $role, ?string $subRole, ?string $kodeAktivasi = null): User
     {
         return User::create([
-            'nama'           => 'User ' . Str::random(5),
-            'username'       => 'user_' . Str::random(8),
-            'password'       => bcrypt('password123'),
-            'kode_aktivasi'  => $kodeAktivasi,
-            'role'           => $role,
-            'sub_role'       => $subRole,
-            'is_active'      => true,
+            'nama' => 'User '.Str::random(5),
+            'username' => 'user_'.Str::random(8),
+            'password' => bcrypt('password123'),
+            'kode_aktivasi' => $kodeAktivasi,
+            'role' => $role,
+            'sub_role' => $subRole,
+            'is_active' => true,
         ]);
     }
 
@@ -29,9 +29,9 @@ class AuthRedirectTest extends TestCase
         $satpam = $this->makeUser('admin', 'satpam', 'satpam123');
 
         $this->post('/login', [
-            'login_id'      => $satpam->username,
-            'password'      => 'password123',
-            'mode'          => 'admin',
+            'login_id' => $satpam->username,
+            'password' => 'password123',
+            'mode' => 'admin',
             'kode_aktivasi' => 'satpam123',
         ])->assertRedirect(route('satpam.dashboard'));
     }
@@ -41,9 +41,9 @@ class AuthRedirectTest extends TestCase
         $satpam = $this->makeUser('piket_satpam', null, 'satpam123');
 
         $this->post('/login', [
-            'login_id'      => $satpam->username,
-            'password'      => 'password123',
-            'mode'          => 'admin',
+            'login_id' => $satpam->username,
+            'password' => 'password123',
+            'mode' => 'admin',
             'kode_aktivasi' => 'satpam123',
         ])->assertRedirect(route('satpam.dashboard'));
     }
@@ -53,9 +53,9 @@ class AuthRedirectTest extends TestCase
         $tu = $this->makeUser('admin', 'petugas_tu', 'admin123');
 
         $this->post('/login', [
-            'login_id'      => $tu->username,
-            'password'      => 'password123',
-            'mode'          => 'admin',
+            'login_id' => $tu->username,
+            'password' => 'password123',
+            'mode' => 'admin',
             'kode_aktivasi' => 'admin123',
         ])->assertRedirect(route('home'));
     }
@@ -67,7 +67,7 @@ class AuthRedirectTest extends TestCase
         $this->post('/login', [
             'login_id' => $guru->username,
             'password' => 'password123',
-            'mode'     => 'guru',
+            'mode' => 'guru',
         ])->assertRedirect(route('guru.dashboard'));
     }
 }

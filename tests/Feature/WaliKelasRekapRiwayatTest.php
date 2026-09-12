@@ -35,11 +35,11 @@ class WaliKelasRekapRiwayatTest extends TestCase
     protected function makeWaliKelas(): User
     {
         return User::create([
-            'nama'      => 'Wali Kelas Test',
-            'username'  => 'wkrekap_' . Str::random(6),
-            'password'  => bcrypt('password'),
-            'role'      => 'guru',
-            'sub_role'  => 'wali_kelas',
+            'nama' => 'Wali Kelas Test',
+            'username' => 'wkrekap_'.Str::random(6),
+            'password' => bcrypt('password'),
+            'role' => 'guru',
+            'sub_role' => 'wali_kelas',
             'is_active' => true,
         ]);
     }
@@ -48,27 +48,27 @@ class WaliKelasRekapRiwayatTest extends TestCase
     {
         $tahun = TahunAjaran::create([
             'tahun_ajaran' => '2025/2026',
-            'semester'     => 'Ganjil',
+            'semester' => 'Ganjil',
             'is_active' => true,
         ]);
 
         $suffix = Str::random(3);
-        $mapel = MataPelajaran::create(['nama_mapel' => $label, 'kode_mapel' => strtoupper(Str::substr($label, 0, 3)) . $suffix]);
-        $jam   = JamPelajaran::create([
+        $mapel = MataPelajaran::create(['nama_mapel' => $label, 'kode_mapel' => strtoupper(Str::substr($label, 0, 3)).$suffix]);
+        $jam = JamPelajaran::create([
             'kategori_hari' => 'Senin-Kamis',
-            'jam_ke'        => 2,
-            'jam_mulai'     => '07:40',
-            'jam_selesai'   => '08:20',
-            'jenis'         => 'kbm',
+            'jam_ke' => 2,
+            'jam_mulai' => '07:40',
+            'jam_selesai' => '08:20',
+            'jenis' => 'kbm',
         ]);
 
         $jadwal = JadwalPelajaran::create([
-            'group_id'        => Str::uuid(),
-            'hari'            => 'Senin',
-            'id_jam'          => $jam->id,
-            'id_kelas'        => $kelas->id,
-            'id_mapel'        => $mapel->id,
-            'id_guru'         => $guru->id,
+            'group_id' => Str::uuid(),
+            'hari' => 'Senin',
+            'id_jam' => $jam->id,
+            'id_kelas' => $kelas->id,
+            'id_mapel' => $mapel->id,
+            'id_guru' => $guru->id,
             'id_tahun_ajaran' => $tahun->id,
         ]);
 
@@ -80,34 +80,34 @@ class WaliKelasRekapRiwayatTest extends TestCase
         $wali = $this->makeWaliKelas();
 
         $kelas = Kelas::create([
-            'nama_kelas'    => 'X IPA 1',
-            'tingkat'       => 'X',
+            'nama_kelas' => 'X IPA 1',
+            'tingkat' => 'X',
             'id_wali_kelas' => $wali->id,
         ]);
 
         $siswa = Siswa::create([
-            'nisn'          => '0000000101',
-            'nis'           => '23102',
-            'nama'          => 'Andi Pratama',
+            'nisn' => '0000000101',
+            'nis' => '23102',
+            'nama' => 'Andi Pratama',
             'jenis_kelamin' => 'L',
-            'id_kelas'      => $kelas->id,
+            'id_kelas' => $kelas->id,
         ]);
 
         $guru = User::create([
-            'nama'      => 'Guru Mapel',
-            'username'  => 'gurumapel' . Str::random(4),
-            'password'  => bcrypt('password'),
-            'role'      => 'guru',
+            'nama' => 'Guru Mapel',
+            'username' => 'gurumapel'.Str::random(4),
+            'password' => bcrypt('password'),
+            'role' => 'guru',
             'is_active' => true,
         ]);
 
         [$jadwal] = $this->makeJadwal($wali, $guru, $kelas);
 
         $jurnal = Jurnal::create([
-            'id_jadwal'    => $jadwal->id,
-            'tanggal'      => '2026-08-10',
-            'materi'       => 'Matriks',
-            'id_guru'      => $guru->id,
+            'id_jadwal' => $jadwal->id,
+            'tanggal' => '2026-08-10',
+            'materi' => 'Matriks',
+            'id_guru' => $guru->id,
             'status_kehadiran' => 'Hadir',
         ]);
 
@@ -124,12 +124,13 @@ class WaliKelasRekapRiwayatTest extends TestCase
     protected function siswaLain(Kelas $kelas): int
     {
         $s = Siswa::create([
-            'nisn'          => '0000000202',
-            'nis'           => '23103',
-            'nama'          => 'Budi Santoso',
+            'nisn' => '0000000202',
+            'nis' => '23103',
+            'nama' => 'Budi Santoso',
             'jenis_kelamin' => 'L',
-            'id_kelas'      => $kelas->id,
+            'id_kelas' => $kelas->id,
         ]);
+
         return $s->id;
     }
 
@@ -137,31 +138,31 @@ class WaliKelasRekapRiwayatTest extends TestCase
     {
         $wali = $this->makeWaliKelas();
         $guru = User::create([
-            'nama'      => 'Guru Mapel',
-            'username'  => 'gm' . Str::random(4),
-            'password'  => bcrypt('password'),
-            'role'      => 'guru',
+            'nama' => 'Guru Mapel',
+            'username' => 'gm'.Str::random(4),
+            'password' => bcrypt('password'),
+            'role' => 'guru',
             'is_active' => true,
         ]);
 
         $kelasSaya = Kelas::create([
-            'nama_kelas'    => 'X IPA 1',
-            'tingkat'       => 'X',
+            'nama_kelas' => 'X IPA 1',
+            'tingkat' => 'X',
             'id_wali_kelas' => $wali->id,
         ]);
 
         $kelasLain = Kelas::create([
-            'nama_kelas'    => 'XI IPA 2',
-            'tingkat'       => 'XI',
+            'nama_kelas' => 'XI IPA 2',
+            'tingkat' => 'XI',
             'id_wali_kelas' => $this->makeWaliKelas()->id,
         ]);
 
         $saya = Siswa::create([
-            'nisn'          => '0000000303',
-            'nis'           => '23104',
-            'nama'          => 'Cita',
+            'nisn' => '0000000303',
+            'nis' => '23104',
+            'nama' => 'Cita',
             'jenis_kelamin' => 'P',
-            'id_kelas'      => $kelasSaya->id,
+            'id_kelas' => $kelasSaya->id,
         ]);
 
         [$jadwalSaya] = $this->makeJadwal($wali, $guru, $kelasSaya);
@@ -169,16 +170,16 @@ class WaliKelasRekapRiwayatTest extends TestCase
 
         $jurnalSaya = Jurnal::create([
             'id_jadwal' => $jadwalSaya->id,
-            'tanggal'   => '2026-08-10',
-            'materi'    => 'Materi Kelas Saya',
-            'id_guru'   => $guru->id,
+            'tanggal' => '2026-08-10',
+            'materi' => 'Materi Kelas Saya',
+            'id_guru' => $guru->id,
         ]);
 
         Jurnal::create([
             'id_jadwal' => $jadwalLain->id,
-            'tanggal'   => '2026-08-10',
-            'materi'    => 'Materi Kelas Lain',
-            'id_guru'   => $guru->id,
+            'tanggal' => '2026-08-10',
+            'materi' => 'Materi Kelas Lain',
+            'id_guru' => $guru->id,
         ]);
 
         AbsensiJurnal::create(['id_jurnal' => $jurnalSaya->id, 'id_siswa' => $saya->id, 'status' => 'Hadir']);

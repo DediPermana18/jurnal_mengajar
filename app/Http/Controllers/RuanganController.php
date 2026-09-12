@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Exports\RuanganExport;
-use App\Imports\RuanganImport;
 use App\Models\Ruangan;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -14,10 +13,8 @@ class RuanganController extends Controller
 {
     protected function authorizePetugasTU(): void
     {
-        $role = auth()->check() ? auth()->user()->role : null;
-
-        abort_if(
-            !in_array($role, ['admin_tu', 'admin', 'super_admin'], true),
+        abort_unless(
+            $this->isAuthorizedAdminArea(),
             403,
             'Akses ditolak. Hanya Petugas TU yang dapat mengelola data ruangan.'
         );
@@ -57,14 +54,14 @@ class RuanganController extends Controller
         $validated = $request->validate([
             'kode_ruangan' => 'required|string|max:20|unique:ruangans,kode_ruangan',
             'nama_ruangan' => 'required|string|max:100',
-            'lokasi'       => 'nullable|string|max:150',
-            'pengurus'     => 'nullable|array',
-            'pengurus.*'   => 'exists:users,id',
+            'lokasi' => 'nullable|string|max:150',
+            'pengurus' => 'nullable|array',
+            'pengurus.*' => 'exists:users,id',
         ], [
             'kode_ruangan.required' => 'Kode ruangan wajib diisi.',
-            'kode_ruangan.unique'   => 'Kode ruangan sudah terdaftar.',
+            'kode_ruangan.unique' => 'Kode ruangan sudah terdaftar.',
             'nama_ruangan.required' => 'Nama ruangan wajib diisi.',
-            'pengurus.*.exists'     => 'User yang dipilih tidak valid.',
+            'pengurus.*.exists' => 'User yang dipilih tidak valid.',
         ]);
 
         $pengurusIds = $validated['pengurus'] ?? [];
@@ -83,16 +80,16 @@ class RuanganController extends Controller
         $ruangan = Ruangan::findOrFail($id);
 
         $validated = $request->validate([
-            'kode_ruangan' => 'required|string|max:20|unique:ruangans,kode_ruangan,' . $ruangan->id,
+            'kode_ruangan' => 'required|string|max:20|unique:ruangans,kode_ruangan,'.$ruangan->id,
             'nama_ruangan' => 'required|string|max:100',
-            'lokasi'       => 'nullable|string|max:150',
-            'pengurus'     => 'nullable|array',
-            'pengurus.*'   => 'exists:users,id',
+            'lokasi' => 'nullable|string|max:150',
+            'pengurus' => 'nullable|array',
+            'pengurus.*' => 'exists:users,id',
         ], [
             'kode_ruangan.required' => 'Kode ruangan wajib diisi.',
-            'kode_ruangan.unique'   => 'Kode ruangan sudah terdaftar.',
+            'kode_ruangan.unique' => 'Kode ruangan sudah terdaftar.',
             'nama_ruangan.required' => 'Nama ruangan wajib diisi.',
-            'pengurus.*.exists'     => 'User yang dipilih tidak valid.',
+            'pengurus.*.exists' => 'User yang dipilih tidak valid.',
         ]);
 
         $pengurusIds = $validated['pengurus'] ?? [];
@@ -112,7 +109,7 @@ class RuanganController extends Controller
 
         if ($ruangan->jadwal_pelajaran_count > 0) {
             return back()->withErrors([
-                'error' => 'Ruangan "' . $ruangan->nama_ruangan . '" tidak dapat dihapus karena masih dipakai di ' . $ruangan->jadwal_pelajaran_count . ' slot jadwal pelajaran.',
+                'error' => 'Ruangan "'.$ruangan->nama_ruangan.'" tidak dapat dihapus karena masih dipakai di '.$ruangan->jadwal_pelajaran_count.' slot jadwal pelajaran.',
             ]);
         }
 
@@ -130,14 +127,14 @@ class RuanganController extends Controller
         $this->authorizePetugasTU();
 
         $format = $request->input('format', 'xlsx');
-        $filename = 'data_ruangan_' . date('Y-m-d_His');
+        $filename = 'data_ruangan_'.date('Y-m-d_His');
 
         if ($format === 'csv') {
-            return Excel::download(new RuanganExport, $filename . '.csv', ExcelFormat::CSV, [
+            return Excel::download(new RuanganExport, $filename.'.csv', ExcelFormat::CSV, [
                 'Content-Type' => 'text/csv',
             ]);
         }
 
-        return Excel::download(new RuanganExport, $filename . '.xlsx', ExcelFormat::XLSX);
+        return Excel::download(new RuanganExport, $filename.'.xlsx', ExcelFormat::XLSX);
     }
 }

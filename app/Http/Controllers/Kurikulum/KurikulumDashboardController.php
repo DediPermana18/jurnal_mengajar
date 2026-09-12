@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Kurikulum;
 
 use App\Http\Controllers\Controller;
-use App\Models\IzinGuru;
 use App\Models\JadwalPelajaran;
 use App\Models\Jurnal;
 use App\Models\Kelas;
@@ -24,13 +23,13 @@ class KurikulumDashboardController extends Controller
         $now = Carbon::now();
 
         $mapHariIni = [
-            'Monday'    => 'Senin',
-            'Tuesday'   => 'Selasa',
+            'Monday' => 'Senin',
+            'Tuesday' => 'Selasa',
             'Wednesday' => 'Rabu',
-            'Thursday'  => 'Kamis',
-            'Friday'    => 'Jumat',
-            'Saturday'  => 'Sabtu',
-            'Sunday'    => 'Minggu',
+            'Thursday' => 'Kamis',
+            'Friday' => 'Jumat',
+            'Saturday' => 'Sabtu',
+            'Sunday' => 'Minggu',
         ];
 
         $hariIniStr = $mapHariIni[$now->format('l')] ?? 'Senin';
@@ -62,11 +61,11 @@ class KurikulumDashboardController extends Controller
         // 3. Stat Card 3: Total Plotting Jadwal KBM
         $tahunAktif = TahunAjaran::where('is_active', true)->first() ?? TahunAjaran::first();
 
-        $totalJadwalPelajaran = JadwalPelajaran::when($tahunAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))->count();
+        $totalJadwalPelajaran = JadwalPelajaran::when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))->count();
 
         // 4. Stat Card 4: Guru Mengajar Hari Ini
         $guruMengajarHariIni = JadwalPelajaran::where('hari', $hariIniStr)
-            ->when($tahunAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
+            ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
             ->distinct('id_guru')
             ->count('id_guru');
 
@@ -75,14 +74,14 @@ class KurikulumDashboardController extends Controller
         // 5. Daftar Jadwal KBM Hari Ini
         $jadwalKbmHariIni = JadwalPelajaran::with(['guru', 'kelas', 'mapel', 'jamPelajaran'])
             ->where('hari', $hariIniStr)
-            ->when($tahunAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
+            ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
             ->orderBy('id_jam')
             ->take(10)
             ->get();
 
         // 6. Ringkasan KBM Hari Ini (jurnal terisi vs total sesi jadwal)
         $totalSesiHariIni = JadwalPelajaran::where('hari', $hariIniStr)
-            ->when($tahunAktif, fn($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
+            ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
             ->count();
 
         $jurnalTerisiHariIni = Jurnal::whereDate('tanggal', $now->toDateString())

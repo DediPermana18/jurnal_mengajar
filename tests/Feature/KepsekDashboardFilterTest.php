@@ -15,23 +15,23 @@ class KepsekDashboardFilterTest extends TestCase
     protected function makeKepsek(): User
     {
         return User::create([
-            'nama'          => 'Dr. Kepsek M.Pd.',
-            'username'      => 'kepsek_' . Str::random(5),
-            'password'      => bcrypt('password'),
-            'role'          => 'admin',
-            'sub_role'      => 'kepsek',
+            'nama' => 'Dr. Kepsek M.Pd.',
+            'username' => 'kepsek_'.Str::random(5),
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+            'sub_role' => 'kepsek',
             'kode_aktivasi' => 'KPS-SIGN-2026',
-            'is_active'     => true,
+            'is_active' => true,
         ]);
     }
 
     protected function makeGuru(): User
     {
         return User::create([
-            'nama'      => 'Guru Test ' . Str::random(5),
-            'username'  => 'guru_' . Str::random(5),
-            'password'  => bcrypt('password'),
-            'role'      => 'guru',
+            'nama' => 'Guru Test '.Str::random(5),
+            'username' => 'guru_'.Str::random(5),
+            'password' => bcrypt('password'),
+            'role' => 'guru',
             'is_active' => true,
         ]);
     }
@@ -42,20 +42,20 @@ class KepsekDashboardFilterTest extends TestCase
         $guru = $this->makeGuru();
 
         $pendingItem = IzinGuru::create([
-            'user_id'       => $guru->id,
-            'tanggal'       => now()->toDateString(),
+            'user_id' => $guru->id,
+            'tanggal' => now()->toDateString(),
             'kategori_izin' => 'sakit',
-            'alasan'        => 'AlasanIzinPendingKepsekUnik',
-            'status'        => IzinGuru::STATUS_PENDING_KEPSEK,
-            'token_kepsek'  => (string) Str::uuid(),
+            'alasan' => 'AlasanIzinPendingKepsekUnik',
+            'status' => IzinGuru::STATUS_PENDING_KEPSEK,
+            'token_kepsek' => (string) Str::uuid(),
         ]);
 
         $approvedItem = IzinGuru::create([
-            'user_id'       => $guru->id,
-            'tanggal'       => now()->toDateString(),
+            'user_id' => $guru->id,
+            'tanggal' => now()->toDateString(),
             'kategori_izin' => 'sakit',
-            'alasan'        => 'AlasanIzinDisetujuiUnik',
-            'status'        => IzinGuru::STATUS_DISETUJUI,
+            'alasan' => 'AlasanIzinDisetujuiUnik',
+            'status' => IzinGuru::STATUS_DISETUJUI,
         ]);
 
         $response = $this->actingAs($kepsek)->get(route('kepsek.rekap-izin'));
@@ -75,19 +75,19 @@ class KepsekDashboardFilterTest extends TestCase
         $guru = $this->makeGuru();
 
         IzinGuru::create([
-            'user_id'       => $guru->id,
-            'tanggal'       => now()->toDateString(),
+            'user_id' => $guru->id,
+            'tanggal' => now()->toDateString(),
             'kategori_izin' => 'sakit',
-            'alasan'        => 'AlasanIzinPendingKepsekUnik',
-            'status'        => IzinGuru::STATUS_PENDING_KEPSEK,
+            'alasan' => 'AlasanIzinPendingKepsekUnik',
+            'status' => IzinGuru::STATUS_PENDING_KEPSEK,
         ]);
 
         IzinGuru::create([
-            'user_id'       => $guru->id,
-            'tanggal'       => now()->toDateString(),
+            'user_id' => $guru->id,
+            'tanggal' => now()->toDateString(),
             'kategori_izin' => 'sakit',
-            'alasan'        => 'AlasanIzinDisetujuiUnik',
-            'status'        => IzinGuru::STATUS_DISETUJUI,
+            'alasan' => 'AlasanIzinDisetujuiUnik',
+            'status' => IzinGuru::STATUS_DISETUJUI,
         ]);
 
         $response = $this->actingAs($kepsek)->get(route('kepsek.rekap-izin', ['status' => 'disetujui']));

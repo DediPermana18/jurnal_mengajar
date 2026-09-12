@@ -13,10 +13,8 @@ class JurusanController extends Controller
 {
     protected function authorizePetugasTU(): void
     {
-        $role = auth()->check() ? auth()->user()->role : null;
-
-        abort_if(
-            !in_array($role, ['admin_tu', 'admin', 'super_admin'], true),
+        abort_unless(
+            $this->isAuthorizedAdminArea(),
             403,
             'Akses ditolak. Hanya Petugas TU yang dapat mengelola data jurusan.'
         );
@@ -87,9 +85,14 @@ class JurusanController extends Controller
     {
         $this->authorizePetugasTU();
 
+        // Guard: Data Master tidak dapat diubah saat dalam mode preview/testing.
+        if (auth()->user()?->isTestingUser()) {
+            return back()->with('error', 'Data Master asli tidak dapat diubah saat dalam mode preview/testing.');
+        }
+
         $jurusan = Jurusan::findOrFail($id);
         $validated = $request->validate([
-            'kode_jurusan' => 'required|string|max:20|unique:jurusan,kode_jurusan,' . $jurusan->id,
+            'kode_jurusan' => 'required|string|max:20|unique:jurusan,kode_jurusan,'.$jurusan->id,
             'nama_jurusan' => 'required|string|max:100',
         ], [
             'kode_jurusan.required' => 'Kode jurusan wajib diisi.',
@@ -106,11 +109,16 @@ class JurusanController extends Controller
     {
         $this->authorizePetugasTU();
 
+        // Guard: Data Master tidak dapat dihapus saat dalam mode preview/testing.
+        if (auth()->user()?->isTestingUser()) {
+            return back()->with('error', 'Data Master asli tidak dapat dihapus saat dalam mode preview/testing.');
+        }
+
         $jurusan = Jurusan::withCount('kelas')->findOrFail($id);
 
         if ($jurusan->kelas_count > 0) {
             return back()->withErrors([
-                'error' => 'Jurusan "' . $jurusan->nama_jurusan . '" tidak dapat dihapus karena masih digunakan oleh ' . $jurusan->kelas_count . ' kelas.',
+                'error' => 'Jurusan "'.$jurusan->nama_jurusan.'" tidak dapat dihapus karena masih digunakan oleh '.$jurusan->kelas_count.' kelas.',
             ]);
         }
 
@@ -127,15 +135,15 @@ class JurusanController extends Controller
         $this->authorizePetugasTU();
 
         $format = $request->input('format', 'xlsx');
-        $filename = 'data_jurusan_' . date('Y-m-d_His');
+        $filename = 'data_jurusan_'.date('Y-m-d_His');
 
         if ($format === 'csv') {
-            return Excel::download(new JurusanExport, $filename . '.csv', ExcelFormat::CSV, [
+            return Excel::download(new JurusanExport, $filename.'.csv', ExcelFormat::CSV, [
                 'Content-Type' => 'text/csv',
             ]);
         }
 
-        return Excel::download(new JurusanExport, $filename . '.xlsx', ExcelFormat::XLSX);
+        return Excel::download(new JurusanExport, $filename.'.xlsx', ExcelFormat::XLSX);
     }
 
     /**

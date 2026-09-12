@@ -124,11 +124,52 @@
 
                 <form method="POST" action="{{ route('dispen.approval.store', $token) }}" id="approvalForm">
                     @csrf
-                    <input type="hidden" name="ttd_waka" id="ttdWakaInput" value="">
+
+                    {{-- Pilih Waka Kesiswaan (auto-detect bila login sebagai Waka Kesiswaan) --}}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-dark" for="wakaSelect">
+                            Waka Kesiswaan Penandatangan
+                        </label>
+                        @if(($wakaList ?? collect())->isEmpty())
+                            <div class="alert alert-warning rounded-3 py-2 small mb-2">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                Belum ada user dengan jabatan Waka Kesiswaan yang diaktifkan. Hubungi Admin untuk menunjuk Waka Kesiswaan terlebih dahulu.
+                            </div>
+                        @endif
+
+                        @if($loggedInWakaId && $dispensasi)
+                            {{-- Login sebagai Waka Kesiswaan → dikunci ke user tsb --}}
+                            @php
+                                $loggedInWakaUser = \App\Models\User::find($loggedInWakaId);
+                            @endphp
+                            <div class="alert alert-success rounded-3 py-2 small mb-2">
+                                <i class="bi bi-person-check-fill me-1"></i>
+                                Anda login sebagai <strong>{{ $loggedInWakaUser?->nama ?? 'Waka Kesiswaan' }}</strong> — TTD otomatis atas nama Anda.
+                            </div>
+                            <input type="hidden" name="waka_kesiswaan_id" id="wakaHidden" value="{{ $loggedInWakaId }}">
+                            <select id="wakaSelect" class="form-select rounded-3" disabled aria-label="Waka Kesiswaan penandatangan">
+                                <option value="{{ $loggedInWakaId }}" selected>
+                                    {{ $loggedInWakaUser?->nama ?? 'Waka Kesiswaan' }}{{ $loggedInWakaUser && $loggedInWakaUser->nip ? ' — NIP. ' . $loggedInWakaUser->nip : '' }}
+                                </option>
+                            </select>
+                        @else
+                            {{-- Tidak login / bukan Waka Kesiswaan → pilih manual dari daftar --}}
+                            <select name="waka_kesiswaan_id" id="wakaSelect" class="form-select rounded-3" required>
+                                <option value="" disabled selected>-- Pilih Waka Kesiswaan --</option>
+                                @foreach(($wakaList ?? collect()) as $wakaOption)
+                                    <option value="{{ $wakaOption->id }}">
+                                        {{ $wakaOption->nama }}{{ $wakaOption->nip ? ' — NIP. ' . $wakaOption->nip : '' }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <div class="form-text">Pilih Waka Kesiswaan yang akan tercantum sebagai penandatangan surat.</div>
+                        @endif
+                    </div>
 
                     <div class="mb-3">
                         <label class="form-label fw-semibold text-dark">Tanda Tangan Waka Kesiswaan</label>
                         <canvas id="signatureCanvas" class="signature-box" width="600" height="200"></canvas>
+                        <input type="hidden" name="ttd_waka" id="ttdWakaInput" value="">
                     </div>
 
                     <div class="d-flex justify-content-end gap-2 mb-3">
@@ -218,9 +259,13 @@
 
             if (form) {
                 form.addEventListener('submit', function (event) {
+                    const wakaSelect = document.getElementById('wakaSelect');
                     if (!hiddenInput.value) {
                         event.preventDefault();
                         alert('Silakan tanda tangan terlebih dahulu sebelum menyimpan.');
+                    } else if (wakaSelect && !wakaSelect.disabled && !wakaSelect.value) {
+                        event.preventDefault();
+                        alert('Silakan pilih Waka Kesiswaan penandatangan terlebih dahulu.');
                     }
                 });
             }

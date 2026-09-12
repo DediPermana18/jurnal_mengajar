@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Jurusan;
 use App\Models\MataPelajaran;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -20,7 +21,10 @@ class MataPelajaranController extends Controller
         $isKurikulum = ($user && $user->role === 'admin' && $user->sub_role === 'waka_kurikulum')
             || ($user && in_array($user->role, ['admin_kurikulum', 'waka_kurikulum', 'kurikulum'], true));
 
-        if (! $isPetugasTu && ! $isKurikulum) {
+        // Petugas IT / QA Tester: peninjau semua role (impersonasi admin_tu / waka_kurikulum)
+        $isAllowed = ($user && $user->isPetugasIt()) || $isPetugasTu || $isKurikulum;
+
+        if (! $isAllowed) {
             abort(403, 'Akses ditolak.');
         }
     }
@@ -36,13 +40,13 @@ class MataPelajaranController extends Controller
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('nama_mapel', 'like', "%{$search}%")
-                  ->orWhere('kode_mapel', 'like', "%{$search}%");
+                    ->orWhere('kode_mapel', 'like', "%{$search}%");
             });
         }
 
         // Filter Kelompok / Jenis Mapel
         if ($request->filled('kelompok')) {
-            $query->where('kelompok', 'LIKE', '%' . $request->kelompok . '%');
+            $query->where('kelompok', 'LIKE', '%'.$request->kelompok.'%');
         }
 
         $totalMapel = MataPelajaran::count();
@@ -71,7 +75,9 @@ class MataPelajaranController extends Controller
             'Muatan Lokal',
         ];
 
-        return view('admin.mata-pelajaran.create', compact('jenisOptions'));
+        $dataJurusan = Jurusan::orderBy('nama_jurusan', 'asc')->get();
+
+        return view('admin.mata-pelajaran.create', compact('jenisOptions', 'dataJurusan'));
     }
 
     /**
@@ -87,7 +93,9 @@ class MataPelajaranController extends Controller
             'Muatan Lokal',
         ];
 
-        return view('admin.mata-pelajaran.edit', compact('mapel', 'jenisOptions'));
+        $dataJurusan = Jurusan::orderBy('nama_jurusan', 'asc')->get();
+
+        return view('admin.mata-pelajaran.edit', compact('mapel', 'jenisOptions', 'dataJurusan'));
     }
 
     /**
@@ -95,6 +103,8 @@ class MataPelajaranController extends Controller
      */
     public function store(Request $request)
     {
+        $kelompok = $request->input('kelompok');
+
         $validated = $request->validate([
             'kode_mapel' => [
                 'required',
@@ -103,18 +113,25 @@ class MataPelajaranController extends Controller
                 Rule::unique('mata_pelajaran', 'kode_mapel')->whereNull('deleted_at'),
             ],
             'nama_mapel' => 'required|string|max:100',
-            'kelompok'   => 'required|string|max:100',
+            'kelompok' => 'required|string|max:100',
+            'jurusan_id' => [
+                $kelompok === 'Kejuruan' ? 'required' : 'nullable',
+                'exists:jurusan,id',
+            ],
         ], [
-            'kode_mapel.unique'   => 'Kode Mata Pelajaran sudah digunakan.',
+            'kode_mapel.unique' => 'Kode Mata Pelajaran sudah digunakan.',
             'kode_mapel.required' => 'Kode Mata Pelajaran wajib diisi.',
             'nama_mapel.required' => 'Nama Mata Pelajaran wajib diisi.',
-            'kelompok.required'   => 'Jenis Mapel wajib dipilih.',
+            'kelompok.required' => 'Jenis Mapel wajib dipilih.',
+            'jurusan_id.required' => 'Jurusan wajib dipilih untuk Mata Pelajaran Kejuruan.',
+            'jurusan_id.exists' => 'Jurusan yang dipilih tidak valid.',
         ]);
 
         MataPelajaran::create([
             'kode_mapel' => strtoupper(trim($validated['kode_mapel'])),
             'nama_mapel' => trim($validated['nama_mapel']),
-            'kelompok'   => $validated['kelompok'],
+            'kelompok' => $validated['kelompok'],
+            'jurusan_id' => $kelompok === 'Kejuruan' ? $validated['jurusan_id'] : null,
         ]);
 
         return redirect()
@@ -129,6 +146,8 @@ class MataPelajaranController extends Controller
     {
         $mapel = MataPelajaran::findOrFail($id);
 
+        $kelompok = $request->input('kelompok');
+
         $validated = $request->validate([
             'kode_mapel' => [
                 'required',
@@ -137,18 +156,25 @@ class MataPelajaranController extends Controller
                 Rule::unique('mata_pelajaran', 'kode_mapel')->ignore($mapel->id)->whereNull('deleted_at'),
             ],
             'nama_mapel' => 'required|string|max:100',
-            'kelompok'   => 'required|string|max:100',
+            'kelompok' => 'required|string|max:100',
+            'jurusan_id' => [
+                $kelompok === 'Kejuruan' ? 'required' : 'nullable',
+                'exists:jurusan,id',
+            ],
         ], [
-            'kode_mapel.unique'   => 'Kode Mata Pelajaran sudah digunakan.',
+            'kode_mapel.unique' => 'Kode Mata Pelajaran sudah digunakan.',
             'kode_mapel.required' => 'Kode Mata Pelajaran wajib diisi.',
             'nama_mapel.required' => 'Nama Mata Pelajaran wajib diisi.',
-            'kelompok.required'   => 'Jenis Mapel wajib dipilih.',
+            'kelompok.required' => 'Jenis Mapel wajib dipilih.',
+            'jurusan_id.required' => 'Jurusan wajib dipilih untuk Mata Pelajaran Kejuruan.',
+            'jurusan_id.exists' => 'Jurusan yang dipilih tidak valid.',
         ]);
 
         $mapel->update([
             'kode_mapel' => strtoupper(trim($validated['kode_mapel'])),
             'nama_mapel' => trim($validated['nama_mapel']),
-            'kelompok'   => $validated['kelompok'],
+            'kelompok' => $validated['kelompok'],
+            'jurusan_id' => $kelompok === 'Kejuruan' ? $validated['jurusan_id'] : null,
         ]);
 
         return redirect()

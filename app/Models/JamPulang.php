@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTestingData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 class JamPulang extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTestingData;
 
     protected $table = 'jam_pulang';
 
@@ -19,6 +21,7 @@ class JamPulang extends Model
 
     protected $casts = [
         'max_jam_ke' => 'integer',
+        'is_testing' => 'boolean',
     ];
 
     /**
@@ -38,7 +41,7 @@ class JamPulang extends Model
      * Ambil semua setting sebagai collection yang di-key oleh "kategori_hari|tingkat"
      * untuk efisiensi lookup di view.
      */
-    public static function getAllAsLookup(): \Illuminate\Support\Collection
+    public static function getAllAsLookup(): Collection
     {
         return static::all()->keyBy(fn ($r) => "{$r->kategori_hari}|{$r->tingkat}");
     }
@@ -51,13 +54,13 @@ class JamPulang extends Model
      * ("Tidak Dibatasi" / semua slot aktif). Dipanggil saat render atau saat
      * master jam diubah/dihapus agar tidak terjadi error offset pada dropdown.
      *
-     * @param array<string,int> $maxByKategori peta ['Senin-Kamis' => maxKBM, 'Jumat' => maxKBM]
+     * @param  array<string,int>  $maxByKategori  peta ['Senin-Kamis' => maxKBM, 'Jumat' => maxKBM]
      */
     public static function normalizeAgainstMaster(array $maxByKategori = []): int
     {
         $maxByKategori = $maxByKategori ?: [
             'Senin-Kamis' => JamPelajaran::where('kategori_hari', 'Senin-Kamis')->where('jenis', 'kbm')->whereNotNull('jam_ke')->max('jam_ke') ?? 0,
-            'Jumat'       => JamPelajaran::where('kategori_hari', 'Jumat')->where('jenis', 'kbm')->whereNotNull('jam_ke')->max('jam_ke') ?? 0,
+            'Jumat' => JamPelajaran::where('kategori_hari', 'Jumat')->where('jenis', 'kbm')->whereNotNull('jam_ke')->max('jam_ke') ?? 0,
         ];
 
         $fixed = 0;

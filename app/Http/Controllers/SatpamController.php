@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\CatatanTerlambat;
 use App\Models\DispensasiSiswa;
 use App\Models\JadwalPelajaran;
-use App\Models\JadwalPiket;
 use App\Models\JamPelajaran;
 use App\Models\Kelas;
 use App\Models\PenerimaTerlambat;
@@ -28,7 +27,12 @@ class SatpamController extends Controller
     protected function authorizeSatpam(): void
     {
         $user = Auth::user();
-        abort_unless($user instanceof User && $user->isSatpam(), 403, 'Akses ditolak. Portal khusus Satpam / Petugas Keamanan.');
+        abort_unless(
+            $user instanceof User
+                && ($user->isPetugasIt() || $user->activeRole() === 'satpam' || $user->isSatpam()),
+            403,
+            'Akses ditolak. Portal khusus Satpam / Petugas Keamanan.'
+        );
     }
 
     /**
@@ -37,12 +41,12 @@ class SatpamController extends Controller
     protected static function namaHariToday(): ?string
     {
         $map = [
-            Carbon::MONDAY    => 'Senin',
-            Carbon::TUESDAY   => 'Selasa',
+            Carbon::MONDAY => 'Senin',
+            Carbon::TUESDAY => 'Selasa',
             Carbon::WEDNESDAY => 'Rabu',
-            Carbon::THURSDAY  => 'Kamis',
-            Carbon::FRIDAY    => 'Jumat',
-            Carbon::SATURDAY  => 'Sabtu',
+            Carbon::THURSDAY => 'Kamis',
+            Carbon::FRIDAY => 'Jumat',
+            Carbon::SATURDAY => 'Sabtu',
         ];
 
         return $map[now()->dayOfWeek] ?? null;
@@ -55,7 +59,7 @@ class SatpamController extends Controller
     {
         $hari = static::namaHariToday();
 
-        if (!$hari) {
+        if (! $hari) {
             return collect();
         }
 
@@ -71,7 +75,7 @@ class SatpamController extends Controller
     protected function jamKeSekarang(): ?int
     {
         $kategoriHari = now()->isFriday() ? 'Jumat' : 'Senin-Kamis';
-        $nowTime      = now()->format('H:i:s');
+        $nowTime = now()->format('H:i:s');
 
         $templates = JamPelajaran::where('kategori_hari', $kategoriHari)
             ->whereNotNull('jam_ke')
@@ -101,9 +105,9 @@ class SatpamController extends Controller
      */
     protected function jadwalHariIniByKelas(): array
     {
-        $hari   = static::namaHariToday();
+        $hari = static::namaHariToday();
         $tahunAktif = TahunAjaran::where('is_active', true)->first();
-        $jamKe  = $this->jamKeSekarang();
+        $jamKe = $this->jamKeSekarang();
 
         $jadwalHariIni = JadwalPelajaran::with(['jamPelajaran', 'mapel', 'guru'])
             ->when($hari, fn ($q) => $q->where('hari', $hari))
@@ -115,11 +119,12 @@ class SatpamController extends Controller
         foreach ($jadwalHariIni as $j) {
             $map[$j->id_kelas][] = [
                 'id_jadwal' => $j->id,
-                'jam_ke'    => (int) $j->jamPelajaran->jam_ke,
-                'mapel'     => $j->mapel?->nama_mapel ?? '-',
-                'guru'      => $j->guru?->nama ?? '-',
-                'waktu'     => $j->jamPelajaran->rentang_waktu,
-                'aktif'     => $jamKe !== null && (int) $j->jamPelajaran->jam_ke === $jamKe,
+                'jam_ke' => (int) $j->jamPelajaran->jam_ke,
+                'mapel' => $j->mapel?->nama_mapel ?? '-',
+                'guru' => $j->guru?->nama ?? '-',
+                'waktu' => $j->jamPelajaran->rentang_waktu,
+                'aktif' => $jamKe !== null && (int) $j->jamPelajaran->jam_ke === $jamKe,
+                'is_testing' => $j->is_testing,
             ];
         }
 
@@ -137,8 +142,12 @@ class SatpamController extends Controller
     {
         $this->authorizeSatpam();
 
+        // Auto-Expired: surat aktif yang melewati batas (Jam Berangkat + 1 JP)
+        // langsung statusnya menjadi Kadaluarsa tanpa menunggu cron.
+        DispensasiSiswa::refreshAutoExpired();
+
         $today = now()->toDateString();
-        $tab   = in_array($request->get('tab'), ['terlambat', 'dispensasi'], true)
+        $tab = in_array($request->get('tab'), ['terlambat', 'dispensasi'], true)
             ? $request->get('tab')
             : 'terlambat';
 
@@ -150,17 +159,17 @@ class SatpamController extends Controller
         $totalTerlambat = $daftarTerlambat->count();
 
         $totalIzinKeluar = DispensasiSiswa::whereDate('tanggal', $today)
-            ->where('status', DispensasiSiswa::STATUS_DISETUJUI)
+            ->whereIn('status', [DispensasiSiswa::STATUS_DISETUJUI, DispensasiSiswa::STATUS_KELUAR])
             ->whereNotNull('keluar_gerbang_at')
             ->count();
 
         $totalDispenDisetujui = DispensasiSiswa::whereDate('tanggal', $today)
-            ->where('status', DispensasiSiswa::STATUS_DISETUJUI)
+            ->whereIn('status', [DispensasiSiswa::STATUS_DISETUJUI, DispensasiSiswa::STATUS_KELUAR])
             ->count();
 
         $daftarIzinKeluar = DispensasiSiswa::with(['siswa.kelas', 'verifier'])
             ->whereDate('tanggal', $today)
-            ->where('status', DispensasiSiswa::STATUS_DISETUJUI)
+            ->whereIn('status', [DispensasiSiswa::STATUS_DISETUJUI, DispensasiSiswa::STATUS_KELUAR])
             ->orderByRaw('(keluar_gerbang_at IS NULL) DESC, keluar_gerbang_at DESC, id DESC')
             ->limit(20)
             ->get();
@@ -168,9 +177,9 @@ class SatpamController extends Controller
         $kelasList = Kelas::withCount('siswa')->orderBy('tingkat')->orderBy('nama_kelas')->get();
         $siswaList = Siswa::with('kelas')->orderBy('nama')->get();
 
-        $jamKeSekarang    = $this->jamKeSekarang();
-        $mapJadwalKelas   = $this->jadwalHariIniByKelas();
-        $jenisOptions     = DispensasiSiswa::JENIS_LABELS;
+        $jamKeSekarang = $this->jamKeSekarang();
+        $mapJadwalKelas = $this->jadwalHariIniByKelas();
+        $jenisOptions = DispensasiSiswa::JENIS_LABELS;
         $guruPiketHariIni = static::guruPiketBertugasHariIni();
 
         return view('satpam.dashboard', compact(
@@ -200,20 +209,20 @@ class SatpamController extends Controller
         $this->authorizeSatpam();
 
         $data = $request->validate([
-            'id_siswa'   => 'required|exists:siswa,id',
-            'tanggal'    => 'required|date',
-            'jam_masuk'  => 'required|date_format:H:i',
+            'id_siswa' => 'required|exists:siswa,id',
+            'tanggal' => 'required|date',
+            'jam_masuk' => 'required|date_format:H:i',
             'keterangan' => 'nullable|string|max:191',
         ]);
 
         $siswa = Siswa::with('kelas.waliKelas')->findOrFail($data['id_siswa']);
 
         $catatan = CatatanTerlambat::create([
-            'id_siswa'   => $siswa->id,
-            'tanggal'    => $data['tanggal'],
-            'jam_masuk'  => $data['jam_masuk'],
+            'id_siswa' => $siswa->id,
+            'tanggal' => $data['tanggal'],
+            'jam_masuk' => $data['jam_masuk'],
             'keterangan' => $data['keterangan'] ?? null,
-            'id_satpam'  => Auth::id(),
+            'id_satpam' => Auth::id(),
         ]);
 
         // 1) Hubungkan ke SEMUA Guru Piket yang bertugas hari ini.
@@ -236,8 +245,8 @@ class SatpamController extends Controller
 
         NotificationService::siswaTerlambat($catatan->load('penerima'));
 
-        return back()->with('success', 'Siswa "' . $siswa->nama . '" tercatat terlambat pukul ' . $data['jam_masuk']
-            . ' dan diteruskan ke ' . $catatan->jumlah_guru_piket . ' Guru Piket serta Wali Kelas (total ' . $jumlahPenerima . ' penerima).');
+        return back()->with('success', 'Siswa "'.$siswa->nama.'" tercatat terlambat pukul '.$data['jam_masuk']
+            .' dan diteruskan ke '.$catatan->jumlah_guru_piket.' Guru Piket serta Wali Kelas (total '.$jumlahPenerima.' penerima).');
     }
 
     /**
@@ -250,24 +259,24 @@ class SatpamController extends Controller
         $this->authorizeSatpam();
 
         $validated = $request->validate([
-            'tanggal'   => 'required|date',
-            'id_siswa'  => 'required|exists:siswa,id',
-            'jenis'     => 'required|in:' . implode(',', array_keys(DispensasiSiswa::JENIS_LABELS)),
+            'tanggal' => 'required|date',
+            'id_siswa' => 'required|exists:siswa,id',
+            'jenis' => 'required|in:'.implode(',', array_keys(DispensasiSiswa::JENIS_LABELS)),
             'id_jadwal' => 'nullable|exists:jadwal_pelajaran,id',
-            'alasan'    => 'required|string|max:500',
+            'alasan' => 'required|string|max:500',
         ], [
-            'tanggal.required'  => 'Tanggal dispensasi wajib diisi.',
+            'tanggal.required' => 'Tanggal dispensasi wajib diisi.',
             'id_siswa.required' => 'Nama siswa wajib dipilih.',
-            'id_siswa.exists'   => 'Siswa yang dipilih tidak ditemukan.',
-            'jenis.required'    => 'Jenis dispensasi wajib dipilih.',
-            'jenis.in'          => 'Jenis dispensasi tidak valid.',
-            'alasan.required'   => 'Alasan dispensasi wajib diisi.',
-            'alasan.max'        => 'Alasan maksimal :max karakter.',
+            'id_siswa.exists' => 'Siswa yang dipilih tidak ditemukan.',
+            'jenis.required' => 'Jenis dispensasi wajib dipilih.',
+            'jenis.in' => 'Jenis dispensasi tidak valid.',
+            'alasan.required' => 'Alasan dispensasi wajib diisi.',
+            'alasan.max' => 'Alasan maksimal :max karakter.',
         ]);
 
-        $siswa  = Siswa::with('kelas')->findOrFail($validated['id_siswa']);
-        $hari   = static::namaHariToday();
-        $jadwal = !empty($validated['id_jadwal'])
+        $siswa = Siswa::with('kelas')->findOrFail($validated['id_siswa']);
+        $hari = static::namaHariToday();
+        $jadwal = ! empty($validated['id_jadwal'])
             ? JadwalPelajaran::with('jamPelajaran')->find((int) $validated['id_jadwal'])
             : null;
 
@@ -276,21 +285,21 @@ class SatpamController extends Controller
                 ->withInput();
         }
 
-        $jamKe  = $jadwal?->jamPelajaran?->jam_ke;
+        $jamKe = $jadwal?->jamPelajaran?->jam_ke;
         $idGuru = $jadwal?->id_guru;
 
         $dispen = DispensasiSiswa::create([
-            'id_siswa'       => $siswa->id,
-            'id_guru_piket'  => Auth::id(),
-            'id_jadwal'      => $jadwal?->id,
-            'id_guru'        => $idGuru,
-            'tanggal'        => $validated['tanggal'],
-            'jenis'          => $validated['jenis'],
-            'jam_ke'         => $jamKe !== null ? (string) $jamKe : null,
-            'alasan'         => $validated['alasan'],
-            'status'         => DispensasiSiswa::STATUS_DISETUJUI,
-            'approved_at'    => now(),
-            'approved_by'    => Auth::id(),
+            'id_siswa' => $siswa->id,
+            'id_guru_piket' => Auth::id(),
+            'id_jadwal' => $jadwal?->id,
+            'id_guru' => $idGuru,
+            'tanggal' => $validated['tanggal'],
+            'jenis' => $validated['jenis'],
+            'jam_ke' => $jamKe !== null ? (string) $jamKe : null,
+            'alasan' => $validated['alasan'],
+            'status' => DispensasiSiswa::STATUS_DISETUJUI,
+            'approved_at' => now(),
+            'approved_by' => Auth::id(),
             'approval_token' => (string) Str::uuid(),
         ]);
 
@@ -299,8 +308,8 @@ class SatpamController extends Controller
         NotificationService::siswaDispen($dispen->load('siswa.kelas'));
 
         return redirect()->route('satpam.dashboard', ['tab' => 'dispensasi'])
-            ->with('success', 'Dispensasi "' . $siswa->nama . '" (' . $dispen->jenis_label . ', jam ke-' . ($jamKe ?? '-')
-                . ') dicatat & disetujui. ' . $jumlahAbsensi . ' baris absensi jurnal Guru Mapel ditandai Dispen.');
+            ->with('success', 'Dispensasi "'.$siswa->nama.'" ('.$dispen->jenis_label.', jam ke-'.($jamKe ?? '-')
+                .') dicatat & disetujui. '.$jumlahAbsensi.' baris absensi jurnal Guru Mapel ditandai Dispen.');
     }
 
     /**
@@ -311,10 +320,13 @@ class SatpamController extends Controller
     {
         $this->authorizeSatpam();
 
+        // Auto-Expired: pastikan status surat selalu segar saat dicek di gerbang.
+        DispensasiSiswa::refreshAutoExpired();
+
         $q = trim((string) $request->get('q', ''));
 
-        $dispen       = null;
-        $siswa        = null;
+        $dispen = null;
+        $siswa = null;
         $daftarDispen = collect();
 
         if ($q !== '') {
@@ -324,12 +336,12 @@ class SatpamController extends Controller
                 ->first();
 
             // 2. Jika bukan kode, cari siswa berdasarkan NIS / NISN / nama.
-            if (!$dispen) {
+            if (! $dispen) {
                 $siswa = Siswa::with('kelas')
                     ->where(function ($query) use ($q) {
                         $query->where('nis', $q)
                             ->orWhere('nisn', $q)
-                            ->orWhere('nama', 'like', '%' . $q . '%');
+                            ->orWhere('nama', 'like', '%'.$q.'%');
                     })
                     ->first();
 
@@ -355,25 +367,113 @@ class SatpamController extends Controller
     }
 
     /**
+     * Ekstrak ID surat dari format nomor surat "DIS-####/TAHUN".
+     */
+    protected static function parseNomorSurat(string $q): ?int
+    {
+        return preg_match('/^DIS-(\d{1,6})\//i', trim($q), $m)
+            ? (int) $m[1]
+            : null;
+    }
+
+    /**
+     * Portal Verifikasi Dispensasi Satpam (/satpam/dispensasi):
+     * Satpam mengetik / scan nomor surat (atau QR berisi URL persetujuan /
+     * token) lalu mengonfirmasi siswa keluar gerbang.
+     */
+    public function dispensasiVerifikasi(Request $request)
+    {
+        $this->authorizeSatpam();
+
+        // Auto-Expired: surat yang melewati batas langsung Kadaluarsa.
+        DispensasiSiswa::refreshAutoExpired();
+        // Auto-Mangkir: siswa yang belum kembali melewati batas -> Mangkir/Bolos.
+        DispensasiSiswa::refreshAutoMangkir();
+
+        $q = trim((string) $request->get('q', ''));
+
+        $dispen = null;
+
+        if ($q !== '') {
+            // Dukungan scan QR: URL persetujuan berisi ".../dispen/approve/{token}" -
+            // Satpam cukup scan kode yang ada di surat / tempel tautannya.
+            $token = $q;
+            if (preg_match('#dispen/approve/([A-Za-z0-9\-]+)#', $q, $m)) {
+                $token = $m[1];
+            }
+
+            $dispen = DispensasiSiswa::with(['siswa.kelas', 'guruPiket', 'verifier'])
+                ->where(function ($query) use ($q, $token) {
+                    $query->where('approval_token', $token)
+                        ->orWhere('id', static::parseNomorSurat($q));
+                })
+                ->first();
+        }
+
+        return view('satpam.dispensasi', compact('q', 'dispen'));
+    }
+
+    /**
      * Izinkan siswa keluar gerbang setelah menunjukkan surat izin digitalnya.
      */
     public function dispenKeluar(Request $request, DispensasiSiswa $dispen)
     {
         $this->authorizeSatpam();
 
-        abort_unless($dispen->isApproved(), 422, 'Dispensasi ini belum disetujui, tidak dapat diizinkan keluar.');
+        // Guard: surat data testing hanya dapat diproses oleh IT/QA.
+        $this->authorizeTestingMutation($dispen);
 
-        if ($dispen->isKeluarGerbang()) {
-            return redirect()->route('satpam.verifikasi', ['q' => $dispen->approval_token ?? ''])
-                ->with('info', 'Siswa "' . $dispen->siswa?->nama . '" sudah diizinkan keluar sebelumnya.');
+        // Auto-Expired: pastikan surat belum melewati batas waktu keluar.
+        $dispen->refreshStatusOtomatis();
+
+        if ($dispen->isExpired()) {
+            return redirect()->route('satpam.dispensasi.index', ['q' => $dispen->approval_token ?? ''])
+                ->with('cancel', 'Surat dispensasi '.$dispen->nomor_surat.' telah KADALUARSA (melewati Jam Berangkat + 1 JP). Siswa tidak dapat diizinkan keluar.');
         }
 
+        if ($dispen->isKeluarGerbang()) {
+            return redirect()->route('satpam.dispensasi.index', ['q' => $dispen->approval_token ?? ''])
+                ->with('info', 'Siswa "'.$dispen->siswa?->nama.'" sudah diizinkan keluar sebelumnya (status: Siswa Out).');
+        }
+
+        abort_unless($dispen->isApproved(), 422, 'Dispensasi ini belum disetujui, tidak dapat diizinkan keluar.');
+
         $dispen->update([
+            'status' => DispensasiSiswa::STATUS_KELUAR,
             'keluar_gerbang_at' => now(),
             'keluar_gerbang_by' => Auth::id(),
         ]);
 
-        return redirect()->route('satpam.verifikasi', ['q' => $dispen->approval_token ?? ''])
-            ->with('success', 'Siswa "' . $dispen->siswa?->nama . '" diizinkan keluar gerbang. Selamat jalan!');
+        return redirect()->route('satpam.dispensasi.index', ['q' => $dispen->approval_token ?? ''])
+            ->with('success', 'Siswa "'.$dispen->siswa?->nama.'" diizinkan keluar gerbang (status: Siswa Out). Selamat jalan!');
+    }
+
+    /**
+     * Konfirmasi siswa kembali ke gerbang atas rencana Jam Kembali (Part 3).
+     */
+    public function dispenKembali(Request $request, DispensasiSiswa $dispen)
+    {
+        $this->authorizeSatpam();
+
+        // Guard: surat data testing hanya dapat diproses oleh IT/QA.
+        $this->authorizeTestingMutation($dispen);
+
+        // Auto-Mangkir: pastikan surat belum melewati batas waktu kembali.
+        $dispen->refreshStatusMangkir();
+
+        if ($dispen->isMangkir()) {
+            return redirect()->route('satpam.dispensasi.index', ['q' => $dispen->approval_token ?? ''])
+                ->with('cancel', 'Siswa "'.$dispen->siswa?->nama.'" dinyatakan MANGKIR / BOLOS (melewati Rencana Jam Kembali + 1 JP). Presensi JP terkait otomatis menjadi Alfa.');
+        }
+
+        abort_unless($dispen->isMenungguKembali(), 422, 'Surat ini tidak menunggu konfirmasi kembali (belum keluar gerbang / tidak memiliki rencana kembali / sudah dikonfirmasi kembali).');
+
+        $dispen->update([
+            'kembali_at' => now(),
+            'kembali_by' => Auth::id(),
+        ]);
+
+        return redirect()->route('satpam.dispensasi.index', ['q' => $dispen->approval_token ?? ''])
+            ->with('success', 'Siswa "'.$dispen->siswa?->nama.'" dikonfirmasi kembali ke sekolah (pukul '.$dispen->kembali_at?->format('H:i').'). Selamat datang kembali!');
     }
 }

@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTestingData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class JamPelajaran extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTestingData;
 
     protected $table = 'jam_pelajaran';
 
@@ -22,6 +23,7 @@ class JamPelajaran extends Model
 
     protected $casts = [
         'jam_ke' => 'integer',
+        'is_testing' => 'boolean',
     ];
 
     /**
@@ -30,9 +32,9 @@ class JamPelajaran extends Model
     public function getJenisLabelAttribute(): string
     {
         return match ($this->jenis) {
-            'kbm'       => 'KBM',
+            'kbm' => 'KBM',
             'istirahat' => 'Istirahat',
-            default     => ucfirst($this->jenis ?? '-'),
+            default => ucfirst($this->jenis ?? '-'),
         };
     }
 
@@ -41,9 +43,10 @@ class JamPelajaran extends Model
      */
     public function getRentangWaktuAttribute(): string
     {
-        $mulai   = substr($this->jam_mulai, 0, 5);
+        $mulai = substr($this->jam_mulai, 0, 5);
         $selesai = substr($this->jam_selesai, 0, 5);
-        return str_replace(':', '.', $mulai) . ' – ' . str_replace(':', '.', $selesai);
+
+        return str_replace(':', '.', $mulai).' – '.str_replace(':', '.', $selesai);
     }
 
     /**

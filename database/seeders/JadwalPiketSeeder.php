@@ -14,11 +14,11 @@ class JadwalPiketSeeder extends Seeder
     public function run(): void
     {
         $piketAssignment = [
-            'Senin'  => ['budi.santoso', 'siti.rahmawati'],
+            'Senin' => ['budi.santoso', 'siti.rahmawati'],
             'Selasa' => ['agus.setiawan', 'ahmad.fauzi'],
-            'Rabu'   => ['eko.prasetyo', 'rina.wulandari'],
-            'Kamis'  => ['hendra.wijaya', 'retno.utami'],
-            'Jumat'  => ['bambang.hermanto', 'dewi.lestari'],
+            'Rabu' => ['eko.prasetyo', 'rina.wulandari'],
+            'Kamis' => ['hendra.wijaya', 'retno.utami'],
+            'Jumat' => ['bambang.hermanto', 'dewi.lestari'],
         ];
 
         $total = 0;

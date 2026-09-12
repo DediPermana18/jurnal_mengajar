@@ -60,23 +60,41 @@
                 </div>
 
                 <div class="col-md-6">
-                    <label class="form-label fw-bold text-secondary text-uppercase small">Cari Nama Siswa <span class="text-danger">*</span></label>
-                    <input type="text" id="searchSiswa" class="form-control rounded-3 mb-2" placeholder="Ketik nama / NISN siswa untuk memfilter...">
-                    <select name="id_siswa" id="id_siswa" class="form-select rounded-3" required>
-                        <option value="">-- Pilih Siswa --</option>
-                        @foreach($dataSiswa->groupBy(fn ($s) => $s->kelas?->nama ?? 'Tanpa Kelas') as $namaKelas => $siswaKelas)
-                            <optgroup label="{{ $namaKelas }}">
-                                @foreach($siswaKelas as $siswa)
-                                    <option value="{{ $siswa->id }}" {{ old('id_siswa') == $siswa->id ? 'selected' : '' }}
-                                            data-nama="{{ strtolower($siswa->nama) }}" data-nisn="{{ $siswa->nisn }}"
-                                            data-kelas="{{ $siswa->id_kelas }}">
-                                        {{ $siswa->nama }} ({{ $siswa->nisn ?: 'Tanpa NISN' }})
-                                    </option>
-                                @endforeach
-                            </optgroup>
+                    {{-- Dropdown Kelas (filter cascading ke dropdown siswa) --}}
+                    <label class="form-label fw-bold text-secondary text-uppercase small">Pilih Kelas <span class="text-danger">*</span></label>
+                    <select id="filterKelas" class="form-select rounded-3 mb-2">
+                        <option value="">-- Pilih Kelas --</option>
+                        @foreach($kelasList as $kelas)
+                            <option value="{{ $kelas->id }}" {{ ($selectedKelas ?? null) == $kelas->id ? 'selected' : '' }}>
+                                {{ $kelas->nama_lengkap }}
+                            </option>
                         @endforeach
                     </select>
-                    <div class="form-text">Gunakan kotak pencarian untuk memfilter daftar siswa dengan cepat.</div>
+
+                    <label class="form-label fw-bold text-secondary text-uppercase small">Cari Nama Siswa <span class="text-danger">*</span></label>
+                    <input type="text" id="searchSiswa" class="form-control rounded-3 mb-2"
+                           placeholder="Ketik nama / NISN siswa untuk memfilter..." {{ $selectedKelas ? '' : 'disabled' }}>
+                    <select name="id_siswa" id="id_siswa" class="form-select rounded-3" required {{ $selectedKelas ? '' : 'disabled' }}>
+                        @if($selectedKelas)
+                            <option value="">-- Pilih Siswa --</option>
+                            @foreach($dataSiswa as $siswa)
+                                <option value="{{ $siswa->id }}" {{ old('id_siswa') == $siswa->id ? 'selected' : '' }}
+                                        data-nama="{{ strtolower($siswa->nama) }}" data-nisn="{{ $siswa->nisn }}"
+                                        data-kelas="{{ $siswa->id_kelas }}">
+                                    {{ $siswa->nama }} ({{ $siswa->nisn ?: 'Tanpa NISN' }})
+                                </option>
+                            @endforeach
+                        @else
+                            <option value="">-- Pilih Kelas Terlebih Dahulu --</option>
+                        @endif
+                    </select>
+                    <div id="siswaLoading" class="text-muted small mt-2 d-none">
+                        <i class="bi bi-arrow-repeat spin"></i> Memuat data siswa...
+                    </div>
+                    <div id="siswaEmpty" class="text-danger small mt-2 d-none">
+                        <i class="bi bi-exclamation-circle me-1"></i>Tidak ada siswa aktif di kelas ini.
+                    </div>
+                    <div class="form-text">Pilih kelas untuk memuat daftar siswa. Gunakan kotak pencarian untuk memfilter nama / NISN secara instan.</div>
                 </div>
 
                 {{-- ============================================================ --}}
@@ -169,6 +187,48 @@
                         </select>
                         <div class="form-text">
                             Otomatis terisi JP ter-awal dari Part 1. Ubah manual bila siswa keluar di JP yang berbeda.
+                        </div>
+                    </div>
+                </div>
+
+                {{-- ============================================================ --}}
+                {{-- PART 3: RENCANA JAM KEMBALI KE SEKOLAH                      --}}
+                {{-- ============================================================ --}}
+                <div class="col-12" id="keluarPart3">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="badge rounded-pill bg-info-subtle text-info-emphasis border border-info-subtle">Part 3</span>
+                        <h6 class="fw-bold text-dark mb-0">Kembali ke Sekolah Hari Ini</h6>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        Bila <strong>tidak</strong> dicentang, izin berlaku hingga jam pelajaran terakhir pada hari tersebut
+                        dan tidak ada pemantauan kembali. Centang bila siswa akan kembali pada hari yang sama: Satpam akan
+                        mengonfirmasi kedatangan kembali; bila siswa belum kembali hingga batas (Jam Kembali + 1 JP), surat
+                        otomatis berstatus <strong>Mangkir / Bolos</strong> dan presensi JP terkait menjadi <strong>Alfa</strong>.
+                    </p>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="kembali_hari_ini" value="1" id="kembali_hari_ini"
+                               {{ old('kembali_hari_ini') ? 'checked' : '' }}>
+                        <label class="form-check-label fw-semibold" for="kembali_hari_ini">
+                            Siswa akan kembali ke sekolah hari ini
+                        </label>
+                        <div class="form-text">Default: tidak dicentang (izin hingga jam pulang, tanpa auto-Mangkir).</div>
+                    </div>
+                    <div class="row g-3 {{ old('kembali_hari_ini') ? '' : 'd-none' }}" id="jamKembaliWrap">
+                        <div class="col-md-6 col-lg-4 ps-0">
+                            <label for="jam_kembali_jp" class="form-label fw-semibold text-secondary small">Jam Kembali ke Sekolah (JP)</label>
+                            <select name="jam_kembali_jp" id="jam_kembali_jp" class="form-select rounded-3">
+                                <option value="">-- Pilih Jam Pelajaran Kembali --</option>
+                                @foreach($jamOptions as $jam)
+                                    @php
+                                        $jp = $jamPelajaran->firstWhere('jam_ke', $jam);
+                                    @endphp
+                                    <option value="{{ $jam }}" data-mulai="{{ $jp->jam_mulai ?? '' }}"
+                                            {{ (string) old('jam_kembali_jp') === (string) $jam ? 'selected' : '' }}>
+                                        JP Ke-{{ $jam }}{{ $jp && $jp->jam_mulai ? ' (' . $jp->jam_mulai . ')' : '' }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <div class="form-text">Batas konfirmasi = Jam Kembali + 1 JP. Default terisi otomatis: JP setelah yang dipilih.</div>
                         </div>
                     </div>
                 </div>
@@ -291,12 +351,26 @@
 @endsection
 
 @push('scripts')
+<style>
+    @keyframes biSpin {
+        to { transform: rotate(360deg); }
+    }
+    .spin {
+        display: inline-block;
+        animation: biSpin 1s linear infinite;
+    }
+</style>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         // ===== Auto-detect jadwal mapel/guru dari tanggal + siswa + jam ke- =====
         const tanggalInput   = document.querySelector('input[name="tanggal"]');
         const selectJadwal   = document.getElementById('id_jadwal');
         const jamCheckboxes  = Array.from(document.querySelectorAll('input[name="jam_ke[]"]'));
+        const selectSiswa    = document.getElementById('id_siswa');
+        const filterKelas    = document.getElementById('filterKelas');
+        const searchSiswa    = document.getElementById('searchSiswa');
+        const siswaLoading   = document.getElementById('siswaLoading');
+        const siswaEmpty     = document.getElementById('siswaEmpty');
         const HARI_INDONESIA = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
         // =====================================================================
@@ -440,6 +514,64 @@
         if (!adaOldJam && jamKeluarJpSelect && jamKeluarJpSelect.value === '') {
             syncJamKeluarJp();
         }
+
+        // ---- Part 3: Kembali Hari Ini (checkbox toggle + sync dari Part 1) ----
+        const jamKembaliJpSelect = document.getElementById('jam_kembali_jp');
+        const jamKembaliWrap     = document.getElementById('jamKembaliWrap');
+        const kembaliCheck       = document.getElementById('kembali_hari_ini');
+
+        let jamKembaliManual = false;
+
+        // Default JP kembali = JP pertama yang TERSEDIA & >= (JP keluar terakhir + 1).
+        function syncJamKembaliJp() {
+            if (jamKembaliManual || !jamKembaliJpSelect) return;
+            if (!kembaliCheck || !kembaliCheck.checked) return;
+            const jams = jamTerpilih();
+            if (jams.length > 0) {
+                const setelahTerakhir = Math.max.apply(null, jams) + 1;
+                for (const opt of jamKembaliJpSelect.options) {
+                    const v = parseInt(opt.value, 10);
+                    if (!isNaN(v) && v >= setelahTerakhir) {
+                        jamKembaliJpSelect.value = String(v);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Checked -> tampilkan & aktifkan dropdown JP kembali (pemantauan/auto-Mangkir).
+        // Unchecked (default) -> sembunyikan & kosongkan (izin hingga jam pulang).
+        function setJamKembaliState() {
+            if (!kembaliCheck || !jamKembaliWrap || !jamKembaliJpSelect) return;
+            const aktif = kembaliCheck.checked;
+            jamKembaliWrap.classList.toggle('d-none', !aktif);
+            if (aktif) {
+                jamKembaliJpSelect.disabled = false;
+                jamKembaliJpSelect.required = true;
+                syncJamKembaliJp();
+            } else {
+                jamKembaliJpSelect.disabled = true;
+                jamKembaliJpSelect.required = false;
+                jamKembaliJpSelect.value = '';
+            }
+        }
+
+        if (jamKembaliJpSelect) {
+            jamKembaliJpSelect.addEventListener('change', function () {
+                jamKembaliManual = true;
+            });
+        }
+
+        if (kembaliCheck) {
+            kembaliCheck.addEventListener('change', setJamKembaliState);
+        }
+
+        jamCheckboxes.forEach(function (cb) {
+            cb.addEventListener('change', function () { syncJamKembaliJp(); });
+        });
+
+        // Inisialisasi sesuai checkbox (default unchecked = izin hingga pulang).
+        setJamKembaliState();
         // ====================================================================
 
         // =====================================================================
@@ -457,6 +589,7 @@
         const keluarSections = [
             document.getElementById('keluarPart1'),
             document.getElementById('keluarPart2'),
+            document.getElementById('keluarPart3'),
             document.getElementById('keluarJadwal'),
             document.getElementById('keluarAlasan'),
         ];
@@ -491,6 +624,8 @@
                     autoSelectJamSekarang();
                 }
                 syncJamKeluarJp();
+                syncJamKembaliJp();
+                setJamKembaliState();
                 filterJadwalOptions();
             }
         }
@@ -515,6 +650,99 @@
         setTipeDispen(tipeDispenInput ? tipeDispenInput.value : 'keluar');
         if (alasanKategori && alasanDetailWrap) {
             alasanDetailWrap.classList.toggle('d-none', (alasanKategori.value || '') !== 'Lainnya');
+        }
+        // ====================================================================
+
+        // =====================================================================
+        // CASCADING DROPDOWN: Pilih Kelas → Muat Siswa (AJAX ringan, tanpa freeze)
+        // =====================================================================
+        const SISWA_URL = "{{ route('piket.dispensasi.siswa-by-kelas') }}";
+
+        function setSiswaAreaBusy(busy) {
+            if (!selectSiswa) return;
+            selectSiswa.disabled = busy || !filterKelas?.value;
+            if (searchSiswa) searchSiswa.disabled = busy || !filterKelas?.value;
+            if (busy) {
+                if (siswaLoading) siswaLoading.classList.remove('d-none');
+            } else {
+                if (siswaLoading) siswaLoading.classList.add('d-none');
+            }
+        }
+
+        // Re-render opsi siswa hanya untuk kelas terpilih (query ringan via AJAX).
+        function loadSiswaByKelas(kelasId) {
+            if (!selectSiswa) return;
+
+            // Kelas dibatalkan -> kosongkan & disable dropdown siswa
+            if (!kelasId) {
+                selectSiswa.innerHTML = '<option value="">-- Pilih Kelas Terlebih Dahulu --</option>';
+                selectSiswa.value = '';
+                selectSiswa.disabled = true;
+                if (searchSiswa) { searchSiswa.value = ''; searchSiswa.disabled = true; }
+                if (siswaEmpty) siswaEmpty.classList.add('d-none');
+                filterJadwalOptions();
+                return;
+            }
+
+            setSiswaAreaBusy(true);
+            selectSiswa.innerHTML = '<option value="">-- Memuat data siswa... --</option>';
+
+            fetch(SISWA_URL + '?kelas_id=' + encodeURIComponent(kelasId), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function (res) { return res.json(); })
+            .then(function (json) {
+                if (json.error || !Array.isArray(json.data)) {
+                    throw new Error(json.message || 'Gagal memuat data siswa');
+                }
+
+                selectSiswa.innerHTML = '<option value="">-- Pilih Siswa --</option>';
+                for (const s of json.data) {
+                    const opt = document.createElement('option');
+                    opt.value = String(s.id);
+                    opt.dataset.nama  = String(s.nama || '').toLowerCase();
+                    opt.dataset.nisn  = String(s.nisn || '').toLowerCase();
+                    opt.dataset.kelas = String(kelasId);
+                    opt.textContent   = s.nama + ' (' + (s.nisn || 'Tanpa NISN') + ')';
+                    selectSiswa.appendChild(opt);
+                }
+
+                if (siswaEmpty) siswaEmpty.classList.toggle('d-none', json.data.length > 0);
+                setSiswaAreaBusy(false);
+            })
+            .catch(function () {
+                selectSiswa.innerHTML = '<option value="">-- Gagal memuat data siswa --</option>';
+                selectSiswa.disabled = true;
+                if (searchSiswa) searchSiswa.disabled = true;
+                if (siswaLoading) siswaLoading.classList.add('d-none');
+            })
+            .finally(function () {
+                filterJadwalOptions();
+            });
+        }
+
+        if (filterKelas) {
+            filterKelas.addEventListener('change', function () {
+                loadSiswaByKelas(filterKelas.value);
+            });
+        }
+
+        // Filter instan (client-side) atas opsi siswa yang sudah dimuat untuk kelas tsb.
+        // Tidak perlu query tambahan — set data per kelas sudah ringan.
+        function filterSiswaBySearch() {
+            if (!selectSiswa || !searchSiswa) return;
+            const q = searchSiswa.value.trim().toLowerCase();
+            for (const opt of selectSiswa.options) {
+                if (!opt.value) continue; // placeholder
+                const cocok = !q
+                    || (opt.dataset.nama || '').indexOf(q) !== -1
+                    || (opt.dataset.nisn || '').indexOf(q) !== -1;
+                opt.hidden = !cocok;
+            }
+        }
+
+        if (searchSiswa) {
+            searchSiswa.addEventListener('input', filterSiswaBySearch);
         }
         // ====================================================================
 

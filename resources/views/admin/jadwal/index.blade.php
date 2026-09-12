@@ -126,9 +126,9 @@
     <div class="card border-0 rounded-4 shadow-sm mb-4 bg-white">
         <div class="card-body p-4">
             <form method="GET" action="{{ route('admin.jadwal.index') }}" id="filterForm">
-                <div class="row g-4">
-                    {{-- Baris Atas: Pilih Kelas (Full Width) --}}
-                    <div class="col-12">
+                <div class="row g-4 align-items-end">
+                    {{-- Kolom Kiri: Pilih Kelas --}}
+                    <div class="col-lg-7 col-12">
                         <label class="form-label fw-bold text-dark mb-2" style="font-size: 0.9rem;">
                             <i class="bi bi-door-open-fill text-primary me-1"></i> Pilih Kelas
                         </label>
@@ -142,8 +142,8 @@
                         </select>
                     </div>
 
-                    {{-- Baris Bawah: Pilih Hari (Horizontal Row) --}}
-                    <div class="col-12">
+                    {{-- Kolom Kanan: Pilih Hari (Horizontal Row) --}}
+                    <div class="col-lg-5 col-12">
                         <label class="form-label fw-bold text-dark mb-2" style="font-size: 0.9rem;">
                             <i class="bi bi-calendar-week-fill text-primary me-1"></i> Pilih Hari
                         </label>
@@ -154,8 +154,8 @@
                                 @endphp
                                 <button type="submit" name="hari" value="{{ $hari }}"
                                         @click="activeHari = '{{ $hari }}'"
-                                        class="btn flex-fill rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 {{ $isActive ? 'btn-primary shadow-sm text-white' : 'btn-light border text-dark' }}"
-                                        style="font-size: 0.9rem; min-width: fit-content; white-space: nowrap;">
+                                        class="btn rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 {{ $isActive ? 'btn-primary shadow-sm text-white' : 'btn-light border text-dark' }}"
+                                        style="font-size: 0.9rem; min-width: fit-content; white-space: nowrap; flex: 1 0 auto;">
                                     <i class="bi {{ $hari === 'Jumat' ? 'bi-calendar2-day' : 'bi-calendar-day' }} fs-5"></i>
                                     <span>{{ $hari }}</span>
                                 </button>
@@ -246,8 +246,16 @@
                     </div>
                 @else
                     <div class="table-responsive w-full overflow-x-auto">
-                        <table class="table table-hover align-middle mb-0 min-w-full" style="font-size: 0.9rem;">
-                            <thead style="background: #f8fafc;">
+                            @if(auth()->user()?->isTestingUser())
+                                <div class="alert alert-warning alert-dismissible fade show mb-3" role="alert">
+                                    <strong>Mode Preview Active:</strong> Pemetaan Jadwal Kelas bersifat Read-Only.
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            @endif
+
+                            <fieldset @if(auth()->user()?->isTestingUser()) disabled @endif>
+                            <table class="table table-hover align-middle mb-0 min-w-full" style="font-size: 0.9rem;">
+                            <thead style="background: #0775e3;">
                                 <tr>
                                     <th class="py-3 text-center whitespace-nowrap" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 100px;">Jam Ke-</th>
                                     <th class="py-3 whitespace-nowrap" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 160px;">Rentang Waktu</th>
@@ -278,6 +286,10 @@
 
                                         // Cek apakah ada jadwal di slot ini
                                         $jadwal = $jadwalList->get($jam->id);
+
+                                        // Flag data testing (terkunci untuk non-IT)
+                                        $jamLocked = ($jam->is_testing && !auth()->user()?->isPetugasIt());
+                                        $jadwalLocked = $jadwal && $jadwal->is_testing && !auth()->user()?->isPetugasIt();
 
                                         // Cek batas jam pulang: apakah slot ini melewati maxJamKe?
                                         $isPulang = !$isIstirahat
@@ -425,6 +437,7 @@
                                                     <i class="bi bi-heart-pulse-fill" style="font-size: 0.7rem;"></i> Pembiasaan
                                                 </span>
                                             @endif
+                                            @include('partials.testing-badge', ['record' => $jam])
                                         </td>
 
                                         {{-- 4. Mata Pelajaran --}}
@@ -441,7 +454,7 @@
                                                     </div>
                                                     <div>
                                                         <div class="fw-bold text-dark" style="font-size: 0.92rem;">
-                                                            {{ $jadwal->mataPelajaran->nama_mapel ?? 'Mapel Terhapus' }}
+                                                            {{ $jadwal->mataPelajaran->nama_mapel ?? 'Mapel Terhapus' }} @include('partials.testing-badge', ['record' => $jadwal])
                                                         </div>
                                                         <div class="text-muted" style="font-size: 0.75rem;">
                                                             Kode: <span class="badge bg-light text-dark border">{{ $jadwal->mataPelajaran->kode_mapel ?? '-' }}</span>
@@ -504,8 +517,9 @@
                                                 </span>
                                             @elseif($jadwal)
                                                 <div class="flex items-center justify-end gap-2 whitespace-nowrap">
-                                                    <button type="button" class="btn btn-sm btn-light border rounded-3 px-2 py-1"
-                                                            style="font-size: 0.78rem;" title="Edit Plotting"
+                                                    <button type="button" class="btn btn-sm btn-light border rounded-3 px-2 py-1 {{ $jadwalLocked ? 'opacity-50' : '' }}"
+                                                            style="font-size: 0.78rem;" title="{{ $jadwalLocked ? 'Data ini adalah data pengujian IT dan tidak dapat diubah.' : 'Edit Plotting' }}"
+                                                            {{ $jadwalLocked ? 'disabled' : '' }}
                                                             onclick="preparePlotModalEdit(
                                                                 '{{ $jadwal->group_id ?? '' }}',
                                                                 {{ $jadwal->id_kelas }},
@@ -521,17 +535,19 @@
                                                           class="d-inline">
                                                         @csrf
                                                         @method('DELETE')
-                                                        <button type="submit" class="btn btn-sm btn-light border rounded-3 px-2 py-1" style="font-size: 0.78rem;" title="Hapus Plotting">
+                                                        <button type="submit" class="btn btn-sm btn-light border rounded-3 px-2 py-1 {{ $jadwalLocked ? 'opacity-50' : '' }}" style="font-size: 0.78rem;" title="{{ $jadwalLocked ? 'Data ini adalah data pengujian IT dan tidak dapat diubah.' : 'Hapus Plotting' }}" {{ $jadwalLocked ? 'disabled' : '' }}>
                                                             <i class="bi bi-trash3-fill text-danger me-1"></i> Hapus
                                                         </button>
                                                     </form>
                                                 </div>
                                             @else
-                                                <button type="button" class="btn btn-sm btn-outline-primary rounded-3 px-2 py-1 fw-semibold d-inline-flex align-items-center gap-1"
+                                                <button type="button" class="btn btn-sm btn-outline-primary rounded-3 px-2 py-1 fw-semibold d-inline-flex align-items-center gap-1 {{ $jamLocked ? 'opacity-50' : '' }}"
                                                         style="font-size: 0.78rem;"
                                                         data-bs-toggle="modal" data-bs-target="#modalPlottingJadwal"
                                                         data-jam-ke="{{ $jam->jam_ke ?? 1 }}"
                                                         data-jam-id="{{ $jam->id }}"
+                                                        title="{{ $jamLocked ? 'Data ini adalah data pengujian IT dan tidak dapat diubah.' : 'Plot Mapel' }}"
+                                                        {{ $jamLocked ? 'disabled' : '' }}
                                                         onclick="preparePlotModal({{ $jam->jam_ke ?? 1 }})">
                                                     <i class="bi bi-plus-lg"></i> Plot Mapel
                                                 </button>
@@ -547,6 +563,7 @@
             </div>
         </div>
     @endif
+</fieldset>
 
 </div>
 

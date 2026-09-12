@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTestingData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,17 +12,22 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class PenerimaTerlambat extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTestingData;
 
     protected $table = 'penerima_catatan_terlambat';
 
     public const PERAN_GURU_PIKET = 'guru_piket';
+
     public const PERAN_WALI_KELAS = 'wali_kelas';
 
     protected $fillable = [
         'catatan_terlambat_id',
         'user_id',
         'peran',
+    ];
+
+    protected $casts = [
+        'is_testing' => 'boolean',
     ];
 
     public function catatan(): BelongsTo

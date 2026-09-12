@@ -5,6 +5,13 @@
 @section('content')
 <div class="container-fluid px-0" style="max-width: 760px;">
 
+    @if(auth()->user()?->isTestingUser())
+        <div class="alert alert-warning alert-dismissible fade show rounded-4 shadow-sm mb-4" role="alert">
+            <strong>Mode Preview Active:</strong> Data Master bersifat Read-Only untuk mencegah perubahan pada data produksi.
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
     <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
             <h3 class="fw-bold text-dark mb-1">Tambah Kelas Baru</h3>
@@ -25,50 +32,52 @@
         </div>
     @endif
 
-    <div class="card border-0 shadow-sm rounded-4 bg-white p-4">
-        <form action="{{ route('kelas.store') }}" method="POST">
-            @csrf
-            
-            <div class="mb-3">
-                <label class="form-label fw-semibold text-dark">Nama Kelas <span class="text-danger">*</span></label>
-                <input type="text" name="nama_kelas" class="form-control rounded-3 py-2" value="{{ old('nama_kelas') }}" required placeholder="Contoh: XII RPL 1">
-            </div>
+    <fieldset @if(auth()->user()?->isTestingUser()) disabled @endif>
+        <div class="card border-0 shadow-sm rounded-4 bg-white p-4">
+            <form action="{{ route('kelas.store') }}" method="POST">
+                @csrf
+                
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-dark">Nama Kelas <span class="text-danger">*</span></label>
+                    <input type="text" name="nama_kelas" class="form-control rounded-3 py-2" value="{{ old('nama_kelas') }}" required placeholder="Contoh: XII RPL 1">
+                </div>
 
-            <div class="mb-3">
-                <label class="form-label fw-semibold text-dark">Jurusan</label>
-                <select name="id_jurusan" class="form-select rounded-3 py-2">
-                    <option value="">-- Pilih Jurusan --</option>
-                    @foreach ($dataJurusan as $jurusan)
-                        <option value="{{ $jurusan->id_jurusan }}" {{ old('id_jurusan') == $jurusan->id_jurusan ? 'selected' : '' }}>
-                            {{ $jurusan->nama_jurusan }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-dark">Jurusan</label>
+                    <select name="id_jurusan" class="form-select rounded-3 py-2">
+                        <option value="">-- Pilih Jurusan --</option>
+                        @foreach ($dataJurusan as $jurusan)
+                            <option value="{{ $jurusan->id_jurusan }}" {{ old('id_jurusan') == $jurusan->id_jurusan ? 'selected' : '' }}>
+                                {{ $jurusan->nama_jurusan }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
 
-            <div class="mb-3">
-                <label class="form-label fw-semibold text-dark">Wali Kelas</label>
-                <select name="id_guru_wali" class="form-select rounded-3 py-2">
-                    <option value="">-- Pilih Wali Kelas --</option>
-                    @foreach ($dataGuru as $guru)
-                        <option value="{{ $guru->id_guru }}" {{ old('id_guru_wali') == $guru->id_guru ? 'selected' : '' }}>
-                            {{ $guru->nama_guru }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-dark">Wali Kelas</label>
+                    <select name="id_guru_wali" class="form-select rounded-3 py-2">
+                        <option value="">-- Pilih Wali Kelas --</option>
+                        @foreach ($dataGuru as $guru)
+                            <option value="{{ $guru->id_guru }}" {{ old('id_guru_wali') == $guru->id_guru ? 'selected' : '' }}>
+                                {{ $guru->nama_guru }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
 
-            <div class="mb-4">
-                <label class="form-label fw-semibold text-dark">Jumlah Siswa</label>
-                <input type="number" name="jumlah_siswa" class="form-control rounded-3 py-2" value="{{ old('jumlah_siswa', 0) }}" min="0" placeholder="0">
-            </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-dark">Jumlah Siswa</label>
+                    <input type="number" name="jumlah_siswa" class="form-control rounded-3 py-2" value="{{ old('jumlah_siswa', 0) }}" min="0" placeholder="0">
+                </div>
 
-            <div class="d-flex justify-content-end gap-2">
-                <a href="{{ route('kelas.index') }}" class="btn btn-light border rounded-3 px-4 py-2">Batal</a>
-                <button type="submit" class="btn btn-primary rounded-3 px-4 py-2 fw-semibold">Simpan Data</button>
-            </div>
-        </form>
-    </div>
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{{ route('kelas.index') }}" class="btn btn-light border rounded-3 px-4 py-2">Batal</a>
+                    <button type="submit" class="btn btn-primary rounded-3 px-4 py-2 fw-semibold">Simpan Data</button>
+                </div>
+            </form>
+        </div>
+    </fieldset>
 
 </div>
 @endsection

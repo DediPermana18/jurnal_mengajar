@@ -3,8 +3,8 @@
 namespace App\Exports;
 
 use App\Models\Jurusan;
-use Illuminate\Support\Enumerable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Enumerable;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;

@@ -14,10 +14,10 @@ class BantuanTest extends TestCase
     protected function makeUser(string $role, array $extra = []): User
     {
         return User::create(array_merge([
-            'nama'      => 'Admin IT',
-            'username'  => 'user_' . Str::random(8),
-            'password'  => bcrypt('password'),
-            'role'      => $role,
+            'nama' => 'Admin IT',
+            'username' => 'user_'.Str::random(8),
+            'password' => bcrypt('password'),
+            'role' => $role,
             'is_active' => true,
         ], $extra));
     }

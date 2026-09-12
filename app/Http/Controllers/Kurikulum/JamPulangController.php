@@ -19,15 +19,20 @@ class JamPulangController extends Controller
      */
     public function upsert(Request $request)
     {
+        // Guard: Pengaturan jam pulang tidak boleh disimpan saat Mode Preview/Testing.
+        if (auth()->user()?->isTestingUser()) {
+            return back()->with('error', 'Pengaturan Jam Pulang tidak dapat disimpan saat Mode Preview.');
+        }
+
         $request->validate([
-            'jam_pulang'                => 'required|array',
-            'jam_pulang.*'              => 'array',
-            'jam_pulang.*.*'            => 'nullable|integer|min:1|max:30',
-            'redirect_tab'              => 'nullable|string|in:Senin-Kamis,Jumat',
+            'jam_pulang' => 'required|array',
+            'jam_pulang.*' => 'array',
+            'jam_pulang.*.*' => 'nullable|integer|min:1|max:30',
+            'redirect_tab' => 'nullable|string|in:Senin-Kamis,Jumat',
         ]);
 
         $kategoriHariOptions = ['Senin-Kamis', 'Jumat'];
-        $tingkatOptions      = ['X', 'XI', 'XII'];
+        $tingkatOptions = ['X', 'XI', 'XII'];
 
         foreach ($kategoriHariOptions as $kategoriHari) {
             foreach ($tingkatOptions as $tingkat) {
@@ -35,9 +40,15 @@ class JamPulangController extends Controller
                 $raw = $request->input("jam_pulang.{$kategoriHari}.{$tingkat}");
                 $maxJamKe = ($raw !== null && $raw !== '') ? (int) $raw : null;
 
+                // Guard: simpan ulang tidak boleh menimpa data testing (kecuali IT/QA).
+                $existing = JamPulang::where('kategori_hari', $kategoriHari)
+                    ->where('tingkat', $tingkat)
+                    ->first();
+                $this->authorizeTestingMutation($existing);
+
                 JamPulang::updateOrCreate(
                     ['kategori_hari' => $kategoriHari, 'tingkat' => $tingkat],
-                    ['max_jam_ke'    => $maxJamKe]
+                    ['max_jam_ke' => $maxJamKe]
                 );
             }
         }

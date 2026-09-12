@@ -17,11 +17,11 @@ class SiswaSearchTest extends TestCase
     private function makeUser(): User
     {
         return User::create([
-            'nama'      => 'Admin TU',
-            'username'  => 'admin_' . Str::random(8),
-            'password'  => bcrypt('password'),
-            'role'      => 'admin',
-            'sub_role'  => 'admin_tu',
+            'nama' => 'Admin TU',
+            'username' => 'admin_'.Str::random(8),
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+            'sub_role' => 'admin_tu',
             'is_active' => true,
         ]);
     }
@@ -30,12 +30,12 @@ class SiswaSearchTest extends TestCase
     {
         $k = Kelas::first() ?? Kelas::create(['tingkat' => 'X', 'nama_kelas' => 'TKJ 1']);
         Siswa::create([
-            'nisn'          => sprintf('%010d', 1000000000 + $i),
-            'nis'           => (string) (10000 + $i),
-            'nama'          => $nama,
-            'id_kelas'      => $k->id,
+            'nisn' => sprintf('%010d', 1000000000 + $i),
+            'nis' => (string) (10000 + $i),
+            'nama' => $nama,
+            'id_kelas' => $k->id,
             'jenis_kelamin' => 'L',
-            'status_siswa'  => 'Aktif',
+            'status_siswa' => 'Aktif',
         ]);
     }
 

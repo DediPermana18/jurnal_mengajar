@@ -15,12 +15,12 @@ class QrCodeHelper
     public static function svg(string $data, int $scale = 5): string
     {
         $options = new QROptions([
-            'outputInterface'  => QRMarkupSVG::class,
-            'eccLevel'         => EccLevel::L,
-            'scale'            => $scale,
-            'outputBase64'     => false,
+            'outputInterface' => QRMarkupSVG::class,
+            'eccLevel' => EccLevel::L,
+            'scale' => $scale,
+            'outputBase64' => false,
             'drawLightModules' => false,
-            'connectPaths'     => true,
+            'connectPaths' => true,
         ]);
 
         $svg = (new QRCode($options))->render($data);

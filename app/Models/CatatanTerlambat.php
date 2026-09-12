@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTestingData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CatatanTerlambat extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTestingData;
 
     protected $table = 'catatan_terlambat';
 
@@ -47,8 +48,9 @@ class CatatanTerlambat extends Model
     }
 
     protected $casts = [
-        'tanggal'   => 'date',
+        'tanggal' => 'date',
         'jam_masuk' => 'datetime',
+        'is_testing' => 'boolean',
     ];
 
     /**

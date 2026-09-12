@@ -23,10 +23,11 @@ class Kelas extends Model
 
     public function getNamaLengkapAttribute(): string
     {
-        if (str_starts_with(trim($this->nama_kelas), $this->tingkat . ' ')) {
+        if (str_starts_with(trim($this->nama_kelas), $this->tingkat.' ')) {
             return trim($this->nama_kelas);
         }
-        return trim($this->tingkat . ' ' . $this->nama_kelas);
+
+        return trim($this->tingkat.' '.$this->nama_kelas);
     }
 
     /**

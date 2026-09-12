@@ -25,11 +25,11 @@ class NotificationService
         $hari = now()->translatedFormat('l');
 
         $hariMap = [
-            'Monday'    => 'Senin',
-            'Tuesday'   => 'Selasa',
+            'Monday' => 'Senin',
+            'Tuesday' => 'Selasa',
             'Wednesday' => 'Rabu',
-            'Thursday'  => 'Kamis',
-            'Friday'    => 'Jumat',
+            'Thursday' => 'Kamis',
+            'Friday' => 'Jumat',
         ];
         $hariId = $hariMap[$hari] ?? null;
 
@@ -66,16 +66,16 @@ class NotificationService
     public static function izinStatusChanged(IzinGuru $izin): void
     {
         $guru = $izin->user;
-        if (!$guru) {
+        if (! $guru) {
             return;
         }
 
         $guru->notify(new StatusIzinNotification([
             'category' => 'izin_status',
-            'title'    => 'Perubahan Status Izin',
-            'message'  => "Izin Anda tanggal {$izin->tanggal?->translatedFormat('d M Y')} kini berstatus: {$izin->status_label}.",
-            'status'   => $izin->status,
-            'url'      => route('guru.izin.index'),
+            'title' => 'Perubahan Status Izin',
+            'message' => "Izin Anda tanggal {$izin->tanggal?->translatedFormat('d M Y')} kini berstatus: {$izin->status_label}.",
+            'status' => $izin->status,
+            'url' => route('guru.izin.index'),
         ]));
     }
 
@@ -84,14 +84,14 @@ class NotificationService
      */
     public static function izinBaruDiajukan(IzinGuru $izin): void
     {
-        $nama  = $izin->user?->nama ?? 'Seorang guru';
+        $nama = $izin->user?->nama ?? 'Seorang guru';
         $tanggal = $izin->tanggal?->translatedFormat('d M Y') ?? '-';
 
         $payload = [
             'category' => 'izin_baru',
-            'title'    => 'Pengajuan Izin Baru',
-            'message'  => "{$nama} mengajukan izin pada {$tanggal} dan butuh persetujuan Anda.",
-            'url'      => route('waka-sdm.izin.index'),
+            'title' => 'Pengajuan Izin Baru',
+            'message' => "{$nama} mengajukan izin pada {$tanggal} dan butuh persetujuan Anda.",
+            'url' => route('waka-sdm.izin.index'),
         ];
 
         $recipients = collect()
@@ -115,9 +115,9 @@ class NotificationService
     {
         $payload = [
             'category' => 'siswa_terlambat',
-            'title'    => 'Siswa Terlambat',
-            'message'  => "Siswa {$penerima->siswa?->nama} tercatat terlambat pukul {$penerima->jam_masuk} oleh Satpam.",
-            'url'      => route('satpam.dashboard', ['tab' => 'terlambat']),
+            'title' => 'Siswa Terlambat',
+            'message' => "Siswa {$penerima->siswa?->nama} tercatat terlambat pukul {$penerima->jam_masuk} oleh Satpam.",
+            'url' => route('satpam.dashboard', ['tab' => 'terlambat']),
         ];
 
         foreach ($penerima->penerima as $p) {
@@ -136,9 +136,9 @@ class NotificationService
         $jenis = $dispen->jenis_label ?? 'Dispensasi';
         $payload = [
             'category' => 'siswa_dispen',
-            'title'    => 'Siswa Dispensasi',
-            'message'  => "Siswa {$dispen->siswa?->nama} mendapatkan dispensasi ({$jenis}) pada {$dispen->jam_ke_label} oleh Satpam.",
-            'url'      => route('satpam.dashboard', ['tab' => 'dispensasi']),
+            'title' => 'Siswa Dispensasi',
+            'message' => "Siswa {$dispen->siswa?->nama} mendapatkan dispensasi ({$jenis}) pada {$dispen->jam_ke_label} oleh Satpam.",
+            'url' => route('satpam.dashboard', ['tab' => 'dispensasi']),
         ];
 
         $recipients = collect();

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Auth;
 
 class NotificationController extends Controller
@@ -26,13 +25,13 @@ class NotificationController extends Controller
         if (request()->wantsJson()) {
             return response()->json([
                 'notifications' => $notifications->map(fn ($n) => [
-                    'id'         => $n->id,
-                    'title'      => data_get($n->data, 'title', 'Notifikasi'),
-                    'message'    => data_get($n->data, 'message', ''),
-                    'category'   => data_get($n->data, 'category', ''),
-                    'url'        => data_get($n->data, 'url', '#'),
-                    'read_at'    => $n->read_at?->diffForHumans(),
-                    'is_read'    => $n->read_at !== null,
+                    'id' => $n->id,
+                    'title' => data_get($n->data, 'title', 'Notifikasi'),
+                    'message' => data_get($n->data, 'message', ''),
+                    'category' => data_get($n->data, 'category', ''),
+                    'url' => data_get($n->data, 'url', '#'),
+                    'read_at' => $n->read_at?->diffForHumans(),
+                    'is_read' => $n->read_at !== null,
                     'created_at' => $n->created_at?->diffForHumans(),
                 ]),
                 'unread_count' => $unreadCount,

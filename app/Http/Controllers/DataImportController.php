@@ -20,6 +20,11 @@ class DataImportController extends Controller
      */
     public function index()
     {
+        // Guard: Data Master import dikunci saat mode preview/testing.
+        if (auth()->user()?->isTestingUser()) {
+            return back()->with('error', 'Fitur Import Data Master dikunci saat dalam Mode Preview/Testing.');
+        }
+
         $dataKelas = Kelas::with('jurusan')->orderBy('tingkat')->orderBy('nama_kelas')->get();
         $totalSiswa = Siswa::count();
         $totalGuru = Guru::count();
@@ -48,6 +53,11 @@ class DataImportController extends Controller
      */
     public function importSiswa(Request $request)
     {
+        // Guard: Data Master import dikunci saat mode preview/testing.
+        if (auth()->user()?->isTestingUser()) {
+            return back()->with('error', 'Fitur Import Data Master dikunci saat dalam Mode Preview/Testing.');
+        }
+
         $request->validate([
             'file_excel' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
             'id_kelas' => 'nullable|exists:kelas,id',
@@ -109,6 +119,11 @@ class DataImportController extends Controller
      */
     public function importGuru(Request $request)
     {
+        // Guard: Data Master import dikunci saat mode preview/testing.
+        if (auth()->user()?->isTestingUser()) {
+            return back()->with('error', 'Fitur Import Data Master dikunci saat dalam Mode Preview/Testing.');
+        }
+
         $request->validate([
             'file_guru' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
         ], [
@@ -155,6 +170,11 @@ class DataImportController extends Controller
      */
     public function importKelas(Request $request)
     {
+        // Guard: Data Master import dikunci saat mode preview/testing.
+        if (auth()->user()?->isTestingUser()) {
+            return back()->with('error', 'Fitur Import Data Master dikunci saat dalam Mode Preview/Testing.');
+        }
+
         $request->validate([
             'file_kelas' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
         ], [
@@ -198,6 +218,11 @@ class DataImportController extends Controller
      */
     public function importRuangan(Request $request)
     {
+        // Guard: Data Master import dikunci saat mode preview/testing.
+        if (auth()->user()?->isTestingUser()) {
+            return back()->with('error', 'Fitur Import Data Master dikunci saat dalam Mode Preview/Testing.');
+        }
+
         $request->validate([
             'file_ruangan' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
         ], [

@@ -64,9 +64,9 @@ class SiswaSeeder extends Seeder
             ],
         ];
 
-        $nisCounter  = 1001;
+        $nisCounter = 1001;
         $nisnCounter = 3000000001;
-        $totalSiswa  = 0;
+        $totalSiswa = 0;
 
         foreach ($siswaMasterList as $kelasKey => $daftarSiswa) {
             // Explode tingkat & nama_kelas
@@ -76,7 +76,7 @@ class SiswaSeeder extends Seeder
                 ->where('nama_kelas', $namaKelas)
                 ->first();
 
-            if (!$kelasObj) {
+            if (! $kelasObj) {
                 continue;
             }
 
@@ -84,12 +84,12 @@ class SiswaSeeder extends Seeder
                 Siswa::updateOrCreate(
                     ['nis' => (string) $nisCounter],
                     [
-                        'nisn'          => (string) $nisnCounter,
-                        'nama'          => $sData['nama'],
+                        'nisn' => (string) $nisnCounter,
+                        'nama' => $sData['nama'],
                         'jenis_kelamin' => $sData['jk'],
-                        'id_kelas'      => $kelasObj->id,
-                        'id_jurusan'    => $kelasObj->id_jurusan,
-                        'status_siswa'  => 'Aktif',
+                        'id_kelas' => $kelasObj->id,
+                        'id_jurusan' => $kelasObj->id_jurusan,
+                        'status_siswa' => 'Aktif',
                     ]
                 );
                 $nisCounter++;

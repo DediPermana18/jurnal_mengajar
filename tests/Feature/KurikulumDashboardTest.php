@@ -30,11 +30,11 @@ class KurikulumDashboardTest extends TestCase
     protected function makeUser(string $role, ?string $subRole = null): User
     {
         return User::create([
-            'nama'      => 'User ' . Str::random(5),
-            'username'  => 'user_' . Str::random(8),
-            'password'  => bcrypt('password'),
-            'role'      => $role,
-            'sub_role'  => $subRole,
+            'nama' => 'User '.Str::random(5),
+            'username' => 'user_'.Str::random(8),
+            'password' => bcrypt('password'),
+            'role' => $role,
+            'sub_role' => $subRole,
             'is_active' => true,
         ]);
     }
@@ -50,8 +50,8 @@ class KurikulumDashboardTest extends TestCase
         IzinGuru::create([
             'user_id' => $guru->id,
             'tanggal' => '2026-08-10',
-            'alasan'  => 'Sakit demam tinggi',
-            'status'  => IzinGuru::STATUS_PENDING_WAKA,
+            'alasan' => 'Sakit demam tinggi',
+            'status' => IzinGuru::STATUS_PENDING_WAKA,
         ]);
 
         $res = $this->actingAs($waka)->get(route('kurikulum.dashboard'));

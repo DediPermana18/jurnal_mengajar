@@ -15,7 +15,7 @@ return new class extends Migration
             if (Schema::hasColumn('dispensasi_siswa', 'jam_keluar')) {
                 $table->dropColumn('jam_keluar');
             }
-            if (!Schema::hasColumn('dispensasi_siswa', 'jam_keluar_jp')) {
+            if (! Schema::hasColumn('dispensasi_siswa', 'jam_keluar_jp')) {
                 $table->unsignedInteger('jam_keluar_jp')->nullable()->after('jam_ke');
             }
         });
@@ -30,7 +30,7 @@ return new class extends Migration
             if (Schema::hasColumn('dispensasi_siswa', 'jam_keluar_jp')) {
                 $table->dropColumn('jam_keluar_jp');
             }
-            if (!Schema::hasColumn('dispensasi_siswa', 'jam_keluar')) {
+            if (! Schema::hasColumn('dispensasi_siswa', 'jam_keluar')) {
                 $table->string('jam_keluar', 5)->nullable()->after('jam_ke');
             }
         });

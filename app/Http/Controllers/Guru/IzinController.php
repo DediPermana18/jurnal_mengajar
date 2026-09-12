@@ -18,7 +18,11 @@ class IzinController extends Controller
     protected function authorizeGuru(): void
     {
         $user = Auth::user();
-        abort_unless($user && in_array($user->role, ['guru', 'guru_mapel', 'wali_kelas'], true), 403, 'Akses ditolak. Halaman ini khusus untuk Guru.');
+        abort_unless(
+            $user && ($user->isPetugasIt() || in_array($user->effectiveRole(), ['guru', 'guru_mapel', 'wali_kelas'], true)),
+            403,
+            'Akses ditolak. Halaman ini khusus untuk Guru.'
+        );
     }
 
     /**
@@ -146,7 +150,8 @@ class IzinController extends Controller
 
         $user = Auth::user();
         $allowed = $user
-            && (in_array($user->role, ['admin', 'petugas_it'], true)
+            && ($user->isPetugasIt()
+                || $user->role === 'admin'
                 || (int) $izin->user_id === (int) $user->id
                 || $user->isPiketHariIni());
 

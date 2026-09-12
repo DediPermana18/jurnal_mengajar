@@ -26,7 +26,7 @@ class RuanganImport implements ToModel, WithHeadingRow
         // Abaikan baris jika kolom kode_ruangan kosong.
         if ($kode === '') {
             $this->skippedCount++;
-            $this->rowErrors[] = "Baris dilewati — kode ruangan kosong.";
+            $this->rowErrors[] = 'Baris dilewati — kode ruangan kosong.';
 
             return null;
         }

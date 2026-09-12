@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTestingData;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class PengaturanJadwal extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTestingData;
 
     protected $table = 'pengaturan_jadwal';
 
@@ -20,13 +21,16 @@ class PengaturanJadwal extends Model
         'no_wa_waka',
         'izin_approval_level',
         'no_wa_kepsek',
+        'nama_waka_kesiswaan',
+        'nip_waka_kesiswaan',
     ];
 
     protected $casts = [
-        'senin_tanpa_upacara'    => 'boolean',
-        'tanggal_eksekusi'       => 'date',
+        'senin_tanpa_upacara' => 'boolean',
+        'tanggal_eksekusi' => 'date',
         'jumat_tanpa_pembiasaan' => 'boolean',
         'tanggal_eksekusi_jumat' => 'date',
+        'is_testing' => 'boolean',
     ];
 
     /**
@@ -41,14 +45,17 @@ class PengaturanJadwal extends Model
      */
     public static function getSetting(): static
     {
-        $setting = static::firstOrCreate([], [
-            'senin_tanpa_upacara'    => false,
-            'tanggal_eksekusi'       => null,
+        // Utamakan baris data real (is_testing = false) bila ada baris testing.
+        $setting = static::orderBy('is_testing')->firstOrCreate([], [
+            'senin_tanpa_upacara' => false,
+            'tanggal_eksekusi' => null,
             'jumat_tanpa_pembiasaan' => false,
             'tanggal_eksekusi_jumat' => null,
-            'no_wa_waka'             => null,
-            'izin_approval_level'    => 3,
-            'no_wa_kepsek'           => null,
+            'no_wa_waka' => null,
+            'izin_approval_level' => 3,
+            'no_wa_kepsek' => null,
+            'nama_waka_kesiswaan' => null,
+            'nip_waka_kesiswaan' => null,
         ]);
 
         $setting->checkAutoReset();
@@ -62,6 +69,7 @@ class PengaturanJadwal extends Model
     public static function izinApprovalLevel(): int
     {
         $level = (int) (static::getSetting()->izin_approval_level ?? 3);
+
         return in_array($level, self::IZIN_LEVELS, true) ? $level : 3;
     }
 
@@ -75,6 +83,7 @@ class PengaturanJadwal extends Model
         if ($no === '') {
             $no = trim((string) (User::wakaKesiswaan()?->noHpInternasional() ?? ''));
         }
+
         return static::normalizeWaNumber($no);
     }
 
@@ -93,6 +102,7 @@ class PengaturanJadwal extends Model
                 ->first();
             $no = trim((string) ($admin?->noHpInternasional() ?? ''));
         }
+
         return static::normalizeWaNumber($no);
     }
 
@@ -103,8 +113,9 @@ class PengaturanJadwal extends Model
     {
         $no = preg_replace('/[^0-9]/', '', trim((string) $no));
         if ($no !== '' && str_starts_with($no, '0')) {
-            $no = '62' . substr($no, 1);
+            $no = '62'.substr($no, 1);
         }
+
         return $no;
     }
 
@@ -123,7 +134,7 @@ class PengaturanJadwal extends Model
             $tglSenin = Carbon::parse($this->tanggal_eksekusi);
             if ($today->gt($tglSenin)) {
                 $updates['senin_tanpa_upacara'] = false;
-                $updates['tanggal_eksekusi']    = null;
+                $updates['tanggal_eksekusi'] = null;
             }
         }
 
@@ -136,7 +147,7 @@ class PengaturanJadwal extends Model
             }
         }
 
-        if (!empty($updates)) {
+        if (! empty($updates)) {
             $this->update($updates);
         }
     }
@@ -148,7 +159,7 @@ class PengaturanJadwal extends Model
     {
         $setting = static::getSetting();
 
-        if (!$setting->senin_tanpa_upacara || !$setting->tanggal_eksekusi) {
+        if (! $setting->senin_tanpa_upacara || ! $setting->tanggal_eksekusi) {
             return false;
         }
 
@@ -165,7 +176,7 @@ class PengaturanJadwal extends Model
     {
         $setting = static::getSetting();
 
-        if (!$setting->jumat_tanpa_pembiasaan || !$setting->tanggal_eksekusi_jumat) {
+        if (! $setting->jumat_tanpa_pembiasaan || ! $setting->tanggal_eksekusi_jumat) {
             return false;
         }
 
@@ -190,7 +201,7 @@ class PengaturanJadwal extends Model
     {
         $setting = static::getSetting();
 
-        if (!$setting->senin_tanpa_upacara || !$setting->tanggal_eksekusi) {
+        if (! $setting->senin_tanpa_upacara || ! $setting->tanggal_eksekusi) {
             return false;
         }
 
@@ -207,7 +218,7 @@ class PengaturanJadwal extends Model
     {
         $setting = static::getSetting();
 
-        if (!$setting->jumat_tanpa_pembiasaan || !$setting->tanggal_eksekusi_jumat) {
+        if (! $setting->jumat_tanpa_pembiasaan || ! $setting->tanggal_eksekusi_jumat) {
             return false;
         }
 

@@ -11,35 +11,62 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 
 class User extends Authenticatable
 {
     use HasFactory, Notifiable, SoftDeletes;
 
-    public const ROLE_ADMIN       = 'admin';
-    public const ROLE_GURU        = 'guru';
-    public const ROLE_PETUGAS_IT  = 'petugas_it';
+    public const ROLE_ADMIN = 'admin';
+
+    public const ROLE_GURU = 'guru';
+
+    public const ROLE_PETUGAS_IT = 'petugas_it';
+
+    public const ROLE_QA_TESTER = 'qa_tester';
 
     public const ROLES = [
         self::ROLE_ADMIN,
         self::ROLE_GURU,
         self::ROLE_PETUGAS_IT,
+        self::ROLE_QA_TESTER,
     ];
 
     /**
-     * Kode role yang dapat dipilih oleh Petugas IT pada fitur "Switch View As".
+     * Kode role yang dapat dipilih oleh Petugas IT / QA Tester pada fitur
+     * "Switch View As" (disimpan di session sebagai active_role).
      */
     public const PREVIEW_ROLES = [
-        'admin_tu'       => 'Admin TU',
+        'admin_tu' => 'Admin TU',
+        'satpam' => 'Satpam',
+        'waka_kesiswaan' => 'Waka Kesiswaan',
         'waka_kurikulum' => 'Waka Kurikulum',
-        'waka_sdm'       => 'Waka SDM',
-        'kepsek'         => 'Kepala Sekolah',
-        'guru_piket'     => 'Guru Piket',
-        'guru_mapel'     => 'Guru Mapel',
-        'siswa'          => 'Siswa',
+        'waka_sdm' => 'Waka SDM',
+        'kepsek' => 'Kepala Sekolah',
+        'guru_piket' => 'Guru Piket',
+        'guru_mapel' => 'Guru Mapel',
+        'siswa' => 'Siswa',
+    ];
+
+    /**
+     * Pemetaan preview role -> (role, sub_role) efektif. Dipakai untuk
+     * authorization (Middleware/Gate/Policy) dan navigasi saat aktif mode
+     * impersonation tanpa perlu login ulang.
+     */
+    public const PREVIEW_ROLE_MAP = [
+        'admin_tu' => ['role' => 'admin',     'sub_role' => 'petugas_tu'],
+        'satpam' => ['role' => 'admin',     'sub_role' => 'satpam'],
+        'waka_kesiswaan' => ['role' => 'admin',     'sub_role' => 'waka_kesiswaan'],
+        'waka_kurikulum' => ['role' => 'admin',     'sub_role' => 'waka_kurikulum'],
+        'waka_sdm' => ['role' => 'admin',     'sub_role' => 'waka_sdm'],
+        'kepsek' => ['role' => 'admin',     'sub_role' => 'kepsek'],
+        'guru_piket' => ['role' => 'guru',      'sub_role' => 'guru'],
+        'guru_mapel' => ['role' => 'guru',      'sub_role' => 'guru_mapel'],
+        'siswa' => ['role' => 'siswa',     'sub_role' => null],
     ];
 
     public const ADMIN_SUB_ROLES = [
+        'waka_kesiswaan',
         'waka_kurikulum',
         'waka_sdm',
         'kepsek',
@@ -152,8 +179,9 @@ class User extends Authenticatable
             return '';
         }
         if (str_starts_with($no, '0')) {
-            $no = '62' . substr($no, 1);
+            $no = '62'.substr($no, 1);
         }
+
         return $no;
     }
 
@@ -168,24 +196,50 @@ class User extends Authenticatable
             return null;
         }
         if (str_starts_with($no, '0')) {
-            $no = '62' . substr($no, 1);
+            $no = '62'.substr($no, 1);
         }
+
         return $no;
     }
 
     /**
      * User yang bertindak sebagai Waka Kesiswaan / penanggung jawab persetujuan
-     * dispensasi. Diidentifikasi dari nomor HP yang terisi di database:
-     * prioritas user dengan sub_role 'waka_kesiswaan', lalu admin (role 'admin').
+     * dispensasi siswa. Diidentifikasi PERSIS dari user role 'admin' dengan
+     * sub_role 'waka_kesiswaan' (bukan heuristik nomor HP / user acak).
+     * Mengembalikan null jika belum ada user yang ditunjuk sebagai Waka Kesiswaan.
      */
     public static function wakaKesiswaan(): ?User
     {
         return static::query()
-            ->whereNotNull('no_hp')
-            ->where('no_hp', '!=', '')
-            ->orderByRaw("CASE WHEN sub_role = 'waka_kesiswaan' THEN 0 ELSE 1 END")
+            ->where('role', static::ROLE_ADMIN)
+            ->where('sub_role', 'waka_kesiswaan')
+            ->where('is_active', true)
             ->orderBy('id')
             ->first();
+    }
+
+    /**
+     * Apakah user ini adalah Waka Kesiswaan (role admin + sub_role waka_kesiswaan)?
+     */
+    public function isWakaKesiswaan(): bool
+    {
+        return $this->role === static::ROLE_ADMIN && $this->sub_role === 'waka_kesiswaan';
+    }
+
+    /**
+     * Daftar semua user yang berjabatan Waka Kesiswaan (aktif), urut id.
+     * Dipakai untuk dropdown "Pilih Waka Kesiswaan" pada halaman approval.
+     *
+     * @return Collection<int, User>
+     */
+    public static function wakaKesiswaanList(): Collection
+    {
+        return static::query()
+            ->where('role', static::ROLE_ADMIN)
+            ->where('sub_role', 'waka_kesiswaan')
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get();
     }
 
     /**
@@ -197,11 +251,11 @@ class User extends Authenticatable
     }
 
     /**
-     * Apakah user ini adalah Petugas IT / QA Tester?
+     * Apakah user ini adalah Petugas IT / QA Tester (boleh menguji sistem)?
      */
     public function isPetugasIt(): bool
     {
-        return $this->role === self::ROLE_PETUGAS_IT;
+        return in_array($this->role, [self::ROLE_PETUGAS_IT, self::ROLE_QA_TESTER], true);
     }
 
     /**
@@ -234,23 +288,93 @@ class User extends Authenticatable
     }
 
     /**
-     * Apakah user sedang dalam mode preview "Switch View As"?
-     * Hanya berlaku untuk pengguna Petugas IT yang memilih role preview.
+     * Apakah user sedang dalam mode impersonation "Switch View As"
+     * (active_role diset di session)? Hanya berlaku untuk Petugas IT / QA Tester.
      */
-    public function hasPreviewRole(): bool
+    public function hasActiveRole(): bool
     {
-        return $this->isPetugasIt() && !empty(session('preview_role'));
+        return $this->isPetugasIt() && ! empty(session('active_role'));
     }
 
     /**
-     * Role preview aktif (mis. 'admin_tu', 'guru_mapel', ...) atau null jika tidak preview.
+     * Role impersonasi aktif (mis. 'admin_tu', 'guru_mapel', ...) atau null.
+     */
+    public function activeRole(): ?string
+    {
+        if (! $this->hasActiveRole()) {
+            return null;
+        }
+
+        return session('active_role');
+    }
+
+    /**
+     * Nama role efektif dari active_role yang sedang dipilih saat impersonation,
+     * atau role asli user bila tidak sedang impersonasi.
+     */
+    public function effectiveRole(): string
+    {
+        return $this->activeRoleMap()['role'] ?? (string) $this->role;
+    }
+
+    /**
+     * Sub-role efektif dari active_role yang sedang dipilih, atau sub_role asli.
+     */
+    public function effectiveSubRole(): ?string
+    {
+        return $this->activeRoleMap()['sub_role'] ?? $this->sub_role;
+    }
+
+    /**
+     * Pemetaan [role, sub_role] dari active_role aktif, atau null.
+     */
+    public function activeRoleMap(): ?array
+    {
+        $role = $this->activeRole();
+        if (! $role || $role === 'siswa') {
+            return null;
+        }
+
+        return self::PREVIEW_ROLE_MAP[$role] ?? null;
+    }
+
+    /**
+     * Apakah user Petugas IT sedang menguji (sandbox): membuat data testing?
+     * True untuk semua kegiatan Petugas IT / QA Tester, baik mode IT langsung
+     * maupun saat impersonasi — hasil inputan akan di-flag is_testing = true.
+     */
+    public function isTestingUser(): bool
+    {
+        return $this->isPetugasIt() || $this->hasActiveRole();
+    }
+
+    /**
+     * Mode pandang data testing pada scope global:
+     *  - Petugas IT: 'all' (default, lihat semua), 'real', atau 'testing'.
+     *  - Non-IT: selalu hanya melihat data real (is_testing = false).
+     */
+    public static function testingViewMode(): string
+    {
+        $mode = session('testing_view', 'all');
+
+        return in_array($mode, ['all', 'real', 'testing'], true) ? $mode : 'all';
+    }
+
+    /**
+     * @deprecated Gunakan hasActiveRole() — nama lama dipertahankan agar
+     *             kode yang masih memakai preview_role tetap berfungsi.
+     */
+    public function hasPreviewRole(): bool
+    {
+        return $this->hasActiveRole();
+    }
+
+    /**
+     * @deprecated Gunakan activeRole() — alias lama untuk "Switch View As".
      */
     public function previewRole(): ?string
     {
-        if (!$this->hasPreviewRole()) {
-            return null;
-        }
-        return session('preview_role');
+        return $this->activeRole();
     }
 
     /**
@@ -269,9 +393,10 @@ class User extends Authenticatable
         if ($this->role === 'guru' && $this->sub_role === 'wali_kelas') {
             return true;
         }
-        if (!empty($this->kelas_id)) {
+        if (! empty($this->kelas_id)) {
             return true;
         }
+
         return $this->kelasWali()->exists();
     }
 
@@ -282,24 +407,28 @@ class User extends Authenticatable
     {
         $labels = [
             'admin' => [
-                ''                 => 'Admin',
-                'waka_kurikulum'   => 'Waka Kurikulum',
-                'waka_sdm'         => 'Waka SDM',
-                'petugas_tu'       => 'Petugas TU',
-                'satpam'           => 'Satpam',
+                '' => 'Admin',
+                'waka_kurikulum' => 'Waka Kurikulum',
+                'waka_sdm' => 'Waka SDM',
+                'petugas_tu' => 'Petugas TU',
+                'satpam' => 'Satpam',
             ],
             'guru' => [
-                ''                 => 'Guru',
-                'guru_mapel'       => 'Guru Mapel',
-                'wali_kelas'       => 'Wali Kelas',
-                'guru'             => 'Guru Mapel',
+                '' => 'Guru',
+                'guru_mapel' => 'Guru Mapel',
+                'wali_kelas' => 'Wali Kelas',
+                'guru' => 'Guru Mapel',
             ],
             'petugas_it' => [
                 '' => 'Petugas IT / QA Tester',
             ],
+            'qa_tester' => [
+                '' => 'QA Tester',
+            ],
         ];
 
         $subRoleKey = $this->sub_role ?? '';
+
         return $labels[$this->role][$subRoleKey] ?? ucfirst(str_replace('_', ' ', $this->role ?? ''));
     }
 
@@ -318,11 +447,11 @@ class User extends Authenticatable
     protected function hariPiketHariIni(): ?string
     {
         $hariMap = [
-            Carbon::MONDAY    => 'Senin',
-            Carbon::TUESDAY   => 'Selasa',
+            Carbon::MONDAY => 'Senin',
+            Carbon::TUESDAY => 'Selasa',
             Carbon::WEDNESDAY => 'Rabu',
-            Carbon::THURSDAY  => 'Kamis',
-            Carbon::FRIDAY    => 'Jumat',
+            Carbon::THURSDAY => 'Kamis',
+            Carbon::FRIDAY => 'Jumat',
         ];
 
         return $hariMap[now()->dayOfWeek] ?? null;

@@ -17,7 +17,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (!Schema::hasColumn('users', 'mapel_ids')) {
+        if (! Schema::hasColumn('users', 'mapel_ids')) {
             Schema::table('users', function (Blueprint $table) {
                 $table->json('mapel_ids')->nullable()->after('sub_role');
             });

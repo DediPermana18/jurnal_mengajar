@@ -32,7 +32,7 @@ class MapelSeeder extends Seeder
             ['kode_mapel' => 'MPL-DKV-03', 'nama_mapel' => 'Fotografi & Videografi Digital',   'kelompok' => 'Kejuruan'],
 
             // D. KEJURUAN TKJ
-            ['kode_mapel' => 'MPL-TKJ-01', 'nama_mapel' => 'Administrasi Infrastruktur Jaringan','kelompok' => 'Kejuruan'],
+            ['kode_mapel' => 'MPL-TKJ-01', 'nama_mapel' => 'Administrasi Infrastruktur Jaringan', 'kelompok' => 'Kejuruan'],
             ['kode_mapel' => 'MPL-TKJ-02', 'nama_mapel' => 'Administrasi Server & Cloud',        'kelompok' => 'Kejuruan'],
             ['kode_mapel' => 'MPL-TKJ-03', 'nama_mapel' => 'Teknologi Layanan Jaringan',       'kelompok' => 'Kejuruan'],
 

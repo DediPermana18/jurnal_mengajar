@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTestingData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PresensiSiswa extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, HasTestingData, SoftDeletes;
 
     protected $table = 'presensi_siswa';
 
@@ -24,6 +25,7 @@ class PresensiSiswa extends Model
 
     protected $casts = [
         'tanggal' => 'date',
+        'is_testing' => 'boolean',
     ];
 
     /**

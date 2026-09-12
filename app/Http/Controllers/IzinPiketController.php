@@ -20,7 +20,8 @@ class IzinPiketController extends Controller
         abort_unless($user instanceof User, 403, 'Silakan login terlebih dahulu.');
 
         $allowed = $user->isPiketHariIni()
-            || in_array($user->role, [User::ROLE_ADMIN, User::ROLE_PETUGAS_IT], true);
+            || in_array($user->role, [User::ROLE_ADMIN], true)
+            || $user->isPetugasIt();
 
         abort_unless($allowed, 403, 'Akses ditolak. Hanya Guru Piket yang dapat memverifikasi pengajuan izin guru.');
     }
@@ -33,7 +34,7 @@ class IzinPiketController extends Controller
         $this->authorizePiket();
 
         $filter = $request->get('filter', 'pending_piket');
-        $level  = PengaturanJadwal::izinApprovalLevel();
+        $level = PengaturanJadwal::izinApprovalLevel();
 
         $daftarIzin = IzinGuru::with(['user', 'approverPiket', 'approverWaka', 'approverKepsek'])
             ->when($filter !== 'semua', fn ($q) => $q->where('status', $filter))
@@ -43,12 +44,12 @@ class IzinPiketController extends Controller
             ->withQueryString();
 
         $totalPendingPiket = IzinGuru::where('status', IzinGuru::STATUS_PENDING_PIKET)->count();
-        $totalPendingWaka  = IzinGuru::where('status', IzinGuru::STATUS_PENDING_WAKA)->count();
+        $totalPendingWaka = IzinGuru::where('status', IzinGuru::STATUS_PENDING_WAKA)->count();
         $totalPendingKepsek = IzinGuru::where('status', IzinGuru::STATUS_PENDING_KEPSEK)->count();
-        $totalDisetujui    = IzinGuru::where('status', IzinGuru::STATUS_DISETUJUI)->count();
-        $totalDitolak      = IzinGuru::where('status', IzinGuru::STATUS_DITOLAK)->count();
+        $totalDisetujui = IzinGuru::where('status', IzinGuru::STATUS_DISETUJUI)->count();
+        $totalDitolak = IzinGuru::where('status', IzinGuru::STATUS_DITOLAK)->count();
 
-        $noWaWaka   = PengaturanJadwal::noWaWakaIzin();
+        $noWaWaka = PengaturanJadwal::noWaWakaIzin();
         $noWaKepsek = PengaturanJadwal::noWaKepsek();
 
         return view('piket.izin.index', compact(
@@ -75,6 +76,9 @@ class IzinPiketController extends Controller
 
         $izin = IzinGuru::with('user')->findOrFail($id);
 
+        // Guard: izin data testing hanya dapat diverifikasi oleh IT/QA.
+        $this->authorizeTestingMutation($izin);
+
         abort_unless($izin->status === IzinGuru::STATUS_PENDING_PIKET, 422, 'Hanya izin yang menunggu verifikasi Piket yang dapat diproses pada langkah ini.');
 
         $level = PengaturanJadwal::izinApprovalLevel();
@@ -89,7 +93,7 @@ class IzinPiketController extends Controller
         } elseif ($level === 2) {
             $data['status'] = IzinGuru::STATUS_PENDING_KEPSEK;
         } else {
-            $data['status']   = IzinGuru::STATUS_DISETUJUI;
+            $data['status'] = IzinGuru::STATUS_DISETUJUI;
             $data['approved_at'] = now();
         }
 
@@ -119,6 +123,9 @@ class IzinPiketController extends Controller
 
         $izin = IzinGuru::with('user')->findOrFail($id);
 
+        // Guard: izin data testing hanya dapat ditolak oleh IT/QA.
+        $this->authorizeTestingMutation($izin);
+
         abort_unless($izin->isPending(), 422, 'Hanya izin berstatus Pending yang dapat ditolak.');
 
         $validated = $request->validate([
@@ -126,8 +133,8 @@ class IzinPiketController extends Controller
         ]);
 
         $izin->update([
-            'status'            => IzinGuru::STATUS_DITOLAK,
-            'approved_at'       => now(),
+            'status' => IzinGuru::STATUS_DITOLAK,
+            'approved_at' => now(),
             'catatan_penolakan' => $validated['catatan_penolakan'],
         ]);
 

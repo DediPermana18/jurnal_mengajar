@@ -58,12 +58,12 @@ class GuruImport implements ToModel, WithHeadingRow
         $guru = Guru::withTrashed()->updateOrCreate(
             ['nip' => $nip],
             [
-                'nama'      => $nama,
+                'nama' => $nama,
                 'is_active' => $isActive,
-                'username'  => $username,
-                'sub_role'  => $subRole,
-                'role'      => Guru::ROLE_GURU,
-                'password'  => $password,
+                'username' => $username,
+                'sub_role' => $subRole,
+                'role' => Guru::ROLE_GURU,
+                'password' => $password,
             ]
         );
 
@@ -97,14 +97,14 @@ class GuruImport implements ToModel, WithHeadingRow
     {
         $base = Str::slug($nama, '.');
         if (trim($base, '.') === '') {
-            $base = 'guru.' . $nip;
+            $base = 'guru.'.$nip;
         }
 
         $username = $base;
         $suffix = 2;
 
         while (Guru::withTrashed()->where('username', $username)->exists()) {
-            $username = $base . '.' . $suffix++;
+            $username = $base.'.'.$suffix++;
         }
 
         return $username;

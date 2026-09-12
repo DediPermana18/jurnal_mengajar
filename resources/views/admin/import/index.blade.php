@@ -290,6 +290,13 @@
         </div>
     @endif
 
+    @if(auth()->user()?->isTestingUser())
+        <div class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
+            <strong>Mode Preview Active:</strong> Import Data Master tidak dapat dilakukan untuk melindungi data produksi.
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
     {{-- ====================================================== --}}
     {{-- TAB NAVIGASI                                           --}}
     {{-- ====================================================== --}}
@@ -351,7 +358,7 @@
                     </div>
                 </div>
 
-                <div class="card-import-body">
+                <div class="card-import-body @if(auth()->user()?->isTestingUser()) disabled @endif">
                     <form action="{{ route('import.siswa') }}" method="POST" enctype="multipart/form-data" id="formImportSiswa">
                         @csrf
 
@@ -415,7 +422,7 @@
                             <div class="d-flex justify-content-end gap-2">
                                 <button type="submit" id="btnSubmitImport"
                                         class="btn btn-success rounded-3 px-4 py-2 fw-semibold d-flex align-items-center gap-2"
-                                        style="font-size:0.875rem;" disabled>
+                                        style="font-size:0.875rem;" {{ auth()->user()?->isTestingUser() ? 'disabled' : '' }}>
                                     <i class="bi bi-upload"></i>
                                     <span>Mulai Import</span>
                                 </button>
@@ -525,7 +532,7 @@
                         </div>
                     </div>
 
-                    <div class="card-import-body">
+                    <div class="card-import-body @if(auth()->user()?->isTestingUser()) disabled @endif">
                         <form action="{{ route('import.guru') }}" method="POST" enctype="multipart/form-data" id="formImportGuru">
                             @csrf
 
@@ -560,11 +567,11 @@
                             </div>
 
                             <div class="d-flex justify-content-end gap-2">
-                                <button type="submit" id="btnSubmitImportGuru"
+<button type="submit" id="btnSubmitImportGuru"
                                         class="btn btn-success rounded-3 px-4 py-2 fw-semibold d-flex align-items-center gap-2"
-                                        style="font-size:0.875rem;" disabled>
+                                        style="font-size:0.875rem;" {{ auth()->user()?->isTestingUser() ? 'disabled' : '' }}>
                                     <i class="bi bi-upload"></i>
-                                    <span>Unggah &amp; Import</span>
+                                    <span>Unggah & Import</span>
                                 </button>
                             </div>
                         </form>
@@ -660,7 +667,7 @@
                         </div>
                     </div>
 
-                    <div class="card-import-body">
+                    <div class="card-import-body @if(auth()->user()?->isTestingUser()) disabled @endif">
                         <form action="{{ route('jurusan.import') }}" method="POST" enctype="multipart/form-data" id="formImportJurusan">
                             @csrf
 
@@ -697,7 +704,7 @@
                             <div class="d-flex justify-content-end gap-2">
                                 <button type="submit" id="btnSubmitImportJurusan"
                                         class="btn btn-success rounded-3 px-4 py-2 fw-semibold d-flex align-items-center gap-2"
-                                        style="font-size:0.875rem;" disabled>
+                                        style="font-size:0.875rem;" {{ auth()->user()?->isTestingUser() ? 'disabled' : '' }}>
                                     <i class="bi bi-upload"></i>
                                     <span>Mulai Import</span>
                                 </button>
@@ -707,7 +714,7 @@
                 </div>
 
                 {{-- Form Import Kelas --}}
-                <div class="card-import">
+                <div class="card-import mb-4">
                     <div class="card-import-header d-flex align-items-center gap-3">
                         <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);display:flex;align-items:center;justify-content:center;">
                             <i class="bi bi-collection-fill text-white" style="font-size:1.1rem;"></i>
@@ -718,7 +725,7 @@
                         </div>
                     </div>
 
-                    <div class="card-import-body">
+                    <div class="card-import-body @if(auth()->user()?->isTestingUser()) disabled @endif">
                         <form action="{{ route('import.kelas') }}" method="POST" enctype="multipart/form-data" id="formImportKelas">
                             @csrf
 
@@ -755,7 +762,7 @@
                             <div class="d-flex justify-content-end gap-2">
                                 <button type="submit" id="btnSubmitImportKelas"
                                         class="btn btn-success rounded-3 px-4 py-2 fw-semibold d-flex align-items-center gap-2"
-                                        style="font-size:0.875rem;" disabled>
+                                        style="font-size:0.875rem;" {{ auth()->user()?->isTestingUser() ? 'disabled' : '' }}>
                                     <i class="bi bi-upload"></i>
                                     <span>Mulai Import</span>
                                 </button>
@@ -872,7 +879,7 @@
                         </div>
                     </div>
 
-                    <div class="card-import-body">
+                    <div class="card-import-body @if(auth()->user()?->isTestingUser()) disabled @endif">
                         <form action="{{ route('import.ruangan') }}" method="POST" enctype="multipart/form-data" id="formImportRuangan">
                             @csrf
 
@@ -907,11 +914,11 @@
                             </div>
 
                             <div class="d-flex justify-content-end gap-2">
-                                <button type="submit" id="btnSubmitImportRuangan"
+<button type="submit" id="btnSubmitImportRuangan"
                                         class="btn btn-success rounded-3 px-4 py-2 fw-semibold d-flex align-items-center gap-2"
-                                        style="font-size:0.875rem;" disabled>
+                                        style="font-size:0.875rem;" {{ auth()->user()?->isTestingUser() ? 'disabled' : '' }}>
                                     <i class="bi bi-upload"></i>
-                                    <span>Unggah &amp; Import</span>
+                                    <span>Unggah & Import</span>
                                 </button>
                             </div>
                         </form>

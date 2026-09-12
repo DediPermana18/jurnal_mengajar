@@ -40,7 +40,7 @@ class KelasSeeder extends Seeder
             $kelas = Kelas::updateOrCreate(
                 ['nama_kelas' => $kc['nama_kelas'], 'tingkat' => $kc['tingkat']],
                 [
-                    'id_jurusan'    => $kc['id_jurusan'],
+                    'id_jurusan' => $kc['id_jurusan'],
                     'id_wali_kelas' => $wali?->id,
                 ]
             );

@@ -7,7 +7,6 @@ use App\Models\CatatanSiswaBermasalah;
 use App\Models\CatatanTerlambat;
 use App\Models\DispensasiSiswa;
 use App\Models\Jurnal;
-use App\Models\PenerimaTerlambat;
 use App\Models\Siswa;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -23,8 +22,8 @@ class WaliKelasController extends Controller
         abort_unless($user && $user->isWaliKelas(), 403, 'Akses ditolak. Halaman ini khusus untuk Wali Kelas.');
 
         $kelasSaya = $user->kelasWali()->get();
-        $kelasIds  = $kelasSaya->pluck('id');
-        $today     = Carbon::today()->toDateString();
+        $kelasIds = $kelasSaya->pluck('id');
+        $today = Carbon::today()->toDateString();
 
         $dispensasiHariIni = DispensasiSiswa::with(['siswa.kelas', 'jadwal.mapel', 'guruPiket'])
             ->whereDate('tanggal', $today)
@@ -83,7 +82,7 @@ class WaliKelasController extends Controller
         abort_unless($user && $user->isWaliKelas(), 403, 'Akses ditolak. Halaman ini khusus untuk Wali Kelas.');
 
         $kelasSaya = $user->kelasWali()->get();
-        $kelasIds  = $kelasSaya->pluck('id');
+        $kelasIds = $kelasSaya->pluck('id');
         $namaKelasSaya = $kelasSaya->pluck('nama_lengkap')->implode(', ');
 
         $daftarSiswa = Siswa::with('kelas')
@@ -96,27 +95,27 @@ class WaliKelasController extends Controller
         foreach ($daftarSiswa as $siswa) {
             // Status presensi akumulatif dari seluruh jurnal guru mapel untuk siswa ini.
             $statusCounts = AbsensiJurnal::where('id_siswa', $siswa->id)
-                ->selectRaw("status, COUNT(*) as jumlah")
+                ->selectRaw('status, COUNT(*) as jumlah')
                 ->groupBy('status')
                 ->pluck('jumlah', 'status');
 
             $hadir = (int) $statusCounts->get('Hadir', 0);
-            $izin  = (int) $statusCounts->get('Izin', 0);
+            $izin = (int) $statusCounts->get('Izin', 0);
             $sakit = (int) $statusCounts->get('Sakit', 0);
             $alpha = (int) $statusCounts->get('Alpa', 0) + (int) $statusCounts->get('Alpha', 0);
 
-            $total   = $hadir + $izin + $sakit + $alpha;
-            $persen  = $total > 0 ? round(($hadir / $total) * 100, 1) : 100.0;
+            $total = $hadir + $izin + $sakit + $alpha;
+            $persen = $total > 0 ? round(($hadir / $total) * 100, 1) : 100.0;
 
             $rekapAbsen[] = [
-                'siswa'       => $siswa,
-                'hadir'       => $hadir,
-                'izin'        => $izin,
-                'sakit'       => $sakit,
-                'alpha'       => $alpha,
-                'total'       => $total,
-                'persentase'  => $persen,
-                'nama_kelas'  => $siswa->kelas?->nama ?? '-',
+                'siswa' => $siswa,
+                'hadir' => $hadir,
+                'izin' => $izin,
+                'sakit' => $sakit,
+                'alpha' => $alpha,
+                'total' => $total,
+                'persentase' => $persen,
+                'nama_kelas' => $siswa->kelas?->nama ?? '-',
             ];
         }
 
@@ -134,39 +133,39 @@ class WaliKelasController extends Controller
         abort_unless($user && $user->isWaliKelas(), 403, 'Akses ditolak. Halaman ini khusus untuk Wali Kelas.');
 
         $kelasSaya = $user->kelasWali()->get();
-        $kelasIds  = $kelasSaya->pluck('id');
+        $kelasIds = $kelasSaya->pluck('id');
         $namaKelasSaya = $kelasSaya->pluck('nama_lengkap')->implode(', ');
 
         // Jurnal mengajar yang dilaksanakan HANYA di kelas bimbingan wali kelas ini.
         $jurnal = Jurnal::with([
-                'jadwalPelajaran.mapel',
-                'jadwalPelajaran.kelas',
-                'guru',
-                'guruPengganti',
-                'absensiJurnal',
-            ])
+            'jadwalPelajaran.mapel',
+            'jadwalPelajaran.kelas',
+            'guru',
+            'guruPengganti',
+            'absensiJurnal',
+        ])
             ->whereHas('jadwalPelajaran', fn ($q) => $q->whereIn('id_kelas', $kelasIds))
             ->orderBy('tanggal', 'desc')
             ->orderBy('id', 'desc')
             ->get();
 
         $daftarJurnal = $jurnal->map(function (Jurnal $j) {
-            $absensi   = $j->absensiJurnal;
-            $hadir     = $absensi->where('status', 'Hadir')->count();
+            $absensi = $j->absensiJurnal;
+            $hadir = $absensi->where('status', 'Hadir')->count();
             $totalKehadiran = $absensi->whereIn('status', ['Hadir', 'Izin', 'Sakit', 'Alpa', 'Alpha', 'Dispen'])->count();
             $totalSiswa = $absensi->count();
 
             $guruPengajar = $j->guruPengganti ?: $j->guru;
 
             return [
-                'jurnal'        => $j,
-                'tanggal'       => $j->tanggal,
-                'mapel'         => $j->jadwalPelajaran?->mapel?->nama_mapel ?? '-',
+                'jurnal' => $j,
+                'tanggal' => $j->tanggal,
+                'mapel' => $j->jadwalPelajaran?->mapel?->nama_mapel ?? '-',
                 'guru_pengajar' => $guruPengajar?->nama ?? '-',
-                'materi'        => $j->materi ?: '-',
-                'hadir'         => $hadir,
-                'total_siswa'   => $totalSiswa,
-                'ratio_label'   => $totalKehadiran > 0 ? "{$totalKehadiran}/{$totalSiswa} Siswa" : '0/0 Siswa',
+                'materi' => $j->materi ?: '-',
+                'hadir' => $hadir,
+                'total_siswa' => $totalSiswa,
+                'ratio_label' => $totalKehadiran > 0 ? "{$totalKehadiran}/{$totalSiswa} Siswa" : '0/0 Siswa',
             ];
         });
 
@@ -188,7 +187,7 @@ class WaliKelasController extends Controller
         abort_unless($user && $user->isWaliKelas(), 403, 'Akses ditolak. Halaman ini khusus untuk Wali Kelas.');
 
         $kelasWali = $user->kelasWali()->with('siswa')->get();
-        $kelasIds  = $kelasWali->pluck('id');
+        $kelasIds = $kelasWali->pluck('id');
 
         $daftarSiswa = Siswa::with('kelas')
             ->whereIn('id_kelas', $kelasIds)
@@ -223,13 +222,13 @@ class WaliKelasController extends Controller
                 ->get();
 
             $rekap[] = [
-                'siswa'             => $siswa,
+                'siswa' => $siswa,
                 'riwayat_terlambat' => $riwayatTerlambat,
-                'total_terlambat'   => $totalTerlambat,
-                'total_alpha'       => $totalAlpha,
-                'total_dispen'      => $dispensasi->count(),
-                'dispensasi'        => $dispensasi,
-                'tindak_lanjut'     => $statistikTindakLanjut->get($siswa->id),
+                'total_terlambat' => $totalTerlambat,
+                'total_alpha' => $totalAlpha,
+                'total_dispen' => $dispensasi->count(),
+                'dispensasi' => $dispensasi,
+                'tindak_lanjut' => $statistikTindakLanjut->get($siswa->id),
             ];
         }
 
@@ -245,15 +244,15 @@ class WaliKelasController extends Controller
         abort_unless($user && $user->isWaliKelas(), 403, 'Akses ditolak. Halaman ini khusus untuk Wali Kelas.');
 
         $validated = $request->validate([
-            'id_siswa'      => 'required|exists:siswa,id',
+            'id_siswa' => 'required|exists:siswa,id',
             'jenis_tindakan' => 'required|in:panggil_ortu,catatan',
-            'catatan'       => 'nullable|string|max:1000',
-            'status'        => 'required|in:belum,dipanggil,selesai',
+            'catatan' => 'nullable|string|max:1000',
+            'status' => 'required|in:belum,dipanggil,selesai',
         ], [
-            'id_siswa.required'       => 'Siswa wajib dipilih.',
+            'id_siswa.required' => 'Siswa wajib dipilih.',
             'jenis_tindakan.required' => 'Jenis tindakan wajib dipilih.',
-            'catatan.max'             => 'Catatan maksimal :max karakter.',
-            'status.required'         => 'Status tindak lanjut wajib dipilih.',
+            'catatan.max' => 'Catatan maksimal :max karakter.',
+            'status.required' => 'Status tindak lanjut wajib dipilih.',
         ]);
 
         $kelasIds = $user->kelasWali()->pluck('id');
@@ -261,15 +260,21 @@ class WaliKelasController extends Controller
 
         abort_unless($siswa, 403, 'Siswa bukan bagian dari kelas wali kelas Anda.');
 
+        // Guard: tindak lanjut yang sudah ber-flag testing hanya dapat diubah oleh IT/QA.
+        $existing = CatatanSiswaBermasalah::where('id_siswa', $siswa->id)
+            ->where('id_wali_kelas', $user->id)
+            ->first();
+        $this->authorizeTestingMutation($existing);
+
         CatatanSiswaBermasalah::updateOrCreate(
             ['id_siswa' => $siswa->id, 'id_wali_kelas' => $user->id],
             [
                 'jenis_tindakan' => $validated['jenis_tindakan'],
-                'catatan'        => $validated['catatan'] ?? null,
-                'status'         => $validated['status'],
+                'catatan' => $validated['catatan'] ?? null,
+                'status' => $validated['status'],
             ]
         );
 
-        return back()->with('success', 'Tindak lanjut untuk "' . $siswa->nama . '" berhasil disimpan.');
+        return back()->with('success', 'Tindak lanjut untuk "'.$siswa->nama.'" berhasil disimpan.');
     }
 }

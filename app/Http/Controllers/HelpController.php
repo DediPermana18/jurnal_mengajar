@@ -14,9 +14,9 @@ class HelpController extends Controller
     protected function jamOperasional(): array
     {
         return [
-            'Senin – Jumat'        => '07.00 – 16.00 WIB',
-            'Sabtu'                => '07.30 – 12.30 WIB',
-            'Minggu / Hari libur'  => 'Layanan terbatas (lewat pesan)',
+            'Senin – Jumat' => '07.00 – 16.00 WIB',
+            'Sabtu' => '07.30 – 12.30 WIB',
+            'Minggu / Hari libur' => 'Layanan terbatas (lewat pesan)',
         ];
     }
 
@@ -35,16 +35,16 @@ class HelpController extends Controller
         $namaKontak = $adminIt?->nama;
         $noWaKontak = $adminIt?->noHpInternasional();
 
-        if (!$noWaKontak) {
+        if (! $noWaKontak) {
             $noWaKontak = PengaturanJadwal::noWaKepsek();
         }
-        if (!$namaKontak) {
+        if (! $namaKontak) {
             $namaKontak = 'Admin IT';
         }
 
         return view('bantuan.index', [
-            'namaKontak'     => $namaKontak,
-            'noWaKontak'     => $noWaKontak,
+            'namaKontak' => $namaKontak,
+            'noWaKontak' => $noWaKontak,
             'jamOperasional' => $this->jamOperasional(),
         ]);
     }

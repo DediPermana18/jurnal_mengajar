@@ -47,9 +47,9 @@ class JamPelajaranSeeder extends Seeder
                 JamPelajaran::updateOrCreate(
                     ['kategori_hari' => $kategori, 'jam_ke' => $slot['jam_ke']],
                     [
-                        'jam_mulai'   => $slot['jam_mulai'],
+                        'jam_mulai' => $slot['jam_mulai'],
                         'jam_selesai' => $slot['jam_selesai'],
-                        'jenis'       => $slot['jenis'],
+                        'jenis' => $slot['jenis'],
                     ]
                 );
                 $dibuat++;

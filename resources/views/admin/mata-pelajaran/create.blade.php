@@ -73,7 +73,7 @@
                         <label class="form-label fw-bold text-dark" style="font-size: 0.875rem;">
                             Jenis Mapel <span class="text-danger">*</span>
                         </label>
-                        <select name="kelompok" class="form-select rounded-3 py-2" required>
+                        <select name="kelompok" id="kelompokSelect" class="form-select rounded-3 py-2" required onchange="toggleJurusan()">
                             @foreach($jenisOptions as $opt)
                                 <option value="{{ $opt }}" {{ old('kelompok') === $opt ? 'selected' : '' }}>
                                     {{ $opt }}
@@ -83,13 +83,31 @@
                     </div>
 
                     {{-- Nama Mapel --}}
-                    <div class="col-12">
+                    <div class="col-12 col-md-6">
                         <label class="form-label fw-bold text-dark" style="font-size: 0.875rem;">
                             Nama Mata Pelajaran <span class="text-danger">*</span>
                         </label>
                         <input type="text" name="nama_mapel" class="form-control rounded-3 py-2"
                                placeholder="Contoh: Pemrograman Web dan Perangkat Bergerak"
                                value="{{ old('nama_mapel') }}" required autocomplete="off">
+                    </div>
+
+                    {{-- Jurusan --}}
+                    <div class="col-12 col-md-6">
+                        <label class="form-label fw-bold text-dark" style="font-size: 0.875rem;">
+                            Jurusan <span class="text-danger" id="jurusanRequiredStar" style="display: none;">*</span>
+                        </label>
+                        <select name="jurusan_id" class="form-select rounded-3 py-2" id="jurusanSelect" disabled>
+                            <option value="">Semua Jurusan (Umum)</option>
+                            @foreach($dataJurusan as $jurusan)
+                                <option value="{{ $jurusan->id }}" {{ old('jurusan_id') == $jurusan->id ? 'selected' : '' }}>
+                                    {{ $jurusan->nama_jurusan }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <div class="form-text text-muted" style="font-size: 0.78rem;">
+                            Wajib diisi untuk Mata Pelajaran Kejuruan.
+                        </div>
                     </div>
                 </div>
             </div>
@@ -102,9 +120,30 @@
                 <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold shadow-sm" style="font-size: 0.9rem;">
                     <i class="bi bi-check-lg me-1"></i> Simpan Mapel
                 </button>
-            </div>
+</div>
+
         </form>
     </div>
 
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    function toggleJurusan() {
+        var kelompok = document.getElementById('kelompokSelect').value;
+        var jurusan = document.getElementById('jurusanSelect');
+        var isKejuruan = kelompok === 'Kejuruan';
+
+        jurusan.disabled = !isKejuruan;
+        jurusan.required = isKejuruan;
+        document.getElementById('jurusanRequiredStar').style.display = isKejuruan ? 'inline' : 'none';
+
+        if (!isKejuruan) {
+            jurusan.value = '';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', toggleJurusan);
+</script>
+@endpush

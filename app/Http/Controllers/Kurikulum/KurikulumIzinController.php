@@ -16,8 +16,10 @@ class KurikulumIzinController extends Controller
      */
     protected function authorizeKurikulum(): void
     {
-        $role = auth()->user()?->role;
-        $isAllowed = in_array($role, ['admin', 'admin_kurikulum', 'waka_kurikulum', 'kurikulum', 'admin_tu'], true);
+        $user = auth()->user();
+        $role = $user?->role;
+        $isAllowed = ($user && $user->isPetugasIt())
+            || in_array($role, ['admin', 'admin_kurikulum', 'waka_kurikulum', 'kurikulum', 'admin_tu'], true);
 
         abort_unless($isAllowed, 403, 'Akses ditolak. Anda tidak memiliki izin untuk mengelola Approval Izin Guru.');
     }
@@ -33,7 +35,7 @@ class KurikulumIzinController extends Controller
 
         $query = IzinGuru::with(['user', 'approverPiket', 'approverWaka', 'approverKepsek'])->latest();
 
-        if (!in_array($filter, ['Semua'], true) && in_array($filter, IzinGuru::STATUSES, true)) {
+        if (! in_array($filter, ['Semua'], true) && in_array($filter, IzinGuru::STATUSES, true)) {
             $query->where('status', $filter);
         }
 
@@ -43,12 +45,12 @@ class KurikulumIzinController extends Controller
         }
 
         $totalDisetujui = $counts[IzinGuru::STATUS_DISETUJUI];
-        $totalDitolak   = $counts[IzinGuru::STATUS_DITOLAK];
+        $totalDitolak = $counts[IzinGuru::STATUS_DITOLAK];
 
-        $level  = PengaturanJadwal::izinApprovalLevel();
+        $level = PengaturanJadwal::izinApprovalLevel();
         $daftarIzin = $query->paginate(15)->withQueryString();
 
-        $noWaWaka   = PengaturanJadwal::noWaWakaIzin();
+        $noWaWaka = PengaturanJadwal::noWaWakaIzin();
         $noWaKepsek = PengaturanJadwal::noWaKepsek();
 
         return view('kurikulum.izin.index', compact(
@@ -76,11 +78,11 @@ class KurikulumIzinController extends Controller
         abort_unless($izin->status === IzinGuru::STATUS_PENDING_WAKA, 422, 'Hanya izin berstatus Pending Waka yang dapat disetujui pada langkah ini.');
 
         $level = PengaturanJadwal::izinApprovalLevel();
-        $data  = ['catatan_penolakan' => null];
+        $data = ['catatan_penolakan' => null];
 
         $data['approved_by_waka'] = $izin->approved_by_waka ?? auth()->id();
-        $data['status']           = match ($level) {
-            2      => IzinGuru::STATUS_DISETUJUI,
+        $data['status'] = match ($level) {
+            2 => IzinGuru::STATUS_DISETUJUI,
             default => IzinGuru::STATUS_PENDING_KEPSEK,
         };
 
@@ -112,13 +114,13 @@ class KurikulumIzinController extends Controller
             'catatan_penolakan' => 'required|string|min:3|max:1000',
         ], [
             'catatan_penolakan.required' => 'Catatan penolakan wajib diisi.',
-            'catatan_penolakan.min'      => 'Catatan penolakan minimal :min karakter.',
-            'catatan_penolakan.max'      => 'Catatan penolakan maksimal :max karakter.',
+            'catatan_penolakan.min' => 'Catatan penolakan minimal :min karakter.',
+            'catatan_penolakan.max' => 'Catatan penolakan maksimal :max karakter.',
         ]);
 
         $izin->update([
-            'status'            => IzinGuru::STATUS_DITOLAK,
-            'approved_at'       => now(),
+            'status' => IzinGuru::STATUS_DITOLAK,
+            'approved_at' => now(),
             'catatan_penolakan' => $validated['catatan_penolakan'],
         ]);
 
@@ -137,7 +139,7 @@ class KurikulumIzinController extends Controller
 
         $izin = IzinGuru::findOrFail($id);
 
-        if (!$izin->lampiran) {
+        if (! $izin->lampiran) {
             abort(404, 'Lampiran tidak ditemukan.');
         }
 

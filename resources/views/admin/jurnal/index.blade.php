@@ -113,6 +113,7 @@
                 <tbody>
                     @forelse($dataJurnal as $jurnal)
                         @php
+                            $testingLocked = ($jurnal->is_testing && !auth()->user()?->isPetugasIt());
                             $statusClass = match($jurnal->status_kehadiran) {
                                 'Izin' => 'bg-warning-subtle text-warning-emphasis border-warning-subtle',
                                 'Sakit' => 'bg-danger-subtle text-danger border-danger-subtle',
@@ -161,20 +162,20 @@
                                 <span class="text-secondary">{{ $jurnal->jadwal->mapel->nama_mapel ?? '-' }}</span>
                             </td>
                             <td>
-                                <div class="text-dark fw-medium">{{ $jurnal->materi }}</div>
+                                <div class="text-dark fw-medium">{{ $jurnal->materi }} @include('partials.testing-badge', ['record' => $jurnal])</div>
                                 @if($jurnal->catatan_kejadian)
                                     <small class="text-muted d-block text-truncate" style="max-width: 200px;">Catatan: {{ $jurnal->catatan_kejadian }}</small>
                                 @endif
                             </td>
                             <td class="text-end whitespace-nowrap">
                                 <div class="flex items-center justify-end gap-2 whitespace-nowrap">
-                                    <a href="{{ route('jurnal.edit', $jurnal->id) }}" class="btn btn-sm btn-light border text-primary rounded-2 px-2 py-1" title="Edit">
+                                    <a href="{{ route('jurnal.edit', $jurnal->id) }}" class="btn btn-sm btn-light border text-primary rounded-2 px-2 py-1 {{ $testingLocked ? 'disabled opacity-50' : '' }}" title="{{ $testingLocked ? 'Data ini adalah data pengujian IT dan tidak dapat diubah.' : 'Edit' }}" {{ $testingLocked ? 'aria-disabled="true" tabindex="-1"' : '' }}>
                                         <i class="bi bi-pencil-square"></i> Edit
                                     </a>
                                     <form action="{{ route('jurnal.destroy', $jurnal->id) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus jurnal ini?');" class="d-inline">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-light border text-danger rounded-2 px-2 py-1" title="Hapus">
+                                        <button type="submit" class="btn btn-sm btn-light border text-danger rounded-2 px-2 py-1 {{ $testingLocked ? 'opacity-50' : '' }}" title="{{ $testingLocked ? 'Data ini adalah data pengujian IT dan tidak dapat diubah.' : 'Hapus' }}" {{ $testingLocked ? 'disabled' : '' }}>
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>

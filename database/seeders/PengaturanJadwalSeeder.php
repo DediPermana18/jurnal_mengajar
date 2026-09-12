@@ -36,13 +36,13 @@ class PengaturanJadwalSeeder extends Seeder
         PengaturanJadwal::updateOrCreate(
             ['id' => 1],
             [
-                'senin_tanpa_upacara'    => false,
-                'tanggal_eksekusi'       => null,
+                'senin_tanpa_upacara' => false,
+                'tanggal_eksekusi' => null,
                 'jumat_tanpa_pembiasaan' => false,
                 'tanggal_eksekusi_jumat' => null,
-                'no_wa_waka'             => '6281234567890',
-                'izin_approval_level'    => 3,
-                'no_wa_kepsek'           => '6281234567891',
+                'no_wa_waka' => '6281234567890',
+                'izin_approval_level' => 3,
+                'no_wa_kepsek' => '6281234567891',
             ]
         );
 

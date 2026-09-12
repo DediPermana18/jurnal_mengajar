@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTestingData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +11,7 @@ use Illuminate\Support\Str;
 
 class IzinGuru extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTestingData;
 
     // Status-step alur approval bertingkat
     public const STATUS_PENDING_PIKET = 'pending_piket';
@@ -81,6 +82,7 @@ class IzinGuru extends Model
     protected $casts = [
         'tanggal' => 'date',
         'approved_at' => 'datetime',
+        'is_testing' => 'boolean',
     ];
 
     /**

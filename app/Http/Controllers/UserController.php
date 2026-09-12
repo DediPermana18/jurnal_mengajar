@@ -25,10 +25,8 @@ class UserController extends Controller
 
     protected function authorizePetugasTU(): void
     {
-        $role = Auth::check() ? Auth::user()->role : null;
-
-        abort_if(
-            !in_array($role, ['admin', 'admin_tu', 'super_admin'], true),
+        abort_unless(
+            $this->isAuthorizedAdminArea(),
             403,
             'Akses ditolak. Hanya Petugas TU atau Admin yang dapat mengelola user.'
         );
@@ -156,15 +154,15 @@ class UserController extends Controller
 
     protected function validateUser(Request $request, ?int $ignoreId = null): array
     {
-        $uniqueUsername = 'unique:users,username' . ($ignoreId ? ',' . $ignoreId : '');
-        $uniqueNip = 'nullable|string|max:50|unique:users,nip' . ($ignoreId ? ',' . $ignoreId : '');
-        $uniqueActivation = 'nullable|string|max:100|unique:users,kode_aktivasi' . ($ignoreId ? ',' . $ignoreId : '');
+        $uniqueUsername = 'unique:users,username'.($ignoreId ? ','.$ignoreId : '');
+        $uniqueNip = 'nullable|string|max:50|unique:users,nip'.($ignoreId ? ','.$ignoreId : '');
+        $uniqueActivation = 'nullable|string|max:100|unique:users,kode_aktivasi'.($ignoreId ? ','.$ignoreId : '');
 
         return $request->validate([
             'name' => 'required|string|max:255',
             'username' => ['required', 'string', 'max:100', $uniqueUsername],
             'nip' => $uniqueNip,
-            'sub_role' => ['required', 'in:' . implode(',', self::SUB_ROLES)],
+            'sub_role' => ['required', 'in:'.implode(',', self::SUB_ROLES)],
             'kode_aktivasi' => $uniqueActivation,
         ], [
             'name.required' => 'Nama lengkap wajib diisi.',
@@ -195,7 +193,7 @@ class UserController extends Controller
         abort_if(Auth::id() === $user->id, 422, 'Tidak dapat mengubah status akun yang sedang digunakan.');
 
         $user->update([
-            'is_active' => !$user->is_active,
+            'is_active' => ! $user->is_active,
         ]);
 
         $statusLabel = $user->is_active ? 'diaktifkan' : 'dinonaktifkan';
@@ -206,7 +204,7 @@ class UserController extends Controller
     protected function generateActivationCode(): string
     {
         do {
-            $code = 'AKT-' . Str::upper(Str::random(8));
+            $code = 'AKT-'.Str::upper(Str::random(8));
         } while (User::withTrashed()->where('kode_aktivasi', $code)->exists());
 
         return $code;

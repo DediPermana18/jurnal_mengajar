@@ -22,22 +22,22 @@ return new class extends Migration
 
         // 3. Migrate data: map old role -> new role + sub_role
         $mapping = [
-            'super_admin'     => ['role' => 'admin',  'sub_role' => null],
-            'admin_tu'        => ['role' => 'admin',  'sub_role' => 'petugas_tu'],
-            'admin'           => ['role' => 'admin',  'sub_role' => 'petugas_tu'],
+            'super_admin' => ['role' => 'admin',  'sub_role' => null],
+            'admin_tu' => ['role' => 'admin',  'sub_role' => 'petugas_tu'],
+            'admin' => ['role' => 'admin',  'sub_role' => 'petugas_tu'],
             'admin_kurikulum' => ['role' => 'admin',  'sub_role' => 'waka_kurikulum'],
-            'guru_mapel'      => ['role' => 'guru',   'sub_role' => 'guru_mapel'],
-            'wali_kelas'      => ['role' => 'guru',   'sub_role' => 'wali_kelas'],
-            'guru_piket'      => ['role' => 'guru',   'sub_role' => 'guru_piket'],
-            'piket_satpam'    => ['role' => 'admin',  'sub_role' => 'satpam'],
-            'guru'            => ['role' => 'guru',   'sub_role' => null],
+            'guru_mapel' => ['role' => 'guru',   'sub_role' => 'guru_mapel'],
+            'wali_kelas' => ['role' => 'guru',   'sub_role' => 'wali_kelas'],
+            'guru_piket' => ['role' => 'guru',   'sub_role' => 'guru_piket'],
+            'piket_satpam' => ['role' => 'admin',  'sub_role' => 'satpam'],
+            'guru' => ['role' => 'guru',   'sub_role' => null],
         ];
 
         foreach ($mapping as $oldRole => $new) {
             DB::table('users')
                 ->where('role', $oldRole)
                 ->update([
-                    'role'     => $new['role'],
+                    'role' => $new['role'],
                     'sub_role' => $new['sub_role'],
                 ]);
         }

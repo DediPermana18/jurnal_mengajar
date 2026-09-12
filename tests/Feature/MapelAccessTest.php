@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\MataPelajaran;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -15,11 +14,11 @@ class MapelAccessTest extends TestCase
     private function makeUser(string $role, ?string $subRole = null): User
     {
         return User::create([
-            'nama'      => 'Test User',
-            'username'  => 'user_' . Str::random(8),
-            'password'  => bcrypt('password'),
-            'role'      => $role,
-            'sub_role'  => $subRole,
+            'nama' => 'Test User',
+            'username' => 'user_'.Str::random(8),
+            'password' => bcrypt('password'),
+            'role' => $role,
+            'sub_role' => $subRole,
             'is_active' => true,
         ]);
     }
@@ -58,7 +57,7 @@ class MapelAccessTest extends TestCase
         $response = $this->actingAs($user)->post(route('mapel.store'), [
             'kode_mapel' => 'KK-001',
             'nama_mapel' => 'Matematika',
-            'kelompok'   => 'Muatan Umum',
+            'kelompok' => 'Muatan Umum',
         ]);
 
         $response->assertRedirect(route('mapel.index'));

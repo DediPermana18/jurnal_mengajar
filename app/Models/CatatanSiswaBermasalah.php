@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTestingData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,16 +13,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class CatatanSiswaBermasalah extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTestingData;
 
     protected $table = 'catatan_siswa_bermasalah';
 
     public const JENIS_PANGGIL_ORTU = 'panggil_ortu';
-    public const JENIS_CATATAN      = 'catatan';
 
-    public const STATUS_BELUM     = 'belum';
+    public const JENIS_CATATAN = 'catatan';
+
+    public const STATUS_BELUM = 'belum';
+
     public const STATUS_DIPANGGIL = 'dipanggil';
-    public const STATUS_SELESAI   = 'selesai';
+
+    public const STATUS_SELESAI = 'selesai';
 
     protected $fillable = [
         'id_siswa',
@@ -29,6 +33,10 @@ class CatatanSiswaBermasalah extends Model
         'jenis_tindakan',
         'catatan',
         'status',
+    ];
+
+    protected $casts = [
+        'is_testing' => 'boolean',
     ];
 
     public function siswa(): BelongsTo

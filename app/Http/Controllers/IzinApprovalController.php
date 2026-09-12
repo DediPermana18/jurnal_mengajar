@@ -7,6 +7,7 @@ use App\Models\PengaturanJadwal;
 use App\Models\User;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
 class IzinApprovalController extends Controller
@@ -141,7 +142,7 @@ class IzinApprovalController extends Controller
     /**
      * Daftar pejabat Waka SDM / Kepegawaian untuk dropdown mode tautan publik.
      */
-    protected function daftarWakaSdm(): \Illuminate\Support\Collection
+    protected function daftarWakaSdm(): Collection
     {
         return User::where(function ($q) {
             $q->where('role', 'waka_sdm')
@@ -149,7 +150,7 @@ class IzinApprovalController extends Controller
         })->orderBy('nama')->get();
     }
 
-    protected function daftarKepsek(): \Illuminate\Support\Collection
+    protected function daftarKepsek(): Collection
     {
         return User::where(function ($q) {
             $q->whereIn('role', ['kepsek', 'kepala_sekolah'])
@@ -260,6 +261,9 @@ class IzinApprovalController extends Controller
             return redirect()->route('izin.approval.show', $token)
                 ->with('error', 'Pengajuan izin ini sudah diproses atau tidak ditemukan.');
         }
+
+        // Guard: izin data testing tidak dapat di-approve/ditolak oleh non-IT.
+        $this->authorizeTestingMutation($izin);
 
         if (! in_array($state, ['waka', 'kepsek'], true)) {
             return redirect()->route('izin.approval.show', $token)

@@ -10,10 +10,8 @@ class TahunAjaranController extends Controller
 {
     protected function authorizePetugasTU(): void
     {
-        $role = auth()->check() ? auth()->user()->role : null;
-
-        abort_if(
-            !in_array($role, ['admin_tu', 'admin', 'super_admin'], true),
+        abort_unless(
+            $this->isAuthorizedAdminArea(),
             403,
             'Akses ditolak. Hanya Petugas TU yang dapat mengelola data tahun ajaran.'
         );
@@ -46,12 +44,12 @@ class TahunAjaranController extends Controller
 
         $validated = $request->validate([
             'tahun_ajaran' => 'required|string|max:20|regex:/^\d{4}\/\d{4}$/',
-            'semester'     => 'required|in:Ganjil,Genap',
+            'semester' => 'required|in:Ganjil,Genap',
         ], [
             'tahun_ajaran.required' => 'Tahun Ajaran wajib diisi, contoh: 2025/2026.',
-            'tahun_ajaran.regex'    => 'Format Tahun Ajaran tidak valid, gunakan format 2025/2026.',
-            'semester.required'     => 'Semester wajib dipilih.',
-            'semester.in'           => 'Semester harus Ganjil atau Genap.',
+            'tahun_ajaran.regex' => 'Format Tahun Ajaran tidak valid, gunakan format 2025/2026.',
+            'semester.required' => 'Semester wajib dipilih.',
+            'semester.in' => 'Semester harus Ganjil atau Genap.',
         ]);
 
         $exists = TahunAjaran::where('tahun_ajaran', $validated['tahun_ajaran'])
@@ -66,8 +64,8 @@ class TahunAjaranController extends Controller
 
         TahunAjaran::create([
             'tahun_ajaran' => $validated['tahun_ajaran'],
-            'semester'     => $validated['semester'],
-            'is_active'    => false,
+            'semester' => $validated['semester'],
+            'is_active' => false,
         ]);
 
         return redirect()
@@ -81,12 +79,12 @@ class TahunAjaranController extends Controller
 
         $validated = $request->validate([
             'tahun_ajaran' => 'required|string|max:20|regex:/^\d{4}\/\d{4}$/',
-            'semester'     => 'required|in:Ganjil,Genap',
+            'semester' => 'required|in:Ganjil,Genap',
         ], [
             'tahun_ajaran.required' => 'Tahun Ajaran wajib diisi, contoh: 2025/2026.',
-            'tahun_ajaran.regex'    => 'Format Tahun Ajaran tidak valid, gunakan format 2025/2026.',
-            'semester.required'     => 'Semester wajib dipilih.',
-            'semester.in'           => 'Semester harus Ganjil atau Genap.',
+            'tahun_ajaran.regex' => 'Format Tahun Ajaran tidak valid, gunakan format 2025/2026.',
+            'semester.required' => 'Semester wajib dipilih.',
+            'semester.in' => 'Semester harus Ganjil atau Genap.',
         ]);
 
         $exists = TahunAjaran::where('tahun_ajaran', $validated['tahun_ajaran'])
@@ -102,7 +100,7 @@ class TahunAjaranController extends Controller
 
         $tahunAjaran->update([
             'tahun_ajaran' => $validated['tahun_ajaran'],
-            'semester'     => $validated['semester'],
+            'semester' => $validated['semester'],
         ]);
 
         return redirect()

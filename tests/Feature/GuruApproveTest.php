@@ -15,26 +15,26 @@ class GuruApproveTest extends TestCase
     {
         // Setup admin
         $admin = User::create([
-            'nama'      => 'Admin User',
-            'username'  => 'admin',
-            'password'  => bcrypt('password'),
-            'role'      => 'admin',
+            'nama' => 'Admin User',
+            'username' => 'admin',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
             'is_active' => true,
         ]);
 
         // Setup guru to approve (inactive)
         $guru = User::create([
-            'nama'      => 'Guru Budi',
-            'username'  => 'gurubudi',
-            'password'  => bcrypt('password'),
-            'role'      => 'guru',
+            'nama' => 'Guru Budi',
+            'username' => 'gurubudi',
+            'password' => bcrypt('password'),
+            'role' => 'guru',
             'is_active' => false,
         ]);
 
         // Setup existing piket schedule on Senin
         $jadwalSenin = JadwalPiket::create([
             'user_id' => $admin->id,
-            'hari'    => 'Senin',
+            'hari' => 'Senin',
         ]);
 
         // Act: perform approve request
@@ -50,7 +50,7 @@ class GuruApproveTest extends TestCase
 
         // Assert: Jadwal piket Senin is intact and NOT deleted!
         $this->assertDatabaseHas('jadwal_piket', [
-            'id'   => $jadwalSenin->id,
+            'id' => $jadwalSenin->id,
             'hari' => 'Senin',
         ]);
     }
@@ -58,18 +58,18 @@ class GuruApproveTest extends TestCase
     public function test_toggle_status_to_active_flashes_correct_approval_message(): void
     {
         $admin = User::create([
-            'nama'      => 'Admin User',
-            'username'  => 'admin',
-            'password'  => bcrypt('password'),
-            'role'      => 'admin',
+            'nama' => 'Admin User',
+            'username' => 'admin',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
             'is_active' => true,
         ]);
 
         $guru = User::create([
-            'nama'      => 'Guru Siti',
-            'username'  => 'gurusiti',
-            'password'  => bcrypt('password'),
-            'role'      => 'guru',
+            'nama' => 'Guru Siti',
+            'username' => 'gurusiti',
+            'password' => bcrypt('password'),
+            'role' => 'guru',
             'is_active' => false,
         ]);
 
@@ -84,29 +84,29 @@ class GuruApproveTest extends TestCase
     public function test_update_status_endpoint_updates_status_safely(): void
     {
         $admin = User::create([
-            'nama'      => 'Admin User',
-            'username'  => 'admin',
-            'password'  => bcrypt('password'),
-            'role'      => 'admin',
+            'nama' => 'Admin User',
+            'username' => 'admin',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
             'is_active' => true,
         ]);
 
         $guru = User::create([
-            'nama'      => 'Guru Joko',
-            'username'  => 'gurujoko',
-            'password'  => bcrypt('password'),
-            'role'      => 'guru',
+            'nama' => 'Guru Joko',
+            'username' => 'gurujoko',
+            'password' => bcrypt('password'),
+            'role' => 'guru',
             'is_active' => false,
         ]);
 
         $jadwalSenin = JadwalPiket::create([
             'user_id' => $admin->id,
-            'hari'    => 'Senin',
+            'hari' => 'Senin',
         ]);
 
         $jadwalSelasa = JadwalPiket::create([
             'user_id' => $admin->id,
-            'hari'    => 'Selasa',
+            'hari' => 'Selasa',
         ]);
 
         // Act: call update-status to active

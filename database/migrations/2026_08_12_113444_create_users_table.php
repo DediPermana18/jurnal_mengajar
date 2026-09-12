@@ -4,8 +4,10 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
-    public function up(): void {
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('nama');
@@ -13,7 +15,7 @@ return new class extends Migration {
             $table->string('username', 100)->unique();
             $table->string('password');
             $table->string('kode_aktivasi', 100)->nullable();
-            
+
             // Perbaruan daftar role lengkap
             $table->enum('role', [
                 'super_admin',
@@ -24,7 +26,7 @@ return new class extends Migration {
                 'guru_piket',
                 'piket_satpam',
                 'guru',
-                'admin'
+                'admin',
             ])->default('guru_mapel');
 
             $table->timestamps();
@@ -47,7 +49,8 @@ return new class extends Migration {
         });
     }
 
-    public function down(): void {
+    public function down(): void
+    {
         Schema::dropIfExists('sessions');
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('users');

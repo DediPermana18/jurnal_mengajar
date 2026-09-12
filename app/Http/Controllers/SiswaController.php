@@ -177,6 +177,11 @@ class SiswaController extends Controller
      */
     public function update(Request $request, $id)
     {
+        // Guard: Data Master tidak dapat diubah saat dalam mode preview/testing.
+        if (auth()->user()?->isTestingUser()) {
+            return back()->with('error', 'Data Master asli tidak dapat diubah saat dalam mode preview/testing.');
+        }
+
         $request->validate([
             'nisn' => "nullable|string|max:20|unique:siswa,nisn,{$id}",
             'nis' => "required|string|max:20|unique:siswa,nis,{$id}",
@@ -215,6 +220,11 @@ class SiswaController extends Controller
      */
     public function destroy($id)
     {
+        // Guard: Data Master tidak dapat dihapus saat dalam mode preview/testing.
+        if (auth()->user()?->isTestingUser()) {
+            return back()->with('error', 'Data Master asli tidak dapat dihapus saat dalam mode preview/testing.');
+        }
+
         $siswa = Siswa::findOrFail($id);
         $siswa->delete();
 

@@ -36,11 +36,11 @@ class KurikulumLaporanTest extends TestCase
     protected function makeUser(string $role, ?string $subRole = null): User
     {
         return User::create([
-            'nama'      => 'User ' . Str::random(5),
-            'username'  => 'user_' . Str::random(8),
-            'password'  => bcrypt('password'),
-            'role'      => $role,
-            'sub_role'  => $subRole,
+            'nama' => 'User '.Str::random(5),
+            'username' => 'user_'.Str::random(8),
+            'password' => bcrypt('password'),
+            'role' => $role,
+            'sub_role' => $subRole,
             'is_active' => true,
         ]);
     }
@@ -48,31 +48,31 @@ class KurikulumLaporanTest extends TestCase
     protected function makeSetup(): array
     {
         $admin = $this->makeUser('admin', 'waka_kurikulum');
-        $guru  = $this->makeUser('guru', 'guru_mapel');
+        $guru = $this->makeUser('guru', 'guru_mapel');
 
         $tahunAjaran = TahunAjaran::create(['tahun_ajaran' => '2026/2027', 'semester' => 'Ganjil', 'is_active' => true]);
-        $kelasX      = Kelas::create(['nama_kelas' => 'X IPA 1', 'tingkat' => 'X']);
-        $kelasXI     = Kelas::create(['nama_kelas' => 'XI IPA 1', 'tingkat' => 'XI']);
-        $mapel       = MataPelajaran::create(['nama_mapel' => 'Matematika', 'kode_mapel' => 'MTK']);
-        $jam         = JamPelajaran::create(['kategori_hari' => 'Senin-Kamis', 'jam_ke' => 1, 'jam_mulai' => '07:30:00', 'jam_selesai' => '09:00:00', 'jenis' => 'kbm']);
+        $kelasX = Kelas::create(['nama_kelas' => 'X IPA 1', 'tingkat' => 'X']);
+        $kelasXI = Kelas::create(['nama_kelas' => 'XI IPA 1', 'tingkat' => 'XI']);
+        $mapel = MataPelajaran::create(['nama_mapel' => 'Matematika', 'kode_mapel' => 'MTK']);
+        $jam = JamPelajaran::create(['kategori_hari' => 'Senin-Kamis', 'jam_ke' => 1, 'jam_mulai' => '07:30:00', 'jam_selesai' => '09:00:00', 'jenis' => 'kbm']);
 
         $jadwalX = JadwalPelajaran::create([
-            'group_id'       => (string) Str::uuid(),
-            'hari'           => 'Senin',
-            'id_jam'         => $jam->id,
-            'id_kelas'       => $kelasX->id,
-            'id_mapel'       => $mapel->id,
-            'id_guru'        => $guru->id,
+            'group_id' => (string) Str::uuid(),
+            'hari' => 'Senin',
+            'id_jam' => $jam->id,
+            'id_kelas' => $kelasX->id,
+            'id_mapel' => $mapel->id,
+            'id_guru' => $guru->id,
             'id_tahun_ajaran' => $tahunAjaran->id,
         ]);
 
         $jadwalXI = JadwalPelajaran::create([
-            'group_id'       => (string) Str::uuid(),
-            'hari'           => 'Selasa',
-            'id_jam'         => $jam->id,
-            'id_kelas'       => $kelasXI->id,
-            'id_mapel'       => $mapel->id,
-            'id_guru'        => $guru->id,
+            'group_id' => (string) Str::uuid(),
+            'hari' => 'Selasa',
+            'id_jam' => $jam->id,
+            'id_kelas' => $kelasXI->id,
+            'id_mapel' => $mapel->id,
+            'id_guru' => $guru->id,
             'id_tahun_ajaran' => $tahunAjaran->id,
         ]);
 
@@ -82,12 +82,12 @@ class KurikulumLaporanTest extends TestCase
     protected function makeJurnal(int $idJadwal, int $guruId, string $tanggal, string $materi, string $status): Jurnal
     {
         return Jurnal::create([
-            'id_jadwal'        => $idJadwal,
-            'id_guru'          => $guruId,
+            'id_jadwal' => $idJadwal,
+            'id_guru' => $guruId,
             'status_kehadiran' => $status,
-            'tanggal'          => $tanggal,
-            'materi'           => $materi,
-            'waktu_isi'        => now(),
+            'tanggal' => $tanggal,
+            'materi' => $materi,
+            'waktu_isi' => now(),
         ]);
     }
 
@@ -161,7 +161,7 @@ class KurikulumLaporanTest extends TestCase
 
         $this->actingAs($s['admin'])
             ->get(route('kurikulum.laporan.index', [
-                'tanggal_mulai'   => '2026-08-01',
+                'tanggal_mulai' => '2026-08-01',
                 'tanggal_selesai' => '2026-08-10',
             ]))
             ->assertOk()
