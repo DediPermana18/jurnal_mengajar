@@ -47,10 +47,12 @@ class PetugasItController extends Controller
     }
 
     /**
-     * Atur mode pandang data testing pada Global Scope:
-     *  - all     : lihat semua data (real + testing)
-     *  - real    : hanya data real (is_testing = false)
-     *  - testing : hanya data hasil testing (is_testing = true)
+     * Simpan preferensi mode pandang data testing ke sesi ('all' / 'real' / 'testing').
+     *
+     * Catatan: isolasi data pada global scope TestingDataScope bersifat ketat —
+     * Petugas IT / QA hanya melihat data testing (is_testing_data = true). Preferensi
+     * ini dipertahankan untuk kebutuhan sesi / kompatibilitas dan tidak lagi
+     * memengaruhi query pada scope global.
      */
     public function setTestingView(Request $request)
     {

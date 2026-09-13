@@ -126,13 +126,13 @@
     <div class="card border-0 rounded-4 shadow-sm mb-4 bg-white">
         <div class="card-body p-4">
             <form method="GET" action="{{ route('admin.jadwal.index') }}" id="filterForm">
-                <div class="row g-4 align-items-end">
-                    {{-- Kolom Kiri: Pilih Kelas --}}
-                    <div class="col-lg-7 col-12">
+                <div class="row g-3">
+                    {{-- Baris 1: Pilih Kelas (full width) --}}
+                    <div class="col-12">
                         <label class="form-label fw-bold text-dark mb-2" style="font-size: 0.9rem;">
                             <i class="bi bi-door-open-fill text-primary me-1"></i> Pilih Kelas
                         </label>
-                        <select name="id_kelas" id="selectKelas" class="form-select rounded-3" onchange="this.form.submit()">
+                        <select name="id_kelas" id="selectKelas" class="form-select rounded-3 w-100" onchange="this.form.submit()">
                             <option value="">-- Pilih Kelas --</option>
                             @foreach($kelasList as $kelas)
                                 <option value="{{ $kelas->id }}" {{ $selectedKelas && $selectedKelas->id == $kelas->id ? 'selected' : '' }}>
@@ -142,20 +142,20 @@
                         </select>
                     </div>
 
-                    {{-- Kolom Kanan: Pilih Hari (Horizontal Row) --}}
-                    <div class="col-lg-5 col-12">
+                    {{-- Baris 2: Pilih Hari (full width, tombol bisa wrap) --}}
+                    <div class="col-12">
                         <label class="form-label fw-bold text-dark mb-2" style="font-size: 0.9rem;">
                             <i class="bi bi-calendar-week-fill text-primary me-1"></i> Pilih Hari
                         </label>
-                        <div class="d-flex gap-2 flex-nowrap overflow-x-auto pb-2 pb-md-0" style="scrollbar-width: thin;">
+                        <div class="d-flex gap-2 flex-wrap">
                             @foreach($hariList as $hari)
                                 @php
                                     $isActive = ($selectedHari === $hari);
                                 @endphp
                                 <button type="submit" name="hari" value="{{ $hari }}"
                                         @click="activeHari = '{{ $hari }}'"
-                                        class="btn rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 {{ $isActive ? 'btn-primary shadow-sm text-white' : 'btn-light border text-dark' }}"
-                                        style="font-size: 0.9rem; min-width: fit-content; white-space: nowrap; flex: 1 0 auto;">
+                                        class="btn rounded-3 fw-semibold px-3 py-2 d-flex align-items-center gap-2 {{ $isActive ? 'btn-primary shadow-sm text-white' : 'btn-light border text-dark' }}"
+                                        style="font-size: 0.9rem; white-space: nowrap;">
                                     <i class="bi {{ $hari === 'Jumat' ? 'bi-calendar2-day' : 'bi-calendar-day' }} fs-5"></i>
                                     <span>{{ $hari }}</span>
                                 </button>
@@ -246,14 +246,7 @@
                     </div>
                 @else
                     <div class="table-responsive w-full overflow-x-auto">
-                            @if(auth()->user()?->isTestingUser())
-                                <div class="alert alert-warning alert-dismissible fade show mb-3" role="alert">
-                                    <strong>Mode Preview Active:</strong> Pemetaan Jadwal Kelas bersifat Read-Only.
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                                </div>
-                            @endif
-
-                            <fieldset @if(auth()->user()?->isTestingUser()) disabled @endif>
+                            <fieldset>
                             <table class="table table-hover align-middle mb-0 min-w-full" style="font-size: 0.9rem;">
                             <thead style="background: #0775e3;">
                                 <tr>
@@ -288,8 +281,8 @@
                                         $jadwal = $jadwalList->get($jam->id);
 
                                         // Flag data testing (terkunci untuk non-IT)
-                                        $jamLocked = ($jam->is_testing && !auth()->user()?->isPetugasIt());
-                                        $jadwalLocked = $jadwal && $jadwal->is_testing && !auth()->user()?->isPetugasIt();
+                                        $jamLocked = ($jam->is_testing_data && !auth()->user()?->isPetugasIt());
+                                        $jadwalLocked = $jadwal && $jadwal->is_testing_data && !auth()->user()?->isPetugasIt();
 
                                         // Cek batas jam pulang: apakah slot ini melewati maxJamKe?
                                         $isPulang = !$isIstirahat

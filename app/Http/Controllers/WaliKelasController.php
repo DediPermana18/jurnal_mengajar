@@ -19,9 +19,12 @@ class WaliKelasController extends Controller
     public function dashboard()
     {
         $user = auth()->user();
-        abort_unless($user && $user->isWaliKelas(), 403, 'Akses ditolak. Halaman ini khusus untuk Wali Kelas.');
+        abort_unless($user && ($user->isPetugasIt() || $user->isWaliKelas()), 403, 'Akses ditolak. Halaman ini khusus untuk Wali Kelas.');
 
         $kelasSaya = $user->kelasWali()->get();
+        if ($user->isPetugasIt() && $kelasSaya->isEmpty()) {
+            $kelasSaya = Kelas::all();
+        }
         $kelasIds = $kelasSaya->pluck('id');
         $today = Carbon::today()->toDateString();
 
@@ -79,9 +82,12 @@ class WaliKelasController extends Controller
     public function rekapAbsen()
     {
         $user = auth()->user();
-        abort_unless($user && $user->isWaliKelas(), 403, 'Akses ditolak. Halaman ini khusus untuk Wali Kelas.');
+        abort_unless($user && ($user->isPetugasIt() || $user->isWaliKelas()), 403, 'Akses ditolak. Halaman ini khusus untuk Wali Kelas.');
 
         $kelasSaya = $user->kelasWali()->get();
+        if ($user->isPetugasIt() && $kelasSaya->isEmpty()) {
+            $kelasSaya = Kelas::all();
+        }
         $kelasIds = $kelasSaya->pluck('id');
         $namaKelasSaya = $kelasSaya->pluck('nama_lengkap')->implode(', ');
 
@@ -130,9 +136,12 @@ class WaliKelasController extends Controller
     public function riwayatJurnal()
     {
         $user = auth()->user();
-        abort_unless($user && $user->isWaliKelas(), 403, 'Akses ditolak. Halaman ini khusus untuk Wali Kelas.');
+        abort_unless($user && ($user->isPetugasIt() || $user->isWaliKelas()), 403, 'Akses ditolak. Halaman ini khusus untuk Wali Kelas.');
 
         $kelasSaya = $user->kelasWali()->get();
+        if ($user->isPetugasIt() && $kelasSaya->isEmpty()) {
+            $kelasSaya = Kelas::all();
+        }
         $kelasIds = $kelasSaya->pluck('id');
         $namaKelasSaya = $kelasSaya->pluck('nama_lengkap')->implode(', ');
 
@@ -184,9 +193,12 @@ class WaliKelasController extends Controller
     public function siswaBermasalah()
     {
         $user = auth()->user();
-        abort_unless($user && $user->isWaliKelas(), 403, 'Akses ditolak. Halaman ini khusus untuk Wali Kelas.');
+        abort_unless($user && ($user->isPetugasIt() || $user->isWaliKelas()), 403, 'Akses ditolak. Halaman ini khusus untuk Wali Kelas.');
 
         $kelasWali = $user->kelasWali()->with('siswa')->get();
+        if ($user->isPetugasIt() && $kelasWali->isEmpty()) {
+            $kelasWali = Kelas::with('siswa')->get();
+        }
         $kelasIds = $kelasWali->pluck('id');
 
         $daftarSiswa = Siswa::with('kelas')
@@ -241,7 +253,7 @@ class WaliKelasController extends Controller
     public function siswaBermasalahStore(Request $request)
     {
         $user = auth()->user();
-        abort_unless($user && $user->isWaliKelas(), 403, 'Akses ditolak. Halaman ini khusus untuk Wali Kelas.');
+        abort_unless($user && ($user->isPetugasIt() || $user->isWaliKelas()), 403, 'Akses ditolak. Halaman ini khusus untuk Wali Kelas.');
 
         $validated = $request->validate([
             'id_siswa' => 'required|exists:siswa,id',
@@ -256,6 +268,9 @@ class WaliKelasController extends Controller
         ]);
 
         $kelasIds = $user->kelasWali()->pluck('id');
+        if ($user->isPetugasIt() && $kelasIds->isEmpty()) {
+            $kelasIds = Kelas::pluck('id');
+        }
         $siswa = Siswa::where('id', $validated['id_siswa'])->whereIn('id_kelas', $kelasIds)->first();
 
         abort_unless($siswa, 403, 'Siswa bukan bagian dari kelas wali kelas Anda.');

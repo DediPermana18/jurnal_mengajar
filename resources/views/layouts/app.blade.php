@@ -596,30 +596,33 @@
                 // 1b2. Role Waka Kesiswaan (role=admin & sub_role=waka_kesiswaan)
                 $isWakaKesiswaanRole = ($userRole === 'admin' && $userSubRole === 'waka_kesiswaan')
                                      || in_array($userRole, ['waka_kesiswaan', 'admin_kesiswaan', 'kesiswaan'])
-                                     || ($user ? $user->isWakaKesiswaan() : false);
+                                     // hanya panggil method asli jika tidak sedang preview
+                                     || (!$previewRole && $user && $user->isWakaKesiswaan());
 
                 // 1c. Role Kepala Sekolah (role=kepsek / kepala_sekolah / admin & sub_role=kepsek)
                 $isKepsekRole = ($userRole === 'admin' && in_array($userSubRole, ['kepsek', 'kepala_sekolah'])) 
                              || in_array($userRole, ['kepsek', 'kepala_sekolah'])
-                             || ($user ? $user->isKepsek() : false);
+                             // hanya panggil method asli jika tidak sedang preview
+                             || (!$previewRole && $user && $user->isKepsek());
 
-                // 2. Role Satpam (role=admin & sub_role=satpam / role lama piket_satpam)
-                $isSatpamRole = $user ? $user->isSatpam() : false;
+                // 2. Role Satpam — gunakan $userRole/$userSubRole (sudah di-resolve dari previewRole)
+                //    JANGAN pakai $user->isSatpam() karena itu membaca role asli dari DB.
+                $isSatpamRole = ($userRole === 'admin' && $userSubRole === 'satpam')
+                             || $userRole === 'piket_satpam';
 
                 // 3. Petugas Piket ditentukan dari jadwal_piket pada hari berjalan (Senin–Jumat).
                 //    Saat preview 'guru_piket', dipaksa aktif agar menu terlihat.
                 $isGuruPiketRole = ($previewRole === 'guru_piket') 
-                                || ($user ? $user->isPetugasPiketHariIni() : false);
+                                || ($user && !$previewRole && $user->isPetugasPiketHariIni());
 
                 // 4. Role Wali Kelas (role=guru & sub_role=wali_kelas, atau terikat sebagai wali kelas).
                 //    Deteksi lewat model (sub_role wali_kelas / terikat kelas), bukan hanya role string.
-                $isWaliKelasUser = $user ? $user->isWaliKelas() : false;
+                $isWaliKelasUser = ($user && !$previewRole) ? $user->isWaliKelas() : false;
                 $isWaliKelasRole = ($userRole === 'guru' && $userSubRole === 'wali_kelas')
                                 || ($userRole === 'wali_kelas')
                                 || $isWaliKelasUser;
 
-                // 5. Guru Context (Guru Mapel & Wali Kelas). Termasuk yang juga bertugas Piket,
-                //    agar menu PORTAL GURU & KELAS SAYA tetap tampil meski sedang membuka modul Piket.
+                // 5. Guru Context (Guru Mapel & Wali Kelas).
                 $isGuruRole = ($userRole === 'guru');
                 $isGuruContext = $isGuruRole;
 

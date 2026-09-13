@@ -113,7 +113,7 @@
                 <tbody>
                     @forelse($dataJurnal as $jurnal)
                         @php
-                            $testingLocked = ($jurnal->is_testing && !auth()->user()?->isPetugasIt());
+                            $testingLocked = ($jurnal->is_testing_data && !auth()->user()?->isPetugasIt());
                             $statusClass = match($jurnal->status_kehadiran) {
                                 'Izin' => 'bg-warning-subtle text-warning-emphasis border-warning-subtle',
                                 'Sakit' => 'bg-danger-subtle text-danger border-danger-subtle',

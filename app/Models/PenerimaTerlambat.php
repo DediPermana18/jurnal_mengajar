@@ -27,7 +27,7 @@ class PenerimaTerlambat extends Model
     ];
 
     protected $casts = [
-        'is_testing' => 'boolean',
+        'is_testing_data' => 'boolean',
     ];
 
     public function catatan(): BelongsTo

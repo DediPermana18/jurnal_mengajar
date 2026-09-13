@@ -124,7 +124,7 @@ class SatpamController extends Controller
                 'guru' => $j->guru?->nama ?? '-',
                 'waktu' => $j->jamPelajaran->rentang_waktu,
                 'aktif' => $jamKe !== null && (int) $j->jamPelajaran->jam_ke === $jamKe,
-                'is_testing' => $j->is_testing,
+                'is_testing_data' => $j->is_testing_data,
             ];
         }
 

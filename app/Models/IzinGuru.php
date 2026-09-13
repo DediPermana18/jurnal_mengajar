@@ -82,7 +82,7 @@ class IzinGuru extends Model
     protected $casts = [
         'tanggal' => 'date',
         'approved_at' => 'datetime',
-        'is_testing' => 'boolean',
+        'is_testing_data' => 'boolean',
     ];
 
     /**

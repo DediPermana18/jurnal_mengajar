@@ -50,7 +50,7 @@ class CatatanTerlambat extends Model
     protected $casts = [
         'tanggal' => 'date',
         'jam_masuk' => 'datetime',
-        'is_testing' => 'boolean',
+        'is_testing_data' => 'boolean',
     ];
 
     /**

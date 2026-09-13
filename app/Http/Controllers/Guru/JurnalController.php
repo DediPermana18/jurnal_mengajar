@@ -662,8 +662,8 @@ class JurnalController extends Controller
         $today = Carbon::today()->toDateString();
         $jurnalTanggal = $jurnal->tanggal ? $jurnal->tanggal->format('Y-m-d') : null;
 
-        // Kunci edit jika jurnal berasal dari tanggal lalu (Read-Only)
-        if ($jurnalTanggal && $jurnalTanggal < $today) {
+        // Kunci edit jika jurnal berasal dari tanggal lalu (Read-Only), kecuali Petugas IT / QA
+        if ($jurnalTanggal && $jurnalTanggal < $today && ! auth()->user()?->isPetugasIt()) {
             return redirect()
                 ->route('guru.jurnal.show', $jurnal->id)
                 ->with('error', 'Jurnal pada tanggal lalu sudah terkunci dan hanya dapat dilihat (Read-Only).');
@@ -700,7 +700,7 @@ class JurnalController extends Controller
         // Guard: jurnal data testing hanya dapat diubah oleh IT/QA.
         $this->authorizeTestingMutation($jurnal);
 
-        if ($jurnalTanggal && $jurnalTanggal < $today) {
+        if ($jurnalTanggal && $jurnalTanggal < $today && ! auth()->user()?->isPetugasIt()) {
             abort(403, 'Jurnal pada tanggal lalu sudah terkunci dan tidak dapat diubah.');
         }
 

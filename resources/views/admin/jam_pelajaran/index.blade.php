@@ -34,12 +34,6 @@
             </button>
         </div>
     </div>
-    @if(auth()->user()?->isTestingUser())
-        <div class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
-            <strong>Mode Preview Active:</strong> Seluruh konfigurasi Master Jam Pelajaran bersifat Read-Only.
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
 
     {{-- Alert Messages --}}
     @if(session('success'))
@@ -349,7 +343,6 @@
         </div>
 </div>
 
-    @if(auth()->user()?->isTestingUser())
     <div class="card border-0 rounded-4 shadow-sm">
         <div class="card-body px-4 pb-4 pt-2">
             <form method="POST" action="{{ route('admin.agenda-rutin.upsert') }}" id="formAgendaRutin">
@@ -361,7 +354,7 @@
                     {{-- Kolom Kiri: Pengaturan Upacara Bendera (Hari Senin) --}}
                     <div class="col-12 col-lg-6">
                         {{-- Fieldset Guard Untuk Setiap Kolom --}}
-                        <fieldset @if(auth()->user()?->isTestingUser()) disabled @endif class="border-0 p-0 m-0">
+                        <fieldset class="border-0 p-0 m-0">
                             <form method="POST" action="{{ route('admin.agenda-rutin.upsert') }}" id="formAgendaSenin">
                                 @csrf
                                 <input type="hidden" name="hari" value="Senin">
@@ -400,7 +393,7 @@
                                 </div>
 
                                 @php
-                                    $agendaSeninLocked = (isset($agendaSenin) && $agendaSenin->is_testing && !auth()->user()?->isPetugasIt());
+                                    $agendaSeninLocked = (isset($agendaSenin) && $agendaSenin->is_testing_data && !auth()->user()?->isPetugasIt());
                                 @endphp
 
                                 {{-- Konten Form: Dropdown + Toggle + Info + Tombol --}}
@@ -458,7 +451,7 @@
                     {{-- Kolom Kanan: Pengaturan Pembiasaan (Hari Jumat) --}}
                     <div class="col-12 col-lg-6">
                         {{-- Fieldset Guard Untuk Setiap Kolom --}}
-                        <fieldset @if(auth()->user()?->isTestingUser()) disabled @endif class="border-0 p-0 m-0">
+                        <fieldset class="border-0 p-0 m-0">
                             <form method="POST" action="{{ route('admin.agenda-rutin.upsert') }}" id="formAgendaJumat">
                                 @csrf
                                 <input type="hidden" name="hari" value="Jumat">
@@ -466,7 +459,7 @@
 
                                 {{-- Konten Card Kanan: Pembiasaan --}}
                                 @php
-                                    $agendaJumatLocked = (isset($agendaJumat) && $agendaJumat->is_testing && !auth()->user()?->isPetugasIt());
+                                    $agendaJumatLocked = (isset($agendaJumat) && $agendaJumat->is_testing_data && !auth()->user()?->isPetugasIt());
                                 @endphp
                                 <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
                                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -556,7 +549,6 @@
     </div>
     </div>
 </div>
-    @endif
 
 {{-- ===================== MODAL GENERATE PRESET JAM ===================== --}}
 <div class="modal fade" id="modalGeneratePreset" tabindex="-1" aria-labelledby="modalGeneratePresetTitle" aria-hidden="true">

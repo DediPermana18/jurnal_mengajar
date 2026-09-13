@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Tabel operasional/transaksi yang belum memiliki kolom is_testing.
+     * Tabel operasional/transaksi yang belum memiliki kolom is_testing_data.
+     * (pengaturan_jadwal ditangani migrasi khusus is_testing_data-nya sendiri.)
      */
     private const REMAINING_TABLES = [
         'agenda_rutin',
@@ -16,22 +17,19 @@ return new class extends Migration
         'jam_pelajaran',
         'jam_pulang',
         'penerima_catatan_terlambat',
-        'pengaturan_jadwal',
         'pengurus_ruangan',
     ];
 
     public function up(): void
     {
         foreach (self::REMAINING_TABLES as $tableName) {
-            if (! Schema::hasTable($tableName) || Schema::hasColumn($tableName, 'is_testing')) {
+            if (! Schema::hasTable($tableName) || Schema::hasColumn($tableName, 'is_testing_data')) {
                 continue;
             }
 
             Schema::table($tableName, function (Blueprint $table) {
-                // Posisi kolom: setelah updated_at (MySQL hanya mendukung AFTER).
-                $table->boolean('is_testing')->default(false)->after('updated_at');
-
-                $table->index('is_testing');
+                $table->boolean('is_testing_data')->default(false);
+                $table->index('is_testing_data');
             });
         }
     }
@@ -39,13 +37,12 @@ return new class extends Migration
     public function down(): void
     {
         foreach (self::REMAINING_TABLES as $tableName) {
-            if (! Schema::hasTable($tableName) || ! Schema::hasColumn($tableName, 'is_testing')) {
+            if (! Schema::hasTable($tableName) || ! Schema::hasColumn($tableName, 'is_testing_data')) {
                 continue;
             }
 
             Schema::table($tableName, function (Blueprint $table) {
-                // MySQL otomatis menghapus index yang hanya menempel pada kolom ini.
-                $table->dropColumn('is_testing');
+                $table->dropColumn('is_testing_data');
             });
         }
     }

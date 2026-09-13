@@ -27,7 +27,7 @@
         </div>
 
         <!-- Tombol Tambah Kelas (Role Admin_TU, Admin, & Super Admin) -->
-        @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
+        @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
             <div class="d-flex gap-2">
                 <!-- Tombol Export Kelas -->
                 <div class="dropdown">
@@ -134,7 +134,7 @@
                         <th class="whitespace-nowrap" style="width: 25%;">JURUSAN</th>
                         <th style="width: 25%;">WALI KELAS</th>
                         <th class="whitespace-nowrap" style="width: 10%;">TOTAL SISWA</th>
-                        @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
+                        @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
                             <th class="text-end whitespace-nowrap" style="width: 10%;">AKSI</th>
                         @endif
                     </tr>
@@ -228,7 +228,7 @@
                             </td>
 
                             <!-- Kolom AKSI -->
-                            @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
+                            @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
                                 <td class="text-end whitespace-nowrap">
                                     <div class="dropdown">
                                         <button class="btn btn-sm btn-light border rounded-3 dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-boundary="window" aria-expanded="false">
@@ -268,7 +268,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) ? 6 : 5 }}" class="text-center py-5 text-muted">
+                            <td colspan="{{ in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()) ? 6 : 5 }}" class="text-center py-5 text-muted">
                                 <i class="bi bi-door-closed fs-1 d-block mb-2 text-secondary"></i>
                                 Belum ada data kelas yang sesuai dengan kriteria pencarian/filter.
                             </td>
@@ -292,7 +292,7 @@
 </div>
 
 <!-- ================= MODALS KHUSUS ROLE ADMIN ================= -->
-@if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
+@if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
 
 <!-- MODAL TAMBAH KELAS -->
 <div class="modal fade" id="modalTambahKelas" tabindex="-1" aria-labelledby="modalTambahKelasLabel" aria-hidden="true">

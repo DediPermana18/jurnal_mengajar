@@ -19,11 +19,6 @@ class JamPulangController extends Controller
      */
     public function upsert(Request $request)
     {
-        // Guard: Pengaturan jam pulang tidak boleh disimpan saat Mode Preview/Testing.
-        if (auth()->user()?->isTestingUser()) {
-            return back()->with('error', 'Pengaturan Jam Pulang tidak dapat disimpan saat Mode Preview.');
-        }
-
         $request->validate([
             'jam_pulang' => 'required|array',
             'jam_pulang.*' => 'array',

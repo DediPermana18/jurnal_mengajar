@@ -167,11 +167,6 @@ class GuruController extends Controller
     {
         $this->authorizePetugasTU();
 
-        // Guard: Data Master tidak dapat diubah saat dalam mode preview/testing.
-        if (auth()->user()?->isTestingUser()) {
-            return back()->with('error', 'Data Master asli tidak dapat diubah saat dalam mode preview/testing.');
-        }
-
         $user = User::withTrashed()->where('role', User::ROLE_GURU)->findOrFail($id);
 
         $request->validate([
@@ -213,11 +208,6 @@ class GuruController extends Controller
     public function destroy($id)
     {
         $this->authorizeAdmin();
-
-        // Guard: Data Master tidak dapat dihapus saat dalam mode preview/testing.
-        if (auth()->user()?->isTestingUser()) {
-            return back()->with('error', 'Data Master asli tidak dapat dihapus saat dalam mode preview/testing.');
-        }
 
         $user = User::where('role', User::ROLE_GURU)->findOrFail($id);
 

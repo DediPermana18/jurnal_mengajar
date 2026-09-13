@@ -3,14 +3,6 @@
 @section('title', 'Edit Data Jurusan - WebJournal Management System')
 @section('content')
 <div class="container-fluid px-0" style="max-width: 760px;">
-
-    @if(auth()->user()?->isTestingUser())
-        <div class="alert alert-warning alert-dismissible fade show rounded-4 shadow-sm mb-4" role="alert">
-            <strong>Mode Preview Active:</strong> Data Master bersifat Read-Only untuk mencegah perubahan pada data produksi.
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
-
     <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
             <h3 class="fw-bold text-dark mb-1" style="font-size: 1.65rem; letter-spacing: -0.02em;">Edit Data Jurusan</h3>
@@ -32,7 +24,7 @@
         </div>
     @endif
 
-    <fieldset @if(auth()->user()?->isTestingUser()) disabled @endif>
+    <fieldset>
         <div class="card border-0 shadow-sm rounded-4 bg-white p-4">
             <form action="{{ route('jurusan.update', $jurusan->id) }}" method="POST">
                 @csrf

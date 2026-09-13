@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTestingData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MataPelajaran extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasTestingData;
 
     protected $table = 'mata_pelajaran';
 
@@ -19,9 +20,12 @@ class MataPelajaran extends Model
         'kode_mapel',
         'kelompok',
         'jurusan_id',
+        'is_testing_data',
     ];
 
-    protected $casts = [];
+    protected $casts = [
+        'is_testing_data' => 'boolean',
+    ];
 
     /**
      * Relasi ke Jurusan (Mapel Kejuruan milik satu Jurusan; Mapel umum = null)

@@ -321,7 +321,7 @@ class JadwalPelajaranController extends Controller
                             ->orWhere('id_guru', $validated['id_guru']);
                     })
                     ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
-                    ->where('is_testing', true)
+                    ->where('is_testing_data', true)
             );
 
             // Mode Edit: saat group_id dikirim, seluruh slot pada grup yang sama diperbarui
@@ -471,7 +471,7 @@ class JadwalPelajaranController extends Controller
                             ->where('id_kelas', $validated['id_kelas'])
                             ->where('hari', $validated['hari'])
                             ->where('id_tahun_ajaran', $tahunAktif?->id)
-                            ->where('is_testing', true)
+                            ->where('is_testing_data', true)
                     );
 
                     JadwalPelajaran::withTrashed()
@@ -642,7 +642,7 @@ class JadwalPelajaranController extends Controller
                             ->orWhere('id_kelas', $validated['id_kelas']);
                     })
                     ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
-                    ->where('is_testing', true)
+                    ->where('is_testing_data', true)
             );
 
             DB::transaction(function () use ($jadwalPelajaran, $validated, $tahunAktif) {

@@ -85,11 +85,6 @@ class JurusanController extends Controller
     {
         $this->authorizePetugasTU();
 
-        // Guard: Data Master tidak dapat diubah saat dalam mode preview/testing.
-        if (auth()->user()?->isTestingUser()) {
-            return back()->with('error', 'Data Master asli tidak dapat diubah saat dalam mode preview/testing.');
-        }
-
         $jurusan = Jurusan::findOrFail($id);
         $validated = $request->validate([
             'kode_jurusan' => 'required|string|max:20|unique:jurusan,kode_jurusan,'.$jurusan->id,
@@ -108,11 +103,6 @@ class JurusanController extends Controller
     public function destroy($id)
     {
         $this->authorizePetugasTU();
-
-        // Guard: Data Master tidak dapat dihapus saat dalam mode preview/testing.
-        if (auth()->user()?->isTestingUser()) {
-            return back()->with('error', 'Data Master asli tidak dapat dihapus saat dalam mode preview/testing.');
-        }
 
         $jurusan = Jurusan::withCount('kelas')->findOrFail($id);
 

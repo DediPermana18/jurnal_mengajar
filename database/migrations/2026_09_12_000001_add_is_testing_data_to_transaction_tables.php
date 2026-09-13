@@ -8,7 +8,7 @@ return new class extends Migration
 {
     /**
      * Tabel transaksional yang diisolasi untuk data testing (sandbox):
-     * data dengan is_testing = true hanya terlihat oleh Petugas IT / QA Tester.
+     * data dengan is_testing_data = true hanya dapat dikelola Petugas IT / QA Tester.
      */
     protected const TESTING_TABLES = [
         'dispensasi_siswa',
@@ -23,10 +23,10 @@ return new class extends Migration
     public function up(): void
     {
         foreach (self::TESTING_TABLES as $table) {
-            if (Schema::hasTable($table) && ! Schema::hasColumn($table, 'is_testing')) {
+            if (Schema::hasTable($table) && ! Schema::hasColumn($table, 'is_testing_data')) {
                 Schema::table($table, function (Blueprint $table) {
-                    $table->boolean('is_testing')->default(false);
-                    $table->index('is_testing');
+                    $table->boolean('is_testing_data')->default(false);
+                    $table->index('is_testing_data');
                 });
             }
         }
@@ -35,10 +35,10 @@ return new class extends Migration
     public function down(): void
     {
         foreach (self::TESTING_TABLES as $table) {
-            if (Schema::hasTable($table) && Schema::hasColumn($table, 'is_testing')) {
+            if (Schema::hasTable($table) && Schema::hasColumn($table, 'is_testing_data')) {
                 Schema::table($table, function (Blueprint $table) {
-                    $table->dropIndex(['is_testing']);
-                    $table->dropColumn('is_testing');
+                    $table->dropIndex(['is_testing_data']);
+                    $table->dropColumn('is_testing_data');
                 });
             }
         }

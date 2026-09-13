@@ -14,7 +14,7 @@ abstract class Controller
      *
      * Urutan prioritas:
      *  1. Petugas IT / QA Tester (langsung maupun sedang impersonation "Switch View As")
-     *     selalu diizinkan sebagai penguji — inputan dibedakan lewat flag is_testing.
+     *     selalu diizinkan sebagai penguji — inputan dibedakan lewat flag is_testing_data.
      *  2. Role efektif (effectiveRole dari active_role) dicek terlebih dahulu,
      *     sehingga impersonasi admin_tu / waka_* tetap mendapat akses sesuai
      *     role yang dipilih tanpa perlu login ulang.
@@ -37,7 +37,7 @@ abstract class Controller
     }
 
     /**
-     * Guard mutasi data testing (is_testing = true).
+     * Guard mutasi data testing (is_testing_data = true).
      *
      * Hanya Petugas IT / QA Tester yang boleh mengubah, menghapus, menyetujui,
      * atau mengubah status record yang di-flag sebagai data pengujian.
@@ -49,7 +49,7 @@ abstract class Controller
             return;
         }
 
-        if (! $model->is_testing) {
+        if (! $model->is_testing_data) {
             return;
         }
 
@@ -61,7 +61,7 @@ abstract class Controller
     }
 
     /**
-     * Guard batch mutasi data testing: tolak bila ada record is_testing = true
+     * Guard batch mutasi data testing: tolak bila ada record is_testing_data = true
      * yang akan terpengaruh operasi ini dan pelakunya BUKAN Petugas IT / QA.
      */
     protected function authorizeTestingBatch(?Builder $query): void

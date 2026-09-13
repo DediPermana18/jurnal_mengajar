@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTestingData;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,7 +16,7 @@ use Illuminate\Support\Collection;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, SoftDeletes;
+    use HasFactory, Notifiable, SoftDeletes, HasTestingData;
 
     public const ROLE_ADMIN = 'admin';
 
@@ -94,11 +95,13 @@ class User extends Authenticatable
         'role',
         'sub_role',
         'kelas_id',
+        'is_testing_data',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'password' => 'hashed',
+        'is_testing_data' => 'boolean',
     ];
 
     protected $hidden = [
@@ -163,6 +166,7 @@ class User extends Authenticatable
     public function ruanganDikelola(): BelongsToMany
     {
         return $this->belongsToMany(Ruangan::class, 'pengurus_ruangan', 'user_id', 'ruangan_id')
+            ->using(PengurusRuangan::class)
             ->withTimestamps();
     }
 
@@ -339,9 +343,12 @@ class User extends Authenticatable
     }
 
     /**
-     * Apakah user Petugas IT sedang menguji (sandbox): membuat data testing?
+     * Apakah user adalah Petugas IT / QA Tester yang sedang menguji (sandbox)?
      * True untuk semua kegiatan Petugas IT / QA Tester, baik mode IT langsung
-     * maupun saat impersonasi — hasil inputan akan di-flag is_testing = true.
+     * maupun saat impersonasi ("Switch View As"). Menjadi basis isolasi global
+     * scope TestingDataScope:
+     *  - TRUE  → hanya melihat data testing (is_testing_data = true).
+     *  - FALSE → hanya melihat data real (is_testing_data = false).
      */
     public function isTestingUser(): bool
     {
@@ -349,9 +356,12 @@ class User extends Authenticatable
     }
 
     /**
-     * Mode pandang data testing pada scope global:
-     *  - Petugas IT: 'all' (default, lihat semua), 'real', atau 'testing'.
-     *  - Non-IT: selalu hanya melihat data real (is_testing = false).
+     * Mode pandang data testing yang disimpan di sesi ('all' / 'real' / 'testing').
+     *
+     * Catatan: global scope TestingDataScope kini mengisolasi data secara ketat
+     * (Petugas IT / QA hanya melihat data testing). Method ini dipertahankan
+     * sebagai preferensi sesi / kompatibilitas API dan tidak lagi memengaruhi
+     * query pada scope global.
      */
     public static function testingViewMode(): string
     {

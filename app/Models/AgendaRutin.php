@@ -22,6 +22,6 @@ class AgendaRutin extends Model
     protected $casts = [
         'jam_ke' => 'integer',
         'is_active' => 'boolean',
-        'is_testing' => 'boolean',
+        'is_testing_data' => 'boolean',
     ];
 }

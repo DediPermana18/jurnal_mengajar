@@ -11,7 +11,7 @@
             <h2 class="fw-black text-dark mb-1" style="letter-spacing: -0.02em; font-weight: 800; font-size: 1.75rem;">Data Master Ruangan</h2>
             <p class="text-muted mb-0" style="font-size: 0.9rem;">Kelola data ruangan sekolah beserta pengurus dan penugasan kelas.</p>
         </div>
-        @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
+        @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
             <div class="d-flex gap-2">
                 <!-- Tombol Export Ruangan -->
                 <div class="dropdown">
@@ -131,7 +131,7 @@
                                 @endif
                             </td>
                             <td class="whitespace-nowrap">
-                                @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
+                                @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
                                     <div class="flex items-center justify-center gap-2 whitespace-nowrap">
                                         <button type="button" class="btn btn-sm btn-warning text-white rounded-3 px-2 py-1" title="Edit ruangan"
                                                 data-bs-toggle="modal" data-bs-target="#modalEditRuangan"
@@ -164,7 +164,7 @@
 </div>
 
 {{-- ==================== MODAL TAMBAH RUANGAN ==================== --}}
-@if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
+@if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
 <div class="modal fade" id="modalTambahRuangan" tabindex="-1" aria-labelledby="modalTambahRuanganLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow rounded-4">

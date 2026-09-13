@@ -27,7 +27,7 @@ class JadwalPiket extends Model
     ];
 
     protected $casts = [
-        'is_testing' => 'boolean',
+        'is_testing_data' => 'boolean',
     ];
 
     /**

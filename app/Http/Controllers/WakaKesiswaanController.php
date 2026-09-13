@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DispensasiSiswa;
+use App\Models\Scopes\TestingDataScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -60,6 +61,10 @@ class WakaKesiswaanController extends Controller
      *
      * Catatan: surat tipe "Masuk Kelas" tidak melalui alur TTD Waka Kesiswaan
      * (tidak memiliki kotak TTD Waka), sehingga tidak dimasukkan ke daftar.
+     *
+     * Catatan impersonasi: Saat Petugas IT impersonasi 'waka_kesiswaan', TestingDataScope
+     * akan memfilter ke is_testing_data = true sehingga dispensasi real tidak muncul.
+     * Bypass scope agar daftar lengkap (real + testing) tetap tampil.
      */
     public function approvalIndex(Request $request)
     {
@@ -68,15 +73,23 @@ class WakaKesiswaanController extends Controller
             $filter = 'menunggu';
         }
 
-        $base = DispensasiSiswa::with(['siswa.kelas', 'guruPiket', 'wakaKesiswaan', 'approver'])
-            ->where('tipe_dispen', '!=', DispensasiSiswa::TIPE_MASUK);
+        $user           = Auth::user();
+        $isImpersonasi  = $user && $user->hasActiveRole() && $user->activeRole() === 'waka_kesiswaan';
+
+        // Saat impersonasi, bypass TestingDataScope agar record real juga tampil.
+        $baseQuery = $isImpersonasi
+            ? DispensasiSiswa::withoutGlobalScope(TestingDataScope::class)
+                ->with(['siswa.kelas', 'guruPiket', 'wakaKesiswaan', 'approver'])
+            : DispensasiSiswa::with(['siswa.kelas', 'guruPiket', 'wakaKesiswaan', 'approver']);
+
+        $base = $baseQuery->where('tipe_dispen', '!=', DispensasiSiswa::TIPE_MASUK);
 
         // Counter untuk badge di setiap tab.
         $counts = [
-            'menunggu' => (clone $base)->whereNull('ttd_waka')->whereIn('status', self::PENDING_STATUSES)->count(),
+            'menunggu'  => (clone $base)->whereNull('ttd_waka')->whereIn('status', self::PENDING_STATUSES)->count(),
             'disetujui' => (clone $base)->whereNotNull('ttd_waka')->where('status', '!=', DispensasiSiswa::STATUS_DITOLAK)->count(),
-            'ditolak' => (clone $base)->where('status', DispensasiSiswa::STATUS_DITOLAK)->count(),
-            'semua' => (clone $base)->count(),
+            'ditolak'   => (clone $base)->where('status', DispensasiSiswa::STATUS_DITOLAK)->count(),
+            'semua'     => (clone $base)->count(),
         ];
 
         $query = clone $base;
@@ -101,13 +114,40 @@ class WakaKesiswaanController extends Controller
 
     /**
      * Waka Kesiswaan menandatangani (TTD) dispensasi saat login.
+     *
+     * Catatan untuk Petugas IT / QA Tester yang sedang impersonasi Waka Kesiswaan:
+     * TestingDataScope memfilter query berdasarkan is_testing_data, sehingga record
+     * dispensasi real (is_testing_data = 0) tidak akan ditemukan oleh findOrFail()
+     * biasa. Gunakan withoutGlobalScope agar ID dapat di-resolve tanpa filter scope,
+     * lalu validasi otorisasi secara eksplisit setelahnya.
      */
     public function approvalStore(Request $request, $id)
     {
-        $dispensasi = DispensasiSiswa::findOrFail($id);
+        // Cari dispensasi tanpa TestingDataScope agar Petugas IT yang
+        // impersonasi Waka Kesiswaan dapat menemukan record real maupun testing.
+        $dispensasi = DispensasiSiswa::withoutGlobalScope(TestingDataScope::class)
+            ->findOrFail($id);
 
-        // Guard: surat data testing hanya dapat disetujui oleh IT/QA.
-        $this->authorizeTestingMutation($dispensasi);
+        $user = Auth::user();
+
+        // Guard otorisasi:
+        // - Data testing (is_testing_data = true): hanya Petugas IT/QA yang boleh.
+        // - Data real (is_testing_data = false): Waka Kesiswaan asli ATAU
+        //   Petugas IT yang sedang impersonasi role waka_kesiswaan.
+        if ($dispensasi->is_testing_data) {
+            // Record testing → hanya IT yang boleh mutasi
+            $this->authorizeTestingMutation($dispensasi);
+        } else {
+            // Record real → tolak jika bukan Waka Kesiswaan asli maupun impersonator
+            $isWakaAsli    = $user && $user->isWakaKesiswaan();
+            $isImpersonasi = $user && $user->hasActiveRole()
+                          && $user->activeRole() === 'waka_kesiswaan';
+            abort_unless(
+                $isWakaAsli || $isImpersonasi,
+                403,
+                'Akses ditolak. Halaman ini khusus untuk Waka Kesiswaan.'
+            );
+        }
 
         abort_unless(
             $dispensasi->status !== DispensasiSiswa::STATUS_DITOLAK && empty($dispensasi->ttd_waka),
@@ -119,27 +159,39 @@ class WakaKesiswaanController extends Controller
             'ttd_waka' => 'required|string|max:150000',
         ], [
             'ttd_waka.required' => 'Tanda tangan Waka Kesiswaan wajib diisi.',
-            'ttd_waka.max' => 'Ukuran tanda tangan terlalu besar.',
+            'ttd_waka.max'      => 'Ukuran tanda tangan terlalu besar.',
         ]);
 
-        $ttdWaka = preg_match('/^data:image\/png;base64,/i', trim((string) $validated['ttd_waka']))
+        // Terima PNG (canvas default) maupun JPEG (canvas terkompresi dari frontend)
+        $ttdWaka = preg_match('/^data:image\/(png|jpeg|jpg);base64,/i', trim((string) $validated['ttd_waka']))
             ? trim((string) $validated['ttd_waka'])
             : null;
 
         if (! $ttdWaka) {
-            return back()->withErrors(['ttd_waka' => 'Tanda tangan Waka Kesiswaan wajib digambar terlebih dahulu.']);
+            $errMsg = 'Tanda tangan Waka Kesiswaan wajib digambar terlebih dahulu.';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $errMsg], 422);
+            }
+            return back()->withErrors(['ttd_waka' => $errMsg]);
         }
 
         $wakaId = Auth::id();
 
         $dispensasi->update([
-            'ttd_waka' => $ttdWaka,
+            'ttd_waka'          => $ttdWaka,
             'waka_kesiswaan_id' => $wakaId,
-            'status' => DispensasiSiswa::STATUS_APPROVED,
-            'approved_at' => now(),
-            'approved_by' => $wakaId,
+            'status'            => DispensasiSiswa::STATUS_APPROVED,
+            'approved_at'       => now(),
+            'approved_by'       => $wakaId,
         ]);
 
-        return back()->with('success', 'Surat dispensasi berhasil ditandatangani Waka Kesiswaan.');
+        $successMsg = 'Surat dispensasi berhasil ditandatangani Waka Kesiswaan.';
+
+        // AJAX request (fetch dari frontend) → return JSON
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => $successMsg]);
+        }
+
+        return back()->with('success', $successMsg);
     }
 }

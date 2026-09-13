@@ -194,34 +194,34 @@ class PetugasItPreviewTest extends TestCase
             ->assertStatus(403);
     }
 
-    public function test_creating_as_petugas_it_sets_is_testing_true()
+    public function test_creating_as_petugas_it_sets_is_testing_data_true()
     {
         $it = $this->loginPetugasIt();
 
         $jurnal = $this->createJurnal(['materi' => 'Data uji dibuat IT']);
 
-        $this->assertTrue((bool) $jurnal->is_testing);
+        $this->assertTrue((bool) $jurnal->is_testing_data);
         $this->assertEquals($it->id, $jurnal->id_guru);
     }
 
-    public function test_creating_as_petugas_it_impersonating_sets_is_testing_true()
+    public function test_creating_as_petugas_it_impersonating_sets_is_testing_data_true()
     {
         $it = $this->loginPetugasIt();
         session(['active_role' => 'guru_mapel']);
 
         $jurnal = $this->createJurnal(['materi' => 'Impersonasi guru']);
 
-        $this->assertTrue((bool) $jurnal->is_testing);
+        $this->assertTrue((bool) $jurnal->is_testing_data);
         $this->assertEquals($it->id, $jurnal->id_guru);
     }
 
-    public function test_creating_as_non_it_keeps_is_testing_false()
+    public function test_creating_as_non_it_keeps_is_testing_data_false()
     {
         $guru = $this->loginGuru();
 
         $jurnal = $this->createJurnal(['materi' => 'Data real oleh guru']);
 
-        $this->assertFalse((bool) $jurnal->is_testing);
+        $this->assertFalse((bool) $jurnal->is_testing_data);
         $this->assertEquals($guru->id, $jurnal->id_guru);
     }
 
@@ -230,15 +230,15 @@ class PetugasItPreviewTest extends TestCase
         $this->loginPetugasIt();
         $testing = $this->createJurnal(['materi' => 'Data testing IT']);
 
-        $guru = $this->loginGuru();
+        $this->loginGuru();
         $real = $this->createJurnal(['materi' => 'Data real guru']);
 
         $ids = Jurnal::pluck('id')->all();
         $this->assertContains($real->id, $ids);
-        $this->assertContains($testing->id, $ids);
+        $this->assertNotContains($testing->id, $ids);
     }
 
-    public function test_it_sees_all_data_and_can_toggle_testing_mode()
+    public function test_it_only_sees_testing_data()
     {
         $this->loginPetugasIt();
         $testing = $this->createJurnal(['materi' => 'Data testing IT']);
@@ -246,27 +246,31 @@ class PetugasItPreviewTest extends TestCase
         $this->loginGuru();
         $real = $this->createJurnal(['materi' => 'Data real guru']);
 
-        // Mode default IT: semua data (real + testing)
+        // Petugas IT dipaksa hanya melihat data testing (is_testing_data = true).
         $this->loginPetugasIt();
-        $ids = Jurnal::pluck('id')->all();
-        $this->assertContains($real->id, $ids);
-        $this->assertContains($testing->id, $ids);
-
-        // Hanya data testing
-        $this->post(route('it.testing-view'), ['mode' => 'testing']);
         $ids = Jurnal::pluck('id')->all();
         $this->assertContains($testing->id, $ids);
         $this->assertNotContains($real->id, $ids);
+    }
 
-        // Hanya data real
-        $this->post(route('it.testing-view'), ['mode' => 'real']);
+    public function test_it_impersonating_still_only_sees_testing_data()
+    {
+        $this->loginPetugasIt();
+        session(['active_role' => 'admin_tu']);
+
+        // Di bawah "Switch View As", isTestingUser() tetap TRUE.
+        $this->assertTrue(auth()->user()->isTestingUser());
+        $testing = $this->createJurnal(['materi' => 'Data testing saat impersonasi']);
+
+        $this->loginGuru();
+        $real = $this->createJurnal(['materi' => 'Data real guru']);
+
+        $this->loginPetugasIt();
+        session(['active_role' => 'admin_tu']);
+
         $ids = Jurnal::pluck('id')->all();
-        $this->assertContains($real->id, $ids);
-        $this->assertNotContains($testing->id, $ids);
-
-        // Kembali ke semua data
-        $this->post(route('it.testing-view'), ['mode' => 'all']);
-        $this->assertCount(2, Jurnal::all());
+        $this->assertContains($testing->id, $ids);
+        $this->assertNotContains($real->id, $ids);
     }
 
     public function test_guest_only_sees_real_data()
@@ -274,14 +278,14 @@ class PetugasItPreviewTest extends TestCase
         $this->loginPetugasIt();
         $testing = $this->createJurnal(['materi' => 'Data testing IT']);
 
-        $guru = $this->loginGuru();
+        $this->loginGuru();
         $real = $this->createJurnal(['materi' => 'Data real guru']);
 
         auth()->logout();
 
         $ids = Jurnal::pluck('id')->all();
         $this->assertContains($real->id, $ids);
-        $this->assertContains($testing->id, $ids);
+        $this->assertNotContains($testing->id, $ids);
     }
 
     public function test_qa_tester_is_petugas_it()
@@ -314,14 +318,22 @@ class PetugasItPreviewTest extends TestCase
 
         $jurnal = $this->createJurnal(['materi' => 'Data uji dibuat QA']);
 
-        $this->assertTrue((bool) $jurnal->is_testing);
+        $this->assertTrue((bool) $jurnal->is_testing_data);
         $this->assertEquals($qa->id, $jurnal->id_guru);
     }
 
-    public function test_qa_tester_sees_all_data_by_default_and_can_toggle()
+    public function test_qa_tester_only_sees_testing_data()
     {
         $this->loginQaTester();
-        $this->post(route('it.testing-view'), ['mode' => 'testing']);
-        $this->assertEquals('testing', session('testing_view'));
+        $testing = $this->createJurnal(['materi' => 'Data testing QA']);
+
+        $this->loginGuru();
+        $real = $this->createJurnal(['materi' => 'Data real guru']);
+
+        // QA Tester dipaksa hanya melihat data testing (is_testing_data = true).
+        $this->loginQaTester();
+        $ids = Jurnal::pluck('id')->all();
+        $this->assertContains($testing->id, $ids);
+        $this->assertNotContains($real->id, $ids);
     }
 }

@@ -149,7 +149,7 @@
             <h2 class="fw-black text-dark mb-1" style="letter-spacing: -0.02em; font-weight: 800; font-size: 1.75rem;">Data Master Guru</h2>
             <p class="text-muted mb-0" style="font-size: 0.9rem;">Kelola data guru pengajar dan wali kelas.</p>
         </div>
-        @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
+        @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
             <div class="d-flex gap-2">
                 <!-- Tombol Export Guru -->
                 <div class="dropdown">
@@ -316,7 +316,7 @@
                             </td>
                             <td class="whitespace-nowrap"><span class="badge {{ $guru->is_active ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis' }} rounded-pill px-3 py-2">{{ $guru->is_active ? 'Aktif' : 'Nonaktif' }}</span></td>
                             <td class="text-end whitespace-nowrap">
-                                @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
+                                @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
                                     <div class="flex items-center justify-center gap-2 whitespace-nowrap">
                                     <a href="{{ route('admin.guru.edit', $guru->id) }}" class="btn btn-sm btn-outline-warning rounded-3" title="Edit guru"><i class="bi bi-pencil-square"></i></a>
                                     <form action="{{ route('guru.reset-password', $guru->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Reset password guru ini ke password default?')">@csrf<button type="submit" class="btn btn-sm btn-outline-info rounded-3" title="Reset password"><i class="bi bi-key"></i></button></form>

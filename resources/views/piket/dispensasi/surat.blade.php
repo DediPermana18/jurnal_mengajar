@@ -248,9 +248,11 @@
                 <!-- TTD Waka Kesiswaan -->
                 <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
                     <p style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">TTD Waka Kesiswaan</p>
-                    <div style="height: 80px; width: 100%; border: 1px solid #e5e7eb; border-radius: 8px; background-color: #f9fafb; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 4px;">
+                    <div style="height: 80px; width: 100%; border: 1px solid #e5e7eb; border-radius: 8px; background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 4px;">
                         @if(!empty($dispensasi->ttd_waka))
-                            <img src="{{ $dispensasi->ttd_waka }}" style="max-height: 70px; width: auto; max-width: 100%; object-fit: contain;" alt="TTD Waka">
+                            <img src="{{ $dispensasi->ttd_waka }}"
+                                 style="max-height: 70px; width: auto; max-width: 100%; object-fit: contain; background-color: #ffffff; mix-blend-mode: multiply;"
+                                 alt="TTD Waka">
                         @elseif(!in_array($dispensasi->status, [
                             \App\Models\DispensasiSiswa::STATUS_PENDING,
                             \App\Models\DispensasiSiswa::STATUS_PENDING_WAKA,

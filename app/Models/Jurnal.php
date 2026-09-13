@@ -33,7 +33,7 @@ class Jurnal extends Model
         return [
             'tanggal' => 'date',
             'waktu_isi' => 'datetime',
-            'is_testing' => 'boolean',
+            'is_testing_data' => 'boolean',
         ];
     }
 

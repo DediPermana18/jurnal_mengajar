@@ -30,7 +30,7 @@ class PengaturanJadwal extends Model
         'tanggal_eksekusi' => 'date',
         'jumat_tanpa_pembiasaan' => 'boolean',
         'tanggal_eksekusi_jumat' => 'date',
-        'is_testing' => 'boolean',
+        'is_testing_data' => 'boolean',
     ];
 
     /**
@@ -45,8 +45,8 @@ class PengaturanJadwal extends Model
      */
     public static function getSetting(): static
     {
-        // Utamakan baris data real (is_testing = false) bila ada baris testing.
-        $setting = static::orderBy('is_testing')->firstOrCreate([], [
+        // Utamakan baris data real (is_testing_data = false) bila ada baris testing.
+        $setting = static::orderBy('is_testing_data')->firstOrCreate([], [
             'senin_tanpa_upacara' => false,
             'tanggal_eksekusi' => null,
             'jumat_tanpa_pembiasaan' => false,

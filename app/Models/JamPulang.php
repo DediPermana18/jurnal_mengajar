@@ -21,7 +21,7 @@ class JamPulang extends Model
 
     protected $casts = [
         'max_jam_ke' => 'integer',
-        'is_testing' => 'boolean',
+        'is_testing_data' => 'boolean',
     ];
 
     /**

@@ -100,11 +100,6 @@ class JamPelajaranController extends Controller
      */
     public function store(Request $request)
     {
-        // Guard: Konfigurasi Master Jam Pelajaran tidak dapat diakses/sdiperbaharui saat Mode Preview/Testing.
-        if (auth()->user()?->isTestingUser()) {
-            return back()->with('error', 'Konfigurasi Jam Pelajaran tidak dapat diubah saat Mode Preview.');
-        }
-
         $validated = $request->validate([
             'kategori_hari' => 'required|in:Senin-Kamis,Jumat',
             'jam_mulai' => 'required|date_format:H:i',
@@ -132,11 +127,6 @@ class JamPelajaranController extends Controller
      */
     public function update(Request $request, JamPelajaran $jamPelajaran)
     {
-        // Guard: Konfigurasi Master Jam Pelajaran tidak dapat diakses/sdiperbaharui saat Mode Preview/Testing.
-        if (auth()->user()?->isTestingUser()) {
-            return back()->with('error', 'Konfigurasi Jam Pelajaran tidak dapat diubah saat Mode Preview.');
-        }
-
         $validated = $request->validate([
             'kategori_hari' => 'required|in:Senin-Kamis,Jumat',
             'jam_mulai' => 'required|date_format:H:i',
@@ -226,11 +216,6 @@ class JamPelajaranController extends Controller
      */
     public function destroy(JamPelajaran $jamPelajaran)
     {
-        // Guard: Konfigurasi Master Jam Pelajaran tidak dapat dihapus saat Mode Preview/Testing.
-        if (auth()->user()?->isTestingUser()) {
-            return back()->with('error', 'Konfigurasi Jam Pelajaran tidak dapat dihapus saat Mode Preview.');
-        }
-
         // Guard: hanya IT/QA yang dapat menghapus slot jam data testing.
         $this->authorizeTestingMutation($jamPelajaran);
 
@@ -257,12 +242,7 @@ class JamPelajaranController extends Controller
         }
 
         // Guard: hapus massal tidak boleh menyentuh data testing (kecuali IT/QA).
-        if (auth()->user()?->isTestingUser()) {
-            return back()->with('error', 'Konfigurasi Jam Pelajaran tidak dapat dihapus saat Mode Preview.');
-        }
-
-        // Guard: hapus massal tidak boleh menyentuh data testing (kecuali IT/QA).
-        $this->authorizeTestingBatch(JamPelajaran::where('kategori_hari', $kategori_hari)->where('is_testing', true));
+        $this->authorizeTestingBatch(JamPelajaran::where('kategori_hari', $kategori_hari)->where( 'is_testing_data', true));
 
         JamPelajaran::where('kategori_hari', $kategori_hari)->delete();
         $this->normalizeJamPulang();
@@ -280,11 +260,6 @@ class JamPelajaranController extends Controller
      */
     public function bulkUpdate(Request $request)
     {
-        // Guard: Konfigurasi Master Jam Pelajaran tidak dapat diubah saat Mode Preview/Testing.
-        if (auth()->user()?->isTestingUser()) {
-            return back()->with('error', 'Konfigurasi Jam Pelajaran tidak dapat diubah saat Mode Preview.');
-        }
-
         $validated = $request->validate([
             'updates' => 'required|array|min:1',
             'updates.*.id' => 'required|integer|exists:jam_pelajaran,id',
@@ -300,7 +275,7 @@ class JamPelajaranController extends Controller
             // Guard: edit masal tidak boleh menyentuh data testing (kecuali IT/QA).
             $this->authorizeTestingBatch(
                 JamPelajaran::whereIn('id', collect($validated['updates'])->pluck('id'))
-                    ->where('is_testing', true)
+                    ->where( 'is_testing_data', true)
             );
 
             DB::transaction(function () use ($validated) {
@@ -398,11 +373,6 @@ class JamPelajaranController extends Controller
      */
     public function generatePreset(Request $request)
     {
-        // Guard: Konfigurasi Master Jam Pelajaran tidak dapat digenerate saat Mode Preview/Testing.
-        if (auth()->user()?->isTestingUser()) {
-            return back()->with('error', 'Konfigurasi Jam Pelajaran tidak dapat digenerate saat Mode Preview.');
-        }
-
         $kategori = $request->input('kategori_hari', 'Senin-Kamis');
         if (! in_array($kategori, ['Senin-Kamis', 'Jumat'])) {
             $kategori = 'Senin-Kamis';

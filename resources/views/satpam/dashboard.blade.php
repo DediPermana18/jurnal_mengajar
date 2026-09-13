@@ -442,7 +442,7 @@
                 slots.forEach(function (slot) {
                     const label = 'Jam ' + slot.jam_ke + ' (' + slot.waktu + ') | ' + slot.mapel + ' | ' + slot.guru;
                     const opt = new Option(label, slot.id_jadwal);
-                    opt.disabled = slot.is_testing;
+                    opt.disabled = slot.is_testing_data;
                     selectJadwalDispen.appendChild(opt);
                     if (slot.aktif) {
                         opt.selected = true;

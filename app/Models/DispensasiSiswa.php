@@ -129,7 +129,7 @@ class DispensasiSiswa extends Model
         'tidak_kembali_hari_ini' => 'boolean',
         'kembali_at' => 'datetime',
         'mangkir_at' => 'datetime',
-        'is_testing' => 'boolean',
+        'is_testing_data' => 'boolean',
     ];
 
     /**

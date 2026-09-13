@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTestingData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Kelas extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasTestingData;
 
     protected $table = 'kelas';
 
@@ -19,6 +20,11 @@ class Kelas extends Model
         'tingkat',
         'id_jurusan',
         'id_wali_kelas',
+        'is_testing_data',
+    ];
+
+    protected $casts = [
+        'is_testing_data' => 'boolean',
     ];
 
     public function getNamaLengkapAttribute(): string

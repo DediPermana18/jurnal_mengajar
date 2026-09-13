@@ -1,13 +1,12 @@
 <?php
 
-namespace App\Http\Controllers\Kurikulum;
+namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
 use App\Models\JadwalPiket;
 use App\Models\User;
 use Illuminate\Http\Request;
 
-class JadwalPiketController extends Controller
+class JadwalPiketController extends AppHttpControllersController
 {
     /**
      * Proteksi server-side: Admin & Kurikulum
@@ -66,7 +65,7 @@ class JadwalPiketController extends Controller
             $selectedByHari[$hari] = $jadwalByHari[$hari]->pluck('user_id')->toArray();
         }
 
-        return view('kurikulum.jadwal_piket.index', compact(
+        return view('admin.jadwal_piket.index', compact(
             'hariList', 'jadwalByHari', 'guruList', 'allJadwal', 'selectedByHari', 'canManage'
         ));
     }
@@ -92,7 +91,7 @@ class JadwalPiketController extends Controller
             ->pluck('user_id')
             ->toArray();
 
-        return view('kurikulum.jadwal_piket.create', compact(
+        return view('admin.jadwal_piket.create', compact(
             'hariList', 'selectedHari', 'guruList', 'assignedGuruIds'
         ));
     }
@@ -119,7 +118,7 @@ class JadwalPiketController extends Controller
             ->pluck('user_id')
             ->toArray();
 
-        return view('kurikulum.jadwal_piket.edit', compact(
+        return view('admin.jadwal_piket.edit', compact(
             'hariList', 'selectedHari', 'guruList', 'assignedGuruIds'
         ));
     }

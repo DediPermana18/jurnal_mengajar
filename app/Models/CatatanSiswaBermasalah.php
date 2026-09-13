@@ -36,7 +36,7 @@ class CatatanSiswaBermasalah extends Model
     ];
 
     protected $casts = [
-        'is_testing' => 'boolean',
+        'is_testing_data' => 'boolean',
     ];
 
     public function siswa(): BelongsTo

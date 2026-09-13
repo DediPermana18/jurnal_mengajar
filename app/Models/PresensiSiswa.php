@@ -25,7 +25,7 @@ class PresensiSiswa extends Model
 
     protected $casts = [
         'tanggal' => 'date',
-        'is_testing' => 'boolean',
+        'is_testing_data' => 'boolean',
     ];
 
     /**

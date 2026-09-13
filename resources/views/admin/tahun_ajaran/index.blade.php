@@ -11,7 +11,7 @@
             <h2 class="fw-black text-dark mb-1" style="letter-spacing: -0.02em; font-weight: 800; font-size: 1.75rem;">Data Master Tahun Ajaran</h2>
             <p class="text-muted mb-0" style="font-size: 0.9rem;">Kelola Tahun Ajaran & Semester, set status aktif, dan integrasi dengan plotting jadwal.</p>
         </div>
-        @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
+        @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
             <button type="button" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalTambahTahunAjaran">
                 <i class="bi bi-plus-lg me-1"></i> Tambah Tahun Ajaran
             </button>
@@ -93,7 +93,7 @@
                                 </span>
                             </td>
                             <td class="text-center whitespace-nowrap">
-                                @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
+                                @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
                                     <div class="flex items-center justify-center gap-2 whitespace-nowrap">
                                         @if(!$tahun->is_active)
                                             <form action="{{ route('tahun-ajaran.set-aktif', $tahun->id) }}" method="POST" class="d-inline"
@@ -136,7 +136,7 @@
 </div>
 
 {{-- ==================== MODAL TAMBAH TAHUN AJARAN ==================== --}}
-@if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
+@if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
 <div class="modal fade" id="modalTambahTahunAjaran" tabindex="-1" aria-labelledby="modalTambahTahunAjaranLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow rounded-4">

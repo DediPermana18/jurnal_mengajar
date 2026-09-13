@@ -8,13 +8,13 @@ use App\Models\User;
 /**
  * Trait penanda data testing (sandbox) pada model transaksional:
  *
- * 1. Menambahkan Global Scope TestingDataScope — pada pendekatan ini SEMUA
- *    user melihat seluruh data (real + testing); data testing ditandai badge
- *    "[TESTING]" dan tidak dapat diubah/dihapus oleh user non-IT (dijaga di
- *    lapisan controller). Petugas IT / QA Tester dapat memfilter via sesi.
+ * 1. Menambahkan Global Scope TestingDataScope — isolasi data secara ketat:
+ *    - Petugas IT / QA Tester (isTestingUser() TRUE, termasuk saat impersonasi)
+ *      hanya melihat data testing (is_testing_data = true).
+ *    - User non-IT / guest hanya melihat data real (is_testing_data = false).
  *
  * 2. Model event 'creating': bila yang menginput adalah Petugas IT / QA Tester
- *    (langsung atau saat impersonation), is_testing otomatis di-set true
+ *    (langsung atau saat impersonation), is_testing_data otomatis di-set true
  *    sehingga data sandbox tidak tercampur dengan data real.
  */
 trait HasTestingData
@@ -24,13 +24,13 @@ trait HasTestingData
         static::addGlobalScope(new TestingDataScope);
 
         static::creating(function ($model) {
-            if (array_key_exists('is_testing', $model->getAttributes())) {
+            if (array_key_exists('is_testing_data', $model->getAttributes())) {
                 return;
             }
 
             $user = auth()->user();
             if ($user instanceof User && $user->isTestingUser()) {
-                $model->is_testing = true;
+                $model->is_testing_data = true;
             }
         });
     }

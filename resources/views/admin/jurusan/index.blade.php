@@ -9,7 +9,7 @@
             <h2 class="fw-black text-dark mb-1" style="letter-spacing: -0.02em; font-weight: 800; font-size: 1.75rem;">Data Master Jurusan</h2>
             <p class="text-muted mb-0" style="font-size: 0.9rem;">Kelola kode dan nama jurusan yang digunakan pada data kelas.</p>
         </div>
-        @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
+        @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
             <div class="d-flex gap-2">
                 <!-- Tombol Export Jurusan -->
                 <div class="dropdown">
@@ -88,7 +88,7 @@
                             <td class="whitespace-nowrap"><span class="badge bg-light text-dark border px-3 py-2 rounded-3 font-monospace">{{ $jurusan->kode_jurusan }}</span></td>
                             <td class="fw-semibold text-dark">{{ $jurusan->nama_jurusan }}</td>
                             <td class="text-end whitespace-nowrap">
-                                @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']))
+                                @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
                                     <div class="flex items-center justify-center gap-2 whitespace-nowrap">
                                     <a href="{{ route('jurusan.edit', $jurusan->id) }}" class="btn btn-sm btn-outline-warning rounded-3" title="Edit jurusan">
                                         <i class="bi bi-pencil-square"></i>

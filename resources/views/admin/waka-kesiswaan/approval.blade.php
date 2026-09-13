@@ -298,46 +298,72 @@
 @endforeach
 
 <script>
+    // =========================================================
+    // SIGNATURE CANVAS — inisialisasi HANYA saat modal sudah
+    // benar-benar visible (shown.bs.modal), karena sebelum itu
+    // canvas.getBoundingClientRect() = {width:0, height:0} dan
+    // koordinat pointer akan selalu salah.
+    // =========================================================
+
     function initSignatureCanvas(canvasId, inputId) {
         const canvas = document.getElementById(canvasId);
-        const input = document.getElementById(inputId);
+        const input  = document.getElementById(inputId);
         if (!canvas || !input) return;
+
+        // Guard: jangan init ulang — cukup resize jika sudah pernah diinit
+        if (canvas.dataset.initialized === '1') {
+            resizeOnly(canvas);
+            return;
+        }
+        canvas.dataset.initialized = '1';
 
         const ctx = canvas.getContext('2d');
         let drawing = false;
-        let lastX = 0;
-        let lastY = 0;
+        let lastX   = 0;
+        let lastY   = 0;
+
+        function resizeOnly(c) {
+            const ratio = window.devicePixelRatio || 1;
+            const rect  = c.getBoundingClientRect();
+            if (rect.width === 0) return;           // masih hidden, skip
+            c.width  = rect.width  * ratio;
+            c.height = rect.height * ratio;
+            c.getContext('2d').setTransform(ratio, 0, 0, ratio, 0, 0);
+            applyStyles(c.getContext('2d'));
+        }
+
+        function applyStyles(context) {
+            context.lineWidth   = 2.4;
+            context.lineCap     = 'round';
+            context.lineJoin    = 'round';
+            context.strokeStyle = '#111827';
+        }
 
         const resizeCanvas = () => {
             const ratio = window.devicePixelRatio || 1;
-            const rect = canvas.getBoundingClientRect();
-            canvas.width = rect.width * ratio;
+            const rect  = canvas.getBoundingClientRect();
+            if (rect.width === 0) return;
+            canvas.width  = rect.width  * ratio;
             canvas.height = rect.height * ratio;
             ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-            ctx.lineWidth = 2.4;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.strokeStyle = '#111827';
+            applyStyles(ctx);
         };
 
+        // Resize pertama — dilakukan di dalam shown.bs.modal, jadi rect sudah valid
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
 
         const getPos = (event) => {
-            const rect = canvas.getBoundingClientRect();
+            const rect    = canvas.getBoundingClientRect();
             const clientX = event.touches ? event.touches[0].clientX : event.clientX;
             const clientY = event.touches ? event.touches[0].clientY : event.clientY;
-            return {
-                x: clientX - rect.left,
-                y: clientY - rect.top,
-            };
+            return { x: clientX - rect.left, y: clientY - rect.top };
         };
 
         const startDrawing = (event) => {
             drawing = true;
             const pos = getPos(event);
-            lastX = pos.x;
-            lastY = pos.y;
+            lastX = pos.x; lastY = pos.y;
             ctx.beginPath();
             ctx.moveTo(lastX, lastY);
         };
@@ -347,8 +373,7 @@
             const pos = getPos(event);
             ctx.lineTo(pos.x, pos.y);
             ctx.stroke();
-            lastX = pos.x;
-            lastY = pos.y;
+            lastX = pos.x; lastY = pos.y;
         };
 
         const stopDrawing = () => {
@@ -356,28 +381,25 @@
             input.value = canvas.toDataURL('image/png');
         };
 
-        canvas.addEventListener('pointerdown', startDrawing);
-        canvas.addEventListener('pointermove', draw);
-        canvas.addEventListener('pointerup', stopDrawing);
-        canvas.addEventListener('pointerleave', stopDrawing);
+        canvas.addEventListener('pointerdown',   startDrawing);
+        canvas.addEventListener('pointermove',   draw);
+        canvas.addEventListener('pointerup',     stopDrawing);
+        canvas.addEventListener('pointerleave',  stopDrawing);
         canvas.addEventListener('pointercancel', stopDrawing);
 
-        canvas.addEventListener('touchstart', (event) => {
-            event.preventDefault();
-            startDrawing(event);
-        }, { passive: false });
-        canvas.addEventListener('touchmove', (event) => {
-            event.preventDefault();
-            draw(event);
-        }, { passive: false });
-        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDrawing(e); }, { passive: false });
+        canvas.addEventListener('touchmove',  (e) => { e.preventDefault(); draw(e);          }, { passive: false });
+        canvas.addEventListener('touchend',    stopDrawing);
         canvas.addEventListener('touchcancel', stopDrawing);
     }
 
+    // =========================================================
+    // Tombol Bersihkan Canvas
+    // =========================================================
     document.querySelectorAll('[data-clear-canvas]').forEach((button) => {
         button.addEventListener('click', function () {
             const canvasId = this.getAttribute('data-clear-canvas');
-            const canvas = document.getElementById(canvasId);
+            const canvas   = document.getElementById(canvasId);
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -386,24 +408,115 @@
         });
     });
 
-    document.querySelectorAll('[data-submit-approval]').forEach((button) => {
-        button.addEventListener('click', function (event) {
-            const form = this.closest('form');
-            if (!form) return;
-            const canvasId = form.querySelector('input[type="hidden"]').id.replace('Input', '');
-            const hiddenInput = form.querySelector('input[type="hidden"]');
-            const canvas = document.getElementById(canvasId);
+    // =========================================================
+    // Submit TTD via AJAX fetch:
+    // - Kompres canvas ke JPEG 60% sebelum dikirim (payload ~10x lebih kecil)
+    // - Tampilkan loading state pada tombol selama proses berlangsung
+    // - Handle sukses: tutup modal + reload halaman
+    // - Handle error: tampilkan pesan tanpa reload
+    // =========================================================
+    document.querySelectorAll('form[id^="formApproval"]').forEach((form) => {
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const hiddenInput = form.querySelector('input[name="ttd_waka"]');
+            const canvasId    = hiddenInput ? hiddenInput.id.replace('Input', '') : null;
+            const canvas      = canvasId ? document.getElementById(canvasId) : null;
+
+            // Validasi: canvas wajib ada isinya
             if (!canvas || !hiddenInput || !hiddenInput.value) {
-                event.preventDefault();
-                alert('Silakan tanda tangan Waka Kesiswaan terlebih dahulu.');
+                alert('Silakan gambar tanda tangan Waka Kesiswaan terlebih dahulu.');
+                return;
+            }
+
+            // Buat offscreen canvas dengan background PUTIH sebelum encode ke JPEG.
+            // JPEG tidak support transparansi — tanpa fill putih, piksel transparan
+            // menjadi hitam pekat pada hasil cetak surat.
+            const offscreen = document.createElement('canvas');
+            offscreen.width  = canvas.width;
+            offscreen.height = canvas.height;
+            const offCtx = offscreen.getContext('2d');
+            offCtx.fillStyle = '#ffffff';                    // background putih
+            offCtx.fillRect(0, 0, offscreen.width, offscreen.height);
+            offCtx.drawImage(canvas, 0, 0);                  // composite TTD di atas putih
+            const compressedDataUrl = offscreen.toDataURL('image/jpeg', 0.7);
+            hiddenInput.value = compressedDataUrl;
+
+            // Loading state pada tombol
+            const submitBtn = form.querySelector('[data-submit-approval]');
+            const originalHtml = submitBtn ? submitBtn.innerHTML : '';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Menyimpan TTD...';
+            }
+
+            try {
+                const formData = new FormData(form);
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: formData,
+                });
+
+                // Parse JSON response dari controller
+                let data = null;
+                try { data = await response.json(); } catch { /* bukan JSON, abaikan */ }
+
+                if (response.ok && data?.success) {
+                    // Sukses — tutup modal dan reload halaman
+                    const modalEl = form.closest('.modal');
+                    if (modalEl) {
+                        const bsModal = bootstrap.Modal.getInstance(modalEl);
+                        if (bsModal) bsModal.hide();
+                    }
+                    // Delay singkat agar animasi tutup modal selesai sebelum reload
+                    setTimeout(() => { location.reload(); }, 400);
+
+                } else if (response.ok && !data) {
+                    // Response non-JSON tapi OK (redirect HTML) — anggap sukses
+                    const modalEl = form.closest('.modal');
+                    if (modalEl) {
+                        const bsModal = bootstrap.Modal.getInstance(modalEl);
+                        if (bsModal) bsModal.hide();
+                    }
+                    setTimeout(() => { location.reload(); }, 400);
+
+                } else {
+                    // Response HTTP error (422, 403, 500, dll)
+                    const errMsg = data?.message
+                        || data?.errors?.ttd_waka?.[0]
+                        || `Gagal menyimpan TTD (HTTP ${response.status}).`;
+                    alert(errMsg);
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalHtml;
+                    }
+                }
+            } catch (networkError) {
+                // Network error (offline, timeout, dll)
+                alert('Koneksi gagal. Periksa jaringan dan coba lagi.\n\nDetail: ' + networkError.message);
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalHtml;
+                }
             }
         });
     });
 
-    document.querySelectorAll('canvas[id^="ttdWaka"]').forEach((canvas) => {
-        const id = canvas.id;
-        const inputId = id.replace('ttdWaka', 'ttdWakaInput');
-        initSignatureCanvas(id, inputId);
+    // =========================================================
+    // KUNCI: Init canvas saat modal SUDAH terbuka penuh
+    // (shown.bs.modal) agar getBoundingClientRect() akurat.
+    // Juga re-resize jika modal dibuka ulang.
+    // =========================================================
+    document.querySelectorAll('.modal[id^="approvalModal"]').forEach((modalEl) => {
+        modalEl.addEventListener('shown.bs.modal', function () {
+            const canvas = this.querySelector('canvas[id^="ttdWaka"]');
+            if (!canvas) return;
+            const canvasId = canvas.id;
+            const inputId  = canvasId.replace('ttdWaka', 'ttdWakaInput');
+            initSignatureCanvas(canvasId, inputId);
+        });
     });
 </script>
+
 @endsection
