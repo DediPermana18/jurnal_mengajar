@@ -23,6 +23,7 @@ class Siswa extends Model
         'id_kelas',
         'id_jurusan',
         'status_siswa',
+        'is_testing_data',
     ];
 
     /**

@@ -72,13 +72,22 @@
     @php
         $penandatangan = $dispensasi->approver ?? $dispensasi->guruPiket;
         $piket = $dispensasi->piket ?? $dispensasi->guruPiket ?? auth()->user();
+
+        // Tombol Kembali mengikuti asal user: Waka Kesiswaan (asli maupun
+        // View Switcher) kembali ke portal approval-dispensasi, sisanya ke
+        // daftar Guru Piket.
+        $backUser = auth()->user();
+        $backUrl = $backUser && ($backUser->isWakaKesiswaan()
+                || ($backUser->hasActiveRole() && $backUser->activeRole() === 'waka_kesiswaan'))
+            ? route('waka-kesiswaan.dispensasi.approval.index')
+            : route('piket.dispensasi.index');
     @endphp
 
     {{-- Toolbar (tidak tercetak) --}}
     <div class="container no-print mb-4">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div>
-                <a href="{{ route('piket.dispensasi.index') }}" class="btn btn-outline-secondary rounded-3 btn-toolbar-icon">
+                <a href="{{ $backUrl }}" class="btn btn-outline-secondary rounded-3 btn-toolbar-icon">
                     <i class="bi bi-arrow-left"></i> Kembali
                 </a>
             </div>
@@ -131,7 +140,7 @@
                     <tr>
                         <td class="text-muted">Kelas</td>
                         <td>:</td>
-                        <td class="fw-semibold text-dark">{{ $dispensasi->siswa?->kelas?->nama ?? '-' }}</td>
+                        <td class="fw-semibold text-dark">{{ $dispensasi->siswa?->kelas?->nama_lengkap ?? $dispensasi->siswa?->kelas?->nama_kelas ?? '-' }}</td>
                     </tr>
                     <tr>
                         <td class="text-muted">Hari / Tanggal</td>
@@ -269,7 +278,6 @@
                     @if(!empty($wakaNip))
                         <p style="font-size: 12px; color: #6b7280;">NIP. {{ $wakaNip }}</p>
                     @endif
-                    <p style="font-size: 12px; color: #6b7280;">Waka Kesiswaan</p>
                 </div>
 
             </div>

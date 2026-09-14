@@ -120,18 +120,19 @@ class SiswaController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'nisn' => 'nullable|string|max:20|unique:siswa,nisn',
-            'nis' => 'required|string|max:20|unique:siswa,nis',
+            'nisn' => 'required|digits:10|string|unique:siswa,nisn',
+            'nis' => 'nullable|string|max:20|unique:siswa,nis',
             'nama' => 'required|string|max:100',
             'id_kelas' => 'nullable|exists:kelas,id',
             'jenis_kelamin' => 'required|in:L,P',
             'status_siswa' => 'nullable|string|max:20',
         ], [
-            'nis.required' => 'NIS (Nomor Induk Sekolah) wajib diisi.',
-            'nis.max' => 'NIS maksimal :max karakter.',
-            'nis.unique' => 'NIS sudah digunakan siswa lain.',
+            'nisn.required' => 'NISN (Nomor Induk Siswa Nasional) wajib diisi.',
+            'nisn.digits' => 'NISN harus terdiri dari tepat 10 digit angka.',
             'nisn.max' => 'NISN maksimal :max karakter.',
             'nisn.unique' => 'NISN sudah digunakan siswa lain.',
+            'nis.max' => 'NIS maksimal :max karakter.',
+            'nis.unique' => 'NIS sudah digunakan siswa lain.',
         ]);
 
         $kelas = $request->filled('id_kelas') ? Kelas::find($request->id_kelas) : null;
@@ -178,18 +179,19 @@ class SiswaController extends Controller
     public function update(Request $request, $id)
     {
         $request->validate([
-            'nisn' => "nullable|string|max:20|unique:siswa,nisn,{$id}",
-            'nis' => "required|string|max:20|unique:siswa,nis,{$id}",
+            'nisn' => "required|digits:10|string|unique:siswa,nisn,{$id}",
+            'nis' => "nullable|string|max:20|unique:siswa,nis,{$id}",
             'nama' => 'required|string|max:100',
             'id_kelas' => 'nullable|exists:kelas,id',
             'jenis_kelamin' => 'required|in:L,P',
             'status_siswa' => 'nullable|string|max:20',
         ], [
-            'nis.required' => 'NIS (Nomor Induk Sekolah) wajib diisi.',
-            'nis.max' => 'NIS maksimal :max karakter.',
-            'nis.unique' => 'NIS sudah digunakan siswa lain.',
+            'nisn.required' => 'NISN (Nomor Induk Siswa Nasional) wajib diisi.',
+            'nisn.digits' => 'NISN harus terdiri dari tepat 10 digit angka.',
             'nisn.max' => 'NISN maksimal :max karakter.',
             'nisn.unique' => 'NISN sudah digunakan siswa lain.',
+            'nis.max' => 'NIS maksimal :max karakter.',
+            'nis.unique' => 'NIS sudah digunakan siswa lain.',
         ]);
 
         $siswa = Siswa::findOrFail($id);

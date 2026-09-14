@@ -778,9 +778,15 @@
                     </div>
                 </div>
 
-                <!-- Dashboard Guru -->
+                <!-- Dashboard (mengikuti role aktif: Guru Mapel / Guru Piket / Wali Kelas) -->
+                @php
+                    $isGuruPiketNav = ($previewRole === 'guru_piket') || request()->is('piket/*');
+                    $isWaliKelasNav = $isWaliKelasRole && (($previewRole === 'wali_kelas') || request()->is('walikelas/*'));
+                    $activeDashboardRoute = $isGuruPiketNav ? 'piket.dashboard'
+                        : ($isWaliKelasNav ? 'walikelas.dashboard' : 'guru.dashboard');
+                @endphp
                 <div class="nav-item-container">
-                    <a href="{{ route('guru.dashboard') }}" class="nav-btn {{ request()->routeIs('guru.dashboard') ? 'active' : '' }}">
+                    <a href="{{ route($activeDashboardRoute) }}" class="nav-btn {{ request()->routeIs($activeDashboardRoute) ? 'active' : '' }}">
                         <span class="btn-left">
                             <i class="bi bi-speedometer2"></i>
                             <span>Dashboard</span>
@@ -925,7 +931,7 @@
 
                 <!-- Dashboard -->
                 <div class="nav-item-container">
-                    <a href="{{ route('home') }}" class="nav-btn {{ request()->routeIs('home') ? 'active' : '' }}">
+                    <a href="{{ route('it.dashboard') }}" class="nav-btn {{ request()->routeIs('home', 'it.dashboard') ? 'active' : '' }}">
                         <span class="btn-left">
                             <i class="bi bi-grid-fill"></i>
                             <span>Dashboard</span>
@@ -947,6 +953,54 @@
                             <span>Switch View As</span>
                         </span>
                     </a>
+                </div>
+
+                <div class="nav-item-container">
+                    <div class="px-2 mb-2 mt-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.06em;">
+                        PERAWATAN
+                    </div>
+                </div>
+
+                @php $isMaintenanceActive = \App\Models\PengaturanJadwal::isMaintenanceModeActive(); @endphp
+                <div class="nav-item-container">
+                    <div class="px-2">
+                        <div class="card border-0 rounded-4 shadow-sm p-3" style="background:#ffffff;">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0
+                                            {{ $isMaintenanceActive ? 'text-white' : 'text-muted' }}"
+                                     style="width:38px; height:38px; {{ $isMaintenanceActive ? 'background:linear-gradient(135deg,#f59e0b,#d97706);' : 'background:#eef2f7;' }}">
+                                    <i class="bi bi-wrench-adjustable fs-5"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark small">Mode Maintenance</div>
+                                    @if($isMaintenanceActive)
+                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1 mt-1" style="font-size:0.66rem;">
+                                            <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;"></i>AKTIF — PERBAIKAN
+                                        </span>
+                                    @else
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1 mt-1" style="font-size:0.66rem;">
+                                            <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;"></i>NORMAL
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="text-muted mt-2 mb-1" style="font-size:0.72rem; line-height:1.4;">
+                                @if($isMaintenanceActive)
+                                    Seluruh pengguna selain IT/QA kini melihat halaman pemeliharaan.
+                                @else
+                                    Aktifkan untuk membatasi akses sistem selama perbaikan.
+                                @endif
+                            </div>
+                            <form method="POST" action="{{ route('it.maintenance-mode') }}">
+                                @csrf
+                                <input type="hidden" name="maintenance_mode" value="{{ $isMaintenanceActive ? '0' : '1' }}">
+                                <button type="submit" class="btn btn-sm {{ $isMaintenanceActive ? 'btn-success' : 'btn-danger' }} w-100 rounded-3 fw-semibold">
+                                    <i class="bi {{ $isMaintenanceActive ? 'bi-power' : 'bi-shield-exclamation' }} me-1"></i>
+                                    {{ $isMaintenanceActive ? 'Nonaktifkan Mode' : 'Aktifkan Mode' }}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
 
             @elseif($isPreviewSiswa)
@@ -1206,7 +1260,20 @@
                     @php
                         $itPreviewRole = $previewRole ?? (auth()->user()->hasActiveRole() ? auth()->user()->activeRole() : null);
                         $itPreviewLabel = $itPreviewRole ? (\App\Models\User::PREVIEW_ROLES[$itPreviewRole] ?? ucfirst($itPreviewRole)) : null;
+                        $itMaintenanceOn = \App\Models\PengaturanJadwal::isMaintenanceModeActive();
                     @endphp
+
+                    @if($itMaintenanceOn)
+                        <!-- Quick disable Maintenance Mode -->
+                        <form action="{{ route('it.maintenance-mode') }}" method="POST" class="d-inline">
+                            @csrf
+                            <input type="hidden" name="maintenance_mode" value="0">
+                            <button type="submit" class="btn btn-sm btn-danger rounded-3 d-flex align-items-center gap-2 me-2" title="Mode Maintenance AKTIF — klik untuk mematikan">
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <span class="d-none d-lg-inline">Maintenance ON — Matikan</span>
+                            </button>
+                        </form>
+                    @endif
 
                     @if($itPreviewRole)
                         <!-- Kembali ke Mode IT -->
@@ -1247,6 +1314,67 @@
                             @endforeach
                         </ul>
                     </div>
+
+                    <!-- Select Impersonate Target Context (Mode QA IT - Portal Guru / Wali Kelas) -->
+                    @if(! empty($itPreviewRole) && in_array($itPreviewRole, ['guru_mapel', 'guru_piket', 'wali_kelas'], true))
+                        @php
+                            $itIsWaliKelas = $itPreviewRole === 'wali_kelas';
+                            $itTargetId = session('impersonate_target_id');
+                            $itTargetGuru = $itTargetId ? \App\Models\User::find($itTargetId) : null;
+                            $itTargetList = \App\Models\User::where('role', \App\Models\User::ROLE_GURU)
+                                ->where('is_active', true)
+                                ->when($itIsWaliKelas, fn ($q) => $q->where(function ($q2) {
+                                    $q2->where('sub_role', 'wali_kelas')
+                                        ->orWhereHas('kelasWali');
+                                }))
+                                ->orderBy('nama')
+                                ->get();
+                        @endphp
+                        <div class="dropdown me-2">
+                            <button class="btn btn-sm btn-outline-secondary rounded-3 d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-person-badge"></i>
+                                <span class="d-none d-md-inline">
+                                    @if($itTargetGuru)
+                                        {{ $itIsWaliKelas ? 'Wali Kelas: ' : 'Guru: ' }}{{ $itTargetGuru->nama }}
+                                    @else
+                                        {{ $itIsWaliKelas ? 'Pilih Wali Kelas Target' : 'Pilih Context Target Guru' }}
+                                    @endif
+                                </span>
+                                <i class="bi bi-chevron-down"></i>
+                            </button>
+
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-4 mt-2" style="max-height: 420px; overflow-y: auto;">
+                                <li class="px-3 py-2">
+                                    <span class="text-uppercase fw-bold text-muted small" style="font-size: 0.68rem; letter-spacing: 0.06em;">Pilih {{ $itIsWaliKelas ? 'Wali Kelas' : 'Guru' }} Target</span>
+                                </li>
+                                <li>
+                                    <form action="{{ route('it.impersonate-target') }}" method="POST" class="d-inline">
+                                        @csrf
+                                        <input type="hidden" name="impersonate_target_id" value="">
+                                        <button type="submit" class="dropdown-item py-2 {{ $itTargetId ? '' : 'active' }}">
+                                            <i class="bi bi-person me-2 text-muted"></i>
+                                            Akun Saya (Tanpa Target)
+                                        </button>
+                                    </form>
+                                </li>
+                                @forelse($itTargetList as $guruOpt)
+                                    <li>
+                                        <form action="{{ route('it.impersonate-target') }}" method="POST" class="d-inline">
+                                            @csrf
+                                            <input type="hidden" name="impersonate_target_id" value="{{ $guruOpt->id }}">
+                                            <button type="submit" class="dropdown-item py-2 {{ (int) $itTargetId === (int) $guruOpt->id ? 'active' : '' }}">
+                                                <i class="bi bi-person-check me-2 text-muted"></i>
+                                                {{ $guruOpt->nama }}
+                                                <span class="small text-muted">({{ $guruOpt->username }})</span>
+                                            </button>
+                                        </form>
+                                    </li>
+                                @empty
+                                    <li class="px-3 py-2 text-muted small">Belum ada akun Guru testing.</li>
+                                @endforelse
+                            </ul>
+                        </div>
+                    @endif
                 @endif
 
                 <!-- Notifications -->

@@ -6,6 +6,7 @@ use App\Models\Concerns\HasTestingData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 
@@ -87,6 +88,7 @@ class DispensasiSiswa extends Model
     protected $table = 'dispensasi_siswa';
 
     protected $fillable = [
+        'dispensasi_kolektif_id',
         'id_siswa',
         'id_guru_piket',
         'id_jadwal',
@@ -138,6 +140,23 @@ class DispensasiSiswa extends Model
     public function siswa(): BelongsTo
     {
         return $this->belongsTo(Siswa::class, 'id_siswa', 'id');
+    }
+
+    /**
+     * Relasi ke induk transaksi dispensasi kolektif (rombongan) bila baris ini
+     * dibuat bersama siswa lain dalam satu pengajuan.
+     */
+    public function dispensasiKolektif(): BelongsTo
+    {
+        return $this->belongsTo(DispensasiKolektif::class, 'dispensasi_kolektif_id', 'id');
+    }
+
+    /**
+     * Apakah baris ini bagian dari dispensasi kolektif (rombongan)?
+     */
+    public function getIsKolektifAttribute(): bool
+    {
+        return $this->dispensasi_kolektif_id !== null;
     }
 
     /**
@@ -194,6 +213,16 @@ class DispensasiSiswa extends Model
     public function kembaliVerifier(): BelongsTo
     {
         return $this->belongsTo(User::class, 'kembali_by', 'id');
+    }
+
+    /**
+     * Relasi ke Catatan Terlambat Satpam (satu surat Masuk Kelas terhubung ke
+     * satu catatan keterlambatan siswa pada tanggal yang sama). Menyediakan jam
+     * kedatangan di gerbang untuk ditampilkan pada surat izin masuk kelas.
+     */
+    public function catatanTerlambat(): HasOne
+    {
+        return $this->hasOne(CatatanTerlambat::class, 'dispensasi_id', 'id');
     }
 
     /**

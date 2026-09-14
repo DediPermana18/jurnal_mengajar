@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Guru;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Guru\Concerns\ResolvesTargetGuru;
 use App\Models\DispensasiSiswa;
 use App\Models\JadwalPelajaran;
 use App\Models\Jurnal;
@@ -11,6 +12,8 @@ use Carbon\Carbon;
 
 class GuruPortalController extends Controller
 {
+    use ResolvesTargetGuru;
+
     /**
      * Nama hari dalam Bahasa Indonesia untuk Carbon.
      */
@@ -46,12 +49,15 @@ class GuruPortalController extends Controller
             abort(403, 'Akses ditolak. Halaman ini khusus untuk Guru.');
         }
 
+        // Context guru: target impersonasi bila sedang Switch View As (Mode QA IT),
+        // selain itu akun login.
+        $guruId = $this->effectiveGuruId();
         $hari = $this->hariIndonesia();
         $tahunAktif = TahunAjaran::where('is_active', true)->first();
 
         // ===== Jadwal mengajar hari ini milik guru ini =====
         $jadwalQuery = JadwalPelajaran::with(['jamPelajaran', 'kelas', 'mapel'])
-            ->where('id_guru', $user->id)
+            ->where('id_guru', $guruId)
             ->where('hari', $hari);
 
         if ($tahunAktif) {
@@ -70,8 +76,8 @@ class GuruPortalController extends Controller
         // ===== Dispensasi siswa yang terkait jam/mapel mengajar guru ini =====
         $dispensasiHariIni = DispensasiSiswa::with(['siswa.kelas', 'jadwal.mapel', 'jadwal.guru'])
             ->whereDate('tanggal', $today)
-            ->where(function ($q) use ($user, $jadwalHariIniIds) {
-                $q->where('id_guru', $user->id)
+            ->where(function ($q) use ($guruId, $jadwalHariIniIds) {
+                $q->where('id_guru', $guruId)
                     ->orWhereIn('id_jadwal', $jadwalHariIniIds);
             })
             ->orderBy('jam_ke')

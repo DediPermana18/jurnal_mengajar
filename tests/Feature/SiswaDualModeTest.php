@@ -554,15 +554,26 @@ class SiswaDualModeTest extends TestCase
         Excel::store(new SiswaExport, $path);
         $abs = Storage::disk('local')->path($path);
 
-        // 2) Import ulang file export yang sama (tanpa ubah data).
+        // 2) Import ulang file export yang sama (tanpa ubah data). NISN sudah
+        //    ada sebagai Data Real → Conflict Skip: 0 diproses, 3 dilewati,
+        //    data real tidak di-update/di-flip (idempoten & aman).
         $importer = new SiswaImport;
         Excel::import($importer, $abs);
 
-        $this->assertEquals(3, $importer->importedCount, 'seluruh baris siswa di file export harus terimport');
+        $this->assertEquals(0, $importer->importedCount, 're-import data real hanya boleh conflict-skip');
+        $conflicts = array_filter(
+            $importer->rowErrors,
+            fn ($e) => str_contains($e, 'dilewati karena sudah terdaftar sebagai Data Real'),
+        );
+        $this->assertCount(3, $conflicts, 'tiga NISN real dilewati + warning');
         $this->assertEquals(0, count(array_filter(
             $importer->rowErrors,
-            fn ($e) => str_contains($e, 'dilewati') && ! str_contains($e, 'tanpa kelas aktif')
-        )), 'tidak boleh ada baris data siswa yang error saat re-import');
+            fn ($e) => str_contains($e, 'dilewati') && ! str_contains($e, 'tanpa kelas aktif') && ! str_contains($e, 'dilewati karena sudah terdaftar sebagai Data Real')
+        )), 'warning conflict-skip bukan error baris');
+        $this->assertContains(
+            'NISN 1000000001 dilewati karena sudah terdaftar sebagai Data Real',
+            $importer->rowErrors,
+        );
 
         // 3) Data tetap utuh: kelas & atribut sesuai input awal.
         $andi = Siswa::where('nisn', '1000000001')->first();

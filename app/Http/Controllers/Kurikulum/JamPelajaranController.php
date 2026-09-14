@@ -242,7 +242,7 @@ class JamPelajaranController extends Controller
         }
 
         // Guard: hapus massal tidak boleh menyentuh data testing (kecuali IT/QA).
-        $this->authorizeTestingBatch(JamPelajaran::where('kategori_hari', $kategori_hari)->where( 'is_testing_data', true));
+        $this->authorizeTestingBatch(JamPelajaran::where('kategori_hari', $kategori_hari)->where('is_testing_data', true));
 
         JamPelajaran::where('kategori_hari', $kategori_hari)->delete();
         $this->normalizeJamPulang();
@@ -275,7 +275,7 @@ class JamPelajaranController extends Controller
             // Guard: edit masal tidak boleh menyentuh data testing (kecuali IT/QA).
             $this->authorizeTestingBatch(
                 JamPelajaran::whereIn('id', collect($validated['updates'])->pluck('id'))
-                    ->where( 'is_testing_data', true)
+                    ->where('is_testing_data', true)
             );
 
             DB::transaction(function () use ($validated) {

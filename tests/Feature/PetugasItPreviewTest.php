@@ -7,6 +7,7 @@ use App\Models\JamPelajaran;
 use App\Models\Jurnal;
 use App\Models\Kelas;
 use App\Models\MataPelajaran;
+use App\Models\Scopes\TestingDataScope;
 use App\Models\TahunAjaran;
 use App\Models\User;
 use Database\Seeders\UserSeeder;
@@ -43,15 +44,20 @@ class PetugasItPreviewTest extends TestCase
 
     private function loginGuru(): User
     {
-        $guru = User::where('role', 'guru')->first();
+        $guru = User::withoutGlobalScope(TestingDataScope::class)
+            ->where('role', 'guru')
+            ->where('is_testing_data', false)
+            ->first();
         if (! $guru) {
-            $guru = User::create([
-                'nama' => 'Guru Biasa',
-                'username' => 'guru_biasa',
-                'password' => bcrypt('password'),
-                'role' => 'guru',
-                'is_active' => true,
-            ]);
+            $guru = User::withoutGlobalScope(TestingDataScope::class)
+                ->create([
+                    'nama' => 'Guru Biasa',
+                    'username' => 'guru_biasa',
+                    'password' => bcrypt('password'),
+                    'role' => 'guru',
+                    'is_active' => true,
+                    'is_testing_data' => false,
+                ]);
         }
         $this->actingAs($guru);
 
@@ -60,15 +66,20 @@ class PetugasItPreviewTest extends TestCase
 
     private function createJadwal(): JadwalPelajaran
     {
-        $guru = User::where('role', 'guru')->first();
+        $guru = User::withoutGlobalScope(TestingDataScope::class)
+            ->where('role', 'guru')
+            ->where('is_testing_data', false)
+            ->first();
         if (! $guru) {
-            $guru = User::create([
-                'nama' => 'Guru Pengampu',
-                'username' => 'guru_pengampu',
-                'password' => bcrypt('password'),
-                'role' => 'guru',
-                'is_active' => true,
-            ]);
+            $guru = User::withoutGlobalScope(TestingDataScope::class)
+                ->create([
+                    'nama' => 'Guru Pengampu',
+                    'username' => 'guru_pengampu',
+                    'password' => bcrypt('password'),
+                    'role' => 'guru',
+                    'is_active' => true,
+                    'is_testing_data' => false,
+                ]);
         }
 
         $tahunAjaran = TahunAjaran::create(['tahun_ajaran' => '2026/2027', 'semester' => 'Ganjil', 'is_active' => true]);
@@ -105,7 +116,7 @@ class PetugasItPreviewTest extends TestCase
         $this->loginPetugasIt();
 
         $this->post(route('it.switch-view'), ['role' => 'waka_kurikulum'])
-            ->assertRedirect(route('home'));
+            ->assertRedirect(route('kurikulum.dashboard'));
 
         $this->assertEquals('waka_kurikulum', session('active_role'));
     }
@@ -302,7 +313,7 @@ class PetugasItPreviewTest extends TestCase
         $this->loginQaTester();
 
         $this->post(route('it.switch-view'), ['role' => 'guru_mapel'])
-            ->assertRedirect(route('home'));
+            ->assertRedirect(route('guru.dashboard'));
 
         $this->assertEquals('guru_mapel', session('active_role'));
         $this->assertEquals('guru', auth()->user()->effectiveRole());

@@ -121,6 +121,7 @@ Route::get('/admin/pengaturan', fn () => redirect()->route('profil.index'))->nam
 
 Route::get('/bantuan', [HelpController::class, 'index'])->name('bantuan.index');
 Route::get('/admin/bantuan', [HelpController::class, 'index']);
+Route::post('/bantuan/kendala', [HelpController::class, 'storeKendala'])->name('bantuan.kendala.store');
 
 // ================= ROUTE PORTAL GURU (GURU MAPEL) =================
 use App\Http\Controllers\Guru\IzinController as GuruIzinController;
@@ -178,11 +179,13 @@ Route::prefix('piket')->group(function () {
     Route::get('/dispensasi', [DispensasiController::class, 'index'])->name('piket.dispensasi.index');
     Route::get('/dispensasi/create', [DispensasiController::class, 'create'])->name('piket.dispensasi.create');
     Route::get('/dispensasi/siswa-by-kelas', [DispensasiController::class, 'siswaByKelas'])->name('piket.dispensasi.siswa-by-kelas');
+    Route::get('/dispensasi/terlambat-hari-ini', [DispensasiController::class, 'terlambatHariIni'])->name('piket.dispensasi.terlambat-hari-ini');
     Route::post('/dispensasi', [DispensasiController::class, 'store'])->name('piket.dispensasi.store');
     Route::get('/dispensasi/{id}/surat', [DispensasiController::class, 'showSurat'])->name('piket.dispensasi.surat');
     Route::get('/dispensasi/{id}/ttd', [DispensasiController::class, 'showTtd'])->name('piket.dispensasi.ttd');
     Route::post('/dispensasi/{id}/ttd', [DispensasiController::class, 'saveTtd'])->name('piket.dispensasi.ttd-save');
     Route::post('/dispensasi/{id}/batalkan', [DispensasiController::class, 'pembatalanStore'])->name('piket.dispensasi.batalkan');
+    Route::get('/dispensasi/kolektif/{id}/surat', [DispensasiController::class, 'showSuratKolektif'])->name('piket.dispensasi.kolektif.surat');
 
     // Izin Guru oleh Guru Piket (verifikasi Step 1)
     Route::get('/izin', [IzinPiketController::class, 'index'])->name('piket.izin.index');
@@ -208,9 +211,13 @@ use App\Http\Controllers\PetugasItController;
 
 // ================= ROUTE PETUGAS IT / QA TESTER (Switch View As) =================
 Route::prefix('it')->middleware(['auth'])->group(function () {
+    Route::get('/dashboard', [PetugasItController::class, 'dashboard'])->name('it.dashboard');
     Route::post('/switch-view', [PetugasItController::class, 'switchView'])->name('it.switch-view');
     Route::post('/reset-view', [PetugasItController::class, 'resetView'])->name('it.reset-view');
+    Route::post('/impersonate-target', [PetugasItController::class, 'selectImpersonateTarget'])->name('it.impersonate-target');
     Route::post('/testing-view', [PetugasItController::class, 'setTestingView'])->name('it.testing-view');
+    Route::post('/maintenance-mode', [PetugasItController::class, 'toggleMaintenanceMode'])->name('it.maintenance-mode');
+    Route::post('/kendala/{id}/status', [PetugasItController::class, 'updateKendalaStatus'])->name('it.kendala.status');
 });
 
 use App\Http\Controllers\Kurikulum\JadwalPiketController;

@@ -16,7 +16,7 @@ use Illuminate\Support\Collection;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, SoftDeletes, HasTestingData;
+    use HasFactory, HasTestingData, Notifiable, SoftDeletes;
 
     public const ROLE_ADMIN = 'admin';
 
@@ -46,7 +46,7 @@ class User extends Authenticatable
         'kepsek' => 'Kepala Sekolah',
         'guru_piket' => 'Guru Piket',
         'guru_mapel' => 'Guru Mapel',
-        'siswa' => 'Siswa',
+        'wali_kelas' => 'Wali Kelas',
     ];
 
     /**
@@ -63,7 +63,7 @@ class User extends Authenticatable
         'kepsek' => ['role' => 'admin',     'sub_role' => 'kepsek'],
         'guru_piket' => ['role' => 'guru',      'sub_role' => 'guru'],
         'guru_mapel' => ['role' => 'guru',      'sub_role' => 'guru_mapel'],
-        'siswa' => ['role' => 'siswa',     'sub_role' => null],
+        'wali_kelas' => ['role' => 'guru',      'sub_role' => 'wali_kelas'],
     ];
 
     public const ADMIN_SUB_ROLES = [
@@ -345,14 +345,16 @@ class User extends Authenticatable
     /**
      * Apakah user adalah Petugas IT / QA Tester yang sedang menguji (sandbox)?
      * True untuk semua kegiatan Petugas IT / QA Tester, baik mode IT langsung
-     * maupun saat impersonasi ("Switch View As"). Menjadi basis isolasi global
-     * scope TestingDataScope:
+     * maupun saat impersonasi ("Switch View As"). True pula untuk akun
+     * is_testing_data=1 (mis. guru.tester) walau sedang tidak ditumpangi,
+     * agar akun sandbox tetap terkunci ke data testing. Menjadi basis isolasi
+     * global scope TestingDataScope:
      *  - TRUE  → hanya melihat data testing (is_testing_data = true).
      *  - FALSE → hanya melihat data real (is_testing_data = false).
      */
     public function isTestingUser(): bool
     {
-        return $this->isPetugasIt() || $this->hasActiveRole();
+        return $this->isPetugasIt() || $this->hasActiveRole() || (bool) $this->is_testing_data;
     }
 
     /**

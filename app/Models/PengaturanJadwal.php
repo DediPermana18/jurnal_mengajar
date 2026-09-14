@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasTestingData;
+use App\Models\Scopes\TestingDataScope;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 
 class PengaturanJadwal extends Model
 {
@@ -23,6 +25,7 @@ class PengaturanJadwal extends Model
         'no_wa_kepsek',
         'nama_waka_kesiswaan',
         'nip_waka_kesiswaan',
+        'maintenance_mode',
     ];
 
     protected $casts = [
@@ -30,6 +33,7 @@ class PengaturanJadwal extends Model
         'tanggal_eksekusi' => 'date',
         'jumat_tanpa_pembiasaan' => 'boolean',
         'tanggal_eksekusi_jumat' => 'date',
+        'maintenance_mode' => 'boolean',
         'is_testing_data' => 'boolean',
     ];
 
@@ -61,6 +65,66 @@ class PengaturanJadwal extends Model
         $setting->checkAutoReset();
 
         return $setting;
+    }
+
+    /**
+     * Key cache untuk status Mode Maintenance (bersifat global).
+     */
+    protected const MAINTENANCE_CACHE_KEY = 'app.maintenance_mode_active';
+
+    /**
+     * Ambil / buat baris setting yang menampung Mode Maintenance.
+     *
+     * Mode Maintenance bersifat GLOBAL (seluruh sistem), jadi sengaja di-bypass
+     * dari TestingDataScope — tidak boleh terpecah antara bucket real vs testing.
+     * Diprioritaskan ke baris data real (is_testing_data = false) bila ada.
+     */
+    public static function maintenanceSetting(): static
+    {
+        return static::withoutGlobalScope(TestingDataScope::class)
+            ->orderBy('is_testing_data')
+            ->firstOrCreate([], [
+                'maintenance_mode' => false,
+                'is_testing_data' => false,
+            ]);
+    }
+
+    /**
+     * Cek apakah Mode Maintenance aktif (global).
+     *
+     * Prioritas: (1) config 'app.maintenance_mode' bila diset (override env),
+     * lalu (2) nilai dari database yang di-cache sebentar agar toggle terasa
+     * instan; bila database bermasalah, fallback ke config / false.
+     */
+    public static function isMaintenanceModeActive(): bool
+    {
+        $configValue = config('app.maintenance_mode');
+
+        if ($configValue !== null) {
+            return (bool) $configValue;
+        }
+
+        try {
+            return (bool) Cache::remember(
+                self::MAINTENANCE_CACHE_KEY,
+                60,
+                static fn (): bool => (bool) static::maintenanceSetting()->maintenance_mode
+            );
+        } catch (\Throwable $e) {
+            return (bool) config('app.maintenance_mode', false);
+        }
+    }
+
+    /**
+     * Nyalakan / matikan Mode Maintenance (global) + segarkan cache.
+     */
+    public static function setMaintenanceMode(bool $active): void
+    {
+        Cache::forget(self::MAINTENANCE_CACHE_KEY);
+
+        static::maintenanceSetting()->update(['maintenance_mode' => $active]);
+
+        Cache::put(self::MAINTENANCE_CACHE_KEY, $active, 60);
     }
 
     /**

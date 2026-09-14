@@ -194,4 +194,92 @@ class WaliKelasRekapRiwayatTest extends TestCase
             ->assertSee('2/2 Siswa')
             ->assertDontSee('Materi Kelas Lain');
     }
+
+    public function test_riwayat_jurnal_menggabungkan_duplikat_sesi_mengajar_multijam(): void
+    {
+        $wali = $this->makeWaliKelas();
+
+        $kelas = Kelas::create([
+            'nama_kelas' => 'X IPA 1',
+            'tingkat' => 'X',
+            'id_wali_kelas' => $wali->id,
+        ]);
+
+        $guru = User::create([
+            'nama' => 'Guru Mapel',
+            'username' => 'gmmulti'.Str::random(4),
+            'password' => bcrypt('password'),
+            'role' => 'guru',
+            'is_active' => true,
+        ]);
+
+        $tahun = TahunAjaran::create([
+            'tahun_ajaran' => '2025/2026',
+            'semester' => 'Ganjil',
+            'is_active' => true,
+        ]);
+
+        $suffix = Str::random(3);
+        $mapel = MataPelajaran::create(['nama_mapel' => 'Matematika', 'kode_mapel' => 'MTK'.$suffix]);
+        $groupId = (string) Str::uuid();
+
+        $jadwals = [];
+        foreach ([1, 2, 3] as $jamKe) {
+            $jam = JamPelajaran::create([
+                'kategori_hari' => 'Senin-Kamis',
+                'jam_ke' => $jamKe,
+                'jam_mulai' => sprintf('%02d:%02d', 6 + $jamKe, 40),
+                'jam_selesai' => sprintf('%02d:%02d', 7 + $jamKe, 20),
+                'jenis' => 'kbm',
+            ]);
+
+            $jadwals[] = JadwalPelajaran::create([
+                'group_id' => $groupId,
+                'hari' => 'Senin',
+                'id_jam' => $jam->id,
+                'id_kelas' => $kelas->id,
+                'id_mapel' => $mapel->id,
+                'id_guru' => $guru->id,
+                'id_tahun_ajaran' => $tahun->id,
+            ]);
+        }
+
+        $siswaA = Siswa::create([
+            'nisn' => '0000000404',
+            'nis' => '23105',
+            'nama' => 'Andi Pratama',
+            'jenis_kelamin' => 'L',
+            'id_kelas' => $kelas->id,
+        ]);
+        $siswaB = Siswa::create([
+            'nisn' => '0000000505',
+            'nis' => '23106',
+            'nama' => 'Budi Santoso',
+            'jenis_kelamin' => 'L',
+            'id_kelas' => $kelas->id,
+        ]);
+
+        // Satu sesi multi-jam: 3 record jurnal (jam 1-3) dengan materi & guru yang sama,
+        // dan absensi yang sama disalin ke tiap jam (terduplikasi di DB).
+        foreach ($jadwals as $jadwal) {
+            $jurnal = Jurnal::create([
+                'id_jadwal' => $jadwal->id,
+                'tanggal' => '2026-08-10',
+                'materi' => 'Matriks',
+                'id_guru' => $guru->id,
+                'status_kehadiran' => 'Hadir',
+            ]);
+
+            foreach ([$siswaA, $siswaB] as $siswa) {
+                AbsensiJurnal::create(['id_jurnal' => $jurnal->id, 'id_siswa' => $siswa->id, 'status' => 'Hadir']);
+            }
+        }
+
+        $this->actingAs($wali)
+            ->get(route('walikelas.riwayat-jurnal'))
+            ->assertOk()
+            ->assertSee('Jam 1 - 3')
+            ->assertSee('2/2 Siswa')
+            ->assertDontSee('6/6 Siswa');
+    }
 }

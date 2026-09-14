@@ -86,6 +86,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Maintenance Mode (Mode Perbaikan Sistem)
+    |--------------------------------------------------------------------------
+    |
+    | Nilai boolean opsional untuk memaksa / menimpa Mode Maintenance dari
+    | environment. Bila di-set (true/false), nilai ini menang di atas status
+    | yang tersimpan di database (pengaturan_jadwal.maintenance_mode).
+    | Biarkan tidak ter-set (null) agar sistem memakai nilai dari database.
+    |
+    */
+
+    'maintenance_mode' => env('APP_MAINTENANCE_MODE'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Encryption Key
     |--------------------------------------------------------------------------
     |

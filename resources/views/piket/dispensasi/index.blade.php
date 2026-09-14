@@ -66,18 +66,21 @@
         </div>
     </div>
 
-    {{-- Tabel --}}
+    {{-- Tabel Utama Disatukan: Individu + Rombongan (Kolektif) --}}
     <div class="table-card-custom mb-4">
         <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
             <h5 class="fw-bold text-dark mb-0">Daftar Dispensasi</h5>
+            <span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle rounded-pill px-3 py-2">
+                {{ $dataGabungan->count() }} pengajuan
+            </span>
         </div>
         <div class="table-responsive w-full overflow-x-auto">
             <table class="table table-custom align-middle mb-0 min-w-full">
                 <thead>
                     <tr>
                         <th class="whitespace-nowrap">NO</th>
-                        <th>SISWA</th>
-                        <th>KELAS</th>
+                        <th>SISWA / ROMBONGAN</th>
+                        <th>TIPE</th>
                         <th>JAM KE</th>
                         <th>ALASAN</th>
                         <th>STATUS</th>
@@ -85,91 +88,146 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($dataDispensasi as $dispen)
+                    @forelse($dataGabungan as $row)
+                        @php
+                            $tipe = $row['tipe'];
+                            $isKolektif = $tipe === 'kolektif';
+                            $dispen = $isKolektif ? null : $row['dispen'];
+                            $kolektif = $isKolektif ? $row['kolektif'] : null;
+                            $jamModel = $isKolektif ? $kolektif : $dispen;
+                        @endphp
                         <tr>
                             <td class="whitespace-nowrap">{{ $loop->iteration }}</td>
                             <td>
-                                <div class="fw-semibold text-dark">{{ $dispen->siswa->nama ?? '-' }}</div>
-                                <div class="text-muted small">NISN: {{ $dispen->siswa->nisn ?: '-' }}</div>
+                                @if($isKolektif)
+                                    <span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle rounded-pill px-2 py-1 whitespace-nowrap">
+                                        {{ $kolektif->siswaItems->count() }} Siswa
+                                    </span>
+                                    <div class="small text-muted mt-1" style="max-width: 320px;">
+                                        {{ $kolektif->siswaItems->take(3)->map(fn ($it) => $it->siswa->nama ?? '?')->implode(', ') }}{{ $kolektif->siswaItems->count() > 3 ? ' …' : '' }}
+                                    </div>
+                                @else
+                                    <div class="fw-semibold text-dark">{{ $dispen->siswa->nama ?? '-' }}</div>
+                                    <div class="text-muted small">
+                                        {{ $dispen->siswa?->kelas?->nama_lengkap ?? $dispen->siswa?->kelas?->nama_kelas ?? '-' }}
+                                        <span class="mx-1">•</span>
+                                        NISN: {{ $dispen->siswa?->nisn ?: '-' }}
+                                    </div>
+                                @endif
                             </td>
-                            <td>{{ $dispen->siswa?->kelas?->nama ?? '-' }}</td>
                             <td>
-                                @if($dispen->isTipeMasuk())
-                                    <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle rounded-3 px-2 py-1 whitespace-nowrap">
-                                        <i class="bi bi-box-arrow-in-right me-1"></i>Masuk JP-{{ $dispen->jam_masuk_jp }}
+                                @if($isKolektif)
+                                    <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-2 py-1 whitespace-nowrap">
+                                        <i class="bi bi-people me-1"></i>Kolektif
                                     </span>
                                 @else
-                                    <span class="badge bg-light text-dark border rounded-3 px-2 py-1 whitespace-nowrap">{{ $dispen->jam_ke_label }}</span>
+                                    <span class="badge bg-light text-dark border rounded-pill px-2 py-1 whitespace-nowrap">Individu</span>
                                 @endif
-                                @if(!$dispen->isTipeMasuk() && (!empty($dispen->jam_kembali_jp) || $dispen->isTidakKembaliHariIni()))
+                            </td>
+                            <td>
+                                @if($jamModel->isTipeMasuk())
+                                    <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle rounded-3 px-2 py-1 whitespace-nowrap">
+                                        <i class="bi bi-box-arrow-in-right me-1"></i>Masuk JP-{{ $jamModel->jam_masuk_jp }}
+                                    </span>
+                                @else
+                                    <span class="badge bg-light text-dark border rounded-3 px-2 py-1 whitespace-nowrap">{{ $jamModel->jam_ke_label }}</span>
+                                @endif
+                                @if(!$jamModel->isTipeMasuk() && (!empty($jamModel->jam_kembali_jp) || $jamModel->isTidakKembaliHariIni()))
                                     <div class="small text-muted mt-1 whitespace-nowrap">
-                                        @if($dispen->isTidakKembaliHariIni())
+                                        @if($jamModel->isTidakKembaliHariIni())
                                             <i class="bi bi-skip-end me-1"></i>Tidak kembali hari ini
-                                        @elseif($dispen->isKembali())
-                                            <i class="bi bi-check2-circle text-success me-1"></i>Kembali JP-{{ $dispen->jam_kembali_jp }}
+                                        @elseif($jamModel->isKembali())
+                                            <i class="bi bi-check2-circle text-success me-1"></i>Kembali JP-{{ $jamModel->jam_kembali_jp }}
                                         @else
-                                            <i class="bi bi-arrow-return-left me-1"></i>Rencana kembali JP-{{ $dispen->jam_kembali_jp }}
+                                            <i class="bi bi-arrow-return-left me-1"></i>Rencana kembali JP-{{ $jamModel->jam_kembali_jp }}
                                         @endif
                                     </div>
                                 @endif
                             </td>
-                            <td style="max-width: 260px;"><span class="text-wrap">{{ $dispen->alasan }}</span></td>
-                            <td><span class="badge {{ $dispen->status_badge }} rounded-pill px-2 py-2 whitespace-nowrap">{{ $dispen->status_label }}</span></td>
+                            <td style="max-width: 260px;"><span class="text-wrap">{{ $jamModel->alasan }}</span></td>
+                            <td><span class="badge {{ $jamModel->status_badge }} rounded-pill px-2 py-2 whitespace-nowrap">{{ $jamModel->status_label }}</span></td>
                             <td class="text-end whitespace-nowrap">
-                                <div class="flex items-center justify-center gap-2 whitespace-nowrap flex-wrap">
-                                <a href="{{ route('piket.dispensasi.surat', $dispen->id) }}" target="_blank"
-                                       class="btn btn-sm btn-outline-dark rounded-3"
-                                       title="Lihat Surat Dispensasi & TTD Digital (tab baru)">
-                                    <i class="bi bi-file-earmark-text"></i>Lihat Surat
-                                </a>
-                                @if($dispen->approval_token)
-                                    @php
-                                        $approvalLink = route('dispen.approval.show', $dispen->approval_token);
-                                        $waText = 'Halo Waka Kesiswaan, mohon tandatangani surat dispensasi berikut: ' . $approvalLink;
-                                        $qrSvg = \App\Support\QrCodeHelper::svg($approvalLink, 6);
-                                    @endphp
-                                    <a href="https://wa.me/?text={{ urlencode($waText) }}" target="_blank" rel="noopener"
-                                       class="btn btn-sm btn-success rounded-3" title="Kirim WA ke Waka Kesiswaan">
-                                        <i class="bi bi-whatsapp"></i>WA ke Waka
+                                <div class="d-flex justify-content-end align-items-center gap-1 flex-wrap">
+                                    <a href="{{ $isKolektif ? route('piket.dispensasi.kolektif.surat', $kolektif->id) : route('piket.dispensasi.surat', $dispen->id) }}"
+                                       target="_blank" class="btn btn-sm btn-outline-dark rounded-3" title="Lihat Surat Dispensasi (tab baru)">
+                                        <i class="bi bi-file-earmark-text"></i>Surat / Detail
                                     </a>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-3"
-                                            data-bs-toggle="modal" data-bs-target="#qrDispen{{ $dispen->id }}" title="Tampilkan QR approval">
-                                        <i class="bi bi-qr-code"></i>QR
-                                    </button>
-                                    <div class="modal fade" id="qrDispen{{ $dispen->id }}" tabindex="-1" aria-hidden="true">
-                                        <div class="modal-dialog modal-sm modal-dialog-centered">
-                                            <div class="modal-content rounded-4 border-0 shadow-lg">
-                                                <div class="modal-header border-0 pb-0">
-                                                    <h6 class="modal-title fw-bold text-dark">Link Approval Dispensasi</h6>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                </div>
-                                                <div class="modal-body text-center p-4">
-                                                    <div class="d-inline-block bg-white rounded-4 p-3 shadow-sm">{!! $qrSvg !!}</div>
-                                                    <div class="small text-muted mt-3 break-word">{{ $approvalLink }}</div>
+                                    @php
+                                        $aksiId = $isKolektif ? $kolektif->id : $dispen->id;
+                                        $aksiPrefix = $isKolektif ? 'kolektif' : 'dispen';
+                                        $aksiToken = $isKolektif ? $kolektif->approval_token : $dispen->approval_token;
+                                        $aksiNomorSurat = $isKolektif ? $kolektif->nomor_surat : $dispen->nomor_surat;
+                                        $aksiApprovalLink = $aksiToken ? route('dispen.approval.show', $aksiToken) : null;
+                                        $aksiQrSvg = $aksiApprovalLink ? \App\Support\QrCodeHelper::svg($aksiApprovalLink, 6) : null;
+                                        $aksiWaText = $aksiApprovalLink ? 'Halo Waka Kesiswaan, mohon tandatangani surat dispensasi berikut: '.$aksiApprovalLink : null;
+                                        $showDrowpdown = (bool) $aksiToken
+                                            || (!$isKolektif && (($dispen->isApproved() && !$dispen->has_ttd) || $dispen->isBisaDibatalkan()));
+                                    @endphp
+                                    @if($showDrowpdown)
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary rounded-3" type="button"
+                                                    data-bs-toggle="dropdown" aria-expanded="false" title="Aksi lainnya">
+                                                <i class="bi bi-three-dots-vertical"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end shadow-sm rounded-3">
+                                                @if($aksiApprovalLink)
+                                                    <li>
+                                                        <a class="dropdown-item" href="https://wa.me/?text={{ urlencode($aksiWaText) }}" target="_blank" rel="noopener">
+                                                            <i class="bi bi-whatsapp me-2 text-success"></i>WA ke Waka
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#qr{{ ucfirst($aksiPrefix) }}{{ $aksiId }}">
+                                                            <i class="bi bi-qr-code me-2"></i>QR Approval
+                                                        </button>
+                                                    </li>
+                                                @endif
+                                                @unless($isKolektif)
+                                                    @if($dispen->isApproved() && !$dispen->has_ttd)
+                                                        <li>
+                                                            <a class="dropdown-item" href="{{ route('piket.dispensasi.ttd', $dispen->id) }}">
+                                                                <i class="bi bi-pencil me-2 text-warning"></i>TTD Siswa
+                                                            </a>
+                                                        </li>
+                                                    @endif
+                                                    @if($dispen->isBisaDibatalkan())
+                                                        <li>
+                                                            <button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#batalkanDispen{{ $dispen->id }}">
+                                                                <i class="bi bi-x-circle me-2"></i>Batalkan
+                                                            </button>
+                                                        </li>
+                                                    @endif
+                                                @endunless
+                                            </ul>
+                                        </div>
+                                    @endif
+                                    @if($aksiApprovalLink)
+                                        <div class="modal fade" id="qr{{ ucfirst($aksiPrefix) }}{{ $aksiId }}" tabindex="-1" aria-hidden="true">
+                                            <div class="modal-dialog modal-sm modal-dialog-centered">
+                                                <div class="modal-content rounded-4 border-0 shadow-lg">
+                                                    <div class="modal-header border-0 pb-0">
+                                                        <h6 class="modal-title fw-bold text-dark">Link Approval Dispensasi</h6>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <div class="modal-body text-center p-4">
+                                                        <div class="d-flex justify-content-center mb-3">
+                                                            <div class="d-inline-block bg-white rounded-4 p-3 shadow-sm" style="line-height: 0;">
+                                                                {!! $aksiQrSvg !!}
+                                                                <div class="mt-3 small fw-semibold text-muted" style="line-height: 1.2;">{{ $aksiNomorSurat }}</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="input-group input-group-sm">
+                                                            <input type="text" class="form-control text-break" readonly value="{{ $aksiApprovalLink }}" aria-label="Link approval dispensasi">
+                                                            <button type="button" class="btn btn-outline-secondary rounded-end-3" data-copy-url="{{ $aksiApprovalLink }}" title="Salin link approval">
+                                                                <i class="bi bi-clipboard"></i> Salin
+                                                            </button>
+                                                        </div>
+                                                        <div class="small text-muted mt-2">Pindai QR atau salin link untuk meminta tanda tangan Waka Kesiswaan.</div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                @endif
-                                @if($dispen->isApproved())
-                                    @if(!$dispen->has_ttd)
-                                        <a href="{{ route('piket.dispensasi.ttd', $dispen->id) }}"
-                                           class="btn btn-sm btn-warning rounded-3" title="Lengkapi Tanda Tangan Siswa (konfirmasi akhir)">
-                                            <i class="bi bi-pencil"></i>TTD Siswa
-                                        </a>
                                     @endif
-                                    <a href="{{ route('piket.dispensasi.surat', $dispen->id) }}" target="_blank"
-                                       class="btn btn-sm btn-outline-primary rounded-3" title="Cetak Surat Dispen Resmi">
-                                        <i class="bi bi-printer"></i>Cetak Surat
-                                    </a>
-                                @endif
-                                @if($dispen->isBisaDibatalkan())
-                                    <button type="button" class="btn btn-sm btn-outline-danger rounded-3"
-                                            data-bs-toggle="modal" data-bs-target="#batalkanDispen{{ $dispen->id }}"
-                                            title="Batalkan surat dispensasi (wajib TTD siswa)">
-                                        <i class="bi bi-x-circle"></i>Batalkan
-                                    </button>
-                                @endif
                                 </div>
                             </td>
                         </tr>
@@ -203,7 +261,7 @@
                         <p class="text-muted small mb-1">
                             Surat: <strong>{{ $dispen->nomor_surat }}</strong> —
                             <strong>{{ $dispen->siswa?->nama ?? '-' }}</strong>
-                            ({{ $dispen->siswa?->kelas?->nama ?? '-' }})
+                            ({{ $dispen->siswa?->kelas?->nama_lengkap ?? $dispen->siswa?->kelas?->nama_kelas ?? '-' }})
                         </p>
                         <p class="text-muted small mb-3">
                             Batalkan surat dispensasi berstatus <strong>{{ $dispen->status_label }}</strong>?
@@ -337,6 +395,46 @@
 
     document.querySelectorAll('canvas[id^="ttdPembatalan"]').forEach((canvas) => {
         initSignatureCanvas(canvas.id, canvas.id.replace('ttdPembatalan', 'ttdPembatalanInput'));
+    });
+
+    // Salin Link Approval (tombol di modal QR)
+    function fallbackCopyUrl(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+            document.execCommand('copy');
+        } catch (e) {
+        }
+        document.body.removeChild(ta);
+    }
+
+    document.querySelectorAll('[data-copy-url]').forEach((button) => {
+        button.addEventListener('click', function () {
+            const url = this.getAttribute('data-copy-url');
+            const original = this.innerHTML;
+            const flashCopied = () => {
+                this.innerHTML = '<i class="bi bi-check-lg me-1"></i>Tersalin';
+                setTimeout(() => {
+                    this.innerHTML = original;
+                }, 1600);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url)
+                    .then(flashCopied)
+                    .catch(() => {
+                        fallbackCopyUrl(url);
+                        flashCopied();
+                    });
+            } else {
+                fallbackCopyUrl(url);
+                flashCopied();
+            }
+        });
     });
 </script>
 

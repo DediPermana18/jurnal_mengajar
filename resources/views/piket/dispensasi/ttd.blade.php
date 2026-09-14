@@ -128,7 +128,7 @@
                             <tr>
                                 <td class="text-muted">Kelas</td>
                                 <td>:</td>
-                                <td class="fw-semibold text-dark">{{ $dispensasi->siswa?->kelas?->nama ?? '-' }}</td>
+                                <td class="fw-semibold text-dark">{{ $dispensasi->siswa?->kelas?->nama_lengkap ?? $dispensasi->siswa?->kelas?->nama_kelas ?? '-' }}</td>
                             </tr>
                             <tr>
                                 <td class="text-muted">Hari / Tanggal</td>

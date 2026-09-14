@@ -154,7 +154,7 @@ class JadwalPiketController extends AppHttpControllersController
         $guruIds = array_unique(array_filter((array) $request->guru_ids));
 
         // Guard: penggantian penugasan piket tidak boleh menimpa data testing (kecuali IT/QA).
-        $this->authorizeTestingBatch(JadwalPiket::where('hari', $hari)->where( 'is_testing_data', true));
+        $this->authorizeTestingBatch(JadwalPiket::where('hari', $hari)->where('is_testing_data', true));
 
         // Hapus data lama hari tersebut HANYA jika data baru valid dan tidak kosong
         JadwalPiket::where('hari', $hari)->delete();

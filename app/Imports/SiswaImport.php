@@ -3,7 +3,10 @@
 namespace App\Imports;
 
 use App\Models\Kelas;
+use App\Models\Scopes\TestingDataScope;
 use App\Models\Siswa;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToCollection;
@@ -61,11 +64,97 @@ class SiswaImport implements ToCollection, WithEvents
      */
     protected array $classList = [];
 
+    /**
+     * Status testing di-tangkap SEKALI saat konstruksi: TRUE bila import sedang
+     * dalam Mode QA/IT / Impersonation, sehingga setiap record baru siswa
+     * tersimpan is_testing_data = 1 (bukan 0).
+     */
+    protected bool $isTesting = false;
+
     // ─── Konstruktor ──────────────────────────────────────────────────────────
 
-    public function __construct(?int $fallbackIdKelas = null)
+    public function __construct(?int $fallbackIdKelas = null, ?bool $isTestingData = null)
     {
         $this->fallbackIdKelas = $fallbackIdKelas;
+
+        // Konteks testing di-tangkap SEKALI DI KONSTRUKTOR (sebelum loop import
+        // berjalan). Bila pemanggil mengirimkan parameter eksplisit $isTestingData,
+        // nilai itu yang dipakai; jika tidak, diambil dari session/user login utama:
+        //   session('is_testing_mode') || auth()->user()?->isTestingUser() || session()->has('impersonate_role')
+        $this->isTesting = $isTestingData
+            ?? (bool) (session('is_testing_mode')
+                || auth()->user()?->isTestingUser()
+                || session()->has('impersonate_role'));
+
+        // TEMPORARY (diagnosa): verifikasi konteks di server produksi — hapus
+        // setelah masalah is_testing_data=0 dipastikan beres.
+        Log::info('SiswaImport context', [
+            'user_id' => auth()->id(),
+            'role' => auth()->user()?->role,
+            'isTestingUser' => auth()->user()?->isTestingUser(),
+            'is_testing_mode' => session('is_testing_mode'),
+            'impersonate_role' => session('impersonate_role'),
+            'active_role' => session('active_role'),
+            'fallbackIdKelas' => $fallbackIdKelas,
+            'isTesting' => $this->isTesting,
+        ]);
+    }
+
+    // ─── Konteks Data (is_testing_data) ────────────────────────────────────────
+
+    /**
+     * Apakah import saat ini menarget partisi data TESTING (is_testing_data = 1).
+     *
+     * Selaras dengan isolasi data global aplikasi: Petugas IT / QA Tester
+     * (User::isTestingUser() TRUE — termasuk saat Switch View As / impersonate)
+     * SELALU menulis ke partisi testing. Session 'is_testing_mode' maupun session
+     * 'impersonate_role' (layer impersonasi lain) juga memaksa partisi testing.
+     * Hanya akun non-IT tanpa session testing yang menulis ke partisi real.
+     */
+    public static function isImportTestingContext(?User $user = null): bool
+    {
+        $user = $user ?? auth()->user();
+
+        if ($user instanceof User && $user->isTestingUser()) {
+            return true;
+        }
+
+        return (bool) session('is_testing_mode') || session()->has('impersonate_role');
+    }
+
+    /**
+     * Partisi data yang menjadi target import saat ini (1 = testing, 0 = real).
+     * Nilai didapat dari status yang ditangkap DI KONSTRUKTOR (bukan dievaluasi
+     * per-baris), agar deterministik untuk seluruh baris dalam satu import.
+     */
+    public function targetIsTestingData(): bool
+    {
+        return $this->isTesting;
+    }
+
+    /**
+     * Query Kelas untuk mencocokkan nama/header kelas & fallback id_kelas.
+     * Global scope TestingDataScope DIMATIKAN (agar tidak memblokir pencarian
+     * kelas saat Switch View), namun partisi target didahulukan — partisi lain
+     * tetap diikutsertakan sebagai fallback. Dengan begitu Petugas IT / QA yang
+     * mengimpor file berisi kelas REAL pun tetap ter-resolve; baris siswa tetap
+     * ditulis ke partisi testing (konteks impor), kelas tujuannya boleh berasal
+     * dari partisi mana pun.
+     */
+    protected function kelasQuery(): Builder
+    {
+        $target = $this->targetIsTestingData() ? 1 : 0;
+
+        return Kelas::query()
+            ->withoutGlobalScope(TestingDataScope::class)
+            ->orderByRaw('CASE WHEN is_testing_data = ? THEN 0 ELSE 1 END', [$target])
+            ->orderBy('id');
+    }
+
+    /** Cari kelas by ID pada partisi import aktif (tanpa global scope). */
+    protected function findKelasById(int $id): ?Kelas
+    {
+        return $this->kelasQuery()->find($id);
     }
 
     /**
@@ -89,7 +178,7 @@ class SiswaImport implements ToCollection, WithEvents
                 $this->headerColumns = null;
 
                 $this->classList = [];
-                foreach (Kelas::select('id', 'tingkat', 'nama_kelas')->get() as $k) {
+                foreach ($this->kelasQuery()->select('id', 'tingkat', 'nama_kelas')->get() as $k) {
                     $this->classList[] = [
                         'id' => $k->id,
                         'full' => strtoupper(trim(($k->tingkat ?? '').' '.$k->nama_kelas)),
@@ -160,7 +249,7 @@ class SiswaImport implements ToCollection, WithEvents
             // 4) Butuh kelas aktif (header kelas atau fallback dropdown UI).
             if ($this->currentKelas === null) {
                 if ($this->fallbackIdKelas !== null) {
-                    $this->currentKelas = Kelas::find($this->fallbackIdKelas);
+                    $this->currentKelas = $this->findKelasById($this->fallbackIdKelas);
                 }
 
                 if ($this->currentKelas === null) {
@@ -208,17 +297,66 @@ class SiswaImport implements ToCollection, WithEvents
             $status = $this->detectStatus($cells);
 
             try {
-                Siswa::updateOrCreate(
-                    ['nisn' => $nisn],
-                    [
-                        'nis' => $nisClean,
-                        'nama' => $nama,
-                        'id_kelas' => $this->currentKelas->id,
-                        'id_jurusan' => $this->currentKelas->id_jurusan ?? null,
-                        'jenis_kelamin' => $gender,
-                        'status_siswa' => $status,
-                    ]
-                );
+                $attributes = [
+                    'nis' => $nisClean,
+                    'nama' => $nama,
+                    'id_kelas' => $this->currentKelas->id,
+                    'id_jurusan' => $this->currentKelas->id_jurusan ?? null,
+                    'jenis_kelamin' => $gender,
+                    'status_siswa' => $status,
+                ];
+
+                // NISN unik GLOBAL — cari lintas partisi (real/testing) dan soft-delete
+                // agar tidak menabrak unique index siswa.nisn / siswa.nis.
+                // Kebijakan penanganan NISN (Conflict Skip):
+                //   1) NISN TIDAK ditemukan        → create, is_testing_data = konteks impor.
+                //   2) NISN ada di TESTING (1)     → update di tempat, tetap testing.
+                //   3) NISN ada di REAL (0)        → SKIP baris (jangan di-update,
+                //                                     jangan di-flip) + warning.
+                $siswa = Siswa::withTrashed()
+                    ->withoutGlobalScope(TestingDataScope::class)
+                    ->where('nisn', $nisn)
+                    ->first();
+
+                if ($siswa === null) {
+                    // nis juga kolom UNIK global. Bila nilainya sudah dipakai
+                    // baris lain (NISN berbeda = siswa berbeda), kosongkan nis
+                    // agar insert tidak menabrak unique constraint siswa.nis.
+                    if ($nisClean !== null) {
+                        $nisTakenByOther = Siswa::withTrashed()
+                            ->withoutGlobalScope(TestingDataScope::class)
+                            ->where('nis', $nisClean)
+                            ->where('nisn', '!=', $nisn)
+                            ->exists();
+
+                        if ($nisTakenByOther) {
+                            $attributes['nis'] = null;
+                        }
+                    }
+
+                    $siswa = new Siswa;
+                    $siswa->fill($attributes + ['nisn' => $nisn]);
+                    // is_testing_data DI-SET LANGSUNG (bukan lewat fill) —
+                    // dijamin ikut ter-insert: QA/IT/TESTING → 1, non-IT → 0.
+                    $siswa->is_testing_data = $this->isTesting ? 1 : 0;
+                    $siswa->save();
+                } elseif ((int) $siswa->is_testing_data === 1) {
+                    // NISN sudah ada di partisi TESTING → update di tempat,
+                    // partisi DI-PERTAHANKAN testing (1), apapun konteks impor.
+                    if ($siswa->trashed()) {
+                        $siswa->restore();
+                    }
+                    $siswa->fill($attributes);
+                    $siswa->is_testing_data = 1;
+                    $siswa->save();
+                } else {
+                    // NISN sudah ada di partisi REAL → CONFLICT SKIP:
+                    // jangan di-update & jangan di-flip statusnya (data produksi aman).
+                    $this->skippedCount++;
+                    $this->rowErrors[] = "NISN {$nisn} dilewati karena sudah terdaftar sebagai Data Real";
+
+                    continue;
+                }
 
                 $this->importedCount++;
             } catch (\Throwable $e) {
@@ -517,25 +655,25 @@ class SiswaImport implements ToCollection, WithEvents
 
         foreach ($this->classList as $class) {
             if ($class['full'] !== '' && $class['full'] === $classText) {
-                return Kelas::find($class['id']);
+                return $this->findKelasById($class['id']);
             }
         }
 
         foreach ($this->classList as $class) {
             if ($class['name'] !== '' && $class['name'] === $classText) {
-                return Kelas::find($class['id']);
+                return $this->findKelasById($class['id']);
             }
         }
 
         foreach ($this->classList as $class) {
             if ($class['full'] !== '' && str_contains($classText, $class['full'])) {
-                return Kelas::find($class['id']);
+                return $this->findKelasById($class['id']);
             }
         }
 
         foreach ($this->classList as $class) {
             if ($class['name'] !== '' && str_contains($classText, $class['name'])) {
-                return Kelas::find($class['id']);
+                return $this->findKelasById($class['id']);
             }
         }
 
@@ -558,10 +696,10 @@ class SiswaImport implements ToCollection, WithEvents
                     $full = strtoupper(trim($class['full']));
                     $name = strtoupper(trim($class['name']));
                     if ($full !== '' && str_contains($rest, $full)) {
-                        return Kelas::find($class['id']);
+                        return $this->findKelasById($class['id']);
                     }
                     if ($full === $rest || $name === $rest) {
-                        return Kelas::find($class['id']);
+                        return $this->findKelasById($class['id']);
                     }
                 }
             }
@@ -569,7 +707,7 @@ class SiswaImport implements ToCollection, WithEvents
 
         foreach ($this->classList as $class) {
             if ($class['full'] !== '' && str_contains($rowText, $class['full'])) {
-                return Kelas::find($class['id']);
+                return $this->findKelasById($class['id']);
             }
         }
 
@@ -578,7 +716,7 @@ class SiswaImport implements ToCollection, WithEvents
                 continue;
             }
             if ($class['name'] !== '' && str_contains($rowText, $class['name'])) {
-                return Kelas::find($class['id']);
+                return $this->findKelasById($class['id']);
             }
         }
 

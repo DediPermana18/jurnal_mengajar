@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class TahunAjaran extends Model
 {
-    use HasFactory, SoftDeletes, HasTestingData;
+    use HasFactory, HasTestingData, SoftDeletes;
 
     protected $table = 'tahun_ajaran';
 

@@ -8,6 +8,7 @@ use App\Imports\RuanganImport;
 use App\Imports\SiswaImport;
 use App\Models\Guru;
 use App\Models\Kelas;
+use App\Models\Scopes\TestingDataScope;
 use App\Models\Siswa;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Excel as ExcelFormat;
@@ -20,9 +21,28 @@ class DataImportController extends Controller
      */
     public function index()
     {
-        $dataKelas = Kelas::with('jurusan')->orderBy('tingkat')->orderBy('nama_kelas')->get();
-        $totalSiswa = Siswa::count();
-        $totalGuru = Guru::count();
+        // Selaraskan tampilan & hitungan dengan partisi data yang dituju import
+        // (real saat user asli Admin TU, atau saat Petugas IT Switch View As
+        // Admin TU; testing hanya untuk Petugas IT / QA Tester murni).
+        $testing = SiswaImport::isImportTestingContext(request()->user());
+
+        $dataKelas = Kelas::query()
+            ->withoutGlobalScope(TestingDataScope::class)
+            ->where('is_testing_data', $testing ? 1 : 0)
+            ->with('jurusan')
+            ->orderBy('tingkat')
+            ->orderBy('nama_kelas')
+            ->get();
+
+        $totalSiswa = Siswa::query()
+            ->withoutGlobalScope(TestingDataScope::class)
+            ->where('is_testing_data', $testing ? 1 : 0)
+            ->count();
+
+        $totalGuru = Guru::query()
+            ->withoutGlobalScope(TestingDataScope::class)
+            ->where('is_testing_data', $testing ? 1 : 0)
+            ->count();
 
         return view('admin.import.index', compact('dataKelas', 'totalSiswa', 'totalGuru'));
     }
@@ -50,7 +70,27 @@ class DataImportController extends Controller
     {
         $request->validate([
             'file_excel' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
-            'id_kelas' => 'nullable|exists:kelas,id',
+            'id_kelas' => [
+                'nullable',
+                'integer',
+                function ($attribute, $value, $fail) {
+                    if ($value === null || $value === '') {
+                        return;
+                    }
+
+                    // id_kelas harus ada pada tabel kelas (dicari lintas partisi —
+                    // import me-resolve kelas lintas partisi dengan partisi target
+                    // didahulukan, sehingga kelas real/testing mana pun valid).
+                    $exists = Kelas::query()
+                        ->withoutGlobalScope(TestingDataScope::class)
+                        ->whereKey((int) $value)
+                        ->exists();
+
+                    if (! $exists) {
+                        $fail('Kelas yang dipilih tidak ditemukan pada konteks data saat ini.');
+                    }
+                },
+            ],
         ], [
             'file_excel.required' => 'File Excel / CSV wajib dipilih.',
             'file_excel.mimes' => 'Format file harus .xlsx, .xls, atau .csv.',
@@ -60,7 +100,11 @@ class DataImportController extends Controller
         $idKelas = $request->filled('id_kelas') ? (int) $request->id_kelas : null;
 
         try {
-            $importer = new SiswaImport($idKelas);
+            // Konteks partisi di-tentukan SEKALI di sini (saat request aktif) lalu
+            // dikirim via parameter constructor — import tidak boleh bergantung
+            // pada session/auth yang mungkin pudar saat pemrosesan berjalan.
+            $importUntukTesting = SiswaImport::isImportTestingContext(request()->user());
+            $importer = new SiswaImport($idKelas, $importUntukTesting);
 
             // File .csv / .txt selalu dikunci sebagai CSV reader (deteksi
             // ekstensi Maatwebsite tidak memetakan "txt"), sedangkan .xlsx/.xls
@@ -172,6 +216,9 @@ class DataImportController extends Controller
             Excel::import($importer, $request->file('file_kelas'), null, $readerType);
 
             $successMsg = "Import kelas berhasil! {$importer->importedCount} kelas baru dibuat";
+            if ($importer->updatedCount > 0) {
+                $successMsg .= ", {$importer->updatedCount} kelas diperbarui";
+            }
             if ($importer->skippedCount > 0) {
                 $successMsg .= ", {$importer->skippedCount} baris dilewati";
             }

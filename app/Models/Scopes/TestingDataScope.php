@@ -46,6 +46,7 @@ class TestingDataScope implements Scope
         // untuk mencegah infinite loop / stack overflow.
         if (static::$resolving) {
             $builder->where("{$table}.is_testing_data", false);
+
             return;
         }
 

@@ -126,6 +126,17 @@
                     </div>
                 </div>
 
+                <!-- BANNER MAINTENANCE MODE -->
+                @if(!empty($maintenanceActive) && (bool) $maintenanceActive)
+                    <div class="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-800 text-xs font-semibold shadow-sm">
+                        <div class="flex items-center gap-2 mb-1 text-amber-900 font-bold">
+                            <i class="bi bi-tools"></i>
+                            <span>Mode Maintenance Aktif</span>
+                        </div>
+                        <p class="mb-0">Sistem sedang dalam pemeliharaan. Hanya Petugas IT yang dapat mengakses sistem saat ini.</p>
+                    </div>
+                @endif
+
                 <!-- ALERT NOTIFIKASI ERROR GENERAL / SUCCESS -->
                 @if ($errors->any())
                     <div class="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold shadow-sm">

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Guru;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Guru\Concerns\ResolvesTargetGuru;
 use App\Models\IzinGuru;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
@@ -12,6 +13,8 @@ use Illuminate\Support\Str;
 
 class IzinController extends Controller
 {
+    use ResolvesTargetGuru;
+
     /**
      * Proteksi: hanya Guru (role 'guru') yang dapat mengajukan izin.
      */
@@ -26,7 +29,10 @@ class IzinController extends Controller
     }
 
     /**
-     * Daftar izin milik guru yang sedang login + filter status.
+     * Daftar izin milik guru yang sedang login / target impersonasi + filter status.
+     *
+     * Saat Mode QA/IT (preview) belum memilih target guru, halaman wajib kosong
+     * (0 / empty) — DILARANG fallback query ke data izin guru mana pun.
      */
     public function index(Request $request)
     {
@@ -35,18 +41,28 @@ class IzinController extends Controller
         $filter = $request->input('status', 'Semua');
 
         $query = IzinGuru::with(['user', 'approverPiket', 'approverWaka', 'approverKepsek'])
-            ->where('user_id', Auth::id())
             ->latest();
+
+        if ($this->isEmptyTargetContext()) {
+            // Preview tanpa target: tidak ada fallback query, hasil wajib kosong.
+            $query->whereRaw('1 = 0');
+            $totalPending = 0;
+            $totalDisetujui = 0;
+            $totalDitolak = 0;
+        } else {
+            $guruId = $this->effectiveGuruId();
+            $query->where('user_id', $guruId);
+
+            $totalPending = IzinGuru::where('user_id', $guruId)->whereIn('status', [IzinGuru::STATUS_PENDING_PIKET, IzinGuru::STATUS_PENDING_WAKA, IzinGuru::STATUS_PENDING_KEPSEK])->count();
+            $totalDisetujui = IzinGuru::where('user_id', $guruId)->where('status', IzinGuru::STATUS_DISETUJUI)->count();
+            $totalDitolak = IzinGuru::where('user_id', $guruId)->where('status', IzinGuru::STATUS_DITOLAK)->count();
+        }
 
         if (! in_array($filter, ['Semua'], true) && in_array($filter, IzinGuru::STATUSES, true)) {
             $query->where('status', $filter);
         }
 
         $daftarIzin = $query->paginate(15)->withQueryString();
-
-        $totalPending = IzinGuru::where('user_id', Auth::id())->whereIn('status', [IzinGuru::STATUS_PENDING_PIKET, IzinGuru::STATUS_PENDING_WAKA, IzinGuru::STATUS_PENDING_KEPSEK])->count();
-        $totalDisetujui = IzinGuru::where('user_id', Auth::id())->where('status', IzinGuru::STATUS_DISETUJUI)->count();
-        $totalDitolak = IzinGuru::where('user_id', Auth::id())->where('status', IzinGuru::STATUS_DITOLAK)->count();
 
         return view('guru.izin.index', compact('daftarIzin', 'filter', 'totalPending', 'totalDisetujui', 'totalDitolak'));
     }
@@ -134,8 +150,12 @@ class IzinController extends Controller
     {
         $this->authorizeGuru();
 
+        if ($this->isEmptyTargetContext()) {
+            abort(404, 'Izin tidak ditemukan.');
+        }
+
         $izin = IzinGuru::with(['user', 'approverPiket', 'approverWaka', 'approverKepsek'])
-            ->where('user_id', Auth::id())
+            ->where('user_id', $this->effectiveGuruId())
             ->findOrFail($id);
 
         return view('guru.izin.show', compact('izin'));

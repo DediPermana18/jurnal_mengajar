@@ -145,32 +145,47 @@ class JurusanController extends Controller
         $this->authorizePetugasTU();
 
         $request->validate([
-            'file_jurusan' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
+            'file_jurusan' => 'nullable|file|mimes:xlsx,xls,csv,txt|max:10240',
+            'file' => 'nullable|file|mimes:xlsx,xls,csv,txt|max:10240',
+            'excel_file' => 'nullable|file|mimes:xlsx,xls,csv,txt|max:10240',
         ], [
             'file_jurusan.required' => 'File Excel / CSV wajib dipilih.',
             'file_jurusan.mimes' => 'Format file harus .xlsx, .xls, atau .csv.',
             'file_jurusan.max' => 'Ukuran file maksimal 10 MB.',
+            'file.required' => 'File Excel / CSV wajib dipilih.',
+            'file.mimes' => 'Format file harus .xlsx, .xls, atau .csv.',
+            'file.max' => 'Ukuran file maksimal 10 MB.',
+            'excel_file.required' => 'File Excel / CSV wajib dipilih.',
+            'excel_file.mimes' => 'Format file harus .xlsx, .xls, atau .csv.',
+            'excel_file.max' => 'Ukuran file maksimal 10 MB.',
         ]);
+
+        $uploadedFile = $request->file('file_jurusan')
+            ?? $request->file('file')
+            ?? $request->file('excel_file');
+
+        if (! $uploadedFile) {
+            return back()->withErrors([
+                'file_jurusan' => 'File Excel / CSV wajib dipilih.',
+            ]);
+        }
 
         try {
             $importer = new JurusanImport;
 
-            $extension = strtolower((string) $request->file('file_jurusan')->getClientOriginalExtension());
+            $extension = strtolower((string) $uploadedFile->getClientOriginalExtension());
             $readerType = in_array($extension, ['csv', 'txt'], true) ? ExcelFormat::CSV : null;
 
-            Excel::import($importer, $request->file('file_jurusan'), null, $readerType);
+            Excel::import($importer, $uploadedFile, null, $readerType);
 
-            $successMsg = "Import jurusan berhasil! {$importer->importedCount} jurusan baru dibuat";
+            $total = $importer->importedCount + $importer->updatedCount;
             if ($importer->updatedCount > 0) {
-                $successMsg .= ", {$importer->updatedCount} jurusan diperbarui";
+                $successMsg = "Import jurusan berhasil! {$importer->importedCount} jurusan baru dibuat, {$importer->updatedCount} jurusan diperbarui.";
+            } else {
+                $successMsg = "{$total} Data Jurusan berhasil diimport!";
             }
-            if ($importer->skippedCount > 0) {
-                $successMsg .= ", {$importer->skippedCount} baris diproses (baru/update)";
-            }
-            $successMsg .= '.';
 
-            $session = redirect()->route('jurusan.index')
-                ->with('success', $successMsg);
+            $session = back()->with('success', $successMsg);
 
             if (! empty($importer->rowErrors)) {
                 $session = $session->with('import_warnings', $importer->rowErrors);
@@ -179,8 +194,7 @@ class JurusanController extends Controller
             return $session;
 
         } catch (\Throwable $e) {
-            return redirect()->route('jurusan.index')
-                ->with('error', 'Import jurusan gagal: '.$e->getMessage());
+            return back()->with('error', 'Import jurusan gagal: '.$e->getMessage());
         }
     }
 }

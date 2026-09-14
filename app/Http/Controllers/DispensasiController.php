@@ -2,16 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CatatanTerlambat;
+use App\Models\DispensasiKolektif;
 use App\Models\DispensasiSiswa;
 use App\Models\JadwalPelajaran;
 use App\Models\JamPelajaran;
 use App\Models\Kelas;
 use App\Models\PengaturanJadwal;
+use App\Models\Scopes\TestingDataScope;
 use App\Models\Siswa;
 use App\Models\TahunAjaran;
 use App\Models\User;
+use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class DispensasiController extends Controller
@@ -62,12 +68,29 @@ class DispensasiController extends Controller
 
         $dataDispensasi = DispensasiSiswa::with(['siswa.kelas', 'guruPiket'])
             ->whereDate('tanggal', $tanggal)
+            ->whereNull('dispensasi_kolektif_id')
             ->orderBy('id', 'desc')
             ->get();
 
-        $totalHariIni = DispensasiSiswa::whereDate('tanggal', $tanggal)->count();
+        // Pengajuan kolektif (rombongan): header pengajuan.
+        $dataKolektif = DispensasiKolektif::with(['guruPiket', 'siswaItems.siswa.kelas'])
+            ->whereDate('tanggal', $tanggal)
+            ->orderBy('id', 'desc')
+            ->get();
 
-        return view('piket.dispensasi.index', compact('dataDispensasi', 'tanggal', 'today', 'totalHariIni'));
+        // Unifikasi 1 tabel utama: baris individu & kolektif digabung lalu
+        // diurutkan berdasarkan created_at terbaru.
+        $dataGabungan = $dataDispensasi
+            ->map(fn (DispensasiSiswa $d) => ['tipe' => 'individu', 'dispen' => $d])
+            ->concat($dataKolektif->map(fn (DispensasiKolektif $k) => ['tipe' => 'kolektif', 'kolektif' => $k]))
+            ->sortByDesc(fn (array $row) => ($row['tipe'] === 'kolektif'
+                ? $row['kolektif']->created_at
+                : $row['dispen']->created_at)?->timestamp ?? 0)
+            ->values();
+
+        $totalHariIni = $dataGabungan->count();
+
+        return view('piket.dispensasi.index', compact('dataGabungan', 'dataDispensasi', 'tanggal', 'today', 'totalHariIni'));
     }
 
     /**
@@ -114,6 +137,21 @@ class DispensasiController extends Controller
 
         $tahunAktif = TahunAjaran::where('is_active', true)->first();
 
+        // Baris siswa yang diisi sebelum validasi gagal (old()) agar daftar
+        // siswa multi-baris di form kolektif tetap ter-restore setelah redirect back.
+        $oldSiswaRows = collect();
+        $oldSiswaIds = array_values(array_filter(array_map('intval', (array) old('id_siswa')), fn ($v) => $v > 0));
+        if ($oldSiswaIds) {
+            $oldSiswaRows = Siswa::with('kelas')->whereIn('id', $oldSiswaIds)->orderBy('nama')->get()
+                ->map(fn (Siswa $s) => [
+                    'id' => $s->id,
+                    'nama' => $s->nama,
+                    'nisn' => $s->nisn,
+                    'id_kelas' => $s->id_kelas,
+                    'nama_kelas' => $s->kelas?->nama_lengkap ?? '-',
+                ])->values();
+        }
+
         $jadwalQuery = JadwalPelajaran::with(['jamPelajaran', 'kelas', 'mapel', 'guru']);
         if ($tahunAktif) {
             $jadwalQuery->where('id_tahun_ajaran', $tahunAktif->id);
@@ -129,9 +167,31 @@ class DispensasiController extends Controller
             'guru' => $j->guru?->nama ?? '-',
         ])->values();
 
+        // Integrasi Catatan Terlambat (input Satpam): siswa yang tercatat
+        // terlambat hari ini & belum dikonfirmasi Guru Piket. Ditampilkan pada
+        // tab "Masuk Kelas" sebagai quick-select (klik = form terisi otomatis).
+        $terlambatSaatIni = CatatanTerlambat::with(['siswa.kelas'])
+            ->whereDate('tanggal', now()->toDateString())
+            ->whereNull('dispensasi_id')
+            ->where('is_approved_piket', false)
+            ->orderBy('jam_masuk')
+            ->get();
+
+        $terlambatJson = $terlambatSaatIni->map(fn (CatatanTerlambat $c) => [
+            'id' => (int) $c->id,
+            'id_siswa' => (int) $c->id_siswa,
+            'nama' => $c->siswa?->nama ?? '-',
+            'nisn' => (string) ($c->siswa?->nisn ?? ''),
+            'kelas' => $c->siswa?->kelas?->nama_lengkap ?? $c->siswa?->kelas?->nama_kelas ?? '-',
+            'kelas_id' => (int) ($c->siswa?->id_kelas ?? 0),
+            'jam_masuk' => $c->jam_masuk?->format('H:i'),
+            'keterangan' => (string) ($c->keterangan ?? ''),
+            'saran_jp' => $c->jam_masuk ? $this->sugestJpDariJamMasuk($c->jam_masuk) : null,
+        ])->values()->all();
+
         return view('piket.dispensasi.create', compact(
             'dataSiswa', 'jamOptions', 'jadwalOptions', 'jamPelajaran',
-            'kelasList', 'selectedKelas'
+            'kelasList', 'selectedKelas', 'oldSiswaRows', 'terlambatJson'
         ));
     }
 
@@ -175,8 +235,99 @@ class DispensasiController extends Controller
     }
 
     /**
+     * API AJAX: daftar siswa terlambat (catatan Satpam) pada satu tanggal yang
+     * BELUM dikonfirmasi Guru Piket (`is_approved_piket = false` & belum
+     * terhubung ke dispensasi). Dipakai quick-select tab "Masuk Kelas".
+     */
+    public function terlambatHariIni(Request $request)
+    {
+        $this->authorizeGuruPiket();
+
+        $tanggal = $request->get('tanggal', now()->toDateString());
+
+        $data = CatatanTerlambat::with(['siswa.kelas'])
+            ->whereDate('tanggal', $tanggal)
+            ->whereNull('dispensasi_id')
+            ->where('is_approved_piket', false)
+            ->orderBy('jam_masuk')
+            ->get()
+            ->map(fn (CatatanTerlambat $c) => [
+                'id' => (int) $c->id,
+                'id_siswa' => (int) $c->id_siswa,
+                'nama' => $c->siswa?->nama ?? '-',
+                'nisn' => (string) ($c->siswa?->nisn ?? ''),
+                'kelas' => $c->siswa?->kelas?->nama_lengkap ?? $c->siswa?->kelas?->nama_kelas ?? '-',
+                'kelas_id' => (int) ($c->siswa?->id_kelas ?? 0),
+                'jam_masuk' => $c->jam_masuk?->format('H:i'),
+                'keterangan' => (string) ($c->keterangan ?? ''),
+                'saran_jp' => $c->jam_masuk ? $this->sugestJpDariJamMasuk($c->jam_masuk) : null,
+            ])
+            ->values();
+
+        return response()->json(['error' => false, 'data' => $data]);
+    }
+
+    /**
+     * Konversi string waktu (atau Carbon) ke menit sejak tengah malam.
+     */
+    protected function menitKeInt($waktu): int
+    {
+        $t = substr((string) $waktu, 0, 5);
+
+        if (! str_contains($t, ':')) {
+            return 0;
+        }
+
+        return ((int) substr($t, 0, 2)) * 60 + (int) substr($t, 3, 2);
+    }
+
+    /**
+     * Saran JP "Boleh Masuk" dari jam kedatangan di gerbang:
+     * - Terlambat di tengah JP berlangsung -> JP berikutnya (siswa mengikuti
+     *   KBM mulai JP setelah JP yang terlewat).
+     * - Datang sebelum JP pertama -> JP pertama.
+     * - Datang di sela-sela JP / setelah semua JP -> JP pertama yang masih
+     *   bisa diikuti.
+     */
+    protected function sugestJpDariJamMasuk($jamMasuk): ?int
+    {
+        $menit = $jamMasuk instanceof CarbonInterface
+            ? $jamMasuk->format('H') * 60 + (int) $jamMasuk->format('i')
+            : $this->menitKeInt($jamMasuk);
+
+        if ($menit <= 0) {
+            return null;
+        }
+
+        $jps = JamPelajaran::whereNotNull('jam_ke')
+            ->whereNotNull('jam_mulai')
+            ->orderBy('jam_mulai')
+            ->get();
+
+        foreach ($jps as $jp) {
+            $mulai = $this->menitKeInt($jp->jam_mulai);
+            $selesai = $jp->jam_selesai ? $this->menitKeInt($jp->jam_selesai) : $mulai + 45;
+
+            if ($menit >= $mulai && $menit < $selesai) {
+                return (int) ($jps->firstWhere('jam_ke', (int) $jp->jam_ke + 1)?->jam_ke ?? $jp->jam_ke);
+            }
+        }
+
+        foreach ($jps as $jp) {
+            if ($menit <= $this->menitKeInt($jp->jam_mulai)) {
+                return (int) $jp->jam_ke;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Buat dispensasi baru: Guru Piket mengisi detail & langsung menyetujui (ACC).
-     * Status otomatis DISETUJUI; TTD Siswa (Pemohon) dilengkapi pada langkah berikutnya.
+     *
+     * - Satu siswa  -> alur lama: status DISETUJUI, redirect ke halaman TTD siswa.
+     * - Banyak siswa -> transaksi kolektif (header DispensasiKolektif + baris anak
+     *   DispensasiSiswa), setiap siswa sudah membawa TTD digital hasil wizard.
      */
     public function store(Request $request)
     {
@@ -186,10 +337,57 @@ class DispensasiController extends Controller
             ? DispensasiSiswa::TIPE_MASUK
             : DispensasiSiswa::TIPE_KELUAR;
 
+        $idSiswaRaw = $request->input('id_siswa');
+        $idSiswaList = array_values(array_filter(
+            array_map('intval', (array) $idSiswaRaw),
+            fn ($v) => $v > 0
+        ));
+
+        // catatan_terlambat_id[] disejajarkan dengan id_siswa[] (baris siswa terisi
+        // saja yang mengirim; baris kosong di-strip frontend saat submit). Dipakai
+        // integrasi Dispen Masuk Kelas dengan catatan keterlambatan Satpam.
+        $catatanIds = array_values(array_map(
+            'intval',
+            (array) $request->input('catatan_terlambat_id')
+        ));
+
+        if (empty($idSiswaList)) {
+            return back()->withInput()->withErrors(['id_siswa' => 'Pilih minimal satu siswa untuk dispensasi.']);
+        }
+
+        if (count($idSiswaList) !== count(array_unique($idSiswaList))) {
+            return back()->withInput()->withErrors(['id_siswa' => 'Tidak boleh ada siswa yang sama dipilih lebih dari sekali.']);
+        }
+
+        // Pastikan semua siswa terdaftar & berstatus aktif.
+        $validIds = Siswa::whereIn('id', $idSiswaList)
+            ->where('status_siswa', 'Aktif')
+            ->pluck('id')
+            ->all();
+
+        if (count($validIds) !== count($idSiswaList)) {
+            return back()->withInput()->withErrors(['id_siswa' => 'Salah satu siswa yang dipilih tidak ditemukan atau tidak aktif.']);
+        }
+
+        if (count($idSiswaList) === 1) {
+            return $this->storeSingle($request, $tipe, (int) $idSiswaList[0], $catatanIds[0] ?? null);
+        }
+
+        // Normalisasi panjang array catatan agar tetap sejajar dengan idSiswaList
+        // bila frontend tidak mengirim nilai untuk sebagian baris.
+        $catatanIds = array_slice(array_pad($catatanIds, count($idSiswaList), 0), 0, count($idSiswaList));
+
+        return $this->storeKolektif($request, $tipe, $idSiswaList, $catatanIds);
+    }
+
+    /**
+     * Normalisasi ID siswa dari input form (string tunggal / array).
+     */
+    protected function storeSingle(Request $request, string $tipe, int $idSiswaId, ?int $catatanTerlambatId = null)
+    {
         if ($tipe === DispensasiSiswa::TIPE_MASUK) {
             $validated = $request->validate([
                 'tanggal' => 'required|date',
-                'id_siswa' => 'required|exists:siswa,id',
                 'jam_masuk_jp' => 'required|integer|min:1|max:20',
                 'alasan_kategori' => 'required|string|max:100',
                 'alasan_detail' => 'nullable|string|max:250',
@@ -198,8 +396,6 @@ class DispensasiController extends Controller
             ], [
                 'tanggal.required' => 'Tanggal dispen wajib diisi.',
                 'tanggal.date' => 'Format tanggal tidak valid.',
-                'id_siswa.required' => 'Nama siswa wajib dipilih.',
-                'id_siswa.exists' => 'Siswa yang dipilih tidak ditemukan.',
                 'jam_masuk_jp.required' => 'Pilih JP saat siswa boleh masuk kelas.',
                 'jam_masuk_jp.integer' => 'Nomor JP masuk tidak valid.',
                 'jam_masuk_jp.min' => 'Nomor JP masuk tidak valid.',
@@ -224,7 +420,6 @@ class DispensasiController extends Controller
         } else {
             $validated = $request->validate([
                 'tanggal' => 'required|date',
-                'id_siswa' => 'required|exists:siswa,id',
                 'jam_ke' => 'required|array|min:1',
                 'jam_ke.*' => 'integer|min:1|max:20',
                 'jam_keluar_jp' => 'nullable|integer|min:1|max:20',
@@ -237,8 +432,6 @@ class DispensasiController extends Controller
             ], [
                 'tanggal.required' => 'Tanggal dispen wajib diisi.',
                 'tanggal.date' => 'Format tanggal tidak valid.',
-                'id_siswa.required' => 'Nama siswa wajib dipilih.',
-                'id_siswa.exists' => 'Siswa yang dipilih tidak ditemukan.',
                 'jam_ke.required' => 'Pilih minimal satu jam pelajaran.',
                 'jam_ke.array' => 'Format jam pelajaran tidak valid.',
                 'jam_ke.min' => 'Pilih minimal satu jam pelajaran.',
@@ -260,7 +453,6 @@ class DispensasiController extends Controller
             ]);
 
             // Mapel / Guru Mapel yang ditinggalkan (opsional).
-            // Jika id_jadwal dipilih, guru terkait diambil otomatis dari jadwal tsb.
             $idJadwal = ! empty($validated['id_jadwal']) ? (int) $validated['id_jadwal'] : null;
             $idGuru = $idJadwal
                 ? (int) (JadwalPelajaran::find($idJadwal)?->id_guru ?: 0) ?: null
@@ -278,10 +470,7 @@ class DispensasiController extends Controller
             $jamKeluarJp = ! empty($validated['jam_keluar_jp']) ? (int) $validated['jam_keluar_jp'] : null;
         }
 
-        // Part 3 - Rencana Jam Kembali (hanya tipe keluar): default siswa berizin
-        // hingga jam pulang (tidak kembali hari ini). Bila guru mencentang "Siswa
-        // akan kembali ke sekolah hari ini", dicatat JP wajib kembali sebagai dasar
-        // konfirmasi Satpam & deteksi Mangkir/Bolos otomatis.
+        // Part 3 - Rencana Jam Kembali (hanya tipe keluar).
         $jamKembaliJp = null;
         $tidakKembali = true;
         if ($tipe === DispensasiSiswa::TIPE_KELUAR) {
@@ -291,18 +480,15 @@ class DispensasiController extends Controller
                 : null;
         }
 
-        // Tanda tangan Guru Piket wajib digambar di canvas (data URL PNG) -> simpan apa adanya.
-        $ttdGuruRaw = (string) ($request->input('ttd_guru') ?? $request->input('ttd_piket') ?? '');
-        $ttdGuru = preg_match('/^data:image\/png;base64,/i', trim($ttdGuruRaw))
-            ? trim($ttdGuruRaw)
-            : null;
-
+        $ttdGuru = $this->normalizeTtd(
+            $request->input('ttd_guru') ?? $request->input('ttd_piket')
+        );
         if (! $ttdGuru) {
             return back()->withErrors(['ttd_guru' => 'Tanda tangan Guru Piket wajib digambar terlebih dahulu.']);
         }
 
         $dispensasi = DispensasiSiswa::create([
-            'id_siswa' => $validated['id_siswa'],
+            'id_siswa' => $idSiswaId,
             'id_guru_piket' => Auth::id(),
             'id_jadwal' => $idJadwal,
             'id_guru' => $idGuru,
@@ -321,13 +507,231 @@ class DispensasiController extends Controller
             'approval_token' => Str::random(32),
         ]);
 
-        // Integrasi absensi hanya untuk tipe keluar (siswa meninggalkan KBM pada jam tertentu).
+        $this->linkCatatanTerlambat($dispensasi, $catatanTerlambatId);
+
         if ($tipe !== DispensasiSiswa::TIPE_MASUK) {
             $dispensasi->terapkanKeAbsensi();
         }
 
         return redirect()->route('piket.dispensasi.ttd', $dispensasi->id)
             ->with('success', 'Dispensasi telah disetujui (ACC) oleh Guru Piket. Silakan lengkapi Tanda Tangan Siswa sebagai konfirmasi akhir.');
+    }
+
+    /**
+     * Simpan pengajuan dispensasi kolektif (rombongan):
+     * 1 parent transaction (DispensasiKolektif) + 1 baris anak DispensasiSiswa
+     * per siswa. Tanda tangan digital masing-masing siswa (hasil wizard TTD
+     * berurutan) ikut tersimpan pada baris anak.
+     */
+    protected function storeKolektif(Request $request, string $tipe, array $idSiswaList, array $catatanTerlambatIds = [])
+    {
+        $validated = $tipe === DispensasiSiswa::TIPE_MASUK
+            ? $request->validate([
+                'tanggal' => 'required|date',
+                'jam_masuk_jp' => 'required|integer|min:1|max:20',
+                'alasan_kategori' => 'required|string|max:100',
+                'alasan_detail' => 'nullable|string|max:250',
+                'ttd_guru' => 'sometimes|string|max:150000',
+                'ttd_piket' => 'sometimes|string|max:150000',
+                'ttd_siswa' => 'required|array|min:1',
+            ], [
+                'tanggal.required' => 'Tanggal dispen wajib diisi.',
+                'jam_masuk_jp.required' => 'Pilih JP saat siswa boleh masuk kelas.',
+                'jam_masuk_jp.integer' => 'Nomor JP masuk tidak valid.',
+                'jam_masuk_jp.min' => 'Nomor JP masuk tidak valid.',
+                'jam_masuk_jp.max' => 'Nomor JP masuk terlalu besar.',
+                'alasan_kategori.required' => 'Kategori alasan wajib dipilih.',
+                'alasan_detail.max' => 'Detail alasan maksimal :max karakter.',
+                'ttd_siswa.required' => 'Tanda tangan digital wajib digambar untuk setiap siswa.',
+                'ttd_siswa.array' => 'Format tanda tangan siswa tidak valid.',
+                'ttd_siswa.min' => 'Tanda tangan digital wajib digambar untuk setiap siswa.',
+            ])
+            : $request->validate([
+                'tanggal' => 'required|date',
+                'jam_ke' => 'required|array|min:1',
+                'jam_ke.*' => 'integer|min:1|max:20',
+                'jam_keluar_jp' => 'nullable|integer|min:1|max:20',
+                'jam_kembali_jp' => 'required_if:kembali_hari_ini,1|nullable|integer|min:1|max:20',
+                'kembali_hari_ini' => 'sometimes|nullable',
+                'alasan' => 'required|string|max:500',
+                'id_jadwal' => 'nullable|exists:jadwal_pelajaran,id',
+                'ttd_guru' => 'sometimes|string|max:150000',
+                'ttd_piket' => 'sometimes|string|max:150000',
+                'ttd_siswa' => 'required|array|min:1',
+            ], [
+                'tanggal.required' => 'Tanggal dispen wajib diisi.',
+                'jam_ke.required' => 'Pilih minimal satu jam pelajaran.',
+                'jam_ke.array' => 'Format jam pelajaran tidak valid.',
+                'jam_ke.min' => 'Pilih minimal satu jam pelajaran.',
+                'jam_ke.*.integer' => 'Nomor jam pelajaran tidak valid.',
+                'jam_ke.*.min' => 'Nomor jam pelajaran tidak valid.',
+                'jam_ke.*.max' => 'Nomor jam pelajaran terlalu besar.',
+                'jam_keluar_jp.integer' => 'Nomor JP keluar tidak valid.',
+                'jam_keluar_jp.min' => 'Nomor JP keluar tidak valid.',
+                'jam_keluar_jp.max' => 'Nomor JP keluar terlalu besar.',
+                'jam_kembali_jp.required_if' => 'Pilih JP Rencana Kembali bila siswa akan kembali ke sekolah hari ini.',
+                'jam_kembali_jp.integer' => 'Nomor JP kembali tidak valid.',
+                'jam_kembali_jp.min' => 'Nomor JP kembali tidak valid.',
+                'jam_kembali_jp.max' => 'Nomor JP kembali terlalu besar.',
+                'alasan.required' => 'Alasan kegiatan dispen wajib diisi.',
+                'alasan.max' => 'Alasan maksimal :max karakter.',
+                'id_jadwal.exists' => 'Jadwal pelajaran yang dipilih tidak valid.',
+                'ttd_siswa.required' => 'Tanda tangan digital wajib digambar untuk setiap siswa.',
+                'ttd_siswa.array' => 'Format tanda tangan siswa tidak valid.',
+                'ttd_siswa.min' => 'Tanda tangan digital wajib digambar untuk setiap siswa.',
+            ]);
+
+        if ($tipe === DispensasiSiswa::TIPE_MASUK) {
+            $alasan = trim((string) $validated['alasan_kategori']);
+            if (! empty(trim((string) ($validated['alasan_detail'] ?? '')))) {
+                $alasan .= ' — '.trim($validated['alasan_detail']);
+            }
+
+            $jamKe = null;
+            $jamMasukJp = (int) $validated['jam_masuk_jp'];
+            $jamKeluarJp = null;
+            $idJadwal = null;
+            $idGuru = null;
+        } else {
+            $idJadwal = ! empty($validated['id_jadwal']) ? (int) $validated['id_jadwal'] : null;
+            $idGuru = $idJadwal
+                ? (int) (JadwalPelajaran::find($idJadwal)?->id_guru ?: 0) ?: null
+                : null;
+
+            $jamKe = collect($validated['jam_ke'])
+                ->map(fn ($j) => (int) $j)
+                ->filter(fn ($j) => $j > 0)
+                ->sort()
+                ->values()
+                ->implode(',');
+
+            $alasan = $validated['alasan'];
+            $jamMasukJp = null;
+            $jamKeluarJp = ! empty($validated['jam_keluar_jp']) ? (int) $validated['jam_keluar_jp'] : null;
+        }
+
+        $jamKembaliJp = null;
+        $tidakKembali = true;
+        if ($tipe === DispensasiSiswa::TIPE_KELUAR) {
+            $tidakKembali = ! $request->boolean('kembali_hari_ini');
+            $jamKembaliJp = ! $tidakKembali && ! empty($validated['jam_kembali_jp'])
+                ? (int) $validated['jam_kembali_jp']
+                : null;
+        }
+
+        $ttdGuru = $this->normalizeTtd(
+            $request->input('ttd_guru') ?? $request->input('ttd_piket')
+        );
+        if (! $ttdGuru) {
+            return back()->withErrors(['ttd_guru' => 'Tanda tangan Guru Piket wajib digambar terlebih dahulu.']);
+        }
+
+        // TTD digital setiap siswa (hasil wizard) — posisi sejajar dengan id_siswa[].
+        $ttdSiswaRaw = (array) $request->input('ttd_siswa');
+        $ttdSiswaMap = [];
+        foreach ($idSiswaList as $i => $idSiswa) {
+            $ttd = $this->normalizeTtd($ttdSiswaRaw[$i] ?? null);
+            if (! $ttd) {
+                return back()->withInput()->withErrors([
+                    'ttd_siswa' => 'Tanda tangan digital siswa ke-'.($i + 1).' harus digambar terlebih dahulu.',
+                ]);
+            }
+            $ttdSiswaMap[$idSiswa] = $ttd;
+        }
+
+        $kolektif = DB::transaction(function () use ($tipe, $idSiswaList, $catatanTerlambatIds, $validated, $jamKe, $jamMasukJp, $jamKeluarJp, $jamKembaliJp, $tidakKembali, $alasan, $idJadwal, $idGuru, $ttdGuru, $ttdSiswaMap) {
+            $parent = DispensasiKolektif::create([
+                'id_guru_piket' => Auth::id(),
+                'id_jadwal' => $idJadwal,
+                'id_guru' => $idGuru,
+                'tanggal' => $validated['tanggal'],
+                'tipe_dispen' => $tipe,
+                'jam_ke' => $jamKe,
+                'jam_keluar_jp' => $jamKeluarJp,
+                'jam_masuk_jp' => $jamMasukJp,
+                'jam_kembali_jp' => $jamKembaliJp,
+                'tidak_kembali_hari_ini' => $tidakKembali,
+                'alasan' => $alasan,
+                'status' => DispensasiSiswa::STATUS_DISETUJUI,
+                'approved_at' => now(),
+                'approved_by' => Auth::id(),
+                'ttd_guru' => $ttdGuru,
+                'approval_token' => Str::random(32),
+            ]);
+
+            foreach ($idSiswaList as $i => $idSiswa) {
+                $dispen = DispensasiSiswa::create([
+                    'dispensasi_kolektif_id' => $parent->id,
+                    'id_siswa' => $idSiswa,
+                    'id_guru_piket' => Auth::id(),
+                    'id_jadwal' => $idJadwal,
+                    'id_guru' => $idGuru,
+                    'tanggal' => $validated['tanggal'],
+                    'tipe_dispen' => $tipe,
+                    'jam_ke' => $jamKe,
+                    'jam_keluar_jp' => $jamKeluarJp,
+                    'jam_masuk_jp' => $jamMasukJp,
+                    'jam_kembali_jp' => $jamKembaliJp,
+                    'tidak_kembali_hari_ini' => $tidakKembali,
+                    'alasan' => $alasan,
+                    'status' => DispensasiSiswa::STATUS_DISETUJUI,
+                    'approved_at' => now(),
+                    'approved_by' => Auth::id(),
+                    'ttd_guru' => $ttdGuru,
+                    'ttd_siswa' => $ttdSiswaMap[$idSiswa],
+                    'approval_token' => Str::random(32),
+                ]);
+
+                $this->linkCatatanTerlambat($dispen, $catatanTerlambatIds[$i] ?? null);
+
+                if ($tipe !== DispensasiSiswa::TIPE_MASUK) {
+                    $dispen->terapkanKeAbsensi();
+                }
+            }
+
+            return $parent;
+        });
+
+        return redirect()->route('piket.dispensasi.kolektif.surat', $kolektif->id)
+            ->with('success', 'Dispensasi kolektif untuk '.count($idSiswaList).' siswa berhasil disimpan beserta tanda tangan digital masing-masing siswa.');
+    }
+
+    /**
+     * Normalisasi tanda tangan digital (data URL PNG) dari canvas; mengembalikan
+     * null bila bukan data URL PNG yang valid / kosong.
+     */
+    protected function normalizeTtd($raw): ?string
+    {
+        $value = trim((string) ($raw ?? ''));
+
+        return preg_match('/^data:image\/png;base64,/i', $value) ? $value : null;
+    }
+
+    /**
+     * Hubungkan surat Dispensasi Masuk Kelas ke catatan keterlambatan Satpam
+     * (is_approved_piket = true). Hanya berlaku untuk tipe masuk, catatan yang
+     * cocok (siswa + tanggal sama, belum terhubung ke dispensasi lain), dan
+     * id catatan yang valid.
+     */
+    protected function linkCatatanTerlambat(DispensasiSiswa $dispen, ?int $catatanTerlambatId = null): void
+    {
+        if (! $dispen->isTipeMasuk() || ! $catatanTerlambatId) {
+            return;
+        }
+
+        $catatan = CatatanTerlambat::whereKey($catatanTerlambatId)
+            ->where('id_siswa', $dispen->id_siswa)
+            ->whereDate('tanggal', $dispen->tanggal)
+            ->whereNull('dispensasi_id')
+            ->where('is_approved_piket', false)
+            ->first();
+
+        if ($catatan) {
+            $catatan->update([
+                'is_approved_piket' => true,
+                'dispensasi_id' => $dispen->id,
+            ]);
+        }
     }
 
     /**
@@ -339,11 +743,14 @@ class DispensasiController extends Controller
         $user = Auth::user();
         abort_unless($user instanceof User, 403, 'Silakan login terlebih dahulu.');
 
-        $dispensasi = DispensasiSiswa::with(['siswa.kelas', 'guruPiket', 'approver'])->findOrFail($id);
+        $dispensasi = $this->findDispensasiForView($id);
 
         $allowed = $user->isPiketHariIni()
             || $user->isPetugasIt()
-            || (int) $dispensasi->approved_by === (int) $user->id;
+            || (int) $dispensasi->approved_by === (int) $user->id
+            || (int) $dispensasi->id_guru_piket === (int) $user->id
+            || $user->isWakaKesiswaan()
+            || ($dispensasi->wakaKesiswaan && (int) $dispensasi->wakaKesiswaan->id === (int) $user->id);
 
         abort_unless($allowed, 403, 'Akses ditolak. Anda tidak berwenang melihat surat dispen ini.');
 
@@ -415,6 +822,28 @@ class DispensasiController extends Controller
     }
 
     /**
+     * Tampilkan surat dispensasi kolektif (rombongan): satu kop surat berisi
+     * daftar siswa yang di-dispensasi lengkap dengan TTD digital masing-masing.
+     */
+    public function showSuratKolektif($id)
+    {
+        $user = Auth::user();
+        abort_unless($user instanceof User, 403, 'Silakan login terlebih dahulu.');
+
+        $kolektif = $this->findKolektifForView((int) $id);
+
+        $allowed = $user->isPiketHariIni()
+            || $user->isPetugasIt()
+            || (int) $kolektif->approved_by === (int) $user->id
+            || (int) $kolektif->id_guru_piket === (int) $user->id
+            || $user->isWakaKesiswaan();
+
+        abort_unless($allowed, 403, 'Akses ditolak. Anda tidak berwenang melihat surat dispen rombongan ini.');
+
+        return view('piket.dispensasi.surat_kolektif', compact('kolektif', 'user'));
+    }
+
+    /**
      * NIP dianggap valid (bukan dummy/placeholder) jika berisi minimal 6 digit
      * dan tidak semua nol. Kolom tanpa nilai atau nilai placeholder disembunyikan.
      */
@@ -426,6 +855,112 @@ class DispensasiController extends Controller
     }
 
     /**
+     * Resolve dispensasi untuk kebutuhan TAMPILAN surat.
+     *
+     * Pengguna yang sedang impersonasi Waka Kesiswaan membuka link surat dari
+     * portal yang menampilkan record real + testing sekaligus. Tanpa bypass, ID
+     * record real yang disembunyikan TestingDataScope (mis. ID kecil dari
+     * produksi) akan berakhir 404 — akar masalah bug "Lihat Surat".
+     *
+     * Non-impersonasi (termasuk IT/QA biasa) tetap scoped penuh, dan bingung
+     * id hilang → 404 jelas.
+     */
+    protected function findDispensasiForView(int $id): DispensasiSiswa
+    {
+        $user = Auth::user();
+        $bypass = $user instanceof User
+            && $user->hasActiveRole()
+            && $user->activeRole() === 'waka_kesiswaan';
+
+        try {
+            $query = $bypass
+                ? DispensasiSiswa::withoutGlobalScope(TestingDataScope::class)->with($this->crossScopeRelations())
+                : DispensasiSiswa::with(['siswa.kelas', 'guruPiket', 'approver', 'wakaKesiswaan']);
+
+            return $query->findOrFail($id);
+        } catch (ModelNotFoundException $e) {
+            abort(404, 'Surat dispensasi tidak ditemukan atau tidak dapat diakses.');
+        }
+    }
+
+    /**
+     * Resolve dispensasi untuk MUTASI (isi TTD, batalkan) tetap memakai scope
+     * sesuai bucket user — hanya frontend view yang boleh bypass — agar isolasi
+     * data testing tidak bocor pada penyimpanan. 404 diberi pesan yang jelas.
+     */
+    protected function findDispensasiForAction(int $id): DispensasiSiswa
+    {
+        try {
+            return DispensasiSiswa::with(['siswa.kelas', 'guruPiket', 'approver'])->findOrFail($id);
+        } catch (ModelNotFoundException $e) {
+            abort(404, 'Surat dispensasi tidak ditemukan atau tidak dapat diakses.');
+        }
+    }
+
+    /**
+     * Relasi yang ikut di-resolve tanpa TestingDataScope saat memberangkatkan
+     * bypass — siswa/kelas/guru/approver dari bucket lain tetap ter-resolve,
+     * agar surat record real yang dibuka IT pun menampilkan datanya dengan benar.
+     */
+    protected function crossScopeRelations(): array
+    {
+        $withoutScope = fn ($query) => $query->withoutGlobalScope(TestingDataScope::class);
+
+        return [
+            'siswa' => $withoutScope,
+            'siswa.kelas' => $withoutScope,
+            'guruPiket' => $withoutScope,
+            'approver' => $withoutScope,
+            'wakaKesiswaan' => $withoutScope,
+        ];
+    }
+
+    /**
+     * Resolve induk dispensasi kolektif untuk tampilan surat dengan aturan scope
+     * yang sama seperti findDispensasiForView:
+     *
+     * - User biasa (guru piket, dst): pakai IS / global scope TestingDataScope
+     *   apa adanya — IT/QA hanya melihat data testing, non-IT hanya data real.
+     *   TANPA menambahkan where manual, karena menambahkan orWhere(is_testing_data)
+     *   justru membatalkan bucket scope dan memaksa record real/testing yang
+     *   seharusnya tampil jadi 404 (mismatch bucket IT vs non-IT).
+     * - Impersonasi Waka Kesiswaan: bypass TestingDataScope agar kolektif real
+     *   yang dibuka dari portal Waka ikut tampil (siswaItems ter-resolve tanpa
+     *   scope dari bucket lain).
+     */
+    protected function findKolektifForView(int $id): DispensasiKolektif
+    {
+        $user = Auth::user();
+        $bypass = $user instanceof User
+            && $user->hasActiveRole()
+            && $user->activeRole() === 'waka_kesiswaan';
+
+        $cross = function ($query) {
+            $query->withoutGlobalScope(TestingDataScope::class);
+        };
+
+        try {
+            $query = $bypass
+                ? DispensasiKolektif::withoutGlobalScope(TestingDataScope::class)->with([
+                    'guruPiket' => $cross,
+                    'approver' => $cross,
+                    'siswaItems' => $cross,
+                    'siswaItems.siswa.kelas' => $cross,
+                ])
+                : DispensasiKolektif::with([
+                    'guruPiket',
+                    'approver',
+                    'siswaItems',
+                    'siswaItems.siswa.kelas',
+                ]);
+
+            return $query->findOrFail($id);
+        } catch (ModelNotFoundException $e) {
+            abort(404, 'Surat dispensasi rombongan tidak ditemukan atau tidak dapat diakses.');
+        }
+    }
+
+    /**
      * Halaman pengisian Tanda Tangan Siswa (Pemohon) sebagai konfirmasi akhir
      * setelah dispensasi disetujui (ACC) oleh Guru Piket.
      */
@@ -434,7 +969,7 @@ class DispensasiController extends Controller
         $user = Auth::user();
         abort_unless($user instanceof User, 403, 'Silakan login terlebih dahulu.');
 
-        $dispensasi = DispensasiSiswa::with(['siswa.kelas', 'guruPiket', 'approver'])->findOrFail($id);
+        $dispensasi = $this->findDispensasiForAction($id);
 
         $allowed = $user->isPiketHariIni()
             || $user->isPetugasIt()
@@ -453,7 +988,7 @@ class DispensasiController extends Controller
         $user = Auth::user();
         abort_unless($user instanceof User, 403, 'Silakan login terlebih dahulu.');
 
-        $dispensasi = DispensasiSiswa::with('siswa')->findOrFail($id);
+        $dispensasi = $this->findDispensasiForAction($id);
 
         // Guard: surat data testing hanya dapat dilengkapi oleh IT/QA.
         $this->authorizeTestingMutation($dispensasi);
@@ -492,7 +1027,7 @@ class DispensasiController extends Controller
         $user = Auth::user();
         abort_unless($user instanceof User, 403, 'Silakan login terlebih dahulu.');
 
-        $dispensasi = DispensasiSiswa::findOrFail($id);
+        $dispensasi = $this->findDispensasiForAction($id);
 
         // Guard: surat data testing hanya dapat dibatalkan oleh IT/QA.
         $this->authorizeTestingMutation($dispensasi);

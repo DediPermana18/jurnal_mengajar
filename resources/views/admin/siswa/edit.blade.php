@@ -32,12 +32,12 @@
             
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold text-dark mb-1">NIS (Nomor Induk Sekolah) <span class="text-danger">*</span></label>
-                    <input type="text" name="nis" class="form-control rounded-3 py-2" value="{{ old('nis', $siswa->nis) }}" required maxlength="20" placeholder="Masukkan NIS lokal sekolah">
+                    <label class="form-label fw-semibold text-dark mb-1">NIS (Nomor Induk Sekolah) <span class="text-muted fw-normal">(Opsional)</span></label>
+                    <input type="text" name="nis" class="form-control rounded-3 py-2" value="{{ old('nis', $siswa->nis) }}" maxlength="20" placeholder="Masukkan NIS lokal sekolah">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold text-dark mb-1">NISN (Nasional)</label>
-                    <input type="text" name="nisn" class="form-control rounded-3 py-2" value="{{ old('nisn', $siswa->nisn) }}" maxlength="20" placeholder="Masukkan 10 digit NISN">
+                    <label class="form-label fw-semibold text-dark mb-1">NISN (Nasional) <span class="text-danger">*</span></label>
+                    <input type="text" name="nisn" class="form-control rounded-3 py-2" value="{{ old('nisn', $siswa->nisn) }}" required maxlength="10" placeholder="Masukkan 10 digit NISN">
                 </div>
             </div>
 

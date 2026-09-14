@@ -25,6 +25,7 @@
                 <thead>
                     <tr>
                         <th>Tanggal</th>
+                        <th>Jam</th>
                         <th>Mata Pelajaran</th>
                         <th>Guru Pengajar</th>
                         <th>Materi Pelajaran</th>
@@ -35,6 +36,7 @@
                     @forelse($daftarJurnal as $j)
                         <tr>
                             <td>{{ \Carbon\Carbon::parse($j['tanggal'])->translatedFormat('d M Y') }}</td>
+                            <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1">{{ $j['jam_label'] }}</span></td>
                             <td><strong>{{ $j['mapel'] }}</strong></td>
                             <td>{{ $j['guru_pengajar'] }}</td>
                             <td class="text-muted">{{ $j['materi'] }}</td>
@@ -46,7 +48,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="text-center py-5 text-muted">
+                            <td colspan="6" class="text-center py-5 text-muted">
                                 <i class="bi bi-journal-x fs-1 d-block mb-2"></i>
                                 Belum ada jurnal mengajar untuk kelas bimbingan Anda.
                             </td>

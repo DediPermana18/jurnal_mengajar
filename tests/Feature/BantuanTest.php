@@ -36,7 +36,7 @@ class BantuanTest extends TestCase
                 ->assertSee('Panduan Guru Piket')
                 ->assertSee('Panduan Waka Kesiswaan / Kepala Sekolah')
                 ->assertSee('Bantuan Teknis')
-                ->assertSee('Jam Operasional')
+                ->assertDontSee('Jam Operasional')
                 ->assertSee('Chat WhatsApp')
                 ->assertSee('6281234567890');
         }

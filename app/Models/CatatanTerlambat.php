@@ -20,6 +20,8 @@ class CatatanTerlambat extends Model
         'jam_masuk',
         'keterangan',
         'id_satpam',
+        'is_approved_piket',
+        'dispensasi_id',
     ];
 
     /**
@@ -50,6 +52,7 @@ class CatatanTerlambat extends Model
     protected $casts = [
         'tanggal' => 'date',
         'jam_masuk' => 'datetime',
+        'is_approved_piket' => 'boolean',
         'is_testing_data' => 'boolean',
     ];
 
@@ -67,5 +70,23 @@ class CatatanTerlambat extends Model
     public function satpam(): BelongsTo
     {
         return $this->belongsTo(User::class, 'id_satpam', 'id');
+    }
+
+    /**
+     * Relasi ke surat Dispensasi Masuk Kelas (DispensasiSiswa) yang diterbitkan
+     * Guru Piket untuk siswa terlambat ini (is_approved_piket = true).
+     */
+    public function dispensasi(): BelongsTo
+    {
+        return $this->belongsTo(DispensasiSiswa::class, 'dispensasi_id', 'id');
+    }
+
+    /**
+     * Apakah siswa terlambat ini sudah dikonfirmasi Guru Piket lewat surat
+     * Dispensasi Masuk Kelas?
+     */
+    public function isApprovedPiket(): bool
+    {
+        return (bool) $this->is_approved_piket && $this->dispensasi_id !== null;
     }
 }

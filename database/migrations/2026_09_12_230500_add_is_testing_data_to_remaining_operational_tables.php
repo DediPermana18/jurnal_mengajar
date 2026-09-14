@@ -4,18 +4,19 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     public function up(): void
     {
         $tables = [
             'jurusan',
-            'mata_pelajaran', 
+            'mata_pelajaran',
             'ruangans',
             'tahun_ajaran',
         ];
 
         foreach ($tables as $table) {
-            if (!Schema::hasColumn($table, 'is_testing_data')) {
+            if (! Schema::hasColumn($table, 'is_testing_data')) {
                 Schema::table($table, function (Blueprint $table) {
                     $table->boolean('is_testing_data')->default(false)->nullable();
                 });
@@ -27,7 +28,7 @@ return new class extends Migration {
     {
         $tables = [
             'jurusan',
-            'mata_pelajaran', 
+            'mata_pelajaran',
             'ruangans',
             'tahun_ajaran',
         ];

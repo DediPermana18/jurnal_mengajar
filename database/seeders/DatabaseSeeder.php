@@ -42,6 +42,9 @@ class DatabaseSeeder extends Seeder
         // 4. TRANSAKSI DUMMY & LOG
         $this->call(TransaksiSeeder::class);
 
+        // 5. SANDBOX GURU TESTING (Switch View As -> Guru Mapel)
+        $this->call(TestingGuruSeeder::class);
+
         // Aktifkan kembali Foreign Key Constraints
         Schema::enableForeignKeyConstraints();
 

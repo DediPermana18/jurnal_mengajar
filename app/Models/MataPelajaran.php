@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MataPelajaran extends Model
 {
-    use HasFactory, SoftDeletes, HasTestingData;
+    use HasFactory, HasTestingData, SoftDeletes;
 
     protected $table = 'mata_pelajaran';
 

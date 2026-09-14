@@ -60,41 +60,87 @@
                 </div>
 
                 <div class="col-md-6">
-                    {{-- Dropdown Kelas (filter cascading ke dropdown siswa) --}}
-                    <label class="form-label fw-bold text-secondary text-uppercase small">Pilih Kelas <span class="text-danger">*</span></label>
-                    <select id="filterKelas" class="form-select rounded-3 mb-2">
-                        <option value="">-- Pilih Kelas --</option>
-                        @foreach($kelasList as $kelas)
-                            <option value="{{ $kelas->id }}" {{ ($selectedKelas ?? null) == $kelas->id ? 'selected' : '' }}>
-                                {{ $kelas->nama_lengkap }}
-                            </option>
-                        @endforeach
-                    </select>
+                    {{-- Multi-baris siswa: satu baris = satu siswa (rombongan) --}}
+                    <label class="form-label fw-bold text-secondary text-uppercase small">Pilih Siswa <span class="text-danger">*</span></label>
+                    <p class="text-muted small mb-2">
+                        Pilih satu siswa untuk dispen tunggal, atau beberapa siswa untuk pengajuan kolektif (rombongan).
+                        Bila lebih dari satu, tanda tangan digital digambar <strong>berurutan</strong> untuk tiap siswa.
+                    </p>
 
-                    <label class="form-label fw-bold text-secondary text-uppercase small">Cari Nama Siswa <span class="text-danger">*</span></label>
-                    <input type="text" id="searchSiswa" class="form-control rounded-3 mb-2"
-                           placeholder="Ketik nama / NISN siswa untuk memfilter..." {{ $selectedKelas ? '' : 'disabled' }}>
-                    <select name="id_siswa" id="id_siswa" class="form-select rounded-3" required {{ $selectedKelas ? '' : 'disabled' }}>
-                        @if($selectedKelas)
-                            <option value="">-- Pilih Siswa --</option>
-                            @foreach($dataSiswa as $siswa)
-                                <option value="{{ $siswa->id }}" {{ old('id_siswa') == $siswa->id ? 'selected' : '' }}
-                                        data-nama="{{ strtolower($siswa->nama) }}" data-nisn="{{ $siswa->nisn }}"
-                                        data-kelas="{{ $siswa->id_kelas }}">
-                                    {{ $siswa->nama }} ({{ $siswa->nisn ?: 'Tanpa NISN' }})
-                                </option>
-                            @endforeach
-                        @else
-                            <option value="">-- Pilih Kelas Terlebih Dahulu --</option>
-                        @endif
-                    </select>
-                    <div id="siswaLoading" class="text-muted small mt-2 d-none">
-                        <i class="bi bi-arrow-repeat spin"></i> Memuat data siswa...
+                    <div id="siswaRowsContainer" class="d-flex flex-column gap-2">
+                        @forelse($oldSiswaRows ?? collect() as $oldS)
+                            <div class="siswa-row border rounded-3 p-2 bg-white">
+                                <div class="d-flex gap-2 align-items-start">
+                                    <div class="flex-grow-1">
+                                        <select class="form-select form-select-sm row-kelas mb-1" required>
+                                            <option value="">-- Pilih Kelas --</option>
+                                            @foreach($kelasList as $kelas)
+                                                <option value="{{ $kelas->id }}" {{ (int) ($oldS['id_kelas'] ?? null) === (int) $kelas->id ? 'selected' : '' }}>
+                                                    {{ $kelas->nama_lengkap }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <input type="text" class="form-control form-control-sm row-search mb-1" placeholder="Cari nama / NISN...">
+                                        <select name="id_siswa[]" class="form-select form-select-sm row-siswa" required data-kelas="{{ $oldS['id_kelas'] ?? '' }}">
+                                            <option value="" selected data-nama="" data-nisn="" data-kelas="">-- Pilih Siswa --</option>
+                                            <option value="{{ $oldS['id'] ?? '' }}" selected
+                                                    data-nama="{{ strtolower($oldS['nama'] ?? '') }}"
+                                                    data-nisn="{{ strtolower($oldS['nisn'] ?? '') }}"
+                                                    data-kelas="{{ $oldS['id_kelas'] ?? '' }}">
+                                                {{ $oldS['nama'] ?? '' }} ({{ $oldS['nisn'] ?: 'Tanpa NISN' }})
+                                            </option>
+                                        </select>
+                                        <input type="hidden" name="catatan_terlambat_id[]" class="row-catatan" value="">
+                                        <div class="row-status text-muted small d-none">
+                                            <i class="bi bi-arrow-repeat spin"></i> Memuat data siswa...
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-danger row-remove" title="Hapus baris siswa">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        @empty
+                        @endforelse
                     </div>
-                    <div id="siswaEmpty" class="text-danger small mt-2 d-none">
-                        <i class="bi bi-exclamation-circle me-1"></i>Tidak ada siswa aktif di kelas ini.
+
+                    <button type="button" id="btnTambahSiswa" class="btn btn-sm btn-outline-primary rounded-3 mt-2">
+                        <i class="bi bi-person-plus me-1"></i> Tambah Siswa
+                    </button>
+
+                    <div id="siswaError" class="text-danger small mt-2 d-none">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>Pilih minimal satu siswa untuk dispensasi.
                     </div>
-                    <div class="form-text">Pilih kelas untuk memuat daftar siswa. Gunakan kotak pencarian untuk memfilter nama / NISN secara instan.</div>
+                    <div class="form-text">
+                        Setiap baris memuat daftar siswa per kelasnya. Gunakan kotak pencarian untuk memfilter nama / NISN secara instan.<br>
+                        Lebih dari satu siswa = surat dispensasi kolektif (rombongan) dengan TTD digital berurutan.
+                    </div>
+
+                    <template id="templateSiswaRow">
+                        <div class="siswa-row border rounded-3 p-2 bg-white">
+                            <div class="d-flex gap-2 align-items-start">
+                                <div class="flex-grow-1">
+                                    <select class="form-select form-select-sm row-kelas mb-1" required>
+                                        <option value="">-- Pilih Kelas --</option>
+                                        @foreach($kelasList as $kelas)
+                                            <option value="{{ $kelas->id }}">{{ $kelas->nama_lengkap }}</option>
+                                        @endforeach
+                                    </select>
+                                    <input type="text" class="form-control form-control-sm row-search mb-1" placeholder="Cari nama / NISN...">
+                                    <select name="id_siswa[]" class="form-select form-select-sm row-siswa" required>
+                                        <option value="">-- Pilih Kelas Terlebih Dahulu --</option>
+                                    </select>
+                                    <input type="hidden" name="catatan_terlambat_id[]" class="row-catatan" value="">
+                                    <div class="row-status text-muted small d-none">
+                                        <i class="bi bi-arrow-repeat spin"></i> Memuat data siswa...
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger row-remove" title="Hapus baris siswa">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
                 </div>
 
                 {{-- ============================================================ --}}
@@ -269,6 +315,18 @@
                         Siswa terlambat/belum masuk dan diperbolehkan mengikuti KBM mulai dari Jam Pelajaran tertentu.
                         Terisi otomatis dengan JP yang sedang berjalan, namun dapat diubah manual.
                     </p>
+                    <div class="mb-3">
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                            <span class="badge rounded-pill bg-danger-subtle text-danger-emphasis border border-danger-subtle px-3 py-2">
+                                <i class="bi bi-clock-history me-1"></i> Siswa Terlambat (Catatan Satpam)
+                            </span>
+                            <span class="text-muted small">Klik <strong>Ambil</strong> untuk mengisi form otomatis dari catatan keterlambatan di gerbang.</span>
+                            <button type="button" id="btnRefreshTerlambat" class="btn btn-sm btn-outline-secondary ms-auto rounded-3">
+                                <i class="bi bi-arrow-clockwise me-1"></i> Muat Ulang
+                            </button>
+                        </div>
+                        <div id="terlambatList" class="d-flex flex-column gap-2 text-start"></div>
+                    </div>
                     <div class="row g-3">
                         <div class="col-md-6 col-lg-4">
                             <label for="jam_masuk_jp" class="form-label fw-semibold text-secondary small">Boleh Masuk Mulai JP Ke-</label>
@@ -303,6 +361,21 @@
                         </div>
                     </div>
                 </div>
+
+                {{-- Template kartu quick-select siswa terlambat (input Satpam) --}}
+                <template id="templateTerlambatCard">
+                    <div class="terlambat-card border rounded-3 p-2 bg-light-subtle d-flex align-items-center gap-2 flex-wrap">
+                        <span class="badge rounded-pill bg-danger-subtle text-danger-emphasis border border-danger-subtle fw-semibold terlambat-jam"></span>
+                        <div class="flex-grow-1" style="min-width: 180px;">
+                            <div class="fw-semibold small text-dark terlambat-nama"></div>
+                            <div class="text-muted small terlambat-info"></div>
+                        </div>
+                        <span class="text-muted small terlambat-ket"></span>
+                        <button type="button" class="btn btn-sm btn-success rounded-3 btn-ambil-terlambat">
+                            <i class="bi bi-magic me-1"></i>Ambil ke Form
+                        </button>
+                    </div>
+                </template>
 
                 {{-- Tanda Tangan Guru Piket (wajib digambar) --}}
                 <div class="col-12">
@@ -344,7 +417,49 @@
                     <i class="bi bi-check2-circle me-1"></i> Buat & Setujui Dispen (ACC)
                 </button>
             </div>
+
+            {{-- Tempat input tersembunyi TTD digital per siswa (disejajarkan dengan id_siswa[]) --}}
+            <div id="ttdSiswaInputs" class="d-none"></div>
         </form>
+    </div>
+
+    {{-- ============================================================ --}}
+    {{-- MODAL TTD DIGITAL BERURUTAN (SISWA DEMI SISWA, KOLEKTIF)   --}}
+    {{-- ============================================================ --}}
+    <div class="modal fade" id="ttdWizardModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <div>
+                        <h5 class="fw-black mb-0"><i class="bi bi-pen me-1"></i> Tanda Tangan Digital Siswa</h5>
+                        <p class="text-muted small mb-0">Gambar TTD di kotak di bawah. Klik <strong>Riset Canvas</strong> bila ingin mengulang.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body pt-3">
+                    <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+                        <span class="badge rounded-pill bg-primary-subtle text-primary-emphasis border border-primary-subtle px-3 py-2" style="font-size: 0.85rem;">
+                            Tanda Tangan Siswa <span id="ttdStepCurrent">1</span> dari <span id="ttdStepTotal">1</span>
+                        </span>
+                        <span class="text-dark fw-semibold" id="ttdStepSiswa">—</span>
+                    </div>
+                    <canvas id="canvasTtdWizard" width="600" height="240"
+                            class="border rounded-3 bg-white w-100"
+                            style="touch-action: none; cursor: crosshair; max-width: 100%; height: auto;"></canvas>
+                    <div id="ttdWizardError" class="text-danger small mt-2 d-none">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>Gambar tanda tangan siswa terlebih dahulu (canvas masih kosong).
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-danger rounded-3" id="btnRisetWizard">
+                        <i class="bi bi-eraser me-1"></i> Riset Canvas
+                    </button>
+                    <button type="button" class="btn btn-success rounded-3 px-4 fw-semibold" id="btnTtdNext">
+                        <i class="bi bi-arrow-right-circle me-1"></i> Lanjut ke Siswa Berikutnya
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -366,11 +481,6 @@
         const tanggalInput   = document.querySelector('input[name="tanggal"]');
         const selectJadwal   = document.getElementById('id_jadwal');
         const jamCheckboxes  = Array.from(document.querySelectorAll('input[name="jam_ke[]"]'));
-        const selectSiswa    = document.getElementById('id_siswa');
-        const filterKelas    = document.getElementById('filterKelas');
-        const searchSiswa    = document.getElementById('searchSiswa');
-        const siswaLoading   = document.getElementById('siswaLoading');
-        const siswaEmpty     = document.getElementById('siswaEmpty');
         const HARI_INDONESIA = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
         // =====================================================================
@@ -654,38 +764,52 @@
         // ====================================================================
 
         // =====================================================================
-        // CASCADING DROPDOWN: Pilih Kelas → Muat Siswa (AJAX ringan, tanpa freeze)
+        // MULTI-SISWA ROWS: tiap baris = Pilih Kelas → Muat Siswa (AJAX ringan)
         // =====================================================================
-        const SISWA_URL = "{{ route('piket.dispensasi.siswa-by-kelas') }}";
+        const SISWA_URL            = "{{ route('piket.dispensasi.siswa-by-kelas') }}";
+        const siswaRowsContainer   = document.getElementById('siswaRowsContainer');
+        const btnTambahSiswa       = document.getElementById('btnTambahSiswa');
+        const siswaRowTemplate     = document.getElementById('templateSiswaRow');
+        const siswaErrorBox        = document.getElementById('siswaError');
 
-        function setSiswaAreaBusy(busy) {
-            if (!selectSiswa) return;
-            selectSiswa.disabled = busy || !filterKelas?.value;
-            if (searchSiswa) searchSiswa.disabled = busy || !filterKelas?.value;
-            if (busy) {
-                if (siswaLoading) siswaLoading.classList.remove('d-none');
-            } else {
-                if (siswaLoading) siswaLoading.classList.add('d-none');
-            }
+        function setSiswaError(show) {
+            if (siswaErrorBox) siswaErrorBox.classList.toggle('d-none', !show);
         }
 
-        // Re-render opsi siswa hanya untuk kelas terpilih (query ringan via AJAX).
-        function loadSiswaByKelas(kelasId) {
-            if (!selectSiswa) return;
+        function getFilledRows() {
+            return Array.from(document.querySelectorAll('.siswa-row')).filter(function (row) {
+                const s = row.querySelector('.row-siswa');
+                return s && s.value !== '';
+            });
+        }
 
-            // Kelas dibatalkan -> kosongkan & disable dropdown siswa
+        // Kelas dari baris terisi pertama (acuan filter jadwal mapel/guru).
+        function getPrimaryKelas() {
+            const rows = getFilledRows();
+            if (rows.length === 0) return '';
+            const opt = rows[0].querySelector('.row-siswa').selectedOptions[0];
+            return (opt && opt.dataset.kelas) || '';
+        }
+
+        function loadRowSiswa(row, kelasId, selectSiswaId) {
+            const siswa  = row.querySelector('.row-siswa');
+            const search = row.querySelector('.row-search');
+            const status = row.querySelector('.row-status');
+            if (!siswa) return;
+
             if (!kelasId) {
-                selectSiswa.innerHTML = '<option value="">-- Pilih Kelas Terlebih Dahulu --</option>';
-                selectSiswa.value = '';
-                selectSiswa.disabled = true;
-                if (searchSiswa) { searchSiswa.value = ''; searchSiswa.disabled = true; }
-                if (siswaEmpty) siswaEmpty.classList.add('d-none');
+                siswa.innerHTML = '<option value="">-- Pilih Kelas Terlebih Dahulu --</option>';
+                siswa.value = '';
+                siswa.dataset.kelas = '';
+                if (search) { search.value = ''; search.disabled = true; }
                 filterJadwalOptions();
                 return;
             }
 
-            setSiswaAreaBusy(true);
-            selectSiswa.innerHTML = '<option value="">-- Memuat data siswa... --</option>';
+            if (status) status.classList.remove('d-none');
+            siswa.disabled = true;
+            if (search) search.disabled = true;
+            siswa.innerHTML = '<option value="">-- Memuat data siswa... --</option>';
 
             fetch(SISWA_URL + '?kelas_id=' + encodeURIComponent(kelasId), {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -695,8 +819,7 @@
                 if (json.error || !Array.isArray(json.data)) {
                     throw new Error(json.message || 'Gagal memuat data siswa');
                 }
-
-                selectSiswa.innerHTML = '<option value="">-- Pilih Siswa --</option>';
+                siswa.innerHTML = '<option value="">-- Pilih Siswa --</option>';
                 for (const s of json.data) {
                     const opt = document.createElement('option');
                     opt.value = String(s.id);
@@ -704,35 +827,33 @@
                     opt.dataset.nisn  = String(s.nisn || '').toLowerCase();
                     opt.dataset.kelas = String(kelasId);
                     opt.textContent   = s.nama + ' (' + (s.nisn || 'Tanpa NISN') + ')';
-                    selectSiswa.appendChild(opt);
+                    siswa.appendChild(opt);
                 }
-
-                if (siswaEmpty) siswaEmpty.classList.toggle('d-none', json.data.length > 0);
-                setSiswaAreaBusy(false);
+                siswa.disabled = false;
+                if (selectSiswaId) {
+                    const opt = siswa.querySelector('option[value="' + String(selectSiswaId) + '"]');
+                    if (opt) siswa.value = String(selectSiswaId);
+                }
+                if (search) { search.value = ''; search.disabled = false; }
             })
             .catch(function () {
-                selectSiswa.innerHTML = '<option value="">-- Gagal memuat data siswa --</option>';
-                selectSiswa.disabled = true;
-                if (searchSiswa) searchSiswa.disabled = true;
-                if (siswaLoading) siswaLoading.classList.add('d-none');
+                siswa.innerHTML = '<option value="">-- Gagal memuat data siswa --</option>';
+                siswa.disabled = false;
+                if (search) search.disabled = false;
             })
             .finally(function () {
+                if (status) status.classList.add('d-none');
                 filterJadwalOptions();
             });
         }
 
-        if (filterKelas) {
-            filterKelas.addEventListener('change', function () {
-                loadSiswaByKelas(filterKelas.value);
-            });
-        }
-
-        // Filter instan (client-side) atas opsi siswa yang sudah dimuat untuk kelas tsb.
-        // Tidak perlu query tambahan — set data per kelas sudah ringan.
-        function filterSiswaBySearch() {
-            if (!selectSiswa || !searchSiswa) return;
-            const q = searchSiswa.value.trim().toLowerCase();
-            for (const opt of selectSiswa.options) {
+        // Filter instan (client-side) atas opsi siswa pada satu baris.
+        function filterRowBySearch(row) {
+            const search = row.querySelector('.row-search');
+            const siswa  = row.querySelector('.row-siswa');
+            if (!search || !siswa) return;
+            const q = search.value.trim().toLowerCase();
+            for (const opt of siswa.options) {
                 if (!opt.value) continue; // placeholder
                 const cocok = !q
                     || (opt.dataset.nama || '').indexOf(q) !== -1
@@ -741,9 +862,153 @@
             }
         }
 
-        if (searchSiswa) {
-            searchSiswa.addEventListener('input', filterSiswaBySearch);
+        function wireRow(row) {
+            const kelas  = row.querySelector('.row-kelas');
+            const siswa  = row.querySelector('.row-siswa');
+            const search = row.querySelector('.row-search');
+            const remove = row.querySelector('.row-remove');
+
+            if (kelas) {
+                kelas.addEventListener('change', function () { loadRowSiswa(row, kelas.value); });
+            }
+            if (search) {
+                search.addEventListener('input', function () { filterRowBySearch(row); });
+            }
+            if (siswa) {
+                siswa.addEventListener('change', function () { filterJadwalOptions(); setSiswaError(false); });
+            }
+            if (remove) {
+                remove.addEventListener('click', function () {
+                    row.remove();
+                    toggleRemoveButtons();
+                    filterJadwalOptions();
+                });
+            }
         }
+
+        function toggleRemoveButtons() {
+            const rows = document.querySelectorAll('.siswa-row');
+            rows.forEach(function (r) {
+                const btn = r.querySelector('.row-remove');
+                if (btn) btn.classList.toggle('d-none', rows.length === 1);
+            });
+        }
+
+        function createSiswaRow() {
+            const node = siswaRowTemplate.content.cloneNode(true);
+            const row = node.querySelector('.siswa-row');
+            siswaRowsContainer.appendChild(row);
+            wireRow(row);
+            toggleRemoveButtons();
+            setSiswaError(false);
+            return row;
+        }
+
+        if (btnTambahSiswa) {
+            btnTambahSiswa.addEventListener('click', createSiswaRow);
+        }
+
+        // Wire baris yang dirender server (restore old()) + isi otomatis bila kosong.
+        document.querySelectorAll('.siswa-row').forEach(function (r) { wireRow(r); });
+        toggleRemoveButtons();
+        if (document.querySelectorAll('.siswa-row').length === 0) {
+            createSiswaRow();
+        }
+
+        // =====================================================================
+        // QUICK-SELECT SISWA TERLAMBAT (catatan Satpam) — tab Masuk Kelas
+        // =====================================================================
+        const TERLAMBAT_URL          = "{{ route('piket.dispensasi.terlambat-hari-ini') }}";
+        const terlambatList          = document.getElementById('terlambatList');
+        const btnRefreshTerlambat    = document.getElementById('btnRefreshTerlambat');
+        const templateTerlambatCard  = document.getElementById('templateTerlambatCard');
+        const alasanDetailInput      = document.getElementById('alasan_detail');
+        const alasanDetailWrapEl     = document.getElementById('alasanDetailWrap');
+        let terlambatData = @json($terlambatJson ?? []);
+
+        function renderTerlambatList(data) {
+            if (!terlambatList || !templateTerlambatCard) return;
+            terlambatList.innerHTML = '';
+            if (!data || data.length === 0) {
+                terlambatList.innerHTML = '<div class="text-muted small"><i class="bi bi-info-circle me-1"></i>Belum ada catatan keterlambatan dari Satpam pada tanggal yang dipilih.</div>';
+                return;
+            }
+            for (const d of data) {
+                const node = templateTerlambatCard.content.cloneNode(true);
+                const card = node.querySelector('.terlambat-card');
+                card.dataset.catatanId = d.id;
+                card.dataset.siswaId = d.id_siswa;
+                node.querySelector('.terlambat-jam').textContent = (d.jam_masuk || '--:--') + ' WIB';
+                node.querySelector('.terlambat-nama').textContent = d.nama;
+                node.querySelector('.terlambat-info').textContent = [d.kelas, 'NISN ' + (d.nisn || '-')].filter(Boolean).join(' • ');
+                const ket = node.querySelector('.terlambat-ket');
+                ket.textContent = d.keterangan || '';
+                ket.title = d.keterangan || '';
+                if (!ket.textContent) ket.classList.add('d-none');
+                terlambatList.appendChild(node);
+            }
+        }
+
+        function refreshTerlambatList() {
+            const tgl = tanggalInput ? tanggalInput.value : '';
+            return fetch(TERLAMBAT_URL + '?tanggal=' + encodeURIComponent(tgl || ''), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function (res) { return res.json(); })
+            .then(function (json) {
+                terlambatData = (json.error || !Array.isArray(json.data)) ? [] : json.data;
+                renderTerlambatList(terlambatData);
+            })
+            .catch(function () { renderTerlambatList([]); });
+        }
+
+        // Terapkan catatan Satpam ke baris siswa: isi kelas + siswa (+ tautan id catatan).
+        function selectSiswaInRow(kelasId, siswaId, catatanId) {
+            let row = null;
+            for (const r of document.querySelectorAll('.siswa-row')) {
+                const s = r.querySelector('.row-siswa');
+                if (s && s.value === String(siswaId)) { row = r; break; }
+            }
+            if (!row) row = createSiswaRow();
+            const kelasSel = row.querySelector('.row-kelas');
+            const hid = row.querySelector('.row-catatan');
+            if (kelasSel) kelasSel.value = String(kelasId);
+            if (hid) hid.value = catatanId ? String(catatanId) : '';
+            loadRowSiswa(row, String(kelasId), siswaId);
+        }
+
+        if (terlambatList) {
+            terlambatList.addEventListener('click', function (e) {
+                const btn = e.target.closest('.btn-ambil-terlambat');
+                if (!btn) return;
+                const card = btn.closest('.terlambat-card');
+                if (!card) return;
+                const d = terlambatData.find(function (x) { return String(x.id) === String(card.dataset.catatanId); });
+                if (!d) return;
+
+                selectSiswaInRow(d.kelas_id, d.id_siswa, d.id);
+
+                if (jamMasukJpSelect && d.saran_jp) jamMasukJpSelect.value = String(d.saran_jp);
+                if (alasanKategori) alasanKategori.value = 'Terlambat Sekolah';
+                if (alasanDetailInput) alasanDetailInput.value = d.keterangan || '';
+                if (alasanDetailWrapEl) alasanDetailWrapEl.classList.toggle('d-none', !(d.keterangan || ''));
+
+                btn.disabled = true;
+                btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Terisi';
+                setSiswaError(false);
+            });
+        }
+
+        if (btnRefreshTerlambat) {
+            btnRefreshTerlambat.addEventListener('click', refreshTerlambatList);
+        }
+
+        if (tanggalInput) {
+            tanggalInput.addEventListener('change', refreshTerlambatList);
+        }
+
+        renderTerlambatList(terlambatData);
+        // ====================================================================
         // ====================================================================
 
 
@@ -761,9 +1026,7 @@
                 if (!isNaN(d.getTime())) dayName = HARI_INDONESIA[d.getDay()] || '';
             }
 
-            const kelasId  = selectSiswa.selectedOptions.length
-                ? (selectSiswa.selectedOptions[0].dataset.kelas || '')
-                : '';
+            const kelasId  = getPrimaryKelas();
             const jams = jamTerpilih();
 
             let visible = 0;
@@ -791,7 +1054,6 @@
         function onFilterChanged() { filterJadwalOptions(); }
 
         if (tanggalInput) tanggalInput.addEventListener('change', onFilterChanged);
-        if (selectSiswa)   selectSiswa.addEventListener('change', onFilterChanged);
         jamCheckboxes.forEach(function (cb) { cb.addEventListener('change', onFilterChanged); });
         filterJadwalOptions();
 
@@ -904,7 +1166,36 @@
                 //    (langkah ini selalu dijalankan SEBELUM form benar-benar dikirim).
                 refreshState();
 
-                // 2) Kumpulkan field wajib yang tampak namun belum terisi.
+                // 2) Normalisasi baris siswa: baris kosong dilepas nama+required-nya agar
+                //    tidak ikut terkirim / memblokir; baris terisi dikirim sebagai id_siswa[].
+                //    Input tersembunyi catatan_terlambat_id[] ikut di-strip pada baris
+                //    kosong agar tetap sejajar dengan id_siswa[] (server mencocokkan posisi).
+                const filledRows = getFilledRows();
+                document.querySelectorAll('.siswa-row').forEach(function (row) {
+                    const s = row.querySelector('.row-siswa');
+                    const hid = row.querySelector('.row-catatan');
+                    if (!s) return;
+                    if (!s.value) {
+                        s.removeAttribute('required');
+                        s.removeAttribute('name');
+                        if (hid) hid.removeAttribute('name');
+                    } else {
+                        s.required = true;
+                        s.name = 'id_siswa[]';
+                        if (hid) hid.name = 'catatan_terlambat_id[]';
+                    }
+                });
+
+                // 3) Wajib minimal satu siswa dipilih.
+                setSiswaError(false);
+                if (filledRows.length === 0) {
+                    e.preventDefault();
+                    setSiswaError(true);
+                    if (siswaRowsContainer) siswaRowsContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                }
+
+                // 4) Kumpulkan field wajib yang tampak namun belum terisi.
                 let invalidVisible = null;
                 formDispen.querySelectorAll('input[required], select[required], textarea[required]').forEach(function (el) {
                     if (invalidVisible) return;
@@ -912,7 +1203,7 @@
                     if (!el.checkValidity()) invalidVisible = el;
                 });
 
-                // 3) Tanda tangan Guru Piket wajib digambar.
+                // 5) Tanda tangan Guru Piket wajib digambar.
                 if (!filled) {
                     e.preventDefault();
                     ttdError.classList.remove('d-none');
@@ -921,7 +1212,7 @@
                     return;
                 }
 
-                // 4) Mode KELUAR: minimal satu jam pelajaran harus dipilih (server wajibkan jam_ke).
+                // 6) Mode KELUAR: minimal satu jam pelajaran harus dipilih (server wajibkan jam_ke).
                 const isMasukMode = !!(tipeDispenInput && tipeDispenInput.value === 'masuk');
                 const adaJamTerpilih = jamCheckboxes.some(function (c) { return c.checked; });
                 if (!isMasukMode && !adaJamTerpilih && !invalidVisible) {
@@ -935,7 +1226,7 @@
                 }
                 clearJamKeError();
 
-                // 5) Field wajib yang tampak belum diisi -> tampilkan bubble validasi browser
+                // 7) Field wajib yang tampak belum diisi -> tampilkan bubble validasi browser
                 //    pada field tersebut, tanpa terhalang field tersembunyi (novalidate).
                 if (invalidVisible) {
                     e.preventDefault();
@@ -943,8 +1234,172 @@
                     invalidVisible.focus();
                     return;
                 }
+
+                // 8) 2+ siswa (kolektif/rombongan) -> buka wizard TTD digital berurutan.
+                //    Satu siswa -> submit biasa langsung ke alur tunggal.
+                if (filledRows.length >= 2) {
+                    e.preventDefault();
+                    openTtdWizard(filledRows);
+                }
                 // Semua valid -> form.submit() berjalan (default submit, tidak di-prevent).
             });
+
+            // =====================================================================
+            // WIZARD TTD DIGITAL BERURUTAN (KOLEKTIF): siswa demi siswa
+            // =====================================================================
+            const ttdWizardModal    = document.getElementById('ttdWizardModal');
+            const wizardCanvas      = document.getElementById('canvasTtdWizard');
+            const ttdStepCurrent    = document.getElementById('ttdStepCurrent');
+            const ttdStepTotal      = document.getElementById('ttdStepTotal');
+            const ttdStepSiswa      = document.getElementById('ttdStepSiswa');
+            const ttdWizardError    = document.getElementById('ttdWizardError');
+            const btnRisetWizard    = document.getElementById('btnRisetWizard');
+            const btnTtdNext        = document.getElementById('btnTtdNext');
+            const ttdSiswaInputs    = document.getElementById('ttdSiswaInputs');
+
+            let wizardRows = [];
+            let wizardIdx  = 0;
+
+            function wizardCanvasBlank() {
+                const wctx = wizardCanvas.getContext('2d');
+                const data = wctx.getImageData(0, 0, wizardCanvas.width, wizardCanvas.height).data;
+                for (let i = 3; i < data.length; i += 4) {
+                    if (data[i] !== 0) return false;
+                }
+                return true;
+            }
+
+            function resetWizardCanvas() {
+                const wctx = wizardCanvas.getContext('2d');
+                wctx.clearRect(0, 0, wizardCanvas.width, wizardCanvas.height);
+                wctx.beginPath();
+                if (ttdWizardError) ttdWizardError.classList.add('d-none');
+            }
+
+            // Bersihkan input tersembunyi TTD dari pengisian sebelumnya (validasi ulang).
+            if (ttdSiswaInputs) ttdSiswaInputs.innerHTML = '';
+
+            openTtdWizard = function openTtdWizard(filledRows) {
+                // amankan copy baris (Elemen) sesuai urutan DOM -> id_siswa[] sejajar ttd_siswa[]
+                wizardRows = filledRows.map(function (r) { return r; });
+                wizardIdx  = 0;
+                resetWizardCanvas();
+                renderWizardStep(0);
+                const modal = new bootstrap.Modal(ttdWizardModal);
+                modal.show();
+            };
+
+            function renderWizardStep(i) {
+                if (!ttdWizardModal || !wizardRows.length) return;
+                if (i >= wizardRows.length) { return; }
+
+                wizardIdx = i;
+                const row = wizardRows[i];
+                const opt = row.querySelector('.row-siswa').selectedOptions[0];
+                const kelasOpt = row.querySelector('.row-kelas').selectedOptions[0];
+                const nama = opt ? opt.textContent.trim() : '—';
+                const kelas = kelasOpt ? kelasOpt.textContent.trim() : '';
+
+                if (ttdStepCurrent) ttdStepCurrent.textContent = String(i + 1);
+                if (ttdStepTotal)   ttdStepTotal.textContent   = String(wizardRows.length);
+                if (ttdStepSiswa)   ttdStepSiswa.textContent   = (kelas ? nama + ' (' + kelas + ')' : nama);
+
+                const isLast = (i === wizardRows.length - 1);
+                if (btnTtdNext) {
+                    btnTtdNext.innerHTML = isLast
+                        ? '<i class="bi bi-check2-circle me-1"></i> Selesaikan & Simpan'
+                        : '<i class="bi bi-arrow-right-circle me-1"></i> Lanjut ke Siswa Berikutnya';
+                }
+                resetWizardCanvas();
+            }
+
+            if (btnRisetWizard) {
+                btnRisetWizard.addEventListener('click', resetWizardCanvas);
+            }
+
+            if (btnTtdNext && ttdWizardModal) {
+                btnTtdNext.addEventListener('click', function () {
+                    if (wizardCanvasBlank()) {
+                        if (ttdWizardError) ttdWizardError.classList.remove('d-none');
+                        return;
+                    }
+                    if (ttdWizardError) ttdWizardError.classList.add('d-none');
+                    const dataUrl = wizardCanvas.toDataURL('image/png');
+                    wizardRows[wizardIdx]._ttd = dataUrl;
+
+                    if (wizardIdx + 1 < wizardRows.length) {
+                        renderWizardStep(wizardIdx + 1);
+                        return;
+                    }
+
+                    // Selesaikan & Simpan: bangun ttd_siswa[] sejajar id_siswa[] lalu submit.
+                    if (ttdSiswaInputs) ttdSiswaInputs.innerHTML = '';
+                    wizardRows.forEach(function (row) {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'ttd_siswa[]';
+                        input.value = row._ttd || '';
+                        if (ttdSiswaInputs) ttdSiswaInputs.appendChild(input);
+                    });
+
+                    const modal = bootstrap.Modal.getInstance(ttdWizardModal);
+                    if (modal) modal.hide();
+
+                    // .submit() tidak men-trigger event 'submit' lagi -> aman.
+                    formDispen.submit();
+                });
+            }
+
+            // Inisialisasi canvas wizard (mousedown/move/touch, mirror dari canvas TTD Guru).
+            if (wizardCanvas) {
+                const wctx = wizardCanvas.getContext('2d');
+                wctx.lineCap = 'round';
+                wctx.lineJoin = 'round';
+                wctx.lineWidth = 2.5;
+                wctx.strokeStyle = '#0f172a';
+
+                let wdrawing = false;
+
+                function wGetPos(e) {
+                    const rect = wizardCanvas.getBoundingClientRect();
+                    const scaleX = wizardCanvas.width / rect.width;
+                    const scaleY = wizardCanvas.height / rect.height;
+                    const clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
+                    const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
+                    return {
+                        x: (clientX - rect.left) * scaleX,
+                        y: (clientY - rect.top) * scaleY,
+                    };
+                }
+
+                function wStart(e) {
+                    e.preventDefault();
+                    wdrawing = true;
+                    const p = wGetPos(e);
+                    wctx.beginPath();
+                    wctx.moveTo(p.x, p.y);
+                    if (ttdWizardError) ttdWizardError.classList.add('d-none');
+                }
+
+                function wMove(e) {
+                    if (!wdrawing) return;
+                    e.preventDefault();
+                    const p = wGetPos(e);
+                    wctx.lineTo(p.x, p.y);
+                    wctx.stroke();
+                }
+
+                function wEnd() {
+                    wdrawing = false;
+                }
+
+                wizardCanvas.addEventListener('mousedown', wStart);
+                wizardCanvas.addEventListener('mousemove', wMove);
+                window.addEventListener('mouseup', wEnd);
+                wizardCanvas.addEventListener('touchstart', wStart, { passive: false });
+                wizardCanvas.addEventListener('touchmove', wMove, { passive: false });
+                wizardCanvas.addEventListener('touchend', wEnd);
+            }
         }
     });
 </script>

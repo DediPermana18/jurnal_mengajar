@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Guru;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Guru\Concerns\ResolvesTargetGuru;
 use App\Models\AbsensiJurnal;
 use App\Models\DispensasiSiswa;
 use App\Models\JadwalPelajaran;
@@ -20,6 +21,8 @@ use Illuminate\Support\Facades\Storage;
 
 class JurnalController extends Controller
 {
+    use ResolvesTargetGuru;
+
     protected function authorizeGuru(): void
     {
         $user = auth()->user();
@@ -151,11 +154,10 @@ class JurnalController extends Controller
      */
     protected function evaluateJadwal(JadwalPelajaran $jadwal, ?Jurnal $jurnalHariIni = null, ?JamPelajaran $overrideJam = null): array
     {
-        $user = auth()->user();
         $now = Carbon::now();
         $today = Carbon::today()->toDateString();
 
-        $isOwner = (int) $jadwal->id_guru === (int) $user->id;
+        $isOwner = (int) $jadwal->id_guru === $this->effectiveGuruId();
         $jam = $overrideJam ?? $jadwal->jamPelajaran;
 
         $jamMulai = ($jam && $jam->jam_mulai) ? Carbon::parse($today.' '.$jam->jam_mulai) : null;
@@ -273,7 +275,7 @@ class JurnalController extends Controller
     {
         $this->authorizeGuru();
 
-        $user = auth()->user();
+        $guruId = $this->effectiveGuruId();
         $hari = $this->hariIndonesia();
         $today = Carbon::today()->toDateString();
         $now = Carbon::now();
@@ -281,7 +283,7 @@ class JurnalController extends Controller
         $tahunAktif = TahunAjaran::where('is_active', true)->first();
 
         $query = JadwalPelajaran::with(['jamPelajaran', 'kelas', 'mapel'])
-            ->where('id_guru', $user->id)
+            ->where('id_guru', $guruId)
             ->where('hari', $hari);
 
         if ($tahunAktif) {
@@ -361,7 +363,7 @@ class JurnalController extends Controller
             $rawBlocks[] = $currentBlock;
         }
 
-        $jadwals = collect($rawBlocks)->map(function ($block) use ($user, $today, $now, $hari, $jamPulangLookup, $isSeninShiftHariIni, $isJumatShiftHariIni, $isModeKhususHariIni) {
+        $jadwals = collect($rawBlocks)->map(function ($block) use ($guruId, $today, $now, $hari, $jamPulangLookup, $isSeninShiftHariIni, $isJumatShiftHariIni, $isModeKhususHariIni) {
             $first = $block[0];
             $last = end($block);
             $primaryJadwal = $first->jadwal;
@@ -403,7 +405,7 @@ class JurnalController extends Controller
             }
 
             $isFilled = $jurnalBlock !== null;
-            $isOwner = (int) $primaryJadwal->id_guru === (int) $user->id;
+            $isOwner = (int) $primaryJadwal->id_guru === $guruId;
 
             // Time validation based on FIRST JP in the block
             $jamMulaiStr = $first->effective_jam_obj?->jam_mulai;

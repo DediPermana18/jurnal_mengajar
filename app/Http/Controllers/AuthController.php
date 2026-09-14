@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PengaturanJadwal;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,14 +12,30 @@ class AuthController extends Controller
 {
     /**
      * Tampilkan Halaman Login
+     *
+     * Selama Maintenance Mode aktif, halaman login tetap accessible untuk siapa
+     * saja. User non-IT/QA yang masih terautentikasi dikeluarkan (logout) agar
+     * tidak terlempar dalam siklus 503 saat mencoba kembali ke login.
      */
     public function showLoginForm()
     {
+        $maintenanceActive = PengaturanJadwal::isMaintenanceModeActive();
+
         if (Auth::check()) {
-            return $this->redirectBasedOnRole(Auth::user());
+            $user = Auth::user();
+
+            if ($maintenanceActive && ! $user->isTestingUser()) {
+                Auth::logout();
+                request()->session()->invalidate();
+                request()->session()->regenerateToken();
+
+                return view('auth.login', compact('maintenanceActive'));
+            }
+
+            return $this->redirectBasedOnRole($user);
         }
 
-        return view('auth.login');
+        return view('auth.login', compact('maintenanceActive'));
     }
 
     /**
@@ -59,6 +76,15 @@ class AuthController extends Controller
         // Cek jika akun guru/admin sudah di-soft delete
         if ($user->trashed()) {
             return back()->withErrors(['login_id' => 'Akun Anda sudah tidak berlaku. Silakan hubungi Admin TU.'])->withInput();
+        }
+
+        // ================= MAINTENANCE MODE =================
+        // Saat Maintenance aktif, hanya Petugas IT / QA Tester yang boleh login.
+        // User biasa ditolak dengan pesan khusus tanpa membocorkan validitas password.
+        if (PengaturanJadwal::isMaintenanceModeActive() && ! $user->isTestingUser()) {
+            return back()
+                ->withErrors(['login_id' => 'Login Gagal: Sistem sedang dalam pemeliharaan.'])
+                ->withInput();
         }
 
         // ================= VALIDASI KODE AKTIVASI UNTUK AKUN NON-GURU =================

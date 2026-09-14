@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CheckMaintenanceMode;
 use App\Http\Middleware\CheckPetugasPiket;
 use App\Http\Middleware\EnsureWakaKesiswaan;
 use Illuminate\Foundation\Application;
@@ -21,6 +22,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'piket' => CheckPetugasPiket::class,
             'waka-kesiswaan' => EnsureWakaKesiswaan::class,
+        ]);
+
+        // Maintenance Mode: blokir semua web request bagi non-IT/QA saat aktif.
+        $middleware->web(append: [
+            CheckMaintenanceMode::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

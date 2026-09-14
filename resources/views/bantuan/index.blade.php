@@ -200,17 +200,6 @@
                             </div>
                         </div>
 
-                        <div class="mb-4">
-                            <div class="text-muted text-uppercase small fw-bold mb-2" style="font-size: 0.68rem; letter-spacing: 0.06em;">Jam Operasional</div>
-                            <ul class="list-unstyled mb-0">
-                                @foreach($jamOperasional as $hari => $jam)
-                                    <li class="d-flex justify-content-between align-items-center py-1 border-bottom" style="border-color: #eef2f7 !important;">
-                                        <span class="text-secondary small">{{ $hari }}</span>
-                                        <span class="fw-semibold text-dark small">{{ $jam }}</span>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        </div>
 
                         @if($noWaKontak)
                             <a href="{{ 'https://wa.me/' . $noWaKontak . '?text=' . urlencode('Halo, saya butuh bantuan teknis penggunaan WebJournal.') }}"
@@ -225,6 +214,37 @@
                                 <i class="bi bi-exclamation-triangle me-1"></i> Nomor WhatsApp layanan belum diatur. Hubungi admin untuk melengkapi nomor pada profil admin.
                             </div>
                         @endif
+
+                        @auth
+                            <hr class="my-4" style="border-color:#e8eef5;">
+                            <button type="button" class="btn btn-outline-danger w-100 rounded-3 fw-semibold py-2"
+                                    data-bs-toggle="modal" data-bs-target="#modalLaporKendala">
+                                <i class="bi bi-bug me-1"></i> Laporkan Kendala
+                            </button>
+                            <p class="text-center text-muted small mt-3 mb-0">
+                                Temukan bug / kendala pada sistem? Laporkan langsung dengan bukti screenshot.
+                            </p>
+
+                            @if($kendalaSaya->isNotEmpty())
+                                <div class="mt-4">
+                                    <div class="text-muted text-uppercase small fw-bold mb-2" style="font-size: 0.68rem; letter-spacing: 0.06em;">Laporan Kendala Saya</div>
+                                    <ul class="list-unstyled mb-0">
+                                        @foreach($kendalaSaya as $kendala)
+                                            <li class="d-flex align-items-center justify-content-between gap-2 py-2 border-bottom" style="border-color: #eef2f7 !important;">
+                                                <div class="min-w-0">
+                                                    <div class="text-dark small fw-semibold text-truncate" style="max-width: 210px;">{{ $kendala->judul }}</div>
+                                                    <div class="text-muted" style="font-size:0.72rem;">
+                                                        {{ $kendala->created_at?->translatedFormat('d M Y, H:i') ?? '-' }}
+                                                        <span class="badge {{ $kendala->prioritas_badge }} ms-1" style="font-size:0.62rem;">{{ $kendala->prioritas_label }}</span>
+                                                    </div>
+                                                </div>
+                                                <span class="badge {{ $kendala->status_badge }} rounded-pill flex-shrink-0" style="font-size:0.65rem;">{{ $kendala->status_label }}</span>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @endif
+                        @endauth
                     </div>
                 </div>
             </div>
@@ -232,6 +252,65 @@
     </div>
 
 </div>
+
+@auth
+{{-- ==================== MODAL LAPORKAN KENDALA ==================== --}}
+<div class="modal fade" id="modalLaporKendala" tabindex="-1" aria-labelledby="modalLaporKendalaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <form action="{{ route('bantuan.kendala.store') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold" id="modalLaporKendalaLabel">
+                        <i class="bi bi-bug text-danger me-2"></i>Laporkan Kendala
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="judul_kendala" class="form-label fw-semibold">Judul Kendala <span class="text-danger">*</span></label>
+                            <input type="text" name="judul" id="judul_kendala"
+                                   class="form-control rounded-3 @error('judul') is-invalid @enderror"
+                                   value="{{ old('judul') }}" placeholder="contoh: Tombol Simpan Jurnal tidak merespon" maxlength="150" required>
+                            @error('judul') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="col-12">
+                            <label for="deskripsi_kendala" class="form-label fw-semibold">Deskripsi Error <span class="text-danger">*</span></label>
+                            <textarea name="deskripsi" id="deskripsi_kendala" rows="4"
+                                      class="form-control rounded-3 @error('deskripsi') is-invalid @enderror"
+                                      placeholder="Jelaskan langkah yang dilakukan, perilaku yang diharapkan, dan pesan error yang muncul (jika ada)." required>{{ old('deskripsi') }}</textarea>
+                            @error('deskripsi') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="col-12">
+                            <label for="prioritas_kendala" class="form-label fw-semibold">Prioritas</label>
+                            <select name="prioritas" id="prioritas_kendala" class="form-select rounded-3 @error('prioritas') is-invalid @enderror">
+                                <option value="low" {{ old('prioritas') === 'low' ? 'selected' : '' }}>Rendah</option>
+                                <option value="medium" {{ old('prioritas', 'medium') === 'medium' ? 'selected' : '' }}>Sedang</option>
+                                <option value="high" {{ old('prioritas') === 'high' ? 'selected' : '' }}>Tinggi</option>
+                            </select>
+                            @error('prioritas') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="col-12">
+                            <label for="foto_bukti" class="form-label fw-semibold">Upload Screenshot <span class="text-muted">(opsional)</span></label>
+                            <input type="file" name="foto_bukti" id="foto_bukti" accept="image/*"
+                                   class="form-control rounded-3 @error('foto_bukti') is-invalid @enderror">
+                            <div class="form-text">Maksimal 5 MB, format gambar (PNG / JPG).</div>
+                            @error('foto_bukti') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-3 fw-semibold" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-danger rounded-3 fw-semibold px-4">
+                        <i class="bi bi-send me-1"></i> Kirim Laporan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endauth
 
 <style>
     .btn-wa { background-color: #25D366 !important; border-color: #25D366 !important; color: #fff !important; }
