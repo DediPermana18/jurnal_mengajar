@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\Rule;
 use Str;
 
 class ProfilController extends Controller
@@ -32,7 +33,14 @@ class ProfilController extends Controller
         $rules = [
             'nama' => 'required|string|max:150',
             'nip' => "nullable|string|max:50|unique:users,nip,{$user->id}",
-            'username' => "required|string|max:100|unique:users,username,{$user->id}",
+            'username' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('users', 'username')
+                    ->where(fn ($q) => $q->where('is_testing_data', $user->is_testing_data))
+                    ->ignore($user->id),
+            ],
             'email' => "nullable|email|max:150|unique:users,email,{$user->id}",
             'no_hp' => 'nullable|string|max:20',
             'foto_profil' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',

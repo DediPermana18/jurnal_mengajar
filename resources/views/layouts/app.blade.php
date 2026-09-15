@@ -671,22 +671,12 @@
                     </a>
                 </div>
 
-                <!-- Verifikasi Izin Keluar -->
+                <!-- Verifikasi Izin & Dispensasi -->
                 <div class="nav-item-container">
-                    <a href="{{ route('satpam.verifikasi') }}" class="nav-btn {{ request()->routeIs('satpam.verifikasi') ? 'active' : '' }}">
-                        <span class="btn-left">
-                            <i class="bi bi-door-open-fill"></i>
-                            <span>Verifikasi Izin Keluar</span>
-                        </span>
-                    </a>
-                </div>
-
-                <!-- Verifikasi Dispensasi -->
-                <div class="nav-item-container">
-                    <a href="{{ route('satpam.dispensasi.index') }}" class="nav-btn {{ request()->routeIs('satpam.dispensasi.index') ? 'active' : '' }}">
+                    <a href="{{ route('satpam.verifikasi') }}" class="nav-btn {{ request()->routeIs('satpam.verifikasi') || request()->routeIs('satpam.dispensasi.index') ? 'active' : '' }}">
                         <span class="btn-left">
                             <i class="bi bi-qr-code-scan"></i>
-                            <span>Verifikasi Dispensasi</span>
+                            <span>Verifikasi Izin &amp; Dispensasi</span>
                         </span>
                     </a>
                 </div>

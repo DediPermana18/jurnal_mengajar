@@ -132,7 +132,6 @@ class DispensasiJamKembaliMangkirTest extends TestCase
                 'jam_ke' => ['3', '4'],
                 'jam_keluar_jp' => '3',
                 'kembali_hari_ini' => '1',
-                'jam_kembali_jp' => '6',
                 'alasan' => 'Mengikuti lomba akademik',
                 'ttd_guru' => 'data:image/png;base64,GURU',
             ])
@@ -140,7 +139,6 @@ class DispensasiJamKembaliMangkirTest extends TestCase
             ->assertSessionHas('success');
 
         $dispen = DispensasiSiswa::first();
-        $this->assertEquals(6, $dispen->jam_kembali_jp);
         $this->assertFalse($dispen->tidak_kembali_hari_ini);
 
         // Belum keluar gerbang -> belum menunggu konfirmasi kembali.
@@ -149,11 +147,6 @@ class DispensasiJamKembaliMangkirTest extends TestCase
         // Setelah keluar gerbang dengan rencana kembali -> menunggu konfirmasi kembali.
         $dispen->update(['keluar_gerbang_at' => now(), 'keluar_gerbang_by' => $piket->id]);
         $this->assertTrue($dispen->isMenungguKembali());
-
-        $this->actingAs($piket)
-            ->get(route('piket.dispensasi.index'))
-            ->assertOk()
-            ->assertSee('Rencana kembali JP-6');
     }
 
     public function test_store_default_tanpa_centang_berarti_tidak_kembali_hari_ini(): void
@@ -168,7 +161,6 @@ class DispensasiJamKembaliMangkirTest extends TestCase
                 'id_siswa' => $siswa->id,
                 'jam_ke' => ['3'],
                 'jam_keluar_jp' => '3',
-                'jam_kembali_jp' => '',
                 'alasan' => 'Izin hingga pulang',
                 'ttd_guru' => 'data:image/png;base64,GURU',
             ])
@@ -186,7 +178,7 @@ class DispensasiJamKembaliMangkirTest extends TestCase
             ->assertSee('Tidak kembali hari ini');
     }
 
-    public function test_store_wajib_pilih_jp_kembali_saat_dicentang(): void
+    public function test_store_tanpa_jam_kembali_jp_tetap_berhasil(): void
     {
         $piket = $this->makeUser('guru');
         JadwalPiket::create(['hari' => 'Senin', 'user_id' => $piket->id]);
@@ -199,11 +191,14 @@ class DispensasiJamKembaliMangkirTest extends TestCase
                 'jam_ke' => ['3'],
                 'jam_keluar_jp' => '3',
                 'kembali_hari_ini' => '1',
-                'jam_kembali_jp' => '',
                 'alasan' => 'Kembali ke sekolah',
                 'ttd_guru' => 'data:image/png;base64,GURU',
             ])
-            ->assertSessionHasErrors('jam_kembali_jp');
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $dispen = DispensasiSiswa::first();
+        $this->assertFalse($dispen->tidak_kembali_hari_ini);
     }
 
     public function test_satpam_konfirmasi_siswa_kembali_mencatat_kedatangan(): void
@@ -237,7 +232,7 @@ class DispensasiJamKembaliMangkirTest extends TestCase
             ->get(route('satpam.dispensasi.index', ['q' => $dispen->approval_token]))
             ->assertOk()
             ->assertSee('Konfirmasi Kembali')
-            ->assertDontSee('Konfirmasi Siswa Kembali');
+            ->assertDontSee('Konfirmasi Kembali ke Sekolah');
     }
 
     public function test_auto_mangkir_mengubah_status_dan_presensi_menjadi_alfa(): void
@@ -309,7 +304,7 @@ class DispensasiJamKembaliMangkirTest extends TestCase
             ->assertOk()
             ->assertSee('Mangkir / Bolos')
             ->assertSee('Belum kembali melewati Rencana Jam Kembali + 1 JP')
-            ->assertDontSee('Konfirmasi Siswa Kembali');
+            ->assertDontSee('Konfirmasi Kembali ke Sekolah');
 
         $dispen->refresh();
         $this->assertTrue($dispen->isMangkir());
@@ -347,7 +342,7 @@ class DispensasiJamKembaliMangkirTest extends TestCase
             ->get(route('satpam.dispensasi.index', ['q' => $dispen->approval_token]))
             ->assertOk()
             ->assertSee('Tidak kembali hari ini')
-            ->assertDontSee('Konfirmasi Siswa Kembali');
+            ->assertDontSee('Konfirmasi Kembali ke Sekolah');
     }
 
     public function test_waka_kesiswaan_tab_semua_menampilkan_status_mangkir(): void

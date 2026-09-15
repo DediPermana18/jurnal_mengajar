@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CatatanTerlambat;
+use App\Models\DispensasiKolektif;
 use App\Models\DispensasiSiswa;
 use App\Models\JadwalPelajaran;
 use App\Models\JamPelajaran;
@@ -313,30 +314,52 @@ class SatpamController extends Controller
     }
 
     /**
-     * Verifikasi Dispensasi / Izin Keluar di gerbang:
-     * input Kode Unik (token surat) atau cari NIS/NISN/nama siswa.
+     * Verifikasi Izin & Dispensasi di gerbang (/satpam/verifikasi):
+     * universal search — Kode Unik / Nomor Surat / QR / NIS / NISN / Nama.
      */
     public function verifikasi(Request $request)
     {
         $this->authorizeSatpam();
 
-        // Auto-Expired: pastikan status surat selalu segar saat dicek di gerbang.
+        // Auto-Expired & Auto-Mangkir: pastikan status surat selalu segar saat dicek di gerbang.
         DispensasiSiswa::refreshAutoExpired();
+        DispensasiSiswa::refreshAutoMangkir();
 
         $q = trim((string) $request->get('q', ''));
 
         $dispen = null;
+        $kolektif = null;
         $siswa = null;
         $daftarDispen = collect();
 
         if ($q !== '') {
-            // 1. Cek langsung via kode unik pada surat dispensasi digital.
-            $dispen = DispensasiSiswa::with(['siswa.kelas', 'guruPiket', 'jadwal.mapel'])
-                ->where('approval_token', $q)
+            // 1. Dukungan scan QR: URL approval berisi ".../dispen/approve/{token}".
+            $token = $q;
+            if (preg_match('#dispen/approve/([A-Za-z0-9\-]+)#', $q, $m)) {
+                $token = $m[1];
+            }
+
+            // 2. Cari via approval_token (Kode Unik) atau nomor surat (DIS-####/TAHUN).
+            $dispen = DispensasiSiswa::with(['siswa.kelas', 'guruPiket', 'verifier', 'jadwal.mapel'])
+                ->where(function ($query) use ($q, $token) {
+                    $query->where('approval_token', $token)
+                        ->orWhere('id', static::parseNomorSurat($q));
+                })
                 ->first();
 
-            // 2. Jika bukan kode, cari siswa berdasarkan NIS / NISN / nama.
+            // 2b. Belum individu: coba induk dispensasi kolektif (rombongan)
+            //     via token / nomor surat kolektif.
             if (! $dispen) {
+                $kolektif = DispensasiKolektif::with(['guruPiket', 'jadwal.mapel', 'siswaItems.siswa.kelas'])
+                    ->where(function ($query) use ($q, $token) {
+                        $query->where('approval_token', $token)
+                            ->orWhere('id', static::parseNomorSurat($q));
+                    })
+                    ->first();
+            }
+
+            // 3. Jika bukan kode/nomor surat, cari siswa berdasarkan NIS / NISN / nama.
+            if (! $dispen && ! $kolektif) {
                 $siswa = Siswa::with('kelas')
                     ->where(function ($query) use ($q) {
                         $query->where('nis', $q)
@@ -363,7 +386,7 @@ class SatpamController extends Controller
             }
         }
 
-        return view('satpam.verifikasi', compact('q', 'dispen', 'siswa', 'daftarDispen'));
+        return view('satpam.verifikasi', compact('q', 'dispen', 'kolektif', 'siswa', 'daftarDispen'));
     }
 
     /**
@@ -374,43 +397,6 @@ class SatpamController extends Controller
         return preg_match('/^DIS-(\d{1,6})\//i', trim($q), $m)
             ? (int) $m[1]
             : null;
-    }
-
-    /**
-     * Portal Verifikasi Dispensasi Satpam (/satpam/dispensasi):
-     * Satpam mengetik / scan nomor surat (atau QR berisi URL persetujuan /
-     * token) lalu mengonfirmasi siswa keluar gerbang.
-     */
-    public function dispensasiVerifikasi(Request $request)
-    {
-        $this->authorizeSatpam();
-
-        // Auto-Expired: surat yang melewati batas langsung Kadaluarsa.
-        DispensasiSiswa::refreshAutoExpired();
-        // Auto-Mangkir: siswa yang belum kembali melewati batas -> Mangkir/Bolos.
-        DispensasiSiswa::refreshAutoMangkir();
-
-        $q = trim((string) $request->get('q', ''));
-
-        $dispen = null;
-
-        if ($q !== '') {
-            // Dukungan scan QR: URL persetujuan berisi ".../dispen/approve/{token}" -
-            // Satpam cukup scan kode yang ada di surat / tempel tautannya.
-            $token = $q;
-            if (preg_match('#dispen/approve/([A-Za-z0-9\-]+)#', $q, $m)) {
-                $token = $m[1];
-            }
-
-            $dispen = DispensasiSiswa::with(['siswa.kelas', 'guruPiket', 'verifier'])
-                ->where(function ($query) use ($q, $token) {
-                    $query->where('approval_token', $token)
-                        ->orWhere('id', static::parseNomorSurat($q));
-                })
-                ->first();
-        }
-
-        return view('satpam.dispensasi', compact('q', 'dispen'));
     }
 
     /**
@@ -437,6 +423,11 @@ class SatpamController extends Controller
         }
 
         abort_unless($dispen->isApproved(), 422, 'Dispensasi ini belum disetujui, tidak dapat diizinkan keluar.');
+
+        if (! $dispen->isTtdLengkap()) {
+            return redirect()->route('satpam.dispensasi.index', ['q' => $dispen->approval_token ?? ''])
+                ->with('cancel', 'Verifikasi Keluar Gagal! Surat Dispensasi belum ditandatangani lengkap oleh Siswa, Guru Piket, atau Waka Kesiswaan.');
+        }
 
         $dispen->update([
             'status' => DispensasiSiswa::STATUS_KELUAR,
@@ -466,7 +457,7 @@ class SatpamController extends Controller
                 ->with('cancel', 'Siswa "'.$dispen->siswa?->nama.'" dinyatakan MANGKIR / BOLOS (melewati Rencana Jam Kembali + 1 JP). Presensi JP terkait otomatis menjadi Alfa.');
         }
 
-        abort_unless($dispen->isMenungguKembali(), 422, 'Surat ini tidak menunggu konfirmasi kembali (belum keluar gerbang / tidak memiliki rencana kembali / sudah dikonfirmasi kembali).');
+        abort_unless($dispen->isKeluarGerbang() && ! $dispen->isKembali(), 422, 'Surat ini belum keluar gerbang atau sudah dikonfirmasi kembali.');
 
         $dispen->update([
             'kembali_at' => now(),
@@ -475,5 +466,129 @@ class SatpamController extends Controller
 
         return redirect()->route('satpam.dispensasi.index', ['q' => $dispen->approval_token ?? ''])
             ->with('success', 'Siswa "'.$dispen->siswa?->nama.'" dikonfirmasi kembali ke sekolah (pukul '.$dispen->kembali_at?->format('H:i').'). Selamat datang kembali!');
+    }
+
+    /**
+     * Verifikasi keluar gerbang dispensasi kolektif (rombongan):
+     * hanya siswa yang DICENTANG Satpam yang statusnya diubah menjadi
+     * "Siswa Out" (keluar_gerbang_at terisi) pada database.
+     */
+    public function kolektifKeluar(Request $request, DispensasiKolektif $kolektif)
+    {
+        $this->authorizeSatpam();
+
+        // Guard: surat data testing hanya dapat diproses oleh IT/QA.
+        $this->authorizeTestingMutation($kolektif);
+
+        $validated = $request->validate([
+            'dispen_ids' => 'required|array|min:1',
+            'dispen_ids.*' => 'integer|exists:dispensasi_siswa,id',
+        ], [
+            'dispen_ids.required' => 'Pilih minimal satu siswa yang benar-benar keluar gerbang.',
+            'dispen_ids.array' => 'Format pilihan siswa tidak valid.',
+            'dispen_ids.min' => 'Pilih minimal satu siswa yang benar-benar keluar gerbang.',
+            'dispen_ids.*.integer' => 'Pilihan siswa tidak valid.',
+            'dispen_ids.*.exists' => 'Salah satu siswa tidak ditemukan pada surat rombongan.',
+        ]);
+
+        $baris = $kolektif->siswaItems()
+            ->whereIn('id', array_map('intval', $validated['dispen_ids']))
+            ->get();
+
+        $jumlahDiproses = 0;
+        $namaKeluar = [];
+
+        foreach ($baris as $dispen) {
+            $this->authorizeTestingMutation($dispen);
+
+            // Auto-Expired: pastikan surat belum melewati batas waktu keluar.
+            $dispen->refreshStatusOtomatis();
+
+            if ($dispen->isExpired() || $dispen->isKeluarGerbang() || ! $dispen->isApproved() || ! $dispen->isTtdLengkap()) {
+                continue;
+            }
+
+            $dispen->update([
+                'status' => DispensasiSiswa::STATUS_KELUAR,
+                'keluar_gerbang_at' => now(),
+                'keluar_gerbang_by' => Auth::id(),
+            ]);
+
+            $jumlahDiproses++;
+            $namaKeluar[] = $dispen->siswa?->nama;
+        }
+
+        $query = ['q' => $kolektif->approval_token ?? ''];
+
+        if ($jumlahDiproses === 0) {
+            return redirect()->route('satpam.dispensasi.index', $query)
+                ->with('cancel', 'Verifikasi Keluar Gagal! Surat Dispensasi belum ditandatangani lengkap oleh Siswa, Guru Piket, atau Waka Kesiswaan.');
+        }
+
+        return redirect()->route('satpam.dispensasi.index', $query)
+            ->with('success', 'Rombongan '.$kolektif->nomor_surat.': '.$jumlahDiproses
+                .' siswa diizinkan keluar gerbang ('.implode(', ', $namaKeluar).').');
+    }
+
+    /**
+     * Konfirmasi kembali ke sekolah dispensasi kolektif (rombongan):
+     * hanya siswa yang DICENTANG Satpam yang jam kembalinya (kembali_at)
+     * ter-update pada database.
+     */
+    public function kolektifKembali(Request $request, DispensasiKolektif $kolektif)
+    {
+        $this->authorizeSatpam();
+
+        // Guard: surat data testing hanya dapat diproses oleh IT/QA.
+        $this->authorizeTestingMutation($kolektif);
+
+        $validated = $request->validate([
+            'dispen_ids' => 'required|array|min:1',
+            'dispen_ids.*' => 'integer|exists:dispensasi_siswa,id',
+        ], [
+            'dispen_ids.required' => 'Pilih minimal satu siswa yang sudah kembali ke sekolah.',
+            'dispen_ids.array' => 'Format pilihan siswa tidak valid.',
+            'dispen_ids.min' => 'Pilih minimal satu siswa yang sudah kembali ke sekolah.',
+            'dispen_ids.*.integer' => 'Pilihan siswa tidak valid.',
+            'dispen_ids.*.exists' => 'Salah satu siswa tidak ditemukan pada surat rombongan.',
+        ]);
+
+        $baris = $kolektif->siswaItems()
+            ->whereIn('id', array_map('intval', $validated['dispen_ids']))
+            ->get();
+
+        $jumlahDiproses = 0;
+        $namaKembali = [];
+
+        foreach ($baris as $dispen) {
+            $this->authorizeTestingMutation($dispen);
+
+            // Auto-Mangkir: pastikan surat belum melewati batas waktu kembali.
+            $dispen->refreshStatusMangkir();
+
+            if (! $dispen->isMenungguKembali() || $dispen->isMangkir()) {
+                continue;
+            }
+
+            $dispen->update([
+                'kembali_at' => now(),
+                'kembali_by' => Auth::id(),
+            ]);
+
+            $jumlahDiproses++;
+            $namaKembali[] = $dispen->siswa?->nama;
+        }
+
+        $query = ['q' => $kolektif->approval_token ?? ''];
+
+        if ($jumlahDiproses === 0) {
+            return redirect()->route('satpam.dispensasi.index', $query)
+                ->with('info', 'Tidak ada siswa dari rombongan '.$kolektif->nomor_surat
+                    .' yang menunggu konfirmasi kembali saat ini (belum keluar / sudah kembali / mangkir).');
+        }
+
+        return redirect()->route('satpam.dispensasi.index', $query)
+            ->with('success', 'Rombongan '.$kolektif->nomor_surat.': '.$jumlahDiproses
+                .' siswa dikonfirmasi kembali ke sekolah ('.implode(', ', $namaKembali).').');
     }
 }

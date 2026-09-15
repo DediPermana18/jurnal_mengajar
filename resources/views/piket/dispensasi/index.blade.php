@@ -125,23 +125,22 @@
                                 @endif
                             </td>
                             <td>
-                                @if($jamModel->isTipeMasuk())
-                                    <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle rounded-3 px-2 py-1 whitespace-nowrap">
-                                        <i class="bi bi-box-arrow-in-right me-1"></i>Masuk JP-{{ $jamModel->jam_masuk_jp }}
-                                    </span>
-                                @else
-                                    <span class="badge bg-light text-dark border rounded-3 px-2 py-1 whitespace-nowrap">{{ $jamModel->jam_ke_label }}</span>
-                                @endif
-                                @if(!$jamModel->isTipeMasuk() && (!empty($jamModel->jam_kembali_jp) || $jamModel->isTidakKembaliHariIni()))
-                                    <div class="small text-muted mt-1 whitespace-nowrap">
-                                        @if($jamModel->isTidakKembaliHariIni())
-                                            <i class="bi bi-skip-end me-1"></i>Tidak kembali hari ini
-                                        @elseif($jamModel->isKembali())
-                                            <i class="bi bi-check2-circle text-success me-1"></i>Kembali JP-{{ $jamModel->jam_kembali_jp }}
-                                        @else
-                                            <i class="bi bi-arrow-return-left me-1"></i>Rencana kembali JP-{{ $jamModel->jam_kembali_jp }}
-                                        @endif
-                                    </div>
+                                @php
+                                    if ($jamModel->isTipeMasuk()) {
+                                        $jpMulaiText = 'Mulai: JP ' . $jamModel->jam_masuk_jp;
+                                    } elseif ($jamModel->jam_keluar_jp) {
+                                        $jpMulaiText = 'Mulai: JP ' . $jamModel->jam_keluar_jp;
+                                    } else {
+                                        $jpMulaiText = 'Mulai: ' . str_replace('Jam ', 'JP ', $jamModel->jam_ke_label);
+                                    }
+                                @endphp
+                                <div class="fw-semibold text-dark whitespace-nowrap">{{ $jpMulaiText }}</div>
+                                @if(!$jamModel->isTipeMasuk())
+                                    @if($jamModel->isTidakKembaliHariIni())
+                                        <div class="small text-muted mt-1 whitespace-nowrap">Tidak kembali hari ini</div>
+                                    @elseif(!empty($jamModel->jam_kembali_jp))
+                                        <div class="small text-muted mt-1 whitespace-nowrap">Kembali: JP {{ $jamModel->jam_kembali_jp }}</div>
+                                    @endif
                                 @endif
                             </td>
                             <td style="max-width: 260px;"><span class="text-wrap">{{ $jamModel->alasan }}</span></td>
@@ -271,12 +270,12 @@
                             Wajib dibubuhi <strong>tanda tangan siswa</strong> ({{ $dispen->siswa?->nama ?? 'siswa' }})
                             sebagai bukti persetujuan pembatalan:
                         </p>
-                        <canvas id="ttdPembatalan{{ $dispen->id }}" width="520" height="160"
-                                class="w-100" style="border: 1px solid #dfe5ef; border-radius: 12px; background: #fff; touch-action: none; cursor: crosshair;"></canvas>
-                        <input type="hidden" name="ttd_pembatalan" id="ttdPembatalanInput{{ $dispen->id }}" value="">
+                        <canvas id="canvas-batal-{{ $dispen->id }}" height="150"
+                                class="border rounded w-100" style="background: #fff; touch-action: none; cursor: crosshair;"></canvas>
+                        <input type="hidden" name="ttd_pembatalan" id="ttd-batal-input-{{ $dispen->id }}" value="">
                         <div class="mt-2">
                             <button type="button" class="btn btn-outline-secondary btn-sm rounded-3"
-                                    data-clear-canvas="ttdPembatalan{{ $dispen->id }}">
+                                    data-clear-canvas="canvas-batal-{{ $dispen->id }}">
                                 <i class="bi bi-eraser"></i> Ulang TTD
                             </button>
                         </div>
@@ -307,8 +306,10 @@
         let lastY = 0;
 
         const resizeCanvas = () => {
-            const ratio = window.devicePixelRatio || 1;
             const rect = canvas.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) return;
+
+            const ratio = window.devicePixelRatio || 1;
             canvas.width = rect.width * ratio;
             canvas.height = rect.height * ratio;
             ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -317,6 +318,18 @@
             ctx.lineJoin = 'round';
             ctx.strokeStyle = '#111827';
         };
+
+        const modalEl = canvas.closest('.modal');
+        if (modalEl) {
+            modalEl.addEventListener('shown.bs.modal', function () {
+                resizeCanvas();
+            });
+            if (window.jQuery) {
+                window.jQuery(modalEl).on('shown.bs.modal', function () {
+                    resizeCanvas();
+                });
+            }
+        }
 
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
@@ -347,6 +360,7 @@
         };
 
         const stopDrawing = () => {
+            if (!drawing) return;
             drawing = false;
             input.value = canvas.toDataURL('image/png');
         };
@@ -367,6 +381,11 @@
         }, { passive: false });
         canvas.addEventListener('touchend', stopDrawing);
         canvas.addEventListener('touchcancel', stopDrawing);
+
+        canvas.clearCanvas = function() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            input.value = '';
+        };
     }
 
     document.querySelectorAll('[data-clear-canvas]').forEach((button) => {
@@ -374,9 +393,18 @@
             const canvasId = this.getAttribute('data-clear-canvas');
             const canvas = document.getElementById(canvasId);
             if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            const input = document.getElementById(canvasId.replace('ttdPembatalan', 'ttdPembatalanInput'));
+
+            if (typeof canvas.clearCanvas === 'function') {
+                canvas.clearCanvas();
+            } else {
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+
+            const inputId = canvasId.startsWith('canvas-batal-')
+                ? canvasId.replace('canvas-batal-', 'ttd-batal-input-')
+                : canvasId.replace('ttdPembatalan', 'ttdPembatalanInput');
+            const input = document.getElementById(inputId);
             if (input) input.value = '';
         });
     });
@@ -393,8 +421,11 @@
         });
     });
 
-    document.querySelectorAll('canvas[id^="ttdPembatalan"]').forEach((canvas) => {
-        initSignatureCanvas(canvas.id, canvas.id.replace('ttdPembatalan', 'ttdPembatalanInput'));
+    document.querySelectorAll('canvas[id^="canvas-batal-"], canvas[id^="ttdPembatalan"]').forEach((canvas) => {
+        const inputId = canvas.id.startsWith('canvas-batal-')
+            ? canvas.id.replace('canvas-batal-', 'ttd-batal-input-')
+            : canvas.id.replace('ttdPembatalan', 'ttdPembatalanInput');
+        initSignatureCanvas(canvas.id, inputId);
     });
 
     // Salin Link Approval (tombol di modal QR)

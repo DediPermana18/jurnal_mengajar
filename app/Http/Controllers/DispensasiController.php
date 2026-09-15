@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class DispensasiController extends Controller
@@ -124,16 +125,44 @@ class DispensasiController extends Controller
             ? $dataSiswa->where('id_kelas', $selectedKelas)->values()
             : collect();
 
-        $jamOptions = JamPelajaran::whereNotNull('jam_ke')
-            ->distinct('jam_ke')
-            ->orderBy('jam_ke')
-            ->pluck('jam_ke');
-
         // Data jam pelajaran lengkap (dengan jam_mulai, jam_selesai) untuk auto-select berdasarkan waktu sekarang
         $jamPelajaran = JamPelajaran::whereNotNull('jam_ke')
-            ->select('jam_ke', 'jam_mulai', 'jam_selesai', 'jenis')
+            ->select('jam_ke', 'jam_mulai', 'jam_selesai', 'jenis', 'kategori_hari')
             ->orderBy('jam_ke')
             ->get();
+
+        // Master JP per kategori hari (Senin-Kamis vs Jumat) untuk dropdown dinamis
+        // 'Dari JP'/'Sampai JP' yang mengikuti TANGGAL dispen terpilih, bukan hanya
+        // kategori hari browser sekarang. Di-embed ke JS (MASTER_JP_PER_HARI) agar
+        // render ulang mengikuti tanggal bisa dilakukan instan (sinkron).
+        $jamPelajaranPerHari = JamPelajaran::whereNotNull('jam_ke')
+            ->orderBy('jam_mulai')
+            ->get()
+            ->groupBy('kategori_hari')
+            ->map(fn ($items) => $items->map(fn (JamPelajaran $jp) => [
+                'id'      => (int) $jp->id,
+                'jam_ke'  => (int) $jp->jam_ke,
+                'mulai'   => substr((string) $jp->jam_mulai, 0, 5),
+                'selesai' => substr((string) $jp->jam_selesai, 0, 5),
+            ])->values()->all())
+            ->all();
+
+        // Master JP AKTIF HARI INI untuk dropdown rentang 'Dari JP' s/d 'Sampai JP' (Part 1).
+        // Jumlah JP otomatis dinamis mengikuti Master Data Jam Pelajaran: kategori hari
+        // (Senin-Kamis vs Jumat) menentukan berapa slot JP yang tersedia hari ini.
+        $kategoriHari = now()->isFriday() ? 'Jumat' : 'Senin-Kamis';
+        $jamPelajaranList = JamPelajaran::where('kategori_hari', $kategoriHari)
+            ->whereNotNull('jam_ke')
+            ->orderBy('jam_mulai')
+            ->get();
+
+        // JP yang sedang aktif sekarang: default selected 'Dari JP' & 'Sampai JP'
+        // (fallback server-side bila JS gagal mendeteksi waktu).
+        $currentJp = $jamPelajaranList->firstWhere('jam_ke', $this->jamKeSaranSekarang());
+
+        // Default dropdown "Boleh Masuk Mulai JP Ke-": JP yang sedang / segera berlangsung
+        // berdasarkan waktu sistem sekarang (fallback server-side bila JS gagal).
+        $jamMasukDefault = $this->jamKeSaranSekarang();
 
         $tahunAktif = TahunAjaran::where('is_active', true)->first();
 
@@ -168,8 +197,9 @@ class DispensasiController extends Controller
         ])->values();
 
         // Integrasi Catatan Terlambat (input Satpam): siswa yang tercatat
-        // terlambat hari ini & belum dikonfirmasi Guru Piket. Ditampilkan pada
-        // tab "Masuk Kelas" sebagai quick-select (klik = form terisi otomatis).
+        // terlambat hari ini & belum dikonfirmasi Guru Piket. Disisipkan sebagai
+        // group "Siswa Terlambat" di bagian atas dropdown siswa (tab Masuk Kelas);
+        // memilihnya mengisi form otomatis dari catatan keterlambatan di gerbang.
         $terlambatSaatIni = CatatanTerlambat::with(['siswa.kelas'])
             ->whereDate('tanggal', now()->toDateString())
             ->whereNull('dispensasi_id')
@@ -190,9 +220,47 @@ class DispensasiController extends Controller
         ])->values()->all();
 
         return view('piket.dispensasi.create', compact(
-            'dataSiswa', 'jamOptions', 'jadwalOptions', 'jamPelajaran',
-            'kelasList', 'selectedKelas', 'oldSiswaRows', 'terlambatJson'
+            'dataSiswa', 'jadwalOptions', 'jamPelajaran', 'jamPelajaranPerHari',
+            'kelasList', 'selectedKelas', 'oldSiswaRows', 'terlambatJson',
+            'jamMasukDefault', 'jamPelajaranList', 'currentJp'
         ));
+    }
+
+    /**
+     * API AJAX: master Jam Pelajaran untuk SATU tanggal dispen (kategori hari
+     * Jumat vs Senin-Kamis). Dipakai dropdown 'Dari JP'/'Sampai JP' (Part 1) &
+     * JP keluar/kembali/masuk agar rentang mengikuti jadwal tanggal yang dipilih,
+     * bukan hanya kategori hari browser sekarang.
+     */
+    public function apiJamPelajaran(Request $request)
+    {
+        $this->authorizeGuruPiket();
+
+        $tanggal = (string) $request->get('tanggal', now()->toDateString());
+        try {
+            $date = now()->parse($tanggal);
+        } catch (\Throwable $e) {
+            $date = now();
+        }
+        $kategori = $date->isFriday() ? 'Jumat' : 'Senin-Kamis';
+
+        $data = JamPelajaran::where('kategori_hari', $kategori)
+            ->whereNotNull('jam_ke')
+            ->orderBy('jam_mulai')
+            ->get()
+            ->map(fn (JamPelajaran $jp) => [
+                'id'      => (int) $jp->id,
+                'jam_ke'  => (int) $jp->jam_ke,
+                'mulai'   => substr((string) $jp->jam_mulai, 0, 5),
+                'selesai' => substr((string) $jp->jam_selesai, 0, 5),
+            ])
+            ->values();
+
+        return response()->json([
+            'error'   => false,
+            'tanggal' => $date->toDateString(),
+            'data'    => $data,
+        ]);
     }
 
     /**
@@ -323,6 +391,38 @@ class DispensasiController extends Controller
     }
 
     /**
+     * JP yang sedang / segera berlangsung berdasarkan waktu sistem sekarang
+     * (acuan default dropdown "Boleh Masuk Mulai JP Ke-"). Urutan prioritas:
+     * JP aktif -> JP berikutnya -> JP terakhir di hari tersebut.
+     */
+    protected function jamKeSaranSekarang(): ?int
+    {
+        $kategoriHari = now()->isFriday() ? 'Jumat' : 'Senin-Kamis';
+        $nowTime = now()->format('H:i:s');
+
+        $templates = JamPelajaran::where('kategori_hari', $kategoriHari)
+            ->whereNotNull('jam_ke')
+            ->orderBy('jam_mulai')
+            ->get();
+
+        $active = $templates->first(fn ($t) => $t->jam_mulai <= $nowTime && $nowTime < $t->jam_selesai);
+
+        if ($active) {
+            return (int) $active->jam_ke;
+        }
+
+        $next = $templates->where('jenis', 'kbm')->first(fn ($t) => $t->jam_mulai > $nowTime);
+
+        if ($next) {
+            return (int) $next->jam_ke;
+        }
+
+        $last = $templates->last();
+
+        return $last?->jam_ke !== null ? (int) $last->jam_ke : null;
+    }
+
+    /**
      * Buat dispensasi baru: Guru Piket mengisi detail & langsung menyetujui (ACC).
      *
      * - Satu siswa  -> alur lama: status DISETUJUI, redirect ke halaman TTD siswa.
@@ -332,6 +432,18 @@ class DispensasiController extends Controller
     public function store(Request $request)
     {
         $this->authorizeGuruPiket();
+
+        // Normalisasi: sampai_jp & jam_keluar_jp diturunkan dari dari_jp bila tidak dikirim eksplisit.
+        if ($request->filled('dari_jp') && !$request->filled('sampai_jp')) {
+            $request->merge(['sampai_jp' => $request->input('dari_jp')]);
+        }
+        if ($request->filled('dari_jp') && !$request->filled('jam_keluar_jp')) {
+            // Cari jam_ke dari id JP yang dipilih
+            $jpMulai = \App\Models\JamPelajaran::find($request->input('dari_jp'));
+            if ($jpMulai) {
+                $request->merge(['jam_keluar_jp' => $jpMulai->jam_ke]);
+            }
+        }
 
         $tipe = $request->input('tipe_dispen') === DispensasiSiswa::TIPE_MASUK
             ? DispensasiSiswa::TIPE_MASUK
@@ -423,7 +535,6 @@ class DispensasiController extends Controller
                 'jam_ke' => 'required|array|min:1',
                 'jam_ke.*' => 'integer|min:1|max:20',
                 'jam_keluar_jp' => 'nullable|integer|min:1|max:20',
-                'jam_kembali_jp' => 'required_if:kembali_hari_ini,1|nullable|integer|min:1|max:20',
                 'kembali_hari_ini' => 'sometimes|nullable',
                 'alasan' => 'required|string|max:500',
                 'id_jadwal' => 'nullable|exists:jadwal_pelajaran,id',
@@ -441,10 +552,6 @@ class DispensasiController extends Controller
                 'jam_keluar_jp.integer' => 'Nomor JP keluar tidak valid.',
                 'jam_keluar_jp.min' => 'Nomor JP keluar tidak valid.',
                 'jam_keluar_jp.max' => 'Nomor JP keluar terlalu besar.',
-                'jam_kembali_jp.required_if' => 'Pilih JP Rencana Kembali bila siswa akan kembali ke sekolah hari ini.',
-                'jam_kembali_jp.integer' => 'Nomor JP kembali tidak valid.',
-                'jam_kembali_jp.min' => 'Nomor JP kembali tidak valid.',
-                'jam_kembali_jp.max' => 'Nomor JP kembali terlalu besar.',
                 'alasan.required' => 'Alasan kegiatan dispen wajib diisi.',
                 'alasan.max' => 'Alasan maksimal :max karakter.',
                 'id_jadwal.exists' => 'Jadwal pelajaran yang dipilih tidak valid.',
@@ -470,14 +577,11 @@ class DispensasiController extends Controller
             $jamKeluarJp = ! empty($validated['jam_keluar_jp']) ? (int) $validated['jam_keluar_jp'] : null;
         }
 
-        // Part 3 - Rencana Jam Kembali (hanya tipe keluar).
+        // Part 2 - Penanda Kembali Hari Ini (boolean).
         $jamKembaliJp = null;
         $tidakKembali = true;
         if ($tipe === DispensasiSiswa::TIPE_KELUAR) {
             $tidakKembali = ! $request->boolean('kembali_hari_ini');
-            $jamKembaliJp = ! $tidakKembali && ! empty($validated['jam_kembali_jp'])
-                ? (int) $validated['jam_kembali_jp']
-                : null;
         }
 
         $ttdGuru = $this->normalizeTtd(
@@ -551,7 +655,6 @@ class DispensasiController extends Controller
                 'jam_ke' => 'required|array|min:1',
                 'jam_ke.*' => 'integer|min:1|max:20',
                 'jam_keluar_jp' => 'nullable|integer|min:1|max:20',
-                'jam_kembali_jp' => 'required_if:kembali_hari_ini,1|nullable|integer|min:1|max:20',
                 'kembali_hari_ini' => 'sometimes|nullable',
                 'alasan' => 'required|string|max:500',
                 'id_jadwal' => 'nullable|exists:jadwal_pelajaran,id',
@@ -569,10 +672,6 @@ class DispensasiController extends Controller
                 'jam_keluar_jp.integer' => 'Nomor JP keluar tidak valid.',
                 'jam_keluar_jp.min' => 'Nomor JP keluar tidak valid.',
                 'jam_keluar_jp.max' => 'Nomor JP keluar terlalu besar.',
-                'jam_kembali_jp.required_if' => 'Pilih JP Rencana Kembali bila siswa akan kembali ke sekolah hari ini.',
-                'jam_kembali_jp.integer' => 'Nomor JP kembali tidak valid.',
-                'jam_kembali_jp.min' => 'Nomor JP kembali tidak valid.',
-                'jam_kembali_jp.max' => 'Nomor JP kembali terlalu besar.',
                 'alasan.required' => 'Alasan kegiatan dispen wajib diisi.',
                 'alasan.max' => 'Alasan maksimal :max karakter.',
                 'id_jadwal.exists' => 'Jadwal pelajaran yang dipilih tidak valid.',
@@ -614,9 +713,6 @@ class DispensasiController extends Controller
         $tidakKembali = true;
         if ($tipe === DispensasiSiswa::TIPE_KELUAR) {
             $tidakKembali = ! $request->boolean('kembali_hari_ini');
-            $jamKembaliJp = ! $tidakKembali && ! empty($validated['jam_kembali_jp'])
-                ? (int) $validated['jam_kembali_jp']
-                : null;
         }
 
         $ttdGuru = $this->normalizeTtd(
@@ -750,7 +846,9 @@ class DispensasiController extends Controller
             || (int) $dispensasi->approved_by === (int) $user->id
             || (int) $dispensasi->id_guru_piket === (int) $user->id
             || $user->isWakaKesiswaan()
-            || ($dispensasi->wakaKesiswaan && (int) $dispensasi->wakaKesiswaan->id === (int) $user->id);
+            || ($dispensasi->wakaKesiswaan && (int) $dispensasi->wakaKesiswaan->id === (int) $user->id)
+            || $user->isGuru()
+            || $user->isAdmin();
 
         abort_unless($allowed, 403, 'Akses ditolak. Anda tidak berwenang melihat surat dispen ini.');
 
@@ -836,7 +934,9 @@ class DispensasiController extends Controller
             || $user->isPetugasIt()
             || (int) $kolektif->approved_by === (int) $user->id
             || (int) $kolektif->id_guru_piket === (int) $user->id
-            || $user->isWakaKesiswaan();
+            || $user->isWakaKesiswaan()
+            || $user->isGuru()
+            || $user->isAdmin();
 
         abort_unless($allowed, 403, 'Akses ditolak. Anda tidak berwenang melihat surat dispen rombongan ini.');
 
@@ -1073,12 +1173,36 @@ class DispensasiController extends Controller
 
     /**
      * Halaman approval publik untuk Waka Kesiswaan tanpa login.
+     *
+     * Token bisa berasal dari:
+     *  - dispensasi tunggal   (dispensasi_siswa.approval_token)
+     *  - dispensasi kolektif  (dispensasi_kolektif.approval_token)
      */
     public function publicApproveView($token)
     {
+        Log::info('Public approval: checking token', ['token' => $token]);
+
         $dispensasi = DispensasiSiswa::with(['siswa.kelas', 'guruPiket'])
             ->where('approval_token', $token)
             ->first();
+
+        // Kolektif: token milik induk (dispensasi_kolektif). Ambil baris siswa
+        // pertama sebagai perwakilan info; seluruh rombongan ikut ditandatangani.
+        $kolektif = null;
+        if (! $dispensasi) {
+            $kolektif = DispensasiKolektif::with(['siswaItems.siswa.kelas'])
+                ->where('approval_token', $token)
+                ->first();
+
+            if ($kolektif) {
+                $dispensasi = $kolektif->siswaItems->first();
+                Log::info('Public approval: token milik dispensasi kolektif', [
+                    'token' => $token,
+                    'kolektif_id' => $kolektif->id,
+                    'jumlah_siswa' => $kolektif->siswaItems->count(),
+                ]);
+            }
+        }
 
         // Daftar user Waka Kesiswaan aktif untuk dropdown "Pilih Waka Kesiswaan".
         $wakaList = User::wakaKesiswaanList();
@@ -1094,6 +1218,7 @@ class DispensasiController extends Controller
             'token' => $token,
             'wakaList' => $wakaList,
             'loggedInWakaId' => $loggedInWakaId,
+            'kolektif' => $kolektif,
         ];
 
         if (! $dispensasi) {
@@ -1103,7 +1228,7 @@ class DispensasiController extends Controller
             ]));
         }
 
-        if (! empty($dispensasi->ttd_waka) || $dispensasi->status === DispensasiSiswa::STATUS_APPROVED) {
+        if ($dispensasi->sudahDitandatanganiWaka()) {
             return view('public.dispen-approval', array_merge($data, [
                 'dispensasi' => $dispensasi,
                 'invalid' => false,
@@ -1123,9 +1248,15 @@ class DispensasiController extends Controller
      */
     public function publicApproveStore(Request $request, $token)
     {
-        $dispensasi = DispensasiSiswa::where('approval_token', $token)->first();
+$dispensasi = DispensasiSiswa::where('approval_token', $token)->first();
 
-        if (! $dispensasi) {
+// Cek juga di DispensasiKolektif (rombongan).
+$kolektif = DispensasiKolektif::where('approval_token', $token)->first();
+if ($kolektif) {
+    $dispensasi = $kolektif->siswaItems->first();
+}
+
+if (! $dispensasi) {
             return redirect()->route('dispen.approval.show', $token)
                 ->with('error', 'Token approval dispensasi tidak valid atau sudah kedaluwarsa.');
         }

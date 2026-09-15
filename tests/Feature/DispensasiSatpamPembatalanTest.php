@@ -79,6 +79,8 @@ class DispensasiSatpamPembatalanTest extends TestCase
             'alasan' => 'Keperluan keluarga',
             'status' => DispensasiSiswa::STATUS_DISETUJUI,
             'ttd_guru' => 'data:image/png;base64,TEST',
+            'ttd_siswa' => 'data:image/png;base64,TEST_SISWA',
+            'ttd_waka' => 'data:image/png;base64,TEST_WAKA',
             'approval_token' => 'token-'.Str::uuid(),
         ], $extra));
     }

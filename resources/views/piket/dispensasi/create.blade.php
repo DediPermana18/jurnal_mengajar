@@ -39,59 +39,73 @@
             @csrf
 
             {{-- ============================================================ --}}
-            {{-- TIPE DISPENSASI: KELUAR GERBANG vs MASUK KELAS               --}}
+            {{-- HEADER BARIS ATAS: MODE DISPEN (kiri) + TANGGAL DISPEN (kanan) --}}
             {{-- ============================================================ --}}
-            <div class="d-flex flex-wrap align-items-center gap-2 mb-4 p-1 bg-light-subtle border rounded-3 w-100" style="max-width: 420px;">
-                <button type="button" id="tabDispenKeluar" class="btn btn-sm rounded-3 px-3 py-2 fw-semibold flex-grow-1" style="font-size: 0.85rem;">
-                    <i class="bi bi-door-closed me-1"></i> Dispen Keluar Gerbang
-                </button>
-                <button type="button" id="tabDispenMasuk" class="btn btn-sm rounded-3 px-3 py-2 fw-semibold flex-grow-1" style="font-size: 0.85rem;">
-                    <i class="bi bi-door-open me-1"></i> Dispen Masuk Kelas
-                </button>
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                {{-- Kiri: Switch Mode Dispen --}}
+                <div class="d-flex flex-wrap align-items-center gap-2 p-1 bg-light-subtle border rounded-3">
+                    <button type="button" id="tabDispenKeluar" class="btn btn-sm rounded-3 px-3 py-2 fw-semibold flex-grow-1" style="font-size: 0.85rem;">
+                        <i class="bi bi-door-closed me-1"></i> Dispen Keluar Gerbang
+                    </button>
+                    <button type="button" id="tabDispenMasuk" class="btn btn-sm rounded-3 px-3 py-2 fw-semibold flex-grow-1" style="font-size: 0.85rem;">
+                        <i class="bi bi-door-open me-1"></i> Dispen Masuk Kelas
+                    </button>
+                </div>
+                <input type="hidden" name="tipe_dispen" id="tipeDispen" value="{{ old('tipe_dispen', \App\Models\DispensasiSiswa::TIPE_KELUAR) }}">
+
+                {{-- Kanan: Tanggal Dispen --}}
+                <div class="w-100" style="min-width: 220px; max-width: 320px;">
+                    <label for="tanggalDispen" class="form-label fw-bold text-secondary text-uppercase small mb-1">Tanggal Dispen <span class="text-danger">*</span></label>
+                    <input type="date" name="tanggal" id="tanggalDispen" value="{{ old('tanggal', now()->toDateString()) }}" max="{{ now()->toDateString() }}" class="form-control rounded-3" required>
+                </div>
             </div>
-            <input type="hidden" name="tipe_dispen" id="tipeDispen" value="{{ old('tipe_dispen', \App\Models\DispensasiSiswa::TIPE_KELUAR) }}">
             <div class="form-text mb-4" id="tipeDispenHint">Keluarkan siswa lebih awal / izin keluar sekolah dari jam tertentu.</div>
 
             <div class="row g-4">
-                {{-- Tanggal & Siswa --}}
-                <div class="col-md-6">
-                    <label class="form-label fw-bold text-secondary text-uppercase small">Tanggal Dispen <span class="text-danger">*</span></label>
-                    <input type="date" name="tanggal" value="{{ old('tanggal', now()->toDateString()) }}" max="{{ now()->toDateString() }}" class="form-control rounded-3" required>
-                </div>
-
-                <div class="col-md-6">
+                {{-- ============================================================ --}}
+                {{-- PILIH SISWA (FULL-WIDTH: Kelas | Cari NISN/Nama | Siswa)     --}}
+                {{-- ============================================================ --}}
+                <div class="col-12">
                     {{-- Multi-baris siswa: satu baris = satu siswa (rombongan) --}}
                     <label class="form-label fw-bold text-secondary text-uppercase small">Pilih Siswa <span class="text-danger">*</span></label>
                     <p class="text-muted small mb-2">
                         Pilih satu siswa untuk dispen tunggal, atau beberapa siswa untuk pengajuan kolektif (rombongan).
                         Bila lebih dari satu, tanda tangan digital digambar <strong>berurutan</strong> untuk tiap siswa.
                     </p>
+                    <div id="terlambatHint" class="d-none small mb-2 px-2 py-1 bg-danger-subtle border border-danger-subtle rounded-3 text-danger-emphasis">
+                        <i class="bi bi-info-circle me-1"></i>Siswa yang tercatat terlambat oleh Satpam hari ini muncul di bagian atas dropdown (<strong>⏰</strong>). Pilih langsung untuk mengisi jam masuk &amp; alasan otomatis.
+                    </div>
 
                     <div id="siswaRowsContainer" class="d-flex flex-column gap-2">
                         @forelse($oldSiswaRows ?? collect() as $oldS)
                             <div class="siswa-row border rounded-3 p-2 bg-white">
                                 <div class="d-flex gap-2 align-items-start">
                                     <div class="flex-grow-1">
-                                        <select class="form-select form-select-sm row-kelas mb-1" required>
-                                            <option value="">-- Pilih Kelas --</option>
-                                            @foreach($kelasList as $kelas)
-                                                <option value="{{ $kelas->id }}" {{ (int) ($oldS['id_kelas'] ?? null) === (int) $kelas->id ? 'selected' : '' }}>
-                                                    {{ $kelas->nama_lengkap }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                        <input type="text" class="form-control form-control-sm row-search mb-1" placeholder="Cari nama / NISN...">
-                                        <select name="id_siswa[]" class="form-select form-select-sm row-siswa" required data-kelas="{{ $oldS['id_kelas'] ?? '' }}">
-                                            <option value="" selected data-nama="" data-nisn="" data-kelas="">-- Pilih Siswa --</option>
-                                            <option value="{{ $oldS['id'] ?? '' }}" selected
-                                                    data-nama="{{ strtolower($oldS['nama'] ?? '') }}"
-                                                    data-nisn="{{ strtolower($oldS['nisn'] ?? '') }}"
-                                                    data-kelas="{{ $oldS['id_kelas'] ?? '' }}">
-                                                {{ $oldS['nama'] ?? '' }} ({{ $oldS['nisn'] ?: 'Tanpa NISN' }})
-                                            </option>
-                                        </select>
+                                        <div class="row g-2">
+                                            <div class="col-12 col-lg-4">
+                                                <select class="form-select form-select-sm row-kelas" required>
+                                                    <option value="">-- Pilih Kelas --</option>
+                                                    @foreach($kelasList as $kelas)
+                                                        <option value="{{ $kelas->id }}" {{ (int) ($oldS['id_kelas'] ?? null) === (int) $kelas->id ? 'selected' : '' }}>
+                                                            {{ $kelas->nama_lengkap }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div class="col-12 col-lg-8">
+                                                <select name="id_siswa[]" class="form-select form-select-sm row-siswa" required data-kelas="{{ $oldS['id_kelas'] ?? '' }}">
+                                                    <option value="" data-nama="" data-nisn="" data-kelas="">-- Pilih Siswa --</option>
+                                                    <option value="{{ $oldS['id'] ?? '' }}" selected
+                                                            data-nama="{{ strtolower($oldS['nama'] ?? '') }}"
+                                                            data-nisn="{{ strtolower($oldS['nisn'] ?? '') }}"
+                                                            data-kelas="{{ $oldS['id_kelas'] ?? '' }}">
+                                                        {{ str_pad($loop->iteration, 2, '0', STR_PAD_LEFT) }}. {{ $oldS['nama'] ?? '' }} ({{ $oldS['nisn'] ?: 'Tanpa NISN' }})
+                                                    </option>
+                                                </select>
+                                            </div>
+                                        </div>
                                         <input type="hidden" name="catatan_terlambat_id[]" class="row-catatan" value="">
-                                        <div class="row-status text-muted small d-none">
+                                        <div class="row-status text-muted small d-none mt-1">
                                             <i class="bi bi-arrow-repeat spin"></i> Memuat data siswa...
                                         </div>
                                     </div>
@@ -112,7 +126,6 @@
                         <i class="bi bi-exclamation-triangle-fill me-1"></i>Pilih minimal satu siswa untuk dispensasi.
                     </div>
                     <div class="form-text">
-                        Setiap baris memuat daftar siswa per kelasnya. Gunakan kotak pencarian untuk memfilter nama / NISN secara instan.<br>
                         Lebih dari satu siswa = surat dispensasi kolektif (rombongan) dengan TTD digital berurutan.
                     </div>
 
@@ -120,18 +133,23 @@
                         <div class="siswa-row border rounded-3 p-2 bg-white">
                             <div class="d-flex gap-2 align-items-start">
                                 <div class="flex-grow-1">
-                                    <select class="form-select form-select-sm row-kelas mb-1" required>
-                                        <option value="">-- Pilih Kelas --</option>
-                                        @foreach($kelasList as $kelas)
-                                            <option value="{{ $kelas->id }}">{{ $kelas->nama_lengkap }}</option>
-                                        @endforeach
-                                    </select>
-                                    <input type="text" class="form-control form-control-sm row-search mb-1" placeholder="Cari nama / NISN...">
-                                    <select name="id_siswa[]" class="form-select form-select-sm row-siswa" required>
-                                        <option value="">-- Pilih Kelas Terlebih Dahulu --</option>
-                                    </select>
+                                    <div class="row g-2">
+                                        <div class="col-12 col-lg-4">
+                                            <select class="form-select form-select-sm row-kelas" required>
+                                                <option value="">-- Pilih Kelas --</option>
+                                                @foreach($kelasList as $kelas)
+                                                    <option value="{{ $kelas->id }}">{{ $kelas->nama_lengkap }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="col-12 col-lg-8">
+                                            <select name="id_siswa[]" class="form-select form-select-sm row-siswa" required>
+                                                <option value="">-- Pilih Kelas Terlebih Dahulu --</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                     <input type="hidden" name="catatan_terlambat_id[]" class="row-catatan" value="">
-                                    <div class="row-status text-muted small d-none">
+                                    <div class="row-status text-muted small d-none mt-1">
                                         <i class="bi bi-arrow-repeat spin"></i> Memuat data siswa...
                                     </div>
                                 </div>
@@ -151,7 +169,7 @@
                         <span class="badge rounded-pill bg-primary-subtle text-primary-emphasis border border-primary-subtle">Part 1</span>
                         <h6 class="fw-bold text-dark mb-0">Jam Pelajaran yang Ditinggalkan <span class="text-danger">*</span></h6>
                     </div>
-                    <p class="text-muted small mb-2">Tentukan JP / Mapel yang ditinggalkan. Jam yang sedang berlangsung ter-centang otomatis.</p>
+                    <p class="text-muted small mb-2">Tentukan JP / Mapel yang ditinggalkan. Jam yang sedang berlangsung terpilih otomatis.</p>
 
                     {{-- Quick-select helper --}}
                     <div class="d-flex flex-wrap gap-2 mb-3">
@@ -162,87 +180,47 @@
                         <button type="button" class="btn btn-sm btn-outline-warning rounded-3" id="btnSisaJam">
                             <i class="bi bi-arrow-down-circle me-1"></i>Sisa Jam Hari Ini
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-3" id="btnPilihManual">
-                            <i class="bi bi-pencil-square me-1"></i>Pilih Manual
-                        </button>
                         <button type="button" class="btn btn-sm btn-outline-danger rounded-3" id="btnBersihkanJam">
                             <i class="bi bi-x-circle me-1"></i>Bersihkan
                         </button>
                     </div>
 
-                   <div class="row g-2">
-                        @foreach($jamOptions as $jam)
-                            @php
-                                $jp = $jamPelajaran->firstWhere('jam_ke', $jam);
-                                $mulai   = $jp ? substr((string) $jp->jam_mulai, 0, 5) : '';
-                                $selesai = $jp ? substr((string) $jp->jam_selesai, 0, 5) : '';
-                                $waktu   = ($mulai && $selesai) ? $mulai . ' - ' . $selesai : '';
-                                $checked = in_array((string) $jam, (array) old('jam_ke', []));
-                            @endphp
-                            <!-- Menggunakan col-4 col-sm-3 col-md-2 col-xl-1 (biar muat banyak & rapat) -->
-                            <div class="col-4 col-sm-3 col-md-2 col-xl-1">
-                                <label class="d-flex flex-column align-items-center justify-content-center text-center w-100 h-100 px-1 py-1.5 rounded-3 border mb-0 {{ $checked ? 'border-primary bg-primary-subtle' : '' }}"
-                                    style="cursor: pointer; min-height: 48px;" data-jam-label
-                                    title="{{ $waktu ? 'Rentang ' . $waktu : 'Jam Pelajaran' }}">
-                                    <input class="form-check-input m-0 mb-1" type="checkbox" name="jam_ke[]" value="{{ $jam }}"
-                                        style="cursor: pointer; transform: scale(0.9);" data-jam-ke="{{ $jam }}"
-                                        data-mulai="{{ $jp->jam_mulai ?? '' }}" data-selesai="{{ $jp->jam_selesai ?? '' }}"
-                                        {{ $checked ? 'checked' : '' }}>
-                                    <span class="fw-semibold lh-1" style="font-size: 0.8rem;">JP {{ $jam }}</span>
-                                    @if($waktu)
-                                        <span class="text-muted mt-1 lh-1" style="font-size: 0.6rem; letter-spacing: -0.3px;">{{ $waktu }}</span>
-                                    @endif
-                                </label>
-                            </div>
-                        @endforeach
+                   <div class="row g-3 mb-2">
+                        {{-- Mulai JP — satu dropdown saja (tidak ada 'Sampai JP') --}}
+                        <div class="col-md-6 col-lg-4">
+                            <label for="dari_jp" class="form-label fw-semibold text-secondary small">Mulai Jam Pelajaran (JP) <span class="text-danger">*</span></label>
+                            <select name="dari_jp" id="dari_jp" class="form-select rounded-3">
+                                <option value="">-- Pilih JP Mulai --</option>
+                                @foreach($jamPelajaranList as $jp)
+                                    <option value="{{ $jp->id }}" data-jam-ke="{{ $jp->jam_ke }}"
+                                            {{ (string) old('dari_jp') === (string) $jp->id
+                                                || (old('dari_jp') === null && $currentJp && (int) $currentJp->id === (int) $jp->id)
+                                                    ? 'selected' : '' }}>
+                                        JP {{ $jp->jam_ke }} ({{ substr((string) $jp->jam_mulai, 0, 5) }} - {{ substr((string) $jp->jam_selesai, 0, 5) }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            <div class="form-text">Jam yang sedang berlangsung terpilih otomatis.</div>
+                        </div>
                     </div>
-                    <div class="form-text">
-                        Jam yang sedang berlangsung otomatis ter-centang. Anda tetap dapat mengubah (check/uncheck) secara manual
-                        jika jam keluar siswa berbeda dari jam pembuatan.
-                    </div>
+                    {{-- Input tersembunyi: sampai_jp & jam_keluar_jp di-sync otomatis = dari_jp (diisi JS) --}}
+                    <input type="hidden" name="sampai_jp" id="sampai_jp">
+                    <input type="hidden" name="jam_keluar_jp" id="jam_keluar_jp">
+                    {{-- Input tersembunyi jam_ke[] di-generate JS dari rentang terpilih --}}
+                    <div id="jamKeHiddenContainer" class="d-none"></div>
                     <div id="jamKeError" class="text-danger small mt-2 d-none">
-                        <i class="bi bi-exclamation-triangle-fill me-1"></i>Pilih minimal satu jam pelajaran yang ditinggalkan (<i>Jam Pelajaran</i>).
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>Pilih Mulai Jam Pelajaran yang ditinggalkan.
                     </div>
                 </div>
 
-                {{-- ============================================================ --}}
-                {{-- PART 2: JP BERANGKAT / KELUAR SEKOLAH (BERBASIS MASTER JP)  --}}
-                {{-- ============================================================ --}}
-                <div class="col-12" id="keluarPart2">
-                    <div class="d-flex align-items-center gap-2 mb-1">
-                        <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle">Part 2</span>
-                        <h6 class="fw-bold text-dark mb-0">Waktu Berangkat / Keluar Gerbang <span class="text-muted fw-normal">(berbasis Jam Pelajaran)</span></h6>
-                    </div>
-                    <p class="text-muted small mb-2">
-                        Pilih Jam Pelajaran saat siswa benar-benar keluar sekolah. Terisi otomatis berdasarkan JP ter-awal
-                        yang dipilih di Part 1, namun dapat diubah manual oleh Guru Piket jika keluar di JP berikutnya.
-                    </p>
-                    <div class="col-md-6 col-lg-4 ps-0">
-                        <label for="jam_keluar_jp" class="form-label fw-semibold text-secondary small">Jam Keluar Gerbang (JP)</label>
-                        <select name="jam_keluar_jp" id="jam_keluar_jp" class="form-select rounded-3">
-                            <option value="">-- Pilih Jam Pelajaran Keluar --</option>
-                            @foreach($jamOptions as $jam)
-                                @php
-                                    $jp = $jamPelajaran->firstWhere('jam_ke', $jam);
-                                @endphp
-                                <option value="{{ $jam }}" data-mulai="{{ $jp->jam_mulai ?? '' }}"
-                                        {{ (string) old('jam_keluar_jp') === (string) $jam ? 'selected' : '' }}>
-                                    JP Ke-{{ $jam }}{{ $jp && $jp->jam_mulai ? ' (' . $jp->jam_mulai . ')' : '' }}
-                                </option>
-                            @endforeach
-                        </select>
-                        <div class="form-text">
-                            Otomatis terisi JP ter-awal dari Part 1. Ubah manual bila siswa keluar di JP yang berbeda.
-                        </div>
-                    </div>
-                </div>
+
 
                 {{-- ============================================================ --}}
                 {{-- PART 3: RENCANA JAM KEMBALI KE SEKOLAH                      --}}
                 {{-- ============================================================ --}}
                 <div class="col-12" id="keluarPart3">
                     <div class="d-flex align-items-center gap-2 mb-1">
-                        <span class="badge rounded-pill bg-info-subtle text-info-emphasis border border-info-subtle">Part 3</span>
+                        <span class="badge rounded-pill bg-info-subtle text-info-emphasis border border-info-subtle">Part 2</span>
                         <h6 class="fw-bold text-dark mb-0">Kembali ke Sekolah Hari Ini</h6>
                     </div>
                     <p class="text-muted small mb-2">
@@ -253,29 +231,10 @@
                     </p>
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" name="kembali_hari_ini" value="1" id="kembali_hari_ini"
-                               {{ old('kembali_hari_ini') ? 'checked' : '' }}>
+                               {{ old('kembali_hari_ini') !== null ? (old('kembali_hari_ini') ? 'checked' : '') : 'checked' }}>
                         <label class="form-check-label fw-semibold" for="kembali_hari_ini">
                             Siswa akan kembali ke sekolah hari ini
                         </label>
-                        <div class="form-text">Default: tidak dicentang (izin hingga jam pulang, tanpa auto-Mangkir).</div>
-                    </div>
-                    <div class="row g-3 {{ old('kembali_hari_ini') ? '' : 'd-none' }}" id="jamKembaliWrap">
-                        <div class="col-md-6 col-lg-4 ps-0">
-                            <label for="jam_kembali_jp" class="form-label fw-semibold text-secondary small">Jam Kembali ke Sekolah (JP)</label>
-                            <select name="jam_kembali_jp" id="jam_kembali_jp" class="form-select rounded-3">
-                                <option value="">-- Pilih Jam Pelajaran Kembali --</option>
-                                @foreach($jamOptions as $jam)
-                                    @php
-                                        $jp = $jamPelajaran->firstWhere('jam_ke', $jam);
-                                    @endphp
-                                    <option value="{{ $jam }}" data-mulai="{{ $jp->jam_mulai ?? '' }}"
-                                            {{ (string) old('jam_kembali_jp') === (string) $jam ? 'selected' : '' }}>
-                                        JP Ke-{{ $jam }}{{ $jp && $jp->jam_mulai ? ' (' . $jp->jam_mulai . ')' : '' }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <div class="form-text">Batas konfirmasi = Jam Kembali + 1 JP. Default terisi otomatis: JP setelah yang dipilih.</div>
-                        </div>
                     </div>
                 </div>
 
@@ -315,30 +274,22 @@
                         Siswa terlambat/belum masuk dan diperbolehkan mengikuti KBM mulai dari Jam Pelajaran tertentu.
                         Terisi otomatis dengan JP yang sedang berjalan, namun dapat diubah manual.
                     </p>
-                    <div class="mb-3">
-                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                            <span class="badge rounded-pill bg-danger-subtle text-danger-emphasis border border-danger-subtle px-3 py-2">
-                                <i class="bi bi-clock-history me-1"></i> Siswa Terlambat (Catatan Satpam)
-                            </span>
-                            <span class="text-muted small">Klik <strong>Ambil</strong> untuk mengisi form otomatis dari catatan keterlambatan di gerbang.</span>
-                            <button type="button" id="btnRefreshTerlambat" class="btn btn-sm btn-outline-secondary ms-auto rounded-3">
-                                <i class="bi bi-arrow-clockwise me-1"></i> Muat Ulang
-                            </button>
-                        </div>
-                        <div id="terlambatList" class="d-flex flex-column gap-2 text-start"></div>
-                    </div>
+
                     <div class="row g-3">
                         <div class="col-md-6 col-lg-4">
                             <label for="jam_masuk_jp" class="form-label fw-semibold text-secondary small">Boleh Masuk Mulai JP Ke-</label>
                             <select name="jam_masuk_jp" id="jam_masuk_jp" class="form-select rounded-3" required>
                                 <option value="">-- Pilih JP --</option>
-                                @foreach($jamOptions as $jam)
+                                @foreach($jamPelajaranList as $jp)
                                     @php
-                                        $jp = $jamPelajaran->firstWhere('jam_ke', $jam);
+                                        $jpTerpilih = (string) old('jam_masuk_jp') === (string) $jp->jam_ke
+                                            || (old('jam_masuk_jp') === null
+                                                && !empty($jamMasukDefault)
+                                                && (string) $jamMasukDefault === (string) $jp->jam_ke);
                                     @endphp
-                                    <option value="{{ $jam }}" data-mulai="{{ $jp->jam_mulai ?? '' }}"
-                                            {{ (string) old('jam_masuk_jp') === (string) $jam ? 'selected' : '' }}>
-                                        JP Ke-{{ $jam }}{{ $jp && $jp->jam_mulai ? ' (' . substr((string) $jp->jam_mulai, 0, 5) . ')' : '' }}
+                                    <option value="{{ $jp->jam_ke }}" data-jam-ke="{{ $jp->jam_ke }}"
+                                            @selected($jpTerpilih)>
+                                        JP {{ $jp->jam_ke }} ({{ substr((string) $jp->jam_mulai, 0, 5) }} - {{ substr((string) $jp->jam_selesai, 0, 5) }})
                                     </option>
                                 @endforeach
                             </select>
@@ -362,20 +313,7 @@
                     </div>
                 </div>
 
-                {{-- Template kartu quick-select siswa terlambat (input Satpam) --}}
-                <template id="templateTerlambatCard">
-                    <div class="terlambat-card border rounded-3 p-2 bg-light-subtle d-flex align-items-center gap-2 flex-wrap">
-                        <span class="badge rounded-pill bg-danger-subtle text-danger-emphasis border border-danger-subtle fw-semibold terlambat-jam"></span>
-                        <div class="flex-grow-1" style="min-width: 180px;">
-                            <div class="fw-semibold small text-dark terlambat-nama"></div>
-                            <div class="text-muted small terlambat-info"></div>
-                        </div>
-                        <span class="text-muted small terlambat-ket"></span>
-                        <button type="button" class="btn btn-sm btn-success rounded-3 btn-ambil-terlambat">
-                            <i class="bi bi-magic me-1"></i>Ambil ke Form
-                        </button>
-                    </div>
-                </template>
+
 
                 {{-- Tanda Tangan Guru Piket (wajib digambar) --}}
                 <div class="col-12">
@@ -385,10 +323,14 @@
                     <div class="border rounded-3 p-3 bg-light-subtle">
                         <div class="d-flex flex-column flex-md-row align-items-start gap-3">
                             <div class="flex-grow-1">
-                                <canvas id="canvasTtdGuru" width="520" height="180"
-                                        class="border rounded-3 bg-white w-100"
-                                        style="touch-action: none; cursor: crosshair; max-width: 100%; height: auto;"></canvas>
-                                <div class="form-text mt-2">
+                                <div class="position-relative w-100 border rounded-3 bg-white overflow-hidden" style="height: 200px; position: relative; pointer-events: auto;">
+                                    <div class="position-absolute top-50 start-50 translate-middle text-muted pe-none user-select-none opacity-50 small fw-semibold" style="z-index: 1; pointer-events: none;">
+                                        <i class="bi bi-pencil-fill me-1"></i> Coret tanda tangan di sini...
+                                    </div>
+                                    <canvas id="canvasTtdGuru" class="w-100 h-100 d-block"
+                                            style="position: relative; z-index: 50; pointer-events: auto; touch-action: none; cursor: crosshair; background-color: transparent; user-select: none; -webkit-user-select: none;"></canvas>
+                                </div>
+                                <div class="form-text mt-2" style="pointer-events: none;">
                                     Gambar tanda tangan Guru Piket pada kotak di atas menggunakan mouse, stylus, atau jari (layar sentuh).
                                     Tanda tangan ini menjadi tanda ACC otomatis pada surat.
                                 </div>
@@ -443,9 +385,13 @@
                         </span>
                         <span class="text-dark fw-semibold" id="ttdStepSiswa">—</span>
                     </div>
-                    <canvas id="canvasTtdWizard" width="600" height="240"
-                            class="border rounded-3 bg-white w-100"
-                            style="touch-action: none; cursor: crosshair; max-width: 100%; height: auto;"></canvas>
+                    <div class="position-relative w-100 border rounded-3 bg-white overflow-hidden" style="height: 220px; position: relative; pointer-events: auto;">
+                        <div class="position-absolute top-50 start-50 translate-middle text-muted pe-none user-select-none opacity-50 small fw-semibold" style="z-index: 1; pointer-events: none;">
+                            <i class="bi bi-pencil-fill me-1"></i> Coret tanda tangan siswa di sini...
+                        </div>
+                        <canvas id="canvasTtdWizard" class="w-100 h-100 d-block"
+                                style="position: relative; z-index: 50; pointer-events: auto; touch-action: none; cursor: crosshair; background-color: transparent; user-select: none; -webkit-user-select: none;"></canvas>
+                    </div>
                     <div id="ttdWizardError" class="text-danger small mt-2 d-none">
                         <i class="bi bi-exclamation-triangle-fill me-1"></i>Gambar tanda tangan siswa terlebih dahulu (canvas masih kosong).
                     </div>
@@ -480,8 +426,12 @@
         // ===== Auto-detect jadwal mapel/guru dari tanggal + siswa + jam ke- =====
         const tanggalInput   = document.querySelector('input[name="tanggal"]');
         const selectJadwal   = document.getElementById('id_jadwal');
-        const jamCheckboxes  = Array.from(document.querySelectorAll('input[name="jam_ke[]"]'));
         const HARI_INDONESIA = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        const dariJpSelect    = document.getElementById('dari_jp');
+        const sampaiJpSelect  = document.getElementById('sampai_jp');
+        const jamKeHiddenWrap = document.getElementById('jamKeHiddenContainer');
+        const jpRangeInfo     = document.getElementById('jpRangeInfo');
+        const badgeJpRange    = document.getElementById('badgeJpRange');
 
         // =====================================================================
         // Jam Pelajaran: auto-select berdasarkan waktu sekarang + quick-select
@@ -489,19 +439,174 @@
         @php
             $masterJamJson = json_encode(
                 $jamPelajaran->map(fn ($jp) => [
+                    'id'       => (int) $jp->id,
                     'jam_ke'   => (int) $jp->jam_ke,
                     'mulai'    => $jp->jam_mulai,
                     'selesai'  => $jp->jam_selesai,
                     'jenis'    => $jp->jenis,
+                    'kategori' => $jp->kategori_hari,
                 ])->values()->all()
             );
         @endphp
         // Master jam pelajaran lengkap (dari server) untuk mencocokkan waktu sekarang
         const MASTER_JAM = {!! $masterJamJson !!};
 
+        @php
+            $masterJpPerHariJson = json_encode($jamPelajaranPerHari);
+        @endphp
+        // Master JP dikelompokkan per kategori hari (Senin-Kamis / Jumat) untuk
+        // dropdown 'Dari JP'/'Sampai JP' dinamis mengikuti TANGGAL dispen terpilih.
+        const MASTER_JP_PER_HARI = {!! $masterJpPerHariJson !!};
+        // Endpoint untuk memuat ulang master JP per tanggal (refresh sinkron).
+        const JAM_PELAJARAN_URL  = "{{ route('piket.dispensasi.jam-pelajaran') }}";
+
         function waktuToHari(waktu) {
             const [h, m] = String(waktu || '').split(':').map(Number);
             return (h || 0) * 60 + (m || 0);
+        }
+
+        // Daftar slot JP sesuai kategori hari sekarang (Jumat vs Senin-Kamis).
+        function masterJamHariIni() {
+            const d = new Date();
+            const kategori = d.getDay() === 5 ? 'Jumat' : 'Senin-Kamis';
+            return MASTER_JAM.filter(function (jp) {
+                return jp.kategori === kategori && jp.jam_ke;
+            });
+        }
+
+        // =====================================================================
+        // Master JP DINAMIS MENGIKUTI TANGGAL DISPEN: saat tanggal diubah, seluruh
+        // dropdown JP (Dari/Sampai, Keluar, Kembali, Masuk) di-render ulang sesuai
+        // kategori hari tanggal tersebut (Jumat vs Senin-Kamis).
+        // =====================================================================
+
+        // Kategori hari ('Jumat' bila Jumat, selainnya 'Senin-Kamis') dari tanggal.
+        function kategoriUntukTanggal(tanggalStr) {
+            let d = tanggalStr ? new Date(tanggalStr + 'T00:00:00') : null;
+            if (!d || isNaN(d.getTime())) d = new Date();
+            return d.getDay() === 5 ? 'Jumat' : 'Senin-Kamis';
+        }
+
+        // Tanggal hari ini (local) dalam format YYYY-MM-DD — sama dengan nilai input[type=date].
+        function tanggalHariIni() {
+            const d = new Date();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return d.getFullYear() + '-' + mm + '-' + dd;
+        }
+
+        // Master JP (dari MASTER_JP_PER_HARI) untuk sebuah tanggal dispen.
+        function masterJpUntukTanggal(tanggalStr) {
+            const kat = kategoriUntukTanggal(tanggalStr);
+            return MASTER_JP_PER_HARI[kat] || MASTER_JP_PER_HARI['Senin-Kamis'] || [];
+        }
+
+        // Tanggal yang sedang aktif dipilih pada form (fallback: hari ini).
+        function jpTanggalAktif() {
+            return (tanggalInput && tanggalInput.value) ? tanggalInput.value : tanggalHariIni();
+        }
+
+        // Cek apakah sebuah nilai (value option) masih ada pada select.
+        function optionAda(select, value) {
+            if (!select) return false;
+            for (const opt of select.options) {
+                if (opt.value !== '' && opt.value === String(value || '')) return true;
+            }
+            return false;
+        }
+
+        // ID master JP yang urutannya (jam_ke) cocok di dalam daftar master.
+        function idJpUntukUrutan(daftar, urutan) {
+            for (const jp of (daftar || [])) {
+                if (jp.jam_ke === urutan) return jp.id;
+            }
+            return null;
+        }
+
+        // Render option select dari daftar master JP. pakaiId = true bila value
+        // option harus id master (Dari/Sampai JP); false bila value = nomor jam_ke
+        // (JP Keluar / Kembali / Masuk — yang disimpan backend sebagai angka).
+        function renderJpOptions(select, daftar, nilaiTerpilih, labelPertama, pakaiId) {
+            if (!select) return;
+            select.innerHTML = '';
+            const optPertama = document.createElement('option');
+            optPertama.value = '';
+            optPertama.textContent = labelPertama || '-- Pilih --';
+            select.appendChild(optPertama);
+
+            (daftar || []).forEach(function (jp) {
+                const value = pakaiId ? String(jp.id) : String(jp.jam_ke);
+                const opt = document.createElement('option');
+                opt.value = value;
+                opt.dataset.jamKe = String(jp.jam_ke);
+                opt.textContent = 'JP ' + jp.jam_ke + ' (' + String(jp.mulai || '').slice(0, 5) + ' - ' + String(jp.selesai || '').slice(0, 5) + ')';
+                if (nilaiTerpilih !== null && nilaiTerpilih !== undefined && String(nilaiTerpilih) === value) {
+                    opt.selected = true;
+                }
+                select.appendChild(opt);
+            });
+        }
+
+        // Terapkan daftar master JP untuk satu tanggal ke semua dropdown JP:
+        // pertahankan pilihan yang masih ada pada daftar baru, selainnya isi
+        // default (jam aktif bila tanggal hari ini; JP-1 bila tanggal lain).
+        function terapkanJpUntukTanggal(tanggalStr, daftar) {
+            if (!tanggalStr) tanggalStr = jpTanggalAktif();
+            const isToday = tanggalStr === tanggalHariIni();
+
+            // ---- Part 1: Dari JP (nilai = id model) — sampai_jp hidden, auto-sync ----
+            const dariSebelum = dariJpSelect ? dariJpSelect.value : '';
+            const pertahankanDari = optionAda(dariJpSelect, dariSebelum) ? dariSebelum : null;
+
+            renderJpOptions(dariJpSelect, daftar, pertahankanDari, '-- Pilih JP Mulai --', true);
+
+            if (!dariJpSelect || !dariJpSelect.value) {
+                let urutanDefault = isToday ? jamKeSekarang() : null;
+                if (urutanDefault === null && daftar.length) urutanDefault = daftar[0].jam_ke;
+                const idDefault = idJpUntukUrutan(daftar, urutanDefault);
+                if (dariJpSelect && idDefault) dariJpSelect.value = String(idDefault);
+            }
+
+            // ---- Part 2: Jam Kembali (nilai = jam_ke) ----
+            const kembaliSebelum = jamKembaliJpSelect ? jamKembaliJpSelect.value : '';
+            if (jamKembaliManual && optionAda(jamKembaliJpSelect, kembaliSebelum)) {
+                renderJpOptions(jamKembaliJpSelect, daftar, kembaliSebelum, '-- Pilih Jam Pelajaran Kembali --', false);
+            } else {
+                renderJpOptions(jamKembaliJpSelect, daftar, '', '-- Pilih Jam Pelajaran Kembali --', false);
+                jamKembaliManual = false;
+            }
+
+            // ---- Boleh Masuk Mulai JP Ke- (nilai = jam_ke) ----
+            const masukSebelum = jamMasukJpSelect ? jamMasukJpSelect.value : '';
+            let masukBaru = optionAda(jamMasukJpSelect, masukSebelum) ? masukSebelum : null;
+            if (masukBaru === null && isToday) masukBaru = saranJamMasuk();
+            if (masukBaru === null && daftar.length) masukBaru = String(daftar[0].jam_ke);
+            renderJpOptions(jamMasukJpSelect, daftar, masukBaru, '-- Pilih JP --', false);
+
+            // Sinkronkan hidden inputs & jam_ke[] tersembunyi.
+            onJamRangeChanged();
+        }
+
+        // Muat ulang semua dropdown JP berdasarkan tanggal yang dipilih: terapkan
+        // master lokal secara instan, lalu segarkan dari server untuk memastikan
+        // data terbaru (fallback: data lokal tetap dipakai bila request gagal).
+        function updateJpDropdowns(tanggal) {
+            const tgl = tanggal || jpTanggalAktif();
+            terapkanJpUntukTanggal(tgl, masterJpUntukTanggal(tgl));
+
+            fetch(JAM_PELAJARAN_URL + '?tanggal=' + encodeURIComponent(tgl), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function (res) { return res.json(); })
+            .then(function (json) {
+                // Abaikan hasil bila tanggal sudah berubah sejak fetch dimulai
+                // (hindari respon lama menimpa pilihan yang baru saja dirender).
+                const aktif = (tanggalInput && tanggalInput.value) ? tanggalInput.value : '';
+                if (json && json.error === false && Array.isArray(json.data) && aktif === tgl) {
+                    terapkanJpUntukTanggal(tgl, json.data);
+                }
+            })
+            .catch(function () { /* abaikan: pakai data master lokal */ });
         }
 
         // Tentukan jam_ke yang sedang berlangsung berdasarkan master jam pelajaran.
@@ -511,7 +616,7 @@
             let now = d.getHours() * 60 + d.getMinutes();
 
             // Cocokkan dengan slot yang sedang berlangsung (now >= mulai && now < selesai)
-            for (const jp of MASTER_JAM) {
+            for (const jp of masterJamHariIni()) {
                 const mulai = waktuToHari(jp.mulai);
                 const selesai = waktuToHari(jp.selesai);
                 if (mulai === 0 && selesai === 0) continue;
@@ -520,26 +625,147 @@
             return null;
         }
 
-        function autoSelectJamSekarang() {
-            const jamKe = jamKeSekarang();
-            if (jamKe === null) return false;
-            let found = false;
-            jamCheckboxes.forEach(function (c) {
-                c.checked = (parseInt(c.value, 10) === jamKe);
-                if (c.checked) found = true;
-            });
-            return found;
+        // Saran JP "Boleh Masuk": JP aktif -> JP berikutnya -> JP terakhir hari ini.
+        function saranJamMasuk() {
+            const aktif = jamKeSekarang();
+            if (aktif !== null) return aktif;
+
+            const d = new Date();
+            const menit = d.getHours() * 60 + d.getMinutes();
+            let next = null;
+            let last = null;
+            for (const jp of masterJamHariIni()) {
+                const mulai = waktuToHari(jp.mulai);
+                if (next === null && menit < mulai) next = jp.jam_ke;
+                last = jp.jam_ke;
+            }
+            if (next !== null) return next;
+            return last;
         }
 
-        // Marker untuk melacak perubahan manual user (agar auto-select tidak menimpa)
-        let userTouchedJam = false;
-        jamCheckboxes.forEach(function (cb) {
-            cb.addEventListener('change', function () { userTouchedJam = true; });
-        });
+        // Isi default dropdown "Boleh Masuk Mulai JP Ke-" (jangan timpa pilihan user).
+        function autoSelectJamMasukJp() {
+            if (!jamMasukJpSelect || jamMasukJpSelect.value !== '') return;
+            const jk = saranJamMasuk();
+            if (jk !== null) jamMasukJpSelect.value = String(jk);
+        }
 
-        // Auto-select hanya saat halaman pertama dimuat & belum ada nilai old()
-        var adaOldJam = `{{ old('jam_ke') ? '1' : '0' }}` === '1';
-        if (!adaOldJam) {
+        function autoSelectJamSekarang() {
+            const jamKe = jamKeSekarang();
+            if (jamKe === null || !dariJpSelect) return false;
+            let idOpt = null;
+            for (const opt of dariJpSelect.options) {
+                if (opt.value && parseInt(opt.dataset.jamKe || '0', 10) === jamKe) {
+                    idOpt = opt;
+                    break;
+                }
+            }
+            if (!idOpt) return false;
+            dariJpSelect.value = String(idOpt.value);
+            syncSampaiJpHidden();
+            return true;
+        }
+
+        // =====================================================================
+        // RANGE 'Dari JP' s/d 'Sampai JP': baca rentang terpilih & kumpulkan
+        // semua JP dalam range menjadi jam_ke[] untuk dikirim saat submit.
+        // =====================================================================
+        function getSelectedRange() {
+            if (!dariJpSelect || !dariJpSelect.value) return null;
+            const dariOpt = dariJpSelect.selectedOptions[0];
+            const dariKe  = parseInt(dariOpt ? dariOpt.dataset.jamKe : '0', 10);
+            if (isNaN(dariKe)) return null;
+            return { min: dariKe, max: dariKe };
+        }
+
+        // Semua jam_ke dalam rentang [Dari JP .. Sampai JP] (berurutan naik).
+        // Mengikuti master JP dari TANGGAL yang dipilih (bukan hanya hari browser
+        // sekarang) agar jam_ke[] selalu selaras dengan jadwal tanggal dispen.
+        function jamTerpilih() {
+            const range = getSelectedRange();
+            if (!range) return [];
+            const result = [];
+            masterJpUntukTanggal(jpTanggalAktif()).forEach(function (jp) {
+                if (jp.jam_ke >= range.min
+                    && jp.jam_ke <= range.max
+                    && result.indexOf(jp.jam_ke) === -1) {
+                    result.push(jp.jam_ke);
+                }
+            });
+            return result.sort(function (a, b) { return a - b; });
+        }
+
+        function updateJpRangeUi(count, detail) {
+            const label = count === 0 ? '0 JP' : (count + ' JP');
+            if (badgeJpRange) badgeJpRange.textContent = label;
+            if (jpRangeInfo) {
+                jpRangeInfo.innerHTML = count === 0
+                    ? 'Terpilih: <strong>0 JP</strong>'
+                    : 'Terpilih: <strong>' + label + '</strong><span style="font-size:0.8rem;"> ' + (detail || '') + '</span>';
+            }
+        }
+
+        // Bangun input tersembunyi jam_ke[] dari seluruh JP dalam rentang terpilih.
+        function updateJamKeHidden() {
+            if (!jamKeHiddenWrap) return;
+            jamKeHiddenWrap.innerHTML = '';
+            const jams = jamTerpilih();
+            jams.forEach(function (j) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'jam_ke[]';
+                input.value = String(j);
+                jamKeHiddenWrap.appendChild(input);
+            });
+            updateJpRangeUi(jams.length, jams.length ? '(JP ' + jams.join(', ') + ')' : '');
+        }
+
+        // Sync hidden sampai_jp = dari_jp saat dari_jp berubah.
+        function syncSampaiJpHidden() {
+            const sampaiHidden = document.getElementById('sampai_jp');
+            if (sampaiHidden && dariJpSelect) {
+                sampaiHidden.value = dariJpSelect.value;
+            }
+        }
+
+        function clearJamRange() {
+            if (dariJpSelect) dariJpSelect.value = '';
+            syncSampaiJpHidden();
+            updateJamKeHidden();
+        }
+
+        // enforceJamRange: no longer needed (single dropdown) — kept as no-op for compatibility.
+        function enforceJamRange() {}
+
+        // Handler terpusat saat rentang JP berubah: validasi & sinkronkan Part 2/3,
+        // jadwal & tampilan. clearJamKeError/sync/filterJadwalOptions adalah function
+        // declaration (hoisted) yang didefinisikan di bagian bawah script.
+        function onJamRangeChanged() {
+            syncSampaiJpHidden();
+            updateJamKeHidden();
+            clearJamKeError();
+            syncJamKeluarJp();
+            syncJamKembaliJp();
+            filterJadwalOptions();
+        }
+
+        // Hapus tanda error "belum ada JP dipilih" (dipanggil kapan saja saat init,
+        // karena itu query DOM langsung tanpa bergantung pada binding ttdCanvas).
+        function clearJamKeError() {
+            const err = document.getElementById('jamKeError');
+            if (err) err.classList.add('d-none');
+            const part1 = document.getElementById('keluarPart1');
+            if (part1) part1.classList.remove('border-danger', 'border', 'rounded-3');
+        }
+
+        if (dariJpSelect) dariJpSelect.addEventListener('change', onJamRangeChanged);
+        // sampai_jp is now a hidden input synced from dari_jp; no change listener needed.
+
+        // Auto-select saat halaman pertama dimuat hanya bila belum ada nilai old()
+        var adaOldJam   = `{{ old('jam_ke') ? '1' : '0' }}` === '1';
+        var adaOldRange = `{{ old('dari_jp') ? '1' : '0' }}` === '1';
+
+        if (!adaOldJam && !adaOldRange && (!dariJpSelect || !dariJpSelect.value)) {
             autoSelectJamSekarang();
         }
 
@@ -552,136 +778,63 @@
         if (btnJamSekarang) {
             btnJamSekarang.addEventListener('click', function () {
                 autoSelectJamSekarang();
-                filterJadwalOptions();
+                onJamRangeChanged();
             });
         }
 
         if (btnSisaJam) {
             btnSisaJam.addEventListener('click', function () {
+                if (!dariJpSelect) return;
+                const ops = Array.from(dariJpSelect.options).filter(function (o) { return o.value !== ''; });
+                if (ops.length === 0) return;
                 const jamKe = jamKeSekarang();
-                let startIndex = 0;
+                let fromOpt = ops[0];
                 if (jamKe !== null) {
-                    const cb = jamCheckboxes.find(function (c) {
-                        return parseInt(c.value, 10) === jamKe;
-                    });
-                    if (cb) startIndex = jamCheckboxes.indexOf(cb);
+                    const found = ops.find(function (o) { return parseInt(o.dataset.jamKe || '0', 10) === jamKe; });
+                    if (found) fromOpt = found;
                 }
-                jamCheckboxes.forEach(function (c, i) {
-                    c.checked = (i >= startIndex && c.dataset.mulai !== '');
-                });
-                filterJadwalOptions();
+                dariJpSelect.value = fromOpt.value;
+                syncSampaiJpHidden();
+                onJamRangeChanged();
             });
         }
 
         if (btnPilihManual) {
             btnPilihManual.addEventListener('click', function () {
-                // Tidak mengubah apa-apa; hanya memastikan checkbox tetap editable
-                // dan mengarahkan pandangan guru ke area jam.
-                const label = document.querySelector('[data-jam-label]');
-                if (label) label.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Tidak mengubah apa-apa; hanya mengarahkan pandangan guru ke rentang JP.
+                const wrap = document.getElementById('keluarPart1');
+                if (wrap) wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
             });
         }
 
         if (btnBersihkan) {
             btnBersihkan.addEventListener('click', function () {
-                jamCheckboxes.forEach(function (c) { c.checked = false; });
-                filterJadwalOptions();
+                clearJamRange();
+                onJamRangeChanged();
             });
         }
 
-        // ---- Part 2: JP Keluar Gerbang (sync dari Part 1) ----
-        const jamKeluarJpSelect = document.getElementById('jam_keluar_jp');
-
-        // Sync otomatis: saat checkbox JP di Part 1 berubah, set dropdown keluar
-        // ke JP TER-AWAL yang dipilih. User tetap bisa mengubah manual setelahnya.
-        let jamKeluarManual = false;
+        // ---- jam_keluar_jp: auto-sync as hidden input from dari_jp's jam_ke ----
+        const jamKeluarJpHidden = document.getElementById('jam_keluar_jp');
 
         function syncJamKeluarJp() {
-            if (jamKeluarManual || !jamKeluarJpSelect) return;
-            const jams = jamTerpilih();
-            if (jams.length > 0) {
-                const terAwal = Math.min.apply(null, jams);
-                jamKeluarJpSelect.value = String(terAwal);
+            if (!jamKeluarJpHidden || !dariJpSelect || !dariJpSelect.value) return;
+            const dariOpt = dariJpSelect.selectedOptions[0];
+            const dariKe  = parseInt(dariOpt ? dariOpt.dataset.jamKe : '0', 10);
+            if (!isNaN(dariKe) && dariKe > 0) {
+                jamKeluarJpHidden.value = String(dariKe);
             }
         }
 
-        if (jamKeluarJpSelect) {
-            jamKeluarJpSelect.addEventListener('change', function () {
-                jamKeluarManual = true;
-            });
-        }
-
-        // jalankan sync tiap kali checkbox Part 1 berubah (sebelum filter jadwal)
-        jamCheckboxes.forEach(function (cb) {
-            cb.addEventListener('change', function () {
-                syncJamKeluarJp();
-            });
-        });
-
-        // Saat halaman pertama dimuat (belum ada old()), isi dropdown JP keluar
-        // dari JP yang tercentang otomatis (JP sekarang).
-        var adaOldJam = `{{ old('jam_ke') ? '1' : '0' }}` === '1';
-        if (!adaOldJam && jamKeluarJpSelect && jamKeluarJpSelect.value === '') {
+        // Initial sync on load
+        if (!adaOldJam) {
             syncJamKeluarJp();
         }
 
-        // ---- Part 3: Kembali Hari Ini (checkbox toggle + sync dari Part 1) ----
-        const jamKembaliJpSelect = document.getElementById('jam_kembali_jp');
-        const jamKembaliWrap     = document.getElementById('jamKembaliWrap');
-        const kembaliCheck       = document.getElementById('kembali_hari_ini');
-
-        let jamKembaliManual = false;
-
-        // Default JP kembali = JP pertama yang TERSEDIA & >= (JP keluar terakhir + 1).
-        function syncJamKembaliJp() {
-            if (jamKembaliManual || !jamKembaliJpSelect) return;
-            if (!kembaliCheck || !kembaliCheck.checked) return;
-            const jams = jamTerpilih();
-            if (jams.length > 0) {
-                const setelahTerakhir = Math.max.apply(null, jams) + 1;
-                for (const opt of jamKembaliJpSelect.options) {
-                    const v = parseInt(opt.value, 10);
-                    if (!isNaN(v) && v >= setelahTerakhir) {
-                        jamKembaliJpSelect.value = String(v);
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Checked -> tampilkan & aktifkan dropdown JP kembali (pemantauan/auto-Mangkir).
-        // Unchecked (default) -> sembunyikan & kosongkan (izin hingga jam pulang).
-        function setJamKembaliState() {
-            if (!kembaliCheck || !jamKembaliWrap || !jamKembaliJpSelect) return;
-            const aktif = kembaliCheck.checked;
-            jamKembaliWrap.classList.toggle('d-none', !aktif);
-            if (aktif) {
-                jamKembaliJpSelect.disabled = false;
-                jamKembaliJpSelect.required = true;
-                syncJamKembaliJp();
-            } else {
-                jamKembaliJpSelect.disabled = true;
-                jamKembaliJpSelect.required = false;
-                jamKembaliJpSelect.value = '';
-            }
-        }
-
-        if (jamKembaliJpSelect) {
-            jamKembaliJpSelect.addEventListener('change', function () {
-                jamKembaliManual = true;
-            });
-        }
-
-        if (kembaliCheck) {
-            kembaliCheck.addEventListener('change', setJamKembaliState);
-        }
-
-        jamCheckboxes.forEach(function (cb) {
-            cb.addEventListener('change', function () { syncJamKembaliJp(); });
-        });
-
-        // Inisialisasi sesuai checkbox (default unchecked = izin hingga pulang).
-        setJamKembaliState();
+        // ---- Part 2: Kembali Hari Ini (checkbox boolean) ----
+        const kembaliCheck = document.getElementById('kembali_hari_ini');
+        function syncJamKembaliJp() {}
+        function setJamKembaliState() {}
         // ====================================================================
 
         // =====================================================================
@@ -722,15 +875,12 @@
             }
 
             if (isMasuk) {
-                jamCheckboxes.forEach(function (c) { c.checked = false; });
+                clearJamRange();
                 if (selectJadwal) selectJadwal.value = '';
                 if (jamKeluarJpSelect) jamKeluarJpSelect.value = '';
-                if (jamMasukJpSelect && jamMasukJpSelect.value === '') {
-                    const jk = jamKeSekarang();
-                    if (jk !== null) jamMasukJpSelect.value = String(jk);
-                }
+                autoSelectJamMasukJp();
             } else {
-                if (jamCheckboxes.every(function (c) { return !c.checked; })) {
+                if (jamTerpilih().length === 0) {
                     autoSelectJamSekarang();
                 }
                 syncJamKeluarJp();
@@ -743,10 +893,12 @@
         if (tabDispenKeluar) tabDispenKeluar.addEventListener('click', function () {
             tipeDispenInput.value = 'keluar';
             setTipeDispen('keluar');
+            applyTerlambatGroups();
         });
         if (tabDispenMasuk) tabDispenMasuk.addEventListener('click', function () {
             tipeDispenInput.value = 'masuk';
             setTipeDispen('masuk');
+            applyTerlambatGroups();
         });
 
         // Kategori "Lainnya" => tampilkan detail
@@ -758,6 +910,9 @@
 
         // Inisialisasi sesuai nilai tersimpan / old()
         setTipeDispen(tipeDispenInput ? tipeDispenInput.value : 'keluar');
+        // Isi default "Boleh Masuk Mulai JP Ke-" sejak halaman dibuka (mode apa pun),
+        // asalkan belum ada nilai old() — tetap bisa dioverride manual oleh Guru Piket.
+        autoSelectJamMasukJp();
         if (alasanKategori && alasanDetailWrap) {
             alasanDetailWrap.classList.toggle('d-none', (alasanKategori.value || '') !== 'Lainnya');
         }
@@ -771,6 +926,11 @@
         const btnTambahSiswa       = document.getElementById('btnTambahSiswa');
         const siswaRowTemplate     = document.getElementById('templateSiswaRow');
         const siswaErrorBox        = document.getElementById('siswaError');
+
+        // Data siswa terlambat hari ini (catatan Satpam) untuk quick-fill di dropdown.
+        let terlambatData = @json($terlambatJson ?? []);
+        // Flag mode aktif: 'masuk' menampilkan group "Siswa Terlambat" di dropdown siswa.
+        let modeMasuk = false;
 
         function setSiswaError(show) {
             if (siswaErrorBox) siswaErrorBox.classList.toggle('d-none', !show);
@@ -791,24 +951,211 @@
             return (opt && opt.dataset.kelas) || '';
         }
 
+        // Kumpulkan id siswa yang sudah terpilih di seluruh baris aktif.
+        function collectSelectedStudents() {
+            const picked = {};
+            getFilledRows().forEach(function (row) {
+                const s = row.querySelector('.row-siswa');
+                if (s && s.value) picked[String(s.value)] = true;
+            });
+            return picked;
+        }
+
+        // Sinkronkan opsi: siswa yang sudah dipilih di baris lain di-disable
+        // di semua dropdown lain (nilai terpilih di baris itu sendiri tetap aktif).
+        // Dicek setiap opsi-nya dibangun ulang / berubah (kelas, siswa, tambah/hapus baris).
+        function updateSelectedStudentsState() {
+            const picked = collectSelectedStudents();
+            document.querySelectorAll('.siswa-row').forEach(function (row) {
+                const s = row.querySelector('.row-siswa');
+                if (!s) return;
+                const sel = String(s.value);
+                Array.from(s.options).forEach(function (opt) {
+                    if (!opt.value) return;
+                    opt.disabled = picked[String(opt.value)] === true && String(opt.value) !== sel;
+                });
+            });
+        }
+
+        // -------------------------------------------------------------------
+        // INTEGRASI SISWA TERLAMBAT (catatan Satpam) ke dropdown siswa utama
+        // -------------------------------------------------------------------
+        // Bangun satu opsi siswa normal (tanpa group terlambat).
+        // Label = "{no_absen}. {nama} ({nisn})" ; no_absen = urutan dalam kelas (di-derive).
+        function regularOption(s, kelasId, noAbsen) {
+            const opt = document.createElement('option');
+            opt.value = String(s.id);
+            opt.dataset.nama  = String(s.nama || '').toLowerCase();
+            opt.dataset.nisn  = String(s.nisn || '').toLowerCase();
+            opt.dataset.kelas = String(kelasId);
+            const nomor = (noAbsen != null) ? String(noAbsen).padStart(2, '0') + '. ' : '';
+            opt.textContent   = nomor + s.nama + ' (' + (s.nisn || 'Tanpa NISN') + ')';
+            return opt;
+        }
+
+        // Bangun satu opsi siswa terlambat (bawa data catatan Satpam untuk auto-fill).
+        function terlambatOption(d) {
+            const opt = document.createElement('option');
+            opt.value = String(d.id_siswa);
+            opt.dataset.catatanId = String(d.id);
+            opt.dataset.nama      = String(d.nama || '').toLowerCase();
+            opt.dataset.nisn      = String(d.nisn || '').toLowerCase();
+            opt.dataset.kelas     = String(d.kelas_id);
+            opt.dataset.jamMasuk  = d.jam_masuk || '';
+            opt.dataset.keterangan = d.keterangan || '';
+            opt.dataset.saranJp   = d.saran_jp ? String(d.saran_jp) : '';
+            opt.textContent = '\u23F0 ' + d.nama + ' (' + (d.nisn || 'Tanpa NISN')
+                + (d.jam_masuk ? ', ' + String(d.jam_masuk).slice(0, 5) + ' WIB' : '') + ')';
+            return opt;
+        }
+
+        // Bangun ulang pilihan baris: group "Terlambat" (selalu di atas, mode masuk)
+        // + group "Semua Siswa" (hasil fetch kelas, siswa terlambat tidak diduplikasi).
+        function renderRowOptions(row, kelasId, siswaList) {
+            const siswa = row.querySelector('.row-siswa');
+            if (!siswa) return;
+
+            siswa.innerHTML = '<option value="" data-nama="" data-nisn="" selected>-- Pilih Siswa --</option>';
+
+            const terlambatKelas = new Set(
+                terlambatData.filter(function (d) {
+                    return String(d.kelas_id) === String(kelasId);
+                }).map(function (d) { return String(d.id_siswa); })
+            );
+
+            if (modeMasuk && terlambatData.length > 0) {
+                const gTerlambat = document.createElement('optgroup');
+                gTerlambat.label = 'Siswa Terlambat Hari Ini (Satpam)';
+                terlambatData.forEach(function (d) { gTerlambat.appendChild(terlambatOption(d)); });
+                siswa.appendChild(gTerlambat);
+            }
+
+            if (kelasId && siswaList && siswaList.length > 0) {
+                // Urutan tetap (mis. by nama); no_absen = indeks urutan di kelas.
+                const list = [].concat(siswaList).sort(function (a, b) {
+                    return String(a.nama || '').localeCompare(String(b.nama || ''));
+                });
+                const gManual = document.createElement('optgroup');
+                gManual.label = 'Semua Siswa (Pilihan Manual)';
+                let nomor = 0;
+                list.forEach(function (s) {
+                    if (terlambatKelas.has(String(s.id))) return;
+                    nomor += 1;
+                    gManual.appendChild(regularOption(s, kelasId, nomor));
+                });
+                if (gManual.children.length > 0) siswa.appendChild(gManual);
+            }
+
+            // Sync state: disable siswa yang sudah dipilih baris lain.
+            updateSelectedStudentsState();
+        }
+
+        // Auto-fill form saat user memilih siswa dari group terlambat.
+        function autoFillFromTerlambat(row, opt) {
+            if (!opt || !opt.dataset.catatanId) return;
+            const hid = row.querySelector('.row-catatan');
+            if (hid) hid.value = String(opt.dataset.catatanId);
+
+            const kelasSel = row.querySelector('.row-kelas');
+            const kelasOpt = opt.dataset.kelas || '';
+            if (kelasSel && String(kelasSel.value || '') !== String(kelasOpt)) {
+                kelasSel.value = String(kelasOpt);
+                loadRowSiswa(row, String(kelasOpt), opt.value);
+            }
+
+            const jp = document.getElementById('jam_masuk_jp');
+            if (jp) {
+                if (opt.dataset.saranJp) {
+                    jp.value = String(opt.dataset.saranJp);
+                } else if (!jp.value) {
+                    const jk = saranJamMasuk();
+                    if (jk !== null) jp.value = String(jk);
+                }
+            }
+            const kat = document.getElementById('alasan_kategori');
+            if (kat) kat.value = 'Terlambat Sekolah';
+            const detail = document.getElementById('alasan_detail');
+            if (detail) detail.value = opt.dataset.keterangan || '';
+            const wrap = document.getElementById('alasanDetailWrap');
+            if (wrap) wrap.classList.toggle('d-none', !(opt.dataset.keterangan || ''));
+        }
+
+        // Snapshot pilihan baris agar dapat dikembalikan setelah re-render.
+        function captureSelection(siswa) {
+            const opt = siswa.selectedOptions[0];
+            if (!opt || !opt.value) return null;
+            return {
+                value: opt.value,
+                nama: opt.dataset.nama || '',
+                nisn: opt.dataset.nisn || '',
+                kelas: opt.dataset.kelas || '',
+                catatanId: opt.dataset.catatanId || '',
+                jamMasuk: opt.dataset.jamMasuk || '',
+                keterangan: opt.dataset.keterangan || '',
+                saranJp: opt.dataset.saranJp || '',
+                text: opt.textContent
+            };
+        }
+
+        // Pulihkan pilihan setelah re-render; bila tak ada di daftar baru,
+        // opsi lama ditambahkan kembali (mis. toggle mode menghilangkan group terlambat).
+        function restoreSelection(siswa, prev, kelasId) {
+            if (!prev) return;
+            const found = siswa.querySelector('option[value="' + String(prev.value) + '"]');
+            if (found) { siswa.value = String(prev.value); return; }
+            const opt = document.createElement('option');
+            opt.value = String(prev.value);
+            opt.dataset.nama = prev.nama;
+            opt.dataset.nisn = prev.nisn;
+            opt.dataset.kelas = prev.kelas || String(kelasId || '');
+            if (prev.catatanId) {
+                opt.dataset.catatanId = prev.catatanId;
+                opt.dataset.jamMasuk = prev.jamMasuk;
+                opt.dataset.keterangan = prev.keterangan;
+                opt.dataset.saranJp = prev.saranJp;
+            }
+            opt.textContent = prev.text;
+            const manual = siswa.querySelector('optgroup[label="Semua Siswa (Pilihan Manual)"]');
+            if (manual) manual.insertBefore(opt, manual.firstChild);
+            else siswa.appendChild(opt);
+            siswa.value = String(prev.value);
+        }
+
+        // Terapkan mode aktif ke seluruh baris siswa (group terlambat on/off) + hint.
+        function applyTerlambatGroups() {
+            if (tipeDispenInput) modeMasuk = tipeDispenInput.value === 'masuk';
+            document.querySelectorAll('.siswa-row').forEach(function (row) {
+                const select = row.querySelector('.row-siswa');
+                if (!select) return;
+                // Jangan ganggu baris hasil restore old(): opsinya dirender server dan
+                // belum dimuat penuh (row._siswaData kosong). Baris kosong/baru di-render ulang.
+                if (select.value !== '' && !row._siswaData) return;
+                const prev = captureSelection(select);
+                const kelasId = row.querySelector('.row-kelas') ? row.querySelector('.row-kelas').value : '';
+                renderRowOptions(row, kelasId, row._siswaData || null);
+                restoreSelection(select, prev, kelasId);
+            });
+            const hint = document.getElementById('terlambatHint');
+            if (hint) hint.classList.toggle('d-none', !(modeMasuk && terlambatData.length > 0));
+            filterJadwalOptions();
+        }
+
         function loadRowSiswa(row, kelasId, selectSiswaId) {
             const siswa  = row.querySelector('.row-siswa');
-            const search = row.querySelector('.row-search');
             const status = row.querySelector('.row-status');
             if (!siswa) return;
 
             if (!kelasId) {
-                siswa.innerHTML = '<option value="">-- Pilih Kelas Terlebih Dahulu --</option>';
+                row._siswaData = null;
+                renderRowOptions(row, '', null);
                 siswa.value = '';
                 siswa.dataset.kelas = '';
-                if (search) { search.value = ''; search.disabled = true; }
                 filterJadwalOptions();
                 return;
             }
 
             if (status) status.classList.remove('d-none');
             siswa.disabled = true;
-            if (search) search.disabled = true;
             siswa.innerHTML = '<option value="">-- Memuat data siswa... --</option>';
 
             fetch(SISWA_URL + '?kelas_id=' + encodeURIComponent(kelasId), {
@@ -819,27 +1166,18 @@
                 if (json.error || !Array.isArray(json.data)) {
                     throw new Error(json.message || 'Gagal memuat data siswa');
                 }
-                siswa.innerHTML = '<option value="">-- Pilih Siswa --</option>';
-                for (const s of json.data) {
-                    const opt = document.createElement('option');
-                    opt.value = String(s.id);
-                    opt.dataset.nama  = String(s.nama || '').toLowerCase();
-                    opt.dataset.nisn  = String(s.nisn || '').toLowerCase();
-                    opt.dataset.kelas = String(kelasId);
-                    opt.textContent   = s.nama + ' (' + (s.nisn || 'Tanpa NISN') + ')';
-                    siswa.appendChild(opt);
-                }
+                row._siswaData = json.data;
+                renderRowOptions(row, kelasId, json.data);
                 siswa.disabled = false;
                 if (selectSiswaId) {
                     const opt = siswa.querySelector('option[value="' + String(selectSiswaId) + '"]');
                     if (opt) siswa.value = String(selectSiswaId);
                 }
-                if (search) { search.value = ''; search.disabled = false; }
+                updateSelectedStudentsState();
             })
             .catch(function () {
                 siswa.innerHTML = '<option value="">-- Gagal memuat data siswa --</option>';
                 siswa.disabled = false;
-                if (search) search.disabled = false;
             })
             .finally(function () {
                 if (status) status.classList.add('d-none');
@@ -847,41 +1185,58 @@
             });
         }
 
-        // Filter instan (client-side) atas opsi siswa pada satu baris.
-        function filterRowBySearch(row) {
-            const search = row.querySelector('.row-search');
-            const siswa  = row.querySelector('.row-siswa');
-            if (!search || !siswa) return;
-            const q = search.value.trim().toLowerCase();
-            for (const opt of siswa.options) {
-                if (!opt.value) continue; // placeholder
-                const cocok = !q
-                    || (opt.dataset.nama || '').indexOf(q) !== -1
-                    || (opt.dataset.nisn || '').indexOf(q) !== -1;
-                opt.hidden = !cocok;
-            }
-        }
-
         function wireRow(row) {
             const kelas  = row.querySelector('.row-kelas');
             const siswa  = row.querySelector('.row-siswa');
-            const search = row.querySelector('.row-search');
             const remove = row.querySelector('.row-remove');
 
             if (kelas) {
-                kelas.addEventListener('change', function () { loadRowSiswa(row, kelas.value); });
-            }
-            if (search) {
-                search.addEventListener('input', function () { filterRowBySearch(row); });
+                kelas.addEventListener('change', function () {
+                    const hid = row.querySelector('.row-catatan');
+                    if (hid) hid.value = '';
+                    loadRowSiswa(row, kelas.value);
+                });
             }
             if (siswa) {
-                siswa.addEventListener('change', function () { filterJadwalOptions(); setSiswaError(false); });
+                siswa.addEventListener('change', function () {
+                    const v = this.value;
+
+                    // Cegah siswa yang sama terpilih dua kali di baris berbeda.
+                    if (v !== '') {
+                        const dupe = Array.from(document.querySelectorAll('.siswa-row')).some(function (r) {
+                            const o = r.querySelector('.row-siswa');
+                            return o && o !== this && String(o.value) === String(v);
+                        }.bind(this));
+                        if (dupe) {
+                            const nm = this.selectedOptions[0];
+                            const nama = nm ? nm.textContent.replace(/^\d+\.\s*/, '') : v;
+                            alert('Siswa "' + nama + '" sudah ditambahkan ke daftar!');
+                            this.value = '';
+                            filterJadwalOptions();
+                            setSiswaError(false);
+                            updateSelectedStudentsState();
+                            return;
+                        }
+                    }
+
+                    const opt = this.selectedOptions[0];
+                    if (opt && opt.dataset.catatanId) {
+                        autoFillFromTerlambat(row, opt);
+                    } else {
+                        const hid = row.querySelector('.row-catatan');
+                        if (hid) hid.value = '';
+                    }
+                    filterJadwalOptions();
+                    setSiswaError(false);
+                    updateSelectedStudentsState();
+                });
             }
             if (remove) {
                 remove.addEventListener('click', function () {
                     row.remove();
                     toggleRemoveButtons();
                     filterJadwalOptions();
+                    updateSelectedStudentsState();
                 });
             }
         }
@@ -895,10 +1250,33 @@
         }
 
         function createSiswaRow() {
+            const existingRows = document.querySelectorAll('.siswa-row');
+            let selectedKelasId = '';
+            if (existingRows.length > 0) {
+                // Ambil kelas_id dari baris terakhir/sebelumnya yang sudah ada nilainya, atau baris pertama
+                for (let i = existingRows.length - 1; i >= 0; i--) {
+                    const kSelect = existingRows[i].querySelector('.row-kelas');
+                    if (kSelect && kSelect.value) {
+                        selectedKelasId = kSelect.value;
+                        break;
+                    }
+                }
+            }
+
             const node = siswaRowTemplate.content.cloneNode(true);
             const row = node.querySelector('.siswa-row');
             siswaRowsContainer.appendChild(row);
             wireRow(row);
+
+            if (selectedKelasId) {
+                const kSelectNew = row.querySelector('.row-kelas');
+                if (kSelectNew) {
+                    kSelectNew.value = selectedKelasId;
+                    kSelectNew.dispatchEvent(new Event('change'));
+                }
+            }
+
+            applyTerlambatGroups();
             toggleRemoveButtons();
             setSiswaError(false);
             return row;
@@ -910,46 +1288,18 @@
 
         // Wire baris yang dirender server (restore old()) + isi otomatis bila kosong.
         document.querySelectorAll('.siswa-row').forEach(function (r) { wireRow(r); });
+        updateSelectedStudentsState();
         toggleRemoveButtons();
         if (document.querySelectorAll('.siswa-row').length === 0) {
             createSiswaRow();
         }
 
         // =====================================================================
-        // QUICK-SELECT SISWA TERLAMBAT (catatan Satpam) — tab Masuk Kelas
+        // SISWA TERLAMBAT (catatan Satpam): refresh data saat tanggal berubah
         // =====================================================================
-        const TERLAMBAT_URL          = "{{ route('piket.dispensasi.terlambat-hari-ini') }}";
-        const terlambatList          = document.getElementById('terlambatList');
-        const btnRefreshTerlambat    = document.getElementById('btnRefreshTerlambat');
-        const templateTerlambatCard  = document.getElementById('templateTerlambatCard');
-        const alasanDetailInput      = document.getElementById('alasan_detail');
-        const alasanDetailWrapEl     = document.getElementById('alasanDetailWrap');
-        let terlambatData = @json($terlambatJson ?? []);
+        const TERLAMBAT_URL = "{{ route('piket.dispensasi.terlambat-hari-ini') }}";
 
-        function renderTerlambatList(data) {
-            if (!terlambatList || !templateTerlambatCard) return;
-            terlambatList.innerHTML = '';
-            if (!data || data.length === 0) {
-                terlambatList.innerHTML = '<div class="text-muted small"><i class="bi bi-info-circle me-1"></i>Belum ada catatan keterlambatan dari Satpam pada tanggal yang dipilih.</div>';
-                return;
-            }
-            for (const d of data) {
-                const node = templateTerlambatCard.content.cloneNode(true);
-                const card = node.querySelector('.terlambat-card');
-                card.dataset.catatanId = d.id;
-                card.dataset.siswaId = d.id_siswa;
-                node.querySelector('.terlambat-jam').textContent = (d.jam_masuk || '--:--') + ' WIB';
-                node.querySelector('.terlambat-nama').textContent = d.nama;
-                node.querySelector('.terlambat-info').textContent = [d.kelas, 'NISN ' + (d.nisn || '-')].filter(Boolean).join(' • ');
-                const ket = node.querySelector('.terlambat-ket');
-                ket.textContent = d.keterangan || '';
-                ket.title = d.keterangan || '';
-                if (!ket.textContent) ket.classList.add('d-none');
-                terlambatList.appendChild(node);
-            }
-        }
-
-        function refreshTerlambatList() {
+        function refreshTerlambatData() {
             const tgl = tanggalInput ? tanggalInput.value : '';
             return fetch(TERLAMBAT_URL + '?tanggal=' + encodeURIComponent(tgl || ''), {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -957,67 +1307,22 @@
             .then(function (res) { return res.json(); })
             .then(function (json) {
                 terlambatData = (json.error || !Array.isArray(json.data)) ? [] : json.data;
-                renderTerlambatList(terlambatData);
+                applyTerlambatGroups();
             })
-            .catch(function () { renderTerlambatList([]); });
-        }
-
-        // Terapkan catatan Satpam ke baris siswa: isi kelas + siswa (+ tautan id catatan).
-        function selectSiswaInRow(kelasId, siswaId, catatanId) {
-            let row = null;
-            for (const r of document.querySelectorAll('.siswa-row')) {
-                const s = r.querySelector('.row-siswa');
-                if (s && s.value === String(siswaId)) { row = r; break; }
-            }
-            if (!row) row = createSiswaRow();
-            const kelasSel = row.querySelector('.row-kelas');
-            const hid = row.querySelector('.row-catatan');
-            if (kelasSel) kelasSel.value = String(kelasId);
-            if (hid) hid.value = catatanId ? String(catatanId) : '';
-            loadRowSiswa(row, String(kelasId), siswaId);
-        }
-
-        if (terlambatList) {
-            terlambatList.addEventListener('click', function (e) {
-                const btn = e.target.closest('.btn-ambil-terlambat');
-                if (!btn) return;
-                const card = btn.closest('.terlambat-card');
-                if (!card) return;
-                const d = terlambatData.find(function (x) { return String(x.id) === String(card.dataset.catatanId); });
-                if (!d) return;
-
-                selectSiswaInRow(d.kelas_id, d.id_siswa, d.id);
-
-                if (jamMasukJpSelect && d.saran_jp) jamMasukJpSelect.value = String(d.saran_jp);
-                if (alasanKategori) alasanKategori.value = 'Terlambat Sekolah';
-                if (alasanDetailInput) alasanDetailInput.value = d.keterangan || '';
-                if (alasanDetailWrapEl) alasanDetailWrapEl.classList.toggle('d-none', !(d.keterangan || ''));
-
-                btn.disabled = true;
-                btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Terisi';
-                setSiswaError(false);
+            .catch(function () {
+                terlambatData = [];
+                applyTerlambatGroups();
             });
         }
 
-        if (btnRefreshTerlambat) {
-            btnRefreshTerlambat.addEventListener('click', refreshTerlambatList);
-        }
-
         if (tanggalInput) {
-            tanggalInput.addEventListener('change', refreshTerlambatList);
+            tanggalInput.addEventListener('change', refreshTerlambatData);
         }
 
-        renderTerlambatList(terlambatData);
-        // ====================================================================
+        // Terapkan group terlambat sesuai mode/tanggal awal.
+        applyTerlambatGroups();
         // ====================================================================
 
-
-        function jamTerpilih() {
-            return jamCheckboxes
-                .filter(function (cb) { return cb.checked; })
-                .map(function (cb) { return parseInt(cb.value, 10); })
-                .filter(function (j) { return !isNaN(j); });
-        }
 
         function filterJadwalOptions() {
             let dayName = '';
@@ -1053,9 +1358,70 @@
 
         function onFilterChanged() { filterJadwalOptions(); }
 
-        if (tanggalInput) tanggalInput.addEventListener('change', onFilterChanged);
-        jamCheckboxes.forEach(function (cb) { cb.addEventListener('change', onFilterChanged); });
+        if (tanggalInput) {
+            tanggalInput.addEventListener('change', function () {
+                onFilterChanged();
+                // Saat tanggal dispen diubah, re-render seluruh dropdown JP
+                // (Dari/Sampai, Keluar, Kembali, Masuk) sesuai kategori hari tanggal tsb.
+                updateJpDropdowns(tanggalInput.value);
+            });
+        }
+        // Isi jam_ke[] tersembunyi, ubah dropdown JP sesuai tanggal (awal) & sinkronkan
+        // Part 2/3 + filter jadwal. Dipanggil di akhir init agar seluruh konstanta
+        // (jamKeluarJpSelect, jamKembaliJpSelect, jamMasukJpSelect, dst) sudah ada.
+        updateJpDropdowns(jpTanggalAktif());
         filterJadwalOptions();
+
+        // ===== Native Canvas 2D Setup & Helper Functions =====
+        function setupCanvas(canvas, targetHeight = 200) {
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            const w = rect.width > 0 ? Math.floor(rect.width) : (canvas.offsetWidth || 520);
+            const h = rect.height > 0 ? Math.floor(rect.height) : targetHeight;
+
+            if (canvas.width !== w || canvas.height !== h) {
+                canvas.width = w;
+                canvas.height = h;
+            }
+
+            const ctx = canvas.getContext('2d');
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+        }
+
+        function getCanvasPos(e, canvas) {
+            const rect = canvas.getBoundingClientRect();
+            let clientX = e.clientX;
+            let clientY = e.clientY;
+
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else if (e.changedTouches && e.changedTouches.length > 0) {
+                clientX = e.changedTouches[0].clientX;
+                clientY = e.changedTouches[0].clientY;
+            }
+
+            const scaleX = rect.width > 0 ? (canvas.width / rect.width) : 1;
+            const scaleY = rect.height > 0 ? (canvas.height / rect.height) : 1;
+
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        function isCanvasBlank(canvas) {
+            if (!canvas || canvas.width === 0 || canvas.height === 0) return true;
+            const ctx = canvas.getContext('2d');
+            const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            for (let i = 3; i < data.length; i += 4) {
+                if (data[i] !== 0) return false;
+            }
+            return true;
+        }
 
         // ===== Tanda Tangan Guru Piket (canvas, wajib digambar) =====
         const ttdCanvas     = document.getElementById('canvasTtdGuru');
@@ -1066,94 +1432,101 @@
         const formDispen    = document.getElementById('formDispen');
 
         if (ttdCanvas) {
-            const ctx = ttdCanvas.getContext('2d');
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.lineWidth = 2.5;
-            ctx.strokeStyle = '#0f172a';
+            setupCanvas(ttdCanvas, 200);
 
             let drawing = false;
             let filled  = false;
 
-            function getPos(e) {
-                const rect = ttdCanvas.getBoundingClientRect();
-                const scaleX = ttdCanvas.width / rect.width;
-                const scaleY = ttdCanvas.height / rect.height;
-                const clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
-                const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
-                return {
-                    x: (clientX - rect.left) * scaleX,
-                    y: (clientY - rect.top) * scaleY,
-                };
-            }
-
-            function isBlank() {
-                const data = ctx.getImageData(0, 0, ttdCanvas.width, ttdCanvas.height).data;
-                for (let i = 3; i < data.length; i += 4) {
-                    if (data[i] !== 0) return false;
-                }
-                return true;
-            }
-
             function refreshState() {
-                filled = !isBlank();
+                filled = !isCanvasBlank(ttdCanvas);
                 ttdHidden.value = filled ? ttdCanvas.toDataURL('image/png') : '';
                 if (filled) {
                     ttdStatus.classList.remove('d-none');
                     ttdError.classList.add('d-none');
+                    ttdCanvas.classList.remove('border-danger');
                 } else {
                     ttdStatus.classList.add('d-none');
                 }
             }
 
-            function start(e) {
-                e.preventDefault();
+            function startDraw(e) {
+                if (e.cancelable) e.preventDefault();
                 drawing = true;
-                const p = getPos(e);
+                if (isCanvasBlank(ttdCanvas)) {
+                    setupCanvas(ttdCanvas, 200);
+                }
+                const ctx = ttdCanvas.getContext('2d');
+                ctx.strokeStyle = '#0f172a';
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                const p = getCanvasPos(e, ttdCanvas);
                 ctx.beginPath();
                 ctx.moveTo(p.x, p.y);
-            }
-
-            function move(e) {
-                if (!drawing) return;
-                e.preventDefault();
-                const p = getPos(e);
                 ctx.lineTo(p.x, p.y);
                 ctx.stroke();
             }
 
-            function end() {
+            function moveDraw(e) {
+                if (!drawing) return;
+                if (e.cancelable) e.preventDefault();
+                const ctx = ttdCanvas.getContext('2d');
+                const p = getCanvasPos(e, ttdCanvas);
+                ctx.lineTo(p.x, p.y);
+                ctx.stroke();
+            }
+
+            function endDraw() {
                 if (!drawing) return;
                 drawing = false;
                 refreshState();
             }
 
-            ttdCanvas.addEventListener('mousedown', start);
-            ttdCanvas.addEventListener('mousemove', move);
-            window.addEventListener('mouseup', end);
-            ttdCanvas.addEventListener('touchstart', start, { passive: false });
-            ttdCanvas.addEventListener('touchmove', move, { passive: false });
-            ttdCanvas.addEventListener('touchend', end);
+            // Mouse Event Listeners
+            ttdCanvas.addEventListener('mousedown', startDraw);
+            ttdCanvas.addEventListener('mousemove', moveDraw);
+            window.addEventListener('mouseup', endDraw);
+            ttdCanvas.addEventListener('mouseleave', endDraw);
+
+            // Touch Event Listeners (Layar Sentuh / Mobile)
+            ttdCanvas.addEventListener('touchstart', startDraw, { passive: false });
+            ttdCanvas.addEventListener('touchmove', moveDraw, { passive: false });
+            window.addEventListener('touchend', endDraw);
+            window.addEventListener('touchcancel', endDraw);
 
             btnBersihTtd.addEventListener('click', function () {
+                const ctx = ttdCanvas.getContext('2d');
                 ctx.clearRect(0, 0, ttdCanvas.width, ttdCanvas.height);
+                setupCanvas(ttdCanvas, 200);
                 refreshState();
+            });
+
+            function initAllPads() {
+                if (ttdCanvas) setupCanvas(ttdCanvas, 200);
+                const wizardCanvasEl = document.getElementById('canvasTtdWizard');
+                if (wizardCanvasEl) setupCanvas(wizardCanvasEl, 220);
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initAllPads);
+            } else {
+                initAllPads();
+            }
+            window.addEventListener('load', initAllPads);
+
+            window.addEventListener('resize', function () {
+                if (ttdCanvas && isCanvasBlank(ttdCanvas)) {
+                    setupCanvas(ttdCanvas, 200);
+                }
+                const wizardCanvasEl = document.getElementById('canvasTtdWizard');
+                if (wizardCanvasEl && isCanvasBlank(wizardCanvasEl)) {
+                    setupCanvas(wizardCanvasEl, 220);
+                }
             });
 
             // Bagian Part 1 (Jam Pelajaran) untuk memberi tanda visual bila belum ada JP dipilih.
             const keluarPart1 = document.getElementById('keluarPart1');
             const jamKeError  = document.getElementById('jamKeError');
-
-            function clearJamKeError() {
-                if (jamKeError) jamKeError.classList.add('d-none');
-                if (keluarPart1) {
-                    keluarPart1.classList.remove('border-danger', 'border', 'rounded-3');
-                }
-            }
-
-            jamCheckboxes.forEach(function (cb) {
-                cb.addEventListener('change', clearJamKeError);
-            });
 
             // Field wajib yang sedang TERLIHAT sesuai mode aktif. Field di bagian yang
             // disembunyikan (d-none) dilewati agar tidak memblokir submit.
@@ -1165,6 +1538,10 @@
                 // 1) Konversi canvas Tanda Tangan ke Data URL base64 dan isi input hidden
                 //    (langkah ini selalu dijalankan SEBELUM form benar-benar dikirim).
                 refreshState();
+
+                // 1b) Bangun ulang jam_ke[] tersembunyi dari rentang 'Dari JP' s/d 'Sampai JP'
+                //     (seluruh JP dalam range ikut terkirim secara otomatis).
+                updateJamKeHidden();
 
                 // 2) Normalisasi baris siswa: baris kosong dilepas nama+required-nya agar
                 //    tidak ikut terkirim / memblokir; baris terisi dikirim sebagai id_siswa[].
@@ -1214,7 +1591,7 @@
 
                 // 6) Mode KELUAR: minimal satu jam pelajaran harus dipilih (server wajibkan jam_ke).
                 const isMasukMode = !!(tipeDispenInput && tipeDispenInput.value === 'masuk');
-                const adaJamTerpilih = jamCheckboxes.some(function (c) { return c.checked; });
+                const adaJamTerpilih = jamTerpilih().length > 0;
                 if (!isMasukMode && !adaJamTerpilih && !invalidVisible) {
                     e.preventDefault();
                     if (jamKeError) jamKeError.classList.remove('d-none');
@@ -1261,18 +1638,15 @@
             let wizardIdx  = 0;
 
             function wizardCanvasBlank() {
-                const wctx = wizardCanvas.getContext('2d');
-                const data = wctx.getImageData(0, 0, wizardCanvas.width, wizardCanvas.height).data;
-                for (let i = 3; i < data.length; i += 4) {
-                    if (data[i] !== 0) return false;
-                }
-                return true;
+                return isCanvasBlank(wizardCanvas);
             }
 
             function resetWizardCanvas() {
-                const wctx = wizardCanvas.getContext('2d');
-                wctx.clearRect(0, 0, wizardCanvas.width, wizardCanvas.height);
-                wctx.beginPath();
+                if (wizardCanvas) {
+                    const wctx = wizardCanvas.getContext('2d');
+                    wctx.clearRect(0, 0, wizardCanvas.width, wizardCanvas.height);
+                    setupCanvas(wizardCanvas, 220);
+                }
                 if (ttdWizardError) ttdWizardError.classList.add('d-none');
             }
 
@@ -1283,11 +1657,16 @@
                 // amankan copy baris (Elemen) sesuai urutan DOM -> id_siswa[] sejajar ttd_siswa[]
                 wizardRows = filledRows.map(function (r) { return r; });
                 wizardIdx  = 0;
-                resetWizardCanvas();
                 renderWizardStep(0);
                 const modal = new bootstrap.Modal(ttdWizardModal);
                 modal.show();
             };
+
+            if (ttdWizardModal) {
+                ttdWizardModal.addEventListener('shown.bs.modal', function () {
+                    resetWizardCanvas();
+                });
+            }
 
             function renderWizardStep(i) {
                 if (!ttdWizardModal || !wizardRows.length) return;
@@ -1352,53 +1731,50 @@
 
             // Inisialisasi canvas wizard (mousedown/move/touch, mirror dari canvas TTD Guru).
             if (wizardCanvas) {
-                const wctx = wizardCanvas.getContext('2d');
-                wctx.lineCap = 'round';
-                wctx.lineJoin = 'round';
-                wctx.lineWidth = 2.5;
-                wctx.strokeStyle = '#0f172a';
-
                 let wdrawing = false;
 
-                function wGetPos(e) {
-                    const rect = wizardCanvas.getBoundingClientRect();
-                    const scaleX = wizardCanvas.width / rect.width;
-                    const scaleY = wizardCanvas.height / rect.height;
-                    const clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
-                    const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
-                    return {
-                        x: (clientX - rect.left) * scaleX,
-                        y: (clientY - rect.top) * scaleY,
-                    };
-                }
-
-                function wStart(e) {
-                    e.preventDefault();
+                function wStartDraw(e) {
+                    if (e.cancelable) e.preventDefault();
                     wdrawing = true;
-                    const p = wGetPos(e);
+                    if (isCanvasBlank(wizardCanvas)) {
+                        setupCanvas(wizardCanvas, 220);
+                    }
+                    const wctx = wizardCanvas.getContext('2d');
+                    wctx.strokeStyle = '#0f172a';
+                    wctx.lineWidth = 3;
+                    wctx.lineCap = 'round';
+                    wctx.lineJoin = 'round';
+                    const p = getCanvasPos(e, wizardCanvas);
                     wctx.beginPath();
                     wctx.moveTo(p.x, p.y);
+                    wctx.lineTo(p.x, p.y);
+                    wctx.stroke();
                     if (ttdWizardError) ttdWizardError.classList.add('d-none');
                 }
 
-                function wMove(e) {
+                function wMoveDraw(e) {
                     if (!wdrawing) return;
-                    e.preventDefault();
-                    const p = wGetPos(e);
+                    if (e.cancelable) e.preventDefault();
+                    const wctx = wizardCanvas.getContext('2d');
+                    const p = getCanvasPos(e, wizardCanvas);
                     wctx.lineTo(p.x, p.y);
                     wctx.stroke();
                 }
 
-                function wEnd() {
+                function wEndDraw() {
+                    if (!wdrawing) return;
                     wdrawing = false;
                 }
 
-                wizardCanvas.addEventListener('mousedown', wStart);
-                wizardCanvas.addEventListener('mousemove', wMove);
-                window.addEventListener('mouseup', wEnd);
-                wizardCanvas.addEventListener('touchstart', wStart, { passive: false });
-                wizardCanvas.addEventListener('touchmove', wMove, { passive: false });
-                wizardCanvas.addEventListener('touchend', wEnd);
+                wizardCanvas.addEventListener('mousedown', wStartDraw);
+                wizardCanvas.addEventListener('mousemove', wMoveDraw);
+                window.addEventListener('mouseup', wEndDraw);
+                wizardCanvas.addEventListener('mouseleave', wEndDraw);
+
+                wizardCanvas.addEventListener('touchstart', wStartDraw, { passive: false });
+                wizardCanvas.addEventListener('touchmove', wMoveDraw, { passive: false });
+                window.addEventListener('touchend', wEndDraw);
+                window.addEventListener('touchcancel', wEndDraw);
             }
         }
     });

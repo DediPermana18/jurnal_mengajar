@@ -11,6 +11,7 @@ use App\Models\JamPelajaran;
 use App\Models\JamPulang;
 use App\Models\Jurnal;
 use App\Models\PengaturanJadwal;
+use App\Models\Scopes\TestingDataScope;
 use App\Models\Siswa;
 use App\Models\TahunAjaran;
 use Carbon\Carbon;
@@ -108,41 +109,151 @@ class JurnalController extends Controller
 
     /**
      * Integrasi dispensasi: alasan dispen apabila siswa memiliki dispensa yang
-     * SUDAH DISETUJUI pada tanggal & jam pelajaran tertentu. Null jika tidak ada.
+     * AKTIF (Siswa Out / belum kembali) pada tanggal & jam pelajaran tertentu. Null jika tidak ada / sudah kembali.
+     * Mendukung dispensasi individu maupun kolektif/rombongan.
      */
-    protected function dispensaAlasan(?string $tanggal, int $idSiswa, ?int $jamKe): ?string
+    protected function dispensaAlasan(?string $tanggal, int $idSiswa, $jamKe = null): ?string
     {
-        if (! $tanggal || ! $jamKe) {
+        $map = $this->dispenMapHariIni($tanggal, $jamKe);
+        if (! isset($map[$idSiswa])) {
             return null;
         }
 
-        $dispen = DispensasiSiswa::where('id_siswa', $idSiswa)
-            ->where('status', DispensasiSiswa::STATUS_DISETUJUI)
-            ->whereDate('tanggal', $tanggal)
-            ->get()
-            ->first(fn (DispensasiSiswa $d) => in_array($jamKe, $d->jam_ke_list, true));
+        $info = $map[$idSiswa];
 
-        return $dispen?->alasan;
+        // Hanya siswa dengan is_locked = true (Siswa Out / Dispen aktif) yang otomatis berstatus Dispen
+        if (! $info->is_locked) {
+            return null;
+        }
+
+        return $info->alasan ?: 'Dispensasi';
     }
 
     /**
-     * Peta dispensa siswa SUDAH DISETUJUI pada tanggal & jam ke- tertentu:
-     * [id_siswa => DispensasiSiswa]. Dipakai untuk penanda "DISPEN" pada form presensi.
+     * Peta dispensasi siswa pada tanggal & jam ke- tertentu:
+     * Mengembalikan [id_siswa => infoObject].
+     * Mengevaluasi verifikasi Gate Satpam (Exit: Siswa Out vs Return: Siswa Returned).
+     * Mendukung dispensasi individu maupun kolektif/rombongan.
      */
-    protected function dispenMapHariIni(?string $tanggal, ?int $jamKe): array
+    protected function dispenMapHariIni(?string $tanggal, $jamKe = null): array
     {
-        if (! $tanggal || ! $jamKe) {
+        if (! $tanggal) {
             return [];
         }
 
+        $tanggalStr = Carbon::parse($tanggal)->toDateString();
+
+        // Target jam pelajaran yang sedang dicek
+        $targetJams = [];
+        if (is_array($jamKe)) {
+            $targetJams = array_values(array_filter(array_map('intval', $jamKe), fn ($j) => $j > 0));
+        } elseif ($jamKe instanceof Collection) {
+            $targetJams = $jamKe->map(fn ($j) => (int) $j)->filter(fn ($j) => $j > 0)->values()->all();
+        } elseif (is_numeric($jamKe) && (int) $jamKe > 0) {
+            $targetJams = [(int) $jamKe];
+        }
+
+        $validStatusStrings = ['disetujui', 'approved', 'final', 'keluar', 'siswa out', 'siswa_out'];
+
         $map = [];
-        foreach (
-            DispensasiSiswa::where('status', DispensasiSiswa::STATUS_DISETUJUI)
-                ->whereDate('tanggal', $tanggal)
-                ->get() as $dispen
-        ) {
-            if (in_array((int) $jamKe, $dispen->jam_ke_list, true)) {
-                $map[(int) $dispen->id_siswa] = $dispen;
+
+        // 1. Ambil dari DispensasiSiswa (tanpa dibatasi scope testing agar testing sandbox maupun production terbaca)
+        $dispensasis = DispensasiSiswa::withoutGlobalScope(TestingDataScope::class)
+            ->with(['dispensasiKolektif' => fn ($q) => $q->withoutGlobalScope(TestingDataScope::class)])
+            ->where(function ($q) use ($validStatusStrings) {
+                $q->whereIn(DB::raw('LOWER(status)'), $validStatusStrings);
+            })
+            ->whereDate('tanggal', $tanggalStr)
+            ->orderBy('id', 'desc')
+            ->get();
+
+        foreach ($dispensasis as $dispen) {
+            $idSiswa = (int) $dispen->id_siswa;
+            if (! $idSiswa) {
+                continue;
+            }
+
+            // Jika sudah ada record yang lebih prioritas (misal is_locked = true), jangan timpa
+            if (isset($map[$idSiswa]) && $map[$idSiswa]->is_locked) {
+                continue;
+            }
+
+            $jamList = $dispen->jam_ke_list;
+
+            // Jika baris anak dispen kolektif tidak menyimpan jam_ke tersendiri, fallback ke induk kolektif
+            if (empty($jamList) && $dispen->dispensasiKolektif) {
+                $jamList = $dispen->dispensasiKolektif->jam_ke_list ?? [];
+            }
+
+            $isMatch = false;
+
+            if ($dispen->isTipeMasuk()) {
+                // Tipe Masuk Kelas: Siswa terlambat dan didispensasi untuk jam sebelum jam_masuk_jp
+                $jamMasuk = (int) ($dispen->jam_masuk_jp ?? 0);
+                if (empty($targetJams)) {
+                    $isMatch = true;
+                } else {
+                    foreach ($targetJams as $tj) {
+                        if ($tj < $jamMasuk) {
+                            $isMatch = true;
+                            break;
+                        }
+                    }
+                }
+            } else {
+                // Tipe Keluar / Biasa
+                if (empty($jamList) || empty($targetJams)) {
+                    $isMatch = true;
+                } else {
+                    $isMatch = count(array_intersect($jamList, $targetJams)) > 0;
+                }
+            }
+
+            if (! $isMatch) {
+                continue;
+            }
+
+            // Evaluasi status keluar & kembali verifikasi Satpam
+            $isReturned = $dispen->isKembali(); // kembali_at !== null
+            $isKeluarGerbang = $dispen->isKeluarGerbang() || strtolower(trim((string) $dispen->status)) === 'keluar';
+
+            if ($isReturned) {
+                // Skenario b: Siswa statusnya 'Siswa Returned' (sudah verified balik ke sekolah oleh Satpam)
+                $map[$idSiswa] = (object) [
+                    'id_siswa' => $idSiswa,
+                    'has_dispen' => true,
+                    'is_locked' => false,
+                    'is_siswa_out' => false,
+                    'is_returned' => true,
+                    'status_presensi' => 'Hadir',
+                    'badge_text' => 'Siswa Returned (Sudah Kembali)',
+                    'badge_class' => 'bg-success-subtle text-success border border-success-subtle',
+                    'alasan' => $dispen->alasan,
+                    'jam_ke_list' => $jamList,
+                    'dispen' => $dispen,
+                ];
+            } else {
+                // Skenario a: Siswa statusnya 'Siswa Out' / Dispen Aktif (belum kembali)
+                $badgeText = $isKeluarGerbang
+                    ? 'Dispen (Siswa Out - Verifikasi Satpam)'
+                    : 'Dispen (Disetujui Piket)';
+                $badgeClass = $isKeluarGerbang
+                    ? 'bg-danger-subtle text-danger border border-danger-subtle'
+                    : 'bg-primary-subtle text-primary border border-primary-subtle';
+
+                $map[$idSiswa] = (object) [
+                    'id_siswa' => $idSiswa,
+                    'has_dispen' => true,
+                    'is_locked' => true,
+                    'is_siswa_out' => $isKeluarGerbang,
+                    'is_returned' => false,
+                    'status_presensi' => 'Dispen',
+                    'badge_text' => $badgeText,
+                    'badge_class' => $badgeClass,
+                    'alasan' => $dispen->alasan,
+                    'jam_ke_list' => $jamList,
+                    'dispen' => $dispen,
+                ];
             }
         }
 
@@ -496,7 +607,12 @@ class JurnalController extends Controller
         $lastJadwal = $groupSchedules->last();
         $waktu = $this->formatWaktu($firstJadwal->jamPelajaran?->jam_mulai, $lastJadwal->jamPelajaran?->jam_selesai);
 
-        $dispenMap = $this->dispenMapHariIni($today, $jadwal->jamPelajaran?->jam_ke);
+        $jamKeList = $groupSchedules->map(fn ($j) => $j->jamPelajaran?->jam_ke)->filter()->values()->all();
+        if (empty($jamKeList) && $jadwal->jamPelajaran?->jam_ke) {
+            $jamKeList = [$jadwal->jamPelajaran->jam_ke];
+        }
+
+        $dispenMap = $this->dispenMapHariIni($today, $jamKeList);
 
         return view('guru.jurnal.form', compact('jadwal', 'siswas', 'today', 'waktu', 'dispenMap'));
     }
@@ -681,10 +797,13 @@ class JurnalController extends Controller
             ->orderBy('nama')
             ->get();
 
-        $waktu = $eval['waktu'];
-        $absensiMap = $jurnal->absensiJurnal->keyBy('id_siswa');
+        $groupSchedules = $this->getGroupSchedules($jadwal);
+        $jamKeList = $groupSchedules->map(fn ($j) => $j->jamPelajaran?->jam_ke)->filter()->values()->all();
+        if (empty($jamKeList) && $jadwal->jamPelajaran?->jam_ke) {
+            $jamKeList = [$jadwal->jamPelajaran->jam_ke];
+        }
 
-        $dispenMap = $this->dispenMapHariIni($jurnalTanggal, $jadwal->jamPelajaran?->jam_ke);
+        $dispenMap = $this->dispenMapHariIni($jurnalTanggal, $jamKeList);
 
         return view('guru.jurnal.form', compact('jurnal', 'jadwal', 'siswas', 'today', 'waktu', 'absensiMap', 'dispenMap'));
     }

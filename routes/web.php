@@ -180,6 +180,7 @@ Route::prefix('piket')->group(function () {
     Route::get('/dispensasi/create', [DispensasiController::class, 'create'])->name('piket.dispensasi.create');
     Route::get('/dispensasi/siswa-by-kelas', [DispensasiController::class, 'siswaByKelas'])->name('piket.dispensasi.siswa-by-kelas');
     Route::get('/dispensasi/terlambat-hari-ini', [DispensasiController::class, 'terlambatHariIni'])->name('piket.dispensasi.terlambat-hari-ini');
+    Route::get('/dispensasi/jam-pelajaran', [DispensasiController::class, 'apiJamPelajaran'])->name('piket.dispensasi.jam-pelajaran');
     Route::post('/dispensasi', [DispensasiController::class, 'store'])->name('piket.dispensasi.store');
     Route::get('/dispensasi/{id}/surat', [DispensasiController::class, 'showSurat'])->name('piket.dispensasi.surat');
     Route::get('/dispensasi/{id}/ttd', [DispensasiController::class, 'showTtd'])->name('piket.dispensasi.ttd');
@@ -202,9 +203,11 @@ Route::prefix('satpam')->group(function () {
     Route::post('/terlambat', [SatpamController::class, 'terlambatStore'])->name('satpam.terlambat.store');
     Route::post('/dispensasi', [SatpamController::class, 'dispensasiStore'])->name('satpam.dispensasi.store');
     Route::get('/verifikasi', [SatpamController::class, 'verifikasi'])->name('satpam.verifikasi');
-    Route::get('/dispensasi', [SatpamController::class, 'dispensasiVerifikasi'])->name('satpam.dispensasi.index');
+    Route::get('/dispensasi', [SatpamController::class, 'verifikasi'])->name('satpam.dispensasi.index');
     Route::post('/dispensasi/{dispen}/keluar', [SatpamController::class, 'dispenKeluar'])->name('satpam.dispen.keluar');
     Route::post('/dispensasi/{dispen}/kembali', [SatpamController::class, 'dispenKembali'])->name('satpam.dispen.kembali');
+    Route::post('/dispensasi-kolektif/{kolektif}/keluar', [SatpamController::class, 'kolektifKeluar'])->name('satpam.kolektif.keluar');
+    Route::post('/dispensasi-kolektif/{kolektif}/kembali', [SatpamController::class, 'kolektifKembali'])->name('satpam.kolektif.kembali');
 });
 
 use App\Http\Controllers\PetugasItController;

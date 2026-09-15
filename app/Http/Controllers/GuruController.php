@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Excel as ExcelFormat;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Validation\Rule;
 
 class GuruController extends Controller
 {
@@ -134,10 +135,17 @@ class GuruController extends Controller
     {
         $this->authorizePetugasTU();
 
+        $isTestingData = $request->boolean('is_testing_data', false) || $request->input('testdata', 0) == 1;
+
         $request->validate([
             'nama' => 'required|string|max:255',
             'nip' => 'nullable|string|max:50|unique:users,nip',
-            'username' => 'required|string|max:100|unique:users,username',
+            'username' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('users', 'username')->where(fn ($q) => $q->where('is_testing_data', $isTestingData)),
+            ],
             'password' => 'nullable|string|min:6',
         ], [
             'nama.required' => 'Nama guru wajib diisi.',
@@ -169,10 +177,17 @@ class GuruController extends Controller
 
         $user = User::withTrashed()->where('role', User::ROLE_GURU)->findOrFail($id);
 
+        $isTestingData = $request->boolean('is_testing_data', false) || $request->input('testdata', 0) == 1 || $user->is_testing_data;
+
         $request->validate([
             'nama' => 'required|string|max:255',
             'nip' => 'nullable|string|max:50|unique:users,nip,'.$user->id,
-            'username' => 'required|string|max:100|unique:users,username,'.$user->id,
+            'username' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('users', 'username')->where(fn ($q) => $q->where('is_testing_data', $isTestingData))->ignore($user->id),
+            ],
         ], [
             'nama.required' => 'Nama guru wajib diisi.',
             'nip.unique' => 'NIP sudah terdaftar dalam sistem.',

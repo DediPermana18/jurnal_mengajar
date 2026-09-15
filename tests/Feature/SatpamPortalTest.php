@@ -126,6 +126,9 @@ class SatpamPortalTest extends TestCase
             'alasan' => 'Ada keperluan keluarga',
             'status' => DispensasiSiswa::STATUS_DISETUJUI,
             'approval_token' => Str::random(16),
+            'ttd_siswa' => 'data:image/png;base64,TEST_SISWA',
+            'ttd_guru' => 'data:image/png;base64,TEST_GURU',
+            'ttd_waka' => 'data:image/png;base64,TEST_WAKA',
         ], $extra));
     }
 
@@ -281,7 +284,7 @@ class SatpamPortalTest extends TestCase
             ->assertOk()
             ->assertSee('Budi Santoso')
             ->assertSee('Surat izin valid untuk keluar hari ini')
-            ->assertSee('Izinkan Keluar Gerbang');
+            ->assertSee('Konfirmasi Keluar Gerbang');
 
         $this->actingAs($satpam)
             ->post(route('satpam.dispen.keluar', $dispen))
@@ -322,7 +325,7 @@ class SatpamPortalTest extends TestCase
             ->get(route('satpam.verifikasi', ['q' => '23101']))
             ->assertOk()
             ->assertSee('tidak ada dispensasi disetujui')
-            ->assertDontSee('Izinkan Keluar Gerbang');
+            ->assertDontSee('Konfirmasi Keluar Gerbang');
     }
 
     public function test_verifikasi_tidak_ditemukan(): void

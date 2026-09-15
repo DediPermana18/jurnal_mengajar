@@ -62,6 +62,16 @@ class DispensasiSiswa extends Model
 
     public const JENIS_KELUAR = 'keluar_gerbang';
 
+    /**
+     * Cek apakah dispensasi sudah memiliki tanda tangan digital (ttd_waka).
+     *
+     * @return boolean
+     */
+    public function sudahDitandatanganiWaka()
+    {
+        return ! empty($this->ttd_waka);
+    }
+
     public const JENIS_SAKIT = 'sakit';
 
     public const JENIS_KEPERLUAN = 'keperluan';
@@ -467,7 +477,6 @@ class DispensasiSiswa extends Model
         return ! $this->isTipeMasuk()
             && ! $this->isTidakKembaliHariIni()
             && ! $this->isKembali()
-            && $this->jamKembali() !== null
             && $this->isStatusAktifMenungguPulang();
     }
 
@@ -847,11 +856,67 @@ class DispensasiSiswa extends Model
     }
 
     /**
-     * Apakah Waka Kurikulum sudah menandatangani pengajuan ini?
+     * Apakah Waka Kurikulum / Kesiswaan sudah menandatangani pengajuan ini?
      */
     public function getHasTtdWakaAttribute(): bool
     {
         return (bool) $this->ttd_waka_url;
+    }
+
+    /**
+     * Apakah TTD Siswa sudah terisi?
+     */
+    public function hasTtdSiswa(): bool
+    {
+        return ! empty($this->ttd_siswa);
+    }
+
+    /**
+     * Apakah TTD Guru Piket sudah terisi?
+     */
+    public function hasTtdGuruPiket(): bool
+    {
+        return ! empty($this->ttd_guru) || ! empty($this->dispensasiKolektif?->ttd_guru);
+    }
+
+    /**
+     * Apakah TTD Waka Kesiswaan sudah terisi / disetujui Waka?
+     */
+    public function hasTtdWakaKesiswaan(): bool
+    {
+        return ! empty($this->ttd_waka) || ! empty($this->waka_kesiswaan_id);
+    }
+
+    /**
+     * Daftar TTD yang masih kurang (belum diisi).
+     *
+     * @return array<string>
+     */
+    public function missingSignatures(): array
+    {
+        $missing = [];
+
+        if (! $this->hasTtdSiswa()) {
+            $missing[] = 'Siswa';
+        }
+
+        if (! $this->hasTtdGuruPiket()) {
+            $missing[] = 'Guru Piket';
+        }
+
+        if (! $this->hasTtdWakaKesiswaan()) {
+            $missing[] = 'Waka Kesiswaan';
+        }
+
+        return $missing;
+    }
+
+    /**
+     * Apakah 3 TTD digital (Siswa, Guru Piket, Waka Kesiswaan) sudah lengkap?
+     */
+    public function isTtdLengkap(): bool
+    {
+        return empty($this->missingSignatures());
     }
 
     /**

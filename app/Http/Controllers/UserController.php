@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
@@ -14,6 +15,8 @@ class UserController extends Controller
         'waka_kurikulum',
         'waka_sdm',
         'satpam',
+        'waka_kesiswaan',
+        'kepsek',
     ];
 
     public const SUB_ROLE_LABELS = [
@@ -21,6 +24,8 @@ class UserController extends Controller
         'waka_kurikulum' => 'Waka Kurikulum',
         'waka_sdm' => 'Waka SDM',
         'satpam' => 'Petugas Keamanan / Satpam',
+        'waka_kesiswaan' => 'Waka Kesiswaan',
+        'kepsek' => 'Kepala Sekolah',
     ];
 
     protected function authorizePetugasTU(): void
@@ -94,7 +99,10 @@ class UserController extends Controller
         $this->authorizePetugasTU();
 
         $validated = $this->validateUser($request);
-        $kodeAktivasi = $validated['kode_aktivasi'] ?: $this->generateActivationCode();
+        $kodeAktivasi = ($validated['kode_aktivasi'] ?? null) ?: $this->generateActivationCode();
+
+        // Bersihkan data soft delete yang bentrok (username, nip, kode_aktivasi)
+        $this->cleanupTrashedConflicts($validated['username'], $validated['nip'] ?? null, $kodeAktivasi);
 
         User::create([
             'nama' => $validated['name'],
@@ -117,13 +125,18 @@ class UserController extends Controller
         $user = $this->findNonGuruUser($id);
         $validated = $this->validateUser($request, $user->id);
 
+        $kodeAktivasi = $validated['kode_aktivasi'] ?? $user->kode_aktivasi;
+
+        // Bersihkan data soft delete yang bentrok sebelum update
+        $this->cleanupTrashedConflicts($validated['username'], $validated['nip'] ?? null, $kodeAktivasi, $user->id);
+
         $user->update([
             'nama' => $validated['name'],
             'username' => $validated['username'],
             'nip' => $validated['nip'] ?? null,
             'sub_role' => $validated['sub_role'],
             'role' => $this->roleForSubRole($validated['sub_role']),
-            'kode_aktivasi' => $validated['kode_aktivasi'] ?? $user->kode_aktivasi,
+            'kode_aktivasi' => $kodeAktivasi,
             'is_active' => $request->boolean('is_active', true),
         ]);
 
@@ -154,16 +167,27 @@ class UserController extends Controller
 
     protected function validateUser(Request $request, ?int $ignoreId = null): array
     {
-        $uniqueUsername = 'unique:users,username'.($ignoreId ? ','.$ignoreId : '');
-        $uniqueNip = 'nullable|string|max:50|unique:users,nip'.($ignoreId ? ','.$ignoreId : '');
-        $uniqueActivation = 'nullable|string|max:100|unique:users,kode_aktivasi'.($ignoreId ? ','.$ignoreId : '');
-
         return $request->validate([
             'name' => 'required|string|max:255',
-            'username' => ['required', 'string', 'max:100', $uniqueUsername],
-            'nip' => $uniqueNip,
+            'username' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('users', 'username')->withoutTrashed()->ignore($ignoreId),
+            ],
+            'nip' => [
+                'nullable',
+                'string',
+                'max:50',
+                Rule::unique('users', 'nip')->withoutTrashed()->ignore($ignoreId),
+            ],
             'sub_role' => ['required', 'in:'.implode(',', self::SUB_ROLES)],
-            'kode_aktivasi' => $uniqueActivation,
+            'kode_aktivasi' => [
+                'nullable',
+                'string',
+                'max:100',
+                Rule::unique('users', 'kode_aktivasi')->withoutTrashed()->ignore($ignoreId),
+            ],
         ], [
             'name.required' => 'Nama lengkap wajib diisi.',
             'username.required' => 'Username wajib diisi.',
@@ -199,6 +223,25 @@ class UserController extends Controller
         $statusLabel = $user->is_active ? 'diaktifkan' : 'dinonaktifkan';
 
         return redirect()->route('admin.users.index')->with('success', "Status akun {$user->nama} berhasil {$statusLabel}.");
+    }
+
+    protected function cleanupTrashedConflicts(string $username, ?string $nip = null, ?string $kodeAktivasi = null, ?int $ignoreId = null): void
+    {
+        $query = User::onlyTrashed()->where(function ($q) use ($username, $nip, $kodeAktivasi) {
+            $q->where('username', $username);
+            if ($nip) {
+                $q->orWhere('nip', $nip);
+            }
+            if ($kodeAktivasi) {
+                $q->orWhere('kode_aktivasi', $kodeAktivasi);
+            }
+        });
+
+        if ($ignoreId) {
+            $query->where('id', '!=', $ignoreId);
+        }
+
+        $query->forceDelete();
     }
 
     protected function generateActivationCode(): string
