@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Guru\GuruPortalController;
 use App\Http\Controllers\Guru\JurnalController as GuruJurnalController;
+use App\Http\Controllers\Guru\DispensasiVerifikasiController as GuruDispensasiVerifikasiController;
 use App\Http\Controllers\HelpController;
 use App\Http\Controllers\JurnalMengajarController;
 use App\Http\Controllers\KepsekController;
@@ -128,6 +129,10 @@ use App\Http\Controllers\Guru\IzinController as GuruIzinController;
 
 Route::prefix('guru')->group(function () {
     Route::get('/dashboard', [GuruPortalController::class, 'dashboard'])->name('guru.dashboard');
+
+    // Verifikasi Surat Dispensasi Telat (Masuk Kelas) oleh Guru Mapel
+    Route::get('/dispensasi/verifikasi', [GuruDispensasiVerifikasiController::class, 'index'])->name('guru.dispensasi.verifikasi');
+    Route::post('/dispensasi/{dispen}/izinkan-masuk', [GuruDispensasiVerifikasiController::class, 'izinkanMasuk'])->name('guru.dispensasi.izinkan-masuk');
     Route::get('/jurnal', [GuruJurnalController::class, 'index'])->name('guru.jurnal');
     Route::get('/jurnal/{jadwal}/form', [GuruJurnalController::class, 'create'])->name('guru.jurnal.form');
     Route::post('/jurnal', [GuruJurnalController::class, 'store'])->name('guru.jurnal.store');

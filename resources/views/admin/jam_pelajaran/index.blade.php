@@ -50,6 +50,13 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif
+    @if(request('bulk_deleted'))
+        <div class="alert alert-success alert-dismissible fade show rounded-3 border-0 shadow-sm mb-4" role="alert"
+             style="font-size: 0.9rem;">
+            <i class="bi bi-check-circle-fill me-2"></i>{{ request('bulk_deleted') }} slot jam pelajaran berhasil dihapus.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
 
     {{-- Tab Kelompok Hari (Senin–Kamis vs Jumat) --}}
     <div class="mb-4">
@@ -71,8 +78,10 @@
 
     {{-- Main Data Card --}}
     <div class="card border-0 rounded-4 shadow-sm">
+        @php $rows = $tab === 'Senin-Kamis' ? $seninKamis : $jumat; @endphp
+
         <div class="card-header bg-white border-0 pt-4 pb-0 px-4">
-            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
                 <div class="d-flex align-items-center gap-2">
                     <div class="rounded-2 d-flex align-items-center justify-content-center"
                          style="width: 34px; height: 34px; background: {{ $tab === 'Senin-Kamis' ? 'linear-gradient(135deg,#1677ff,#0958d9)' : 'linear-gradient(135deg,#f97316,#ea580c)' }};">
@@ -83,16 +92,22 @@
                             Master Jam Sekolah &mdash; {{ $tab === 'Senin-Kamis' ? 'Senin – Kamis' : 'Jumat' }}
                         </h6>
                         <div class="text-muted" style="font-size: 0.75rem;">
-                            {{ ($tab === 'Senin-Kamis' ? $seninKamis : $jumat)->count() }} slot terdaftar (Berlaku Global)
+                            {{ $rows->count() }} slot terdaftar (Berlaku Global)
                         </div>
                     </div>
                 </div>
+                @if($rows->isNotEmpty())
+                    <button type="button"
+                            class="btn btn-outline-danger rounded-3 fw-semibold px-3 d-flex align-items-center gap-2"
+                            style="font-size: 0.8rem;"
+                            data-bs-toggle="modal" data-bs-target="#modalHapusSemuaJP">
+                        <i class="bi bi-trash3-fill"></i> Hapus Semua JP
+                    </button>
+                @endif
             </div>
         </div>
 
         <div class="card-body p-0">
-            @php $rows = $tab === 'Senin-Kamis' ? $seninKamis : $jumat; @endphp
-
             @if($rows->isEmpty())
                 <div class="text-center py-5">
                     <div class="d-inline-flex align-items-center justify-content-center bg-light rounded-circle mb-3" style="width: 70px; height: 70px;">
@@ -108,18 +123,46 @@
                     </button>
                 </div>
             @else
-                <div class="d-flex align-items-center justify-content-end px-4 pt-3 pb-2">
-                    <button type="button"
-                            class="btn btn-outline-danger rounded-3 fw-semibold px-3 d-flex align-items-center gap-2"
-                            style="font-size: 0.8rem;"
-                            data-bs-toggle="modal" data-bs-target="#modalHapusSemuaJP">
-                        <i class="bi bi-trash3-fill"></i> Hapus Semua JP
-                    </button>
+                {{-- Bulk Action Bar: muncul saat ada checkbox dicentang --}}
+                <div class="px-4">
+                    <div id="bulkActionBar"
+                         class="d-none align-items-center justify-content-between gap-3 px-3 py-2 mb-3 rounded-3 border"
+                         style="background-color: #f1f5f9; border-color: #e2e8f0 !important;">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="badge bg-primary rounded-pill px-3 py-1 fw-semibold" style="font-size: 0.75rem;">
+                                <span id="bulkCount">0</span> jam dipilih
+                            </span>
+                            <span class="text-muted d-none d-md-inline" style="font-size: 0.78rem;">
+                                Centang baris untuk aksi massal (Edit / Hapus)
+                            </span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <button type="button" id="btnBulkBatal"
+                                    class="btn btn-sm btn-light border rounded-3 fw-semibold"
+                                    style="font-size: 0.78rem;">
+                                <i class="bi bi-x-lg me-1"></i> Batal
+                            </button>
+                            <button type="button" id="btnBulkHapus"
+                                    class="btn btn-sm btn-outline-danger rounded-3 fw-semibold"
+                                    style="font-size: 0.78rem;">
+                                <i class="bi bi-trash3-fill me-1"></i> Hapus Terpilih
+                            </button>
+                            <button type="button" id="btnBulkEdit"
+                                    class="btn btn-sm btn-primary rounded-3 fw-semibold"
+                                    style="font-size: 0.78rem;">
+                                <i class="bi bi-pencil-fill me-1"></i> Edit Terpilih
+                            </button>
+                        </div>
+                    </div>
                 </div>
+
                 <div class="table-responsive w-full overflow-x-auto">
                     <table class="table table-hover align-middle mb-0 min-w-full" style="font-size: 0.9rem;">
                         <thead style="background: #f8fafc;">
                             <tr>
+                                <th class="ps-4 py-3 align-middle" style="width: 46px;">
+                                    <input type="checkbox" id="select-all" class="form-check-input" title="Pilih semua jam pelajaran" style="cursor: pointer;">
+                                </th>
                                 <th class="ps-4 py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; white-space: nowrap; width: 130px;">Jam Ke-</th>
                                 <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 180px;">Rentang Waktu</th>
                                 <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 120px;">Durasi</th>
@@ -152,6 +195,9 @@
                                     };
                                 @endphp
                                 <tr>
+                                    <td class="ps-4">
+                                        <input type="checkbox" class="form-check-input jp-checkbox" value="{{ $jam->id }}" style="cursor: pointer;">
+                                    </td>
                                     <td class="ps-4 whitespace-nowrap">
                                         <div class="d-flex align-items-center gap-2">
                                             @if($jam->jenis !== 'istirahat' && $jam->jam_ke)
@@ -699,6 +745,46 @@
     </div>
 </div>
 
+{{-- ===================== MODAL EDIT MASAL (BULK) ===================== --}}
+<div class="modal fade" id="modalBulkEdit" tabindex="-1" aria-labelledby="modalBulkEditTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <form method="POST" action="{{ route('admin.jam-pelajaran.bulk-update') }}" id="formBulkEdit">
+                @csrf
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold" id="modalBulkEditTitle">
+                        <i class="bi bi-pencil-square text-primary me-2"></i>Edit Durasi Terpilih
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body pt-3">
+                    <div class="alert alert-info d-flex align-items-start gap-2 rounded-3" style="font-size: 0.8rem;">
+                        <i class="bi bi-info-circle-fill mt-1"></i>
+                        <div>
+                            <strong><span id="bulkEditCount">0</span> slot jam pelajaran</strong> akan diperbarui
+                            durasinya sekaligus. Jam selesai setiap slot dihitung ulang dari jam mulainya, lalu
+                            timeline digeser otomatis agar tetap rapat berurutan.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">
+                            Durasi Baru (menit) <span class="text-danger">*</span>
+                        </label>
+                        <input type="number" name="durasi_bulk" id="bulkDurasi" class="form-control rounded-3"
+                               min="1" max="600" step="1" value="40" autocomplete="off" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold">
+                        <i class="bi bi-check-lg me-1"></i> Terapkan ke <span id="bulkEditCountBtn">0</span> Slot
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {{-- ===================== MODAL KONFIRMASI HAPUS SEMUA SLOT ===================== --}}
 <div class="modal fade" id="modalHapusSemuaJP" tabindex="-1" aria-labelledby="modalHapusSemuaJPTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -1138,6 +1224,155 @@
 
             renderJamPulangBadges();
         }
+
+        // ===== Bulk Action: Select All & Mass Action (Edit/Hapus Terpilih) =====
+        const selectAll       = document.getElementById('select-all');
+        const bulkBar         = document.getElementById('bulkActionBar');
+        const bulkCount       = document.getElementById('bulkCount');
+        const btnBulkEdit     = document.getElementById('btnBulkEdit');
+        const btnBulkHapus    = document.getElementById('btnBulkHapus');
+        const btnBulkBatal    = document.getElementById('btnBulkBatal');
+        const modalBulkEdit   = document.getElementById('modalBulkEdit');
+        const formBulkEdit    = document.getElementById('formBulkEdit');
+        const bulkDurasiInput = document.getElementById('bulkDurasi');
+        let bulkSelectedIds   = [];
+
+        function getAllBulkBoxes() {
+            return Array.prototype.slice.call(document.querySelectorAll('.jp-checkbox'));
+        }
+
+        function getSelectedBulkIds() {
+            return getAllBulkBoxes()
+                .filter(function (cb) { return cb.checked; })
+                .map(function (cb) { return cb.value; });
+        }
+
+        function updateBulkUI() {
+            const boxes  = getAllBulkBoxes();
+            const ids    = getSelectedBulkIds();
+            const count  = ids.length;
+
+            // Sinkronkan "select-all" (checked penuh / indeterminate sebagian)
+            if (selectAll) {
+                selectAll.checked = boxes.length > 0 && count === boxes.length;
+                selectAll.indeterminate = count > 0 && count < boxes.length;
+            }
+
+            // Tampilkan/sembunyikan bulk action bar
+            if (bulkBar) {
+                const show = count > 0;
+                bulkBar.classList.toggle('d-none', !show);
+                bulkBar.classList.toggle('d-flex', show);
+                if (bulkCount) bulkCount.textContent = count;
+            }
+        }
+
+        if (selectAll) {
+            selectAll.addEventListener('change', function () {
+                getAllBulkBoxes().forEach(function (cb) { cb.checked = selectAll.checked; });
+                updateBulkUI();
+            });
+        }
+
+        getAllBulkBoxes().forEach(function (cb) {
+            cb.addEventListener('change', updateBulkUI);
+        });
+
+        // Tombol "Edit Terpilih": kunci ID terpilih lalu buka modal bulk edit
+        if (btnBulkEdit && modalBulkEdit) {
+            btnBulkEdit.addEventListener('click', function () {
+                bulkSelectedIds = getSelectedBulkIds();
+                if (bulkSelectedIds.length === 0) return;
+
+                const lblCount     = document.getElementById('bulkEditCount');
+                const lblCountBtn  = document.getElementById('bulkEditCountBtn');
+                if (lblCount)    lblCount.textContent    = bulkSelectedIds.length;
+                if (lblCountBtn) lblCountBtn.textContent = bulkSelectedIds.length;
+                if (bulkDurasiInput) bulkDurasiInput.value = 40;
+
+                const modal = new bootstrap.Modal(modalBulkEdit);
+                modal.show();
+            });
+        }
+
+        // Submit form bulk edit: bangun payload updates[] dari ID terpilih
+        if (formBulkEdit) {
+            formBulkEdit.addEventListener('submit', function (e) {
+                e.preventDefault();
+                if (!formBulkEdit.reportValidity()) return;
+
+                const durasi = parseInt(bulkDurasiInput ? bulkDurasiInput.value : '40', 10);
+                if (isNaN(durasi) || durasi < 1) return;
+
+                // Hapus input tersembunyi lama (jika ada)
+                formBulkEdit.querySelectorAll('input[type="hidden"][name^="updates"]').forEach(function (el) {
+                    el.remove();
+                });
+
+                bulkSelectedIds.forEach(function (id, i) {
+                    const hid = document.createElement('input');
+                    hid.type = 'hidden';
+                    hid.name = 'updates[' + i + '][id]';
+                    hid.value = id;
+                    formBulkEdit.appendChild(hid);
+
+                    const hd = document.createElement('input');
+                    hd.type = 'hidden';
+                    hd.name = 'updates[' + i + '][durasi]';
+                    hd.value = durasi;
+                    formBulkEdit.appendChild(hd);
+                });
+
+                formBulkEdit.submit();
+            });
+        }
+
+        // Tombol "Hapus Terpilih": hapus massal lewat endpoint destroy per ID
+        if (btnBulkHapus) {
+            btnBulkHapus.addEventListener('click', function () {
+                const ids = getSelectedBulkIds();
+                if (ids.length === 0) return;
+
+                const pesan = 'Hapus ' + ids.length + ' slot jam pelajaran yang dipilih?\n\n'
+                    + 'Tindakan ini tidak dapat dibatalkan.';
+                if (!window.confirm(pesan)) return;
+
+                const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                const token    = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
+                const tasks = ids.map(function (id) {
+                    return fetch("{{ url('admin/jam-pelajaran') }}/" + id, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': token,
+                            'Accept': 'application/json',
+                        },
+                    });
+                });
+
+                Promise.all(tasks)
+                    .then(function () {
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('bulk_deleted', String(ids.length));
+                        window.location.href = url.toString();
+                    })
+                    .catch(function () {
+                        window.location.reload();
+                    });
+            });
+        }
+
+        // Tombol "Batal": kosongkan semua checkbox
+        if (btnBulkBatal) {
+            btnBulkBatal.addEventListener('click', function () {
+                getAllBulkBoxes().forEach(function (cb) { cb.checked = false; });
+                if (selectAll) selectAll.checked = false;
+                updateBulkUI();
+            });
+        }
+
+        // Inisialisasi state awal (bar disembunyikan, select-all kosong)
+        updateBulkUI();
     });
 
     function openEditModal(id, kategoriHari, jamMulai, jamSelesai, jenis, durasi) {

@@ -804,6 +804,16 @@
                     </a>
                 </div>
 
+                <!-- Verifikasi Surat Masuk / Telat (Guru Mapel) -->
+                <div class="nav-item-container">
+                    <a href="{{ route('guru.dispensasi.verifikasi') }}" class="nav-btn {{ request()->routeIs('guru.dispensasi.*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-qr-code-scan"></i>
+                            <span>Verifikasi Surat Masuk</span>
+                        </span>
+                    </a>
+                </div>
+
                 <!-- SECTION KELAS SAYA: selalu tampil bagi wali kelas (bahkan saat membuka modul Piket) -->
                 @if($isWaliKelasRole)
                     @php

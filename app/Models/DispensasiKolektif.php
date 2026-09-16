@@ -89,11 +89,13 @@ class DispensasiKolektif extends Model
     }
 
     /**
-     * Nomor surat kolektif, mis. DIS-0001/2026.
+     * Nomor surat kolektif. Prefiks mengikuti kategori (SIM- untuk Izin Masuk
+     * Kelas / Telat, DIS- untuk Dispensasi Keluar / Kegiatan). Mis. SIM-0005/2026.
      */
     public function getNomorSuratAttribute(): string
     {
-        return 'DIS-'.str_pad((string) $this->id, 4, '0', STR_PAD_LEFT)
+        return DispensasiSiswa::prefixNomorSurat((string) $this->tipe_dispen)
+            .str_pad((string) $this->id, 4, '0', STR_PAD_LEFT)
             .'/'.($this->tanggal?->format('Y') ?? now()->year);
     }
 

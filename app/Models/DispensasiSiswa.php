@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasTestingData;
+use App\Models\Scopes\TestingDataScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -34,6 +35,8 @@ class DispensasiSiswa extends Model
 
     public const STATUS_MANGKIR = 'mangkir';
 
+    public const STATUS_MASUK_KELAS = 'siswa_masuk_kelas';
+
     public const STATUS_LABELS = [
         self::STATUS_PENDING => 'Pending',
         self::STATUS_PENDING_WAKA => 'Pending Waka',
@@ -45,6 +48,7 @@ class DispensasiSiswa extends Model
         self::STATUS_KELUAR => 'Siswa Out',
         self::STATUS_DIBATALKAN => 'Dibatalkan',
         self::STATUS_MANGKIR => 'Mangkir / Bolos',
+        self::STATUS_MASUK_KELAS => 'Siswa Masuk Kelas',
     ];
 
     public const STATUS_BADGES = [
@@ -58,6 +62,7 @@ class DispensasiSiswa extends Model
         self::STATUS_KELUAR => 'bg-success-subtle text-success-emphasis border border-success-subtle',
         self::STATUS_DIBATALKAN => 'bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle',
         self::STATUS_MANGKIR => 'bg-danger-subtle text-danger border border-danger-subtle',
+        self::STATUS_MASUK_KELAS => 'bg-success-subtle text-success-emphasis border border-success-subtle',
     ];
 
     public const JENIS_KELUAR = 'keluar_gerbang';
@@ -95,6 +100,13 @@ class DispensasiSiswa extends Model
         self::TIPE_MASUK => 'Masuk Kelas',
     ];
 
+    // Prefiks nomor surat berdasarkan kategori surat:
+    // - Masuk Kelas / Telat (SIM = Surat Izin Masuk) -> SIM-####/TAHUN
+    // - Keluar / Kegiatan (DIS = Dispensasi)         -> DIS-####/TAHUN
+    public const NOMOR_PREFIX_MASUK = 'SIM-';
+
+    public const NOMOR_PREFIX_KELUAR = 'DIS-';
+
     protected $table = 'dispensasi_siswa';
 
     protected $fillable = [
@@ -130,6 +142,8 @@ class DispensasiSiswa extends Model
         'kembali_at',
         'kembali_by',
         'mangkir_at',
+        'masuk_kelas_at',
+        'masuk_kelas_by',
     ];
 
     protected $casts = [
@@ -141,6 +155,7 @@ class DispensasiSiswa extends Model
         'tidak_kembali_hari_ini' => 'boolean',
         'kembali_at' => 'datetime',
         'mangkir_at' => 'datetime',
+        'masuk_kelas_at' => 'datetime',
         'is_testing_data' => 'boolean',
     ];
 
@@ -226,6 +241,15 @@ class DispensasiSiswa extends Model
     }
 
     /**
+     * Relasi ke Guru Mapel yang memverifikasi "Izinkan Masuk Kelas"
+     * pada surat dispensasi telat (masuk kelas).
+     */
+    public function masukKelasVerifier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'masuk_kelas_by', 'id');
+    }
+
+    /**
      * Relasi ke Catatan Terlambat Satpam (satu surat Masuk Kelas terhubung ke
      * satu catatan keterlambatan siswa pada tanggal yang sama). Menyediakan jam
      * kedatangan di gerbang untuk ditampilkan pada surat izin masuk kelas.
@@ -253,6 +277,14 @@ class DispensasiSiswa extends Model
     public function isKeluarGerbang(): bool
     {
         return $this->keluar_gerbang_at !== null;
+    }
+
+    /**
+     * Apakah surat sudah diverifikasi "Izinkan Masuk Kelas" oleh Guru Mapel.
+     */
+    public function isMasukKelas(): bool
+    {
+        return $this->status === self::STATUS_MASUK_KELAS;
     }
 
     /**
@@ -626,12 +658,35 @@ class DispensasiSiswa extends Model
     }
 
     /**
-     * Nomor surat resmi surat dispensasi, mis. DIS-0001/2026.
+     * Nomor surat resmi surat dispensasi.
+     * Prefiks disesuaikan kategori: "SIM-" untuk Izin Masuk Kelas / Telat,
+     * "DIS-" untuk Dispensasi Keluar / Kegiatan. Mis. SIM-0005/2026 atau DIS-0006/2026.
      */
     public function getNomorSuratAttribute(): string
     {
-        return 'DIS-'.str_pad((string) $this->id, 4, '0', STR_PAD_LEFT)
+        return static::prefixNomorSurat((string) $this->tipe_dispen)
+            .str_pad((string) $this->id, 4, '0', STR_PAD_LEFT)
             .'/'.($this->tanggal?->format('Y') ?? now()->year);
+    }
+
+    /**
+     * Prefiks nomor surat berdasarkan kategori/tipenya.
+     */
+    public static function prefixNomorSurat(string $tipe): string
+    {
+        return $tipe === self::TIPE_MASUK ? self::NOMOR_PREFIX_MASUK : self::NOMOR_PREFIX_KELUAR;
+    }
+
+    /**
+     * Ekstrak ID surat dari format nomor surat "SIM-####/TAHUN" / "DIS-####/TAHUN".
+     * Mengenali kedua prefiks agar pencarian dan Scan QR berfungsi untuk semua
+     * kategori surat.
+     */
+    public static function parseNomorSurat(string $q): ?int
+    {
+        return preg_match('/^(?:'.self::NOMOR_PREFIX_MASUK.'|'.self::NOMOR_PREFIX_KELUAR.')(\d{1,6})\//i', trim($q), $m)
+            ? (int) $m[1]
+            : null;
     }
 
     /**
@@ -644,6 +699,38 @@ class DispensasiSiswa extends Model
         }
 
         return self::STATUS_LABELS[$this->status] ?? ucfirst(str_replace('_', ' ', (string) $this->status));
+    }
+
+    /**
+     * Status badge untuk portal Guru Piket berdasarkan verifikasi Satpam.
+     */
+    public function getStatusGuruPiketBadgeAttribute(): string
+    {
+        if ($this->kembali_at !== null) {
+            return 'bg-success text-white rounded-pill px-2 py-2 whitespace-nowrap';
+        }
+
+        if ($this->keluar_gerbang_at !== null && $this->kembali_at === null) {
+            return 'bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-2 whitespace-nowrap';
+        }
+
+        return 'bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-2 whitespace-nowrap';
+    }
+
+    /**
+     * Label status untuk portal Guru Piket berdasarkan verifikasi Satpam.
+     */
+    public function getStatusGuruPiketLabelAttribute(): string
+    {
+        if ($this->kembali_at !== null) {
+            return 'Siswa Kembali';
+        }
+
+        if ($this->keluar_gerbang_at !== null && $this->kembali_at === null) {
+            return 'Siswa Berangkat';
+        }
+
+        return 'Menunggu Keluar';
     }
 
     /**
@@ -1018,6 +1105,114 @@ class DispensasiSiswa extends Model
                 $row->update(['status' => 'Hadir', 'keterangan' => null, 'foto_surat' => null]);
                 $count++;
             }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Terapkan status "Terlambat (T)" otomatis ke absensi_jurnal pada jurnal
+     * mengajar JP masuk kelas (jam_masuk_jp) yang sudah dibuat, setelah surat
+     * dispensasi telat berstatus "Siswa Masuk Kelas".
+     *
+     * Hanya menimpa status Alpa / A / Alfa / Hadir / baris kosong — status yang
+     * lebih informatif (Sakit / Izin / Dispen / Terlambat) tidak diubah.
+     * Kolom keterangan diisi otomatis: "Terlambat - Surat Masuk Kelas Digital
+     * (kode_surat)" contoh "Terlambat - Surat Masuk Kelas Digital (SIM-0009/2026)".
+     *
+     * @param  JadwalPelajaran|null  $jadwal  Slot jadwal JP masuk kelas (opsional).
+     *                                        Bila null, slot dicari dari kelas siswa.
+     * @return int Jumlah baris absensi jurnal yang diubah menjadi Terlambat.
+     */
+    public function terapkanMasukKelasKeAbsensi(?JadwalPelajaran $jadwal = null): int
+    {
+        if (! $this->isTipeMasuk() || ! $this->isMasukKelas()) {
+            return 0;
+        }
+
+        $jamMasuk = (int) ($this->jam_masuk_jp ?? 0);
+        $tanggal = $this->tanggal?->toDateString();
+        $idKelas = $this->siswa?->id_kelas;
+
+        if ($jamMasuk < 1 || ! $tanggal || ! $idKelas) {
+            return 0;
+        }
+
+        $jadwals = $jadwal
+            ? collect([$jadwal])
+            : JadwalPelajaran::with('jamPelajaran')
+                ->where('id_kelas', $idKelas)
+                ->get()
+                ->filter(fn (JadwalPelajaran $j) => $j->jamPelajaran && (int) $j->jamPelajaran->jam_ke === $jamMasuk);
+
+        $idSiswa = (int) $this->id_siswa;
+        $count = 0;
+
+        foreach ($jadwals as $j) {
+            $jurnal = Jurnal::where('id_jadwal', $j->id)
+                ->whereDate('tanggal', $tanggal)
+                ->first();
+
+            if (! $jurnal) {
+                continue;
+            }
+
+            $row = AbsensiJurnal::where('id_jurnal', $jurnal->id)
+                ->where('id_siswa', $idSiswa)
+                ->first();
+
+            $current = $row?->status;
+
+            // Jangan menimpa status yang lebih informatif (Sakit / Izin / Dispen / Terlambat).
+            if (in_array($current, ['Sakit', 'Izin', 'Dispen', 'Terlambat'], true)) {
+                continue;
+            }
+
+            // Alpa / A / Alfa / Hadir / NULL (baris belum ada) -> Terlambat.
+            AbsensiJurnal::updateOrCreate(
+                ['id_jurnal' => $jurnal->id, 'id_siswa' => $idSiswa],
+                [
+                    'status' => 'Terlambat',
+                    'keterangan' => 'Terlambat - Surat Masuk Kelas Digital ('.$this->nomor_surat.')',
+                ]
+            );
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
+     * Rekonsiliasi saat jurnal mengajar disimpan/diubah: terapkan "Terlambat"
+     * untuk semua siswa dengan surat dispensasi masuk kelas yang sudah
+     * diverifikasi ("Siswa Masuk Kelas") pada JP & tanggal jurnal tersebut.
+     * Menjamin siswa telat tercatat Terlambat meski jurnal diisi SETELAH
+     * verifikasi masuk kelas.
+     *
+     * @return int Jumlah baris absensi jurnal yang diubah menjadi Terlambat.
+     */
+    public static function terapkanMasukKelasUntukJadwal(int $idJadwal, string $tanggal): int
+    {
+        $jadwal = JadwalPelajaran::with('jamPelajaran')->find($idJadwal);
+
+        if (! $jadwal || ! $jadwal->jamPelajaran) {
+            return 0;
+        }
+
+        $jamKe = (int) $jadwal->jamPelajaran->jam_ke;
+        $count = 0;
+
+        $suratSurat = static::withoutGlobalScope(TestingDataScope::class)
+            ->with('siswa')
+            ->where('tipe_dispen', self::TIPE_MASUK)
+            ->where('status', self::STATUS_MASUK_KELAS)
+            ->where('jam_masuk_jp', $jamKe)
+            ->whereDate('tanggal', $tanggal)
+            ->whereHas('siswa', fn ($q) => $q->where('id_kelas', $jadwal->id_kelas))
+            ->get();
+
+        foreach ($suratSurat as $surat) {
+            $count += $surat->terapkanMasukKelasKeAbsensi($jadwal);
         }
 
         return $count;

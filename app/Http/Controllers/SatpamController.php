@@ -339,7 +339,7 @@ class SatpamController extends Controller
                 $token = $m[1];
             }
 
-            // 2. Cari via approval_token (Kode Unik) atau nomor surat (DIS-####/TAHUN).
+            // 2. Cari via approval_token (Kode Unik) atau nomor surat (SIM-#### / DIS-#### / TAHUN).
             $dispen = DispensasiSiswa::with(['siswa.kelas', 'guruPiket', 'verifier', 'jadwal.mapel'])
                 ->where(function ($query) use ($q, $token) {
                     $query->where('approval_token', $token)
@@ -390,13 +390,11 @@ class SatpamController extends Controller
     }
 
     /**
-     * Ekstrak ID surat dari format nomor surat "DIS-####/TAHUN".
+     * Ekstrak ID surat dari format nomor surat "SIM-####/TAHUN" / "DIS-####/TAHUN".
      */
     protected static function parseNomorSurat(string $q): ?int
     {
-        return preg_match('/^DIS-(\d{1,6})\//i', trim($q), $m)
-            ? (int) $m[1]
-            : null;
+        return DispensasiSiswa::parseNomorSurat($q);
     }
 
     /**

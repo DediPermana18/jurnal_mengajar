@@ -64,7 +64,7 @@
             <i class="bi bi-qr-code-scan fs-5"></i>
             <div>
                 <strong>Bagaimana cara verifikasi?</strong><br>
-                <span class="small">Siswa menunjukkan surat izin/dispensasi digital (berisi QR / kode unik / nomor surat). Scan QR lalu tempel link-nya, masukkan nomor surat seperti <code>DIS-1/2026</code>, ketik kode unik, atau cari berdasarkan NISN / nama siswa.</span>
+                <span class="small">Siswa menunjukkan surat izin/dispensasi digital (berisi QR / kode unik / nomor surat). Scan QR lalu tempel link-nya, masukkan nomor surat seperti <code>SIM-1/2026</code> (Izin Masuk) atau <code>DIS-1/2026</code> (Keluar), ketik kode unik, atau cari berdasarkan NISN / nama siswa.</span>
             </div>
         </div>
     @elseif($kolektif)

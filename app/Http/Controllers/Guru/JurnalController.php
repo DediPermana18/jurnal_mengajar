@@ -153,7 +153,7 @@ class JurnalController extends Controller
             $targetJams = [(int) $jamKe];
         }
 
-        $validStatusStrings = ['disetujui', 'approved', 'final', 'keluar', 'siswa out', 'siswa_out'];
+        $validStatusStrings = ['disetujui', 'approved', 'final', 'keluar', 'siswa out', 'siswa_out', 'siswa_masuk_kelas'];
 
         $map = [];
 
@@ -216,6 +216,7 @@ class JurnalController extends Controller
             // Evaluasi status keluar & kembali verifikasi Satpam
             $isReturned = $dispen->isKembali(); // kembali_at !== null
             $isKeluarGerbang = $dispen->isKeluarGerbang() || strtolower(trim((string) $dispen->status)) === 'keluar';
+            $sudahMasukKelas = strtolower(trim((string) $dispen->status)) === DispensasiSiswa::STATUS_MASUK_KELAS;
 
             if ($isReturned) {
                 // Skenario b: Siswa statusnya 'Siswa Returned' (sudah verified balik ke sekolah oleh Satpam)
@@ -234,20 +235,26 @@ class JurnalController extends Controller
                 ];
             } else {
                 // Skenario a: Siswa statusnya 'Siswa Out' / Dispen Aktif (belum kembali)
-                $badgeText = $isKeluarGerbang
-                    ? 'Dispen (Siswa Out - Verifikasi Satpam)'
-                    : 'Dispen (Disetujui Piket)';
-                $badgeClass = $isKeluarGerbang
-                    ? 'bg-danger-subtle text-danger border border-danger-subtle'
-                    : 'bg-primary-subtle text-primary border border-primary-subtle';
+                // Hanya kunci kunci (lock) UI jika Satpam sudah verifikasi keluar (keluar_gerbang_at ada)
+                $isLocked = $isKeluarGerbang;
+                $badgeText = $sudahMasukKelas
+                    ? 'Siswa Masuk Kelas (Terlambat)'
+                    : ($isKeluarGerbang
+                        ? 'Dispen (Siswa Out - Verifikasi Satpam)'
+                        : 'Menunggu Verifikasi Gerbang');
+                $badgeClass = $sudahMasukKelas
+                    ? 'bg-success-subtle text-success border border-success-subtle'
+                    : ($isKeluarGerbang
+                        ? 'bg-danger-subtle text-danger border border-danger-subtle'
+                        : 'bg-warning-subtle text-warning-emphasis border border-warning-subtle');
 
                 $map[$idSiswa] = (object) [
                     'id_siswa' => $idSiswa,
                     'has_dispen' => true,
-                    'is_locked' => true,
+                    'is_locked' => $isLocked,
                     'is_siswa_out' => $isKeluarGerbang,
                     'is_returned' => false,
-                    'status_presensi' => 'Dispen',
+                    'status_presensi' => 'Hadir',
                     'badge_text' => $badgeText,
                     'badge_class' => $badgeClass,
                     'alasan' => $dispen->alasan,
@@ -631,7 +638,7 @@ class JurnalController extends Controller
             'tidak_hadir' => 'nullable|array',
             'presensi' => 'nullable|array',
             'status' => 'nullable|array',
-            'status.*' => 'in:Sakit,Izin,Alpa,Dispen',
+            'status.*' => 'in:Sakit,Izin,Alpa,Dispen,Terlambat',
             'keterangan' => 'nullable|array',
             'keterangan.*' => 'nullable|string|max:500',
         ]);
@@ -738,6 +745,11 @@ class JurnalController extends Controller
                         'foto_surat' => $fotoSurat,
                     ]);
                 }
+
+                // Rekonsiliasi dispensasi masuk kelas: siswa yang suratnya sudah
+                // diverifikasi "Siswa Masuk Kelas" tercatat Terlambat (T) meski
+                // jurnal baru diisi SETELAH verifikasi.
+                DispensasiSiswa::terapkanMasukKelasUntukJadwal($sched->id, $todayDate);
             }
         });
 
@@ -931,6 +943,11 @@ class JurnalController extends Controller
                     ]);
                 }
             }
+
+            // Rekonsiliasi dispensasi masuk kelas: pastikan siswa yang sudah
+            // diverifikasi "Siswa Masuk Kelas" tetap tercatat Terlambat (T)
+            // pada JP masuk kelas (bukan Alpa/Hadir hasil edit form).
+            DispensasiSiswa::terapkanMasukKelasUntukJadwal($jadwal->id, $jurnal->tanggal?->toDateString() ?? $today);
         });
 
         return redirect()->route('guru.jurnal')->with('success', 'Jurnal mengajar & presensi berhasil diperbarui!');

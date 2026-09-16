@@ -305,44 +305,33 @@
                             </select>
                             <div class="form-text">Pilih alasan keterlambatan / ketidakhadiran di awal.</div>
                         </div>
-                        <div class="col-md-6 col-lg-4 d-none" id="alasanDetailWrap">
-                            <label for="alasan_detail" class="form-label fw-semibold text-secondary small">Detail Alasan <span class="text-muted fw-normal">(opsional)</span></label>
-                            <input type="text" name="alasan_detail" id="alasan_detail" class="form-control rounded-3" maxlength="250"
-                                   placeholder="Tuliskan detail bila kategori 'Lainnya'..." value="{{ old('alasan_detail') }}">
+                        <div class="col-12" id="alasanDetailWrap">
+                            <label for="alasan_detail" class="form-label fw-semibold text-secondary small">Detail / Catatan Alasan <span class="text-danger">*</span></label>
+                            <textarea name="alasan_detail" id="alasan_detail" rows="2" class="form-control rounded-3" maxlength="500" required
+                                      placeholder="Contoh: Ban motor bocor di perjalanan, mengurus surat di TU, dll.">{{ old('alasan_detail') }}</textarea>
+                            <div class="form-text">Tuliskan rincian / catatan alasan keterlambatan atau ketidakhadiran siswa.</div>
                         </div>
                     </div>
                 </div>
 
 
 
-                {{-- Tanda Tangan Guru Piket (wajib digambar) --}}
+{{-- Tanda Tangan Guru Piket (wajib digambar) --}}
                 <div class="col-12">
                     <label class="form-label fw-bold text-secondary text-uppercase small">
                         Tanda Tangan Guru Piket (Penyetuju) <span class="text-danger">*</span>
                     </label>
                     <div class="border rounded-3 p-3 bg-light-subtle">
-                        <div class="d-flex flex-column flex-md-row align-items-start gap-3">
-                            <div class="flex-grow-1">
-                                <div class="position-relative w-100 border rounded-3 bg-white overflow-hidden" style="height: 200px; position: relative; pointer-events: auto;">
-                                    <div class="position-absolute top-50 start-50 translate-middle text-muted pe-none user-select-none opacity-50 small fw-semibold" style="z-index: 1; pointer-events: none;">
-                                        <i class="bi bi-pencil-fill me-1"></i> Coret tanda tangan di sini...
-                                    </div>
-                                    <canvas id="canvasTtdGuru" class="w-100 h-100 d-block"
-                                            style="position: relative; z-index: 50; pointer-events: auto; touch-action: none; cursor: crosshair; background-color: transparent; user-select: none; -webkit-user-select: none;"></canvas>
-                                </div>
-                                <div class="form-text mt-2" style="pointer-events: none;">
-                                    Gambar tanda tangan Guru Piket pada kotak di atas menggunakan mouse, stylus, atau jari (layar sentuh).
-                                    Tanda tangan ini menjadi tanda ACC otomatis pada surat.
-                                </div>
-                            </div>
-                            <div class="d-flex flex-column gap-2 text-center">
-                                <button type="button" id="btnBersihTtd" class="btn btn-sm btn-outline-danger rounded-3">
-                                    <i class="bi bi-eraser me-1"></i>Bersihkan
-                                </button>
-                                <div id="ttdGuruStatus" class="d-none text-success small fw-semibold">
-                                    <i class="bi bi-check-circle-fill me-1"></i>Tanda tangan tersimpan
-                                </div>
-                            </div>
+                        <canvas id="canvasTtdGuru" width="600" height="220" class="form-control rounded-3 bg-white"
+                                style="height: auto; touch-action: none; cursor: crosshair;">Browser Anda tidak mendukung Canvas.</canvas>
+                        <div class="form-text mt-2">
+                            Gambar tanda tangan Guru Piket pada kotak di atas menggunakan mouse, stylus, atau jari (layar sentuh).
+                            Tanda tangan ini menjadi tanda ACC otomatis pada surat.
+                        </div>
+                        <div class="d-flex justify-content-end mt-2">
+                            <button type="button" id="btnBersihTtd" class="btn btn-sm btn-outline-danger rounded-3">
+                                <i class="bi bi-eraser me-1"></i>Bersihkan
+                            </button>
                         </div>
                         <div id="ttdGuruError" class="text-danger small mt-2 d-none">
                             <i class="bi bi-exclamation-triangle-fill me-1"></i>Tanda tangan Guru Piket wajib digambar sebelum menyimpan.
@@ -385,13 +374,8 @@
                         </span>
                         <span class="text-dark fw-semibold" id="ttdStepSiswa">—</span>
                     </div>
-                    <div class="position-relative w-100 border rounded-3 bg-white overflow-hidden" style="height: 220px; position: relative; pointer-events: auto;">
-                        <div class="position-absolute top-50 start-50 translate-middle text-muted pe-none user-select-none opacity-50 small fw-semibold" style="z-index: 1; pointer-events: none;">
-                            <i class="bi bi-pencil-fill me-1"></i> Coret tanda tangan siswa di sini...
-                        </div>
-                        <canvas id="canvasTtdWizard" class="w-100 h-100 d-block"
-                                style="position: relative; z-index: 50; pointer-events: auto; touch-action: none; cursor: crosshair; background-color: transparent; user-select: none; -webkit-user-select: none;"></canvas>
-                    </div>
+                    <canvas id="canvasTtdWizard" width="600" height="220" class="form-control rounded-3 bg-white"
+                            style="height: auto; touch-action: none; cursor: crosshair;">Browser Anda tidak mendukung Canvas.</canvas>
                     <div id="ttdWizardError" class="text-danger small mt-2 d-none">
                         <i class="bi bi-exclamation-triangle-fill me-1"></i>Gambar tanda tangan siswa terlebih dahulu (canvas masih kosong).
                     </div>
@@ -429,9 +413,11 @@
         const HARI_INDONESIA = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
         const dariJpSelect    = document.getElementById('dari_jp');
         const sampaiJpSelect  = document.getElementById('sampai_jp');
+        const jamKembaliJpSelect = document.getElementById('jam_kembali_jp');
         const jamKeHiddenWrap = document.getElementById('jamKeHiddenContainer');
         const jpRangeInfo     = document.getElementById('jpRangeInfo');
         const badgeJpRange    = document.getElementById('badgeJpRange');
+        let jamKembaliManual = false;
 
         // =====================================================================
         // Jam Pelajaran: auto-select berdasarkan waktu sekarang + quick-select
@@ -846,8 +832,6 @@
         const tipeDispenHint   = document.getElementById('tipeDispenHint');
         const areaMasuk        = document.getElementById('areaMasuk');
         const jamMasukJpSelect = document.getElementById('jam_masuk_jp');
-        const alasanKategori   = document.getElementById('alasan_kategori');
-        const alasanDetailWrap = document.getElementById('alasanDetailWrap');
 
         const keluarSections = [
             document.getElementById('keluarPart1'),
@@ -901,21 +885,11 @@
             applyTerlambatGroups();
         });
 
-        // Kategori "Lainnya" => tampilkan detail
-        if (alasanKategori && alasanDetailWrap) {
-            alasanKategori.addEventListener('change', function () {
-                alasanDetailWrap.classList.toggle('d-none', this.value !== 'Lainnya');
-            });
-        }
-
         // Inisialisasi sesuai nilai tersimpan / old()
         setTipeDispen(tipeDispenInput ? tipeDispenInput.value : 'keluar');
         // Isi default "Boleh Masuk Mulai JP Ke-" sejak halaman dibuka (mode apa pun),
         // asalkan belum ada nilai old() — tetap bisa dioverride manual oleh Guru Piket.
         autoSelectJamMasukJp();
-        if (alasanKategori && alasanDetailWrap) {
-            alasanDetailWrap.classList.toggle('d-none', (alasanKategori.value || '') !== 'Lainnya');
-        }
         // ====================================================================
 
         // =====================================================================
@@ -1076,8 +1050,6 @@
             if (kat) kat.value = 'Terlambat Sekolah';
             const detail = document.getElementById('alasan_detail');
             if (detail) detail.value = opt.dataset.keterangan || '';
-            const wrap = document.getElementById('alasanDetailWrap');
-            if (wrap) wrap.classList.toggle('d-none', !(opt.dataset.keterangan || ''));
         }
 
         // Snapshot pilihan baris agar dapat dikembalikan setelah re-render.
@@ -1372,410 +1344,343 @@
         updateJpDropdowns(jpTanggalAktif());
         filterJadwalOptions();
 
-        // ===== Native Canvas 2D Setup & Helper Functions =====
-        function setupCanvas(canvas, targetHeight = 200) {
-            if (!canvas) return;
-            const rect = canvas.getBoundingClientRect();
-            const w = rect.width > 0 ? Math.floor(rect.width) : (canvas.offsetWidth || 520);
-            const h = rect.height > 0 ? Math.floor(rect.height) : targetHeight;
-
-            if (canvas.width !== w || canvas.height !== h) {
-                canvas.width = w;
-                canvas.height = h;
-            }
-
-            const ctx = canvas.getContext('2d');
-            ctx.strokeStyle = '#0f172a';
-            ctx.lineWidth = 3;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-        }
-
-        function getCanvasPos(e, canvas) {
-            const rect = canvas.getBoundingClientRect();
-            let clientX = e.clientX;
-            let clientY = e.clientY;
-
-            if (e.touches && e.touches.length > 0) {
-                clientX = e.touches[0].clientX;
-                clientY = e.touches[0].clientY;
-            } else if (e.changedTouches && e.changedTouches.length > 0) {
-                clientX = e.changedTouches[0].clientX;
-                clientY = e.changedTouches[0].clientY;
-            }
-
-            const scaleX = rect.width > 0 ? (canvas.width / rect.width) : 1;
-            const scaleY = rect.height > 0 ? (canvas.height / rect.height) : 1;
-
-            return {
-                x: (clientX - rect.left) * scaleX,
-                y: (clientY - rect.top) * scaleY
-            };
-        }
-
-        function isCanvasBlank(canvas) {
-            if (!canvas || canvas.width === 0 || canvas.height === 0) return true;
-            const ctx = canvas.getContext('2d');
-            const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-            for (let i = 3; i < data.length; i += 4) {
-                if (data[i] !== 0) return false;
-            }
-            return true;
-        }
-
         // ===== Tanda Tangan Guru Piket (canvas, wajib digambar) =====
         const ttdCanvas     = document.getElementById('canvasTtdGuru');
         const ttdHidden     = document.getElementById('ttdGuruBase64');
-        const ttdStatus     = document.getElementById('ttdGuruStatus');
         const ttdError      = document.getElementById('ttdGuruError');
         const btnBersihTtd  = document.getElementById('btnBersihTtd');
         const formDispen    = document.getElementById('formDispen');
 
+        let filled = false;
+
         if (ttdCanvas) {
-            setupCanvas(ttdCanvas, 200);
+            const ctx = ttdCanvas.getContext('2d');
+            let drawing = false, inked = false, lastX = 0, lastY = 0;
 
-            let drawing = false;
-            let filled  = false;
-
-            function refreshState() {
-                filled = !isCanvasBlank(ttdCanvas);
-                ttdHidden.value = filled ? ttdCanvas.toDataURL('image/png') : '';
-                if (filled) {
-                    ttdStatus.classList.remove('d-none');
-                    ttdError.classList.add('d-none');
-                    ttdCanvas.classList.remove('border-danger');
-                } else {
-                    ttdStatus.classList.add('d-none');
-                }
-            }
-
-            function startDraw(e) {
-                if (e.cancelable) e.preventDefault();
-                drawing = true;
-                if (isCanvasBlank(ttdCanvas)) {
-                    setupCanvas(ttdCanvas, 200);
-                }
-                const ctx = ttdCanvas.getContext('2d');
+            function initCanvas() {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, ttdCanvas.width, ttdCanvas.height);
                 ctx.strokeStyle = '#0f172a';
-                ctx.lineWidth = 3;
+                ctx.lineWidth = 2.5;
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
-                const p = getCanvasPos(e, ttdCanvas);
+            }
+            initCanvas();
+
+            function getPos(e) {
+                const rect = ttdCanvas.getBoundingClientRect();
+                return {
+                    x: (e.clientX - rect.left) * (ttdCanvas.width / rect.width),
+                    y: (e.clientY - rect.top) * (ttdCanvas.height / rect.height),
+                };
+            }
+
+            function refreshState() {
+                filled = inked;
+                ttdHidden.value = inked ? ttdCanvas.toDataURL('image/png') : '';
+                if (inked) {
+                    if (ttdError) ttdError.classList.add('d-none');
+                    ttdCanvas.classList.remove('border-danger');
+                }
+            }
+
+            function start(e) {
+                e.preventDefault();
+                drawing = true;
+                inked = true;
+                const p = getPos(e);
+                lastX = p.x;
+                lastY = p.y;
                 ctx.beginPath();
-                ctx.moveTo(p.x, p.y);
-                ctx.lineTo(p.x, p.y);
-                ctx.stroke();
+                ctx.moveTo(lastX, lastY);
             }
-
-            function moveDraw(e) {
+            function move(e) {
                 if (!drawing) return;
-                if (e.cancelable) e.preventDefault();
-                const ctx = ttdCanvas.getContext('2d');
-                const p = getCanvasPos(e, ttdCanvas);
+                e.preventDefault();
+                const p = getPos(e);
                 ctx.lineTo(p.x, p.y);
                 ctx.stroke();
+                lastX = p.x;
+                lastY = p.y;
             }
-
-            function endDraw() {
+            function end(e) {
                 if (!drawing) return;
                 drawing = false;
+                ctx.closePath();
                 refreshState();
             }
 
-            // Mouse Event Listeners
-            ttdCanvas.addEventListener('mousedown', startDraw);
-            ttdCanvas.addEventListener('mousemove', moveDraw);
-            window.addEventListener('mouseup', endDraw);
-            ttdCanvas.addEventListener('mouseleave', endDraw);
+            ttdCanvas.addEventListener('pointerdown', start);
+            ttdCanvas.addEventListener('pointermove', move);
+            ttdCanvas.addEventListener('pointerup', end);
+            ttdCanvas.addEventListener('pointercancel', end);
+            ttdCanvas.addEventListener('touchstart', function (e) { e.preventDefault(); }, { passive: false });
 
-            // Touch Event Listeners (Layar Sentuh / Mobile)
-            ttdCanvas.addEventListener('touchstart', startDraw, { passive: false });
-            ttdCanvas.addEventListener('touchmove', moveDraw, { passive: false });
-            window.addEventListener('touchend', endDraw);
-            window.addEventListener('touchcancel', endDraw);
-
-            btnBersihTtd.addEventListener('click', function () {
-                const ctx = ttdCanvas.getContext('2d');
-                ctx.clearRect(0, 0, ttdCanvas.width, ttdCanvas.height);
-                setupCanvas(ttdCanvas, 200);
-                refreshState();
-            });
-
-            function initAllPads() {
-                if (ttdCanvas) setupCanvas(ttdCanvas, 200);
-                const wizardCanvasEl = document.getElementById('canvasTtdWizard');
-                if (wizardCanvasEl) setupCanvas(wizardCanvasEl, 220);
-            }
-
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initAllPads);
-            } else {
-                initAllPads();
-            }
-            window.addEventListener('load', initAllPads);
-
-            window.addEventListener('resize', function () {
-                if (ttdCanvas && isCanvasBlank(ttdCanvas)) {
-                    setupCanvas(ttdCanvas, 200);
-                }
-                const wizardCanvasEl = document.getElementById('canvasTtdWizard');
-                if (wizardCanvasEl && isCanvasBlank(wizardCanvasEl)) {
-                    setupCanvas(wizardCanvasEl, 220);
-                }
-            });
-
-            // Bagian Part 1 (Jam Pelajaran) untuk memberi tanda visual bila belum ada JP dipilih.
-            const keluarPart1 = document.getElementById('keluarPart1');
-            const jamKeError  = document.getElementById('jamKeError');
-
-            // Field wajib yang sedang TERLIHAT sesuai mode aktif. Field di bagian yang
-            // disembunyikan (d-none) dilewati agar tidak memblokir submit.
-            function isTampil(el) {
-                return !!(el && el.offsetParent !== null);
-            }
-
-            formDispen.addEventListener('submit', function (e) {
-                // 1) Konversi canvas Tanda Tangan ke Data URL base64 dan isi input hidden
-                //    (langkah ini selalu dijalankan SEBELUM form benar-benar dikirim).
-                refreshState();
-
-                // 1b) Bangun ulang jam_ke[] tersembunyi dari rentang 'Dari JP' s/d 'Sampai JP'
-                //     (seluruh JP dalam range ikut terkirim secara otomatis).
-                updateJamKeHidden();
-
-                // 2) Normalisasi baris siswa: baris kosong dilepas nama+required-nya agar
-                //    tidak ikut terkirim / memblokir; baris terisi dikirim sebagai id_siswa[].
-                //    Input tersembunyi catatan_terlambat_id[] ikut di-strip pada baris
-                //    kosong agar tetap sejajar dengan id_siswa[] (server mencocokkan posisi).
-                const filledRows = getFilledRows();
-                document.querySelectorAll('.siswa-row').forEach(function (row) {
-                    const s = row.querySelector('.row-siswa');
-                    const hid = row.querySelector('.row-catatan');
-                    if (!s) return;
-                    if (!s.value) {
-                        s.removeAttribute('required');
-                        s.removeAttribute('name');
-                        if (hid) hid.removeAttribute('name');
-                    } else {
-                        s.required = true;
-                        s.name = 'id_siswa[]';
-                        if (hid) hid.name = 'catatan_terlambat_id[]';
-                    }
+            if (btnBersihTtd) {
+                btnBersihTtd.addEventListener('click', function () {
+                    initCanvas();
+                    inked = false;
+                    refreshState();
                 });
+            }
+        }
 
-                // 3) Wajib minimal satu siswa dipilih.
-                setSiswaError(false);
-                if (filledRows.length === 0) {
-                    e.preventDefault();
-                    setSiswaError(true);
-                    if (siswaRowsContainer) siswaRowsContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    return;
-                }
+        // ===== Canvas TTD Wizard Modal (Kolektif) =====
+        const wizardCanvas   = document.getElementById('canvasTtdWizard');
+        const btnRisetWizard = document.getElementById('btnRisetWizard');
+        const ttdWizardError = document.getElementById('ttdWizardError');
+        let wizardInked = false;
 
-                // 4) Kumpulkan field wajib yang tampak namun belum terisi.
-                let invalidVisible = null;
-                formDispen.querySelectorAll('input[required], select[required], textarea[required]').forEach(function (el) {
-                    if (invalidVisible) return;
-                    if (!isTampil(el)) return;
-                    if (!el.checkValidity()) invalidVisible = el;
-                });
+        if (wizardCanvas) {
+            const wctx = wizardCanvas.getContext('2d');
+            let wdrawing = false, wlastX = 0, wlastY = 0;
 
-                // 5) Tanda tangan Guru Piket wajib digambar.
-                if (!filled) {
-                    e.preventDefault();
-                    ttdError.classList.remove('d-none');
-                    ttdCanvas.classList.add('border-danger');
-                    ttdCanvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    return;
-                }
+            function initWizardCanvas() {
+                wctx.fillStyle = '#ffffff';
+                wctx.fillRect(0, 0, wizardCanvas.width, wizardCanvas.height);
+                wctx.strokeStyle = '#0f172a';
+                wctx.lineWidth = 2.5;
+                wctx.lineCap = 'round';
+                wctx.lineJoin = 'round';
+            }
+            initWizardCanvas();
 
-                // 6) Mode KELUAR: minimal satu jam pelajaran harus dipilih (server wajibkan jam_ke).
-                const isMasukMode = !!(tipeDispenInput && tipeDispenInput.value === 'masuk');
-                const adaJamTerpilih = jamTerpilih().length > 0;
-                if (!isMasukMode && !adaJamTerpilih && !invalidVisible) {
-                    e.preventDefault();
-                    if (jamKeError) jamKeError.classList.remove('d-none');
-                    if (keluarPart1) {
-                        keluarPart1.classList.add('border', 'border-danger', 'rounded-3');
-                        keluarPart1.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                    return;
-                }
-                clearJamKeError();
-
-                // 7) Field wajib yang tampak belum diisi -> tampilkan bubble validasi browser
-                //    pada field tersebut, tanpa terhalang field tersembunyi (novalidate).
-                if (invalidVisible) {
-                    e.preventDefault();
-                    invalidVisible.reportValidity();
-                    invalidVisible.focus();
-                    return;
-                }
-
-                // 8) 2+ siswa (kolektif/rombongan) -> buka wizard TTD digital berurutan.
-                //    Satu siswa -> submit biasa langsung ke alur tunggal.
-                if (filledRows.length >= 2) {
-                    e.preventDefault();
-                    openTtdWizard(filledRows);
-                }
-                // Semua valid -> form.submit() berjalan (default submit, tidak di-prevent).
-            });
-
-            // =====================================================================
-            // WIZARD TTD DIGITAL BERURUTAN (KOLEKTIF): siswa demi siswa
-            // =====================================================================
-            const ttdWizardModal    = document.getElementById('ttdWizardModal');
-            const wizardCanvas      = document.getElementById('canvasTtdWizard');
-            const ttdStepCurrent    = document.getElementById('ttdStepCurrent');
-            const ttdStepTotal      = document.getElementById('ttdStepTotal');
-            const ttdStepSiswa      = document.getElementById('ttdStepSiswa');
-            const ttdWizardError    = document.getElementById('ttdWizardError');
-            const btnRisetWizard    = document.getElementById('btnRisetWizard');
-            const btnTtdNext        = document.getElementById('btnTtdNext');
-            const ttdSiswaInputs    = document.getElementById('ttdSiswaInputs');
-
-            let wizardRows = [];
-            let wizardIdx  = 0;
-
-            function wizardCanvasBlank() {
-                return isCanvasBlank(wizardCanvas);
+            function wGetPos(e) {
+                const rect = wizardCanvas.getBoundingClientRect();
+                return {
+                    x: (e.clientX - rect.left) * (wizardCanvas.width / rect.width),
+                    y: (e.clientY - rect.top) * (wizardCanvas.height / rect.height),
+                };
             }
 
-            function resetWizardCanvas() {
-                if (wizardCanvas) {
-                    const wctx = wizardCanvas.getContext('2d');
-                    wctx.clearRect(0, 0, wizardCanvas.width, wizardCanvas.height);
-                    setupCanvas(wizardCanvas, 220);
-                }
+            function wStart(e) {
+                e.preventDefault();
+                wdrawing = true;
+                wizardInked = true;
+                const p = wGetPos(e);
+                wlastX = p.x;
+                wlastY = p.y;
+                wctx.beginPath();
+                wctx.moveTo(wlastX, wlastY);
                 if (ttdWizardError) ttdWizardError.classList.add('d-none');
             }
-
-            // Bersihkan input tersembunyi TTD dari pengisian sebelumnya (validasi ulang).
-            if (ttdSiswaInputs) ttdSiswaInputs.innerHTML = '';
-
-            openTtdWizard = function openTtdWizard(filledRows) {
-                // amankan copy baris (Elemen) sesuai urutan DOM -> id_siswa[] sejajar ttd_siswa[]
-                wizardRows = filledRows.map(function (r) { return r; });
-                wizardIdx  = 0;
-                renderWizardStep(0);
-                const modal = new bootstrap.Modal(ttdWizardModal);
-                modal.show();
-            };
-
-            if (ttdWizardModal) {
-                ttdWizardModal.addEventListener('shown.bs.modal', function () {
-                    resetWizardCanvas();
-                });
+            function wMove(e) {
+                if (!wdrawing) return;
+                e.preventDefault();
+                const p = wGetPos(e);
+                wctx.lineTo(p.x, p.y);
+                wctx.stroke();
+                wlastX = p.x;
+                wlastY = p.y;
+            }
+            function wEnd(e) {
+                if (!wdrawing) return;
+                wdrawing = false;
+                wctx.closePath();
             }
 
-            function renderWizardStep(i) {
-                if (!ttdWizardModal || !wizardRows.length) return;
-                if (i >= wizardRows.length) { return; }
-
-                wizardIdx = i;
-                const row = wizardRows[i];
-                const opt = row.querySelector('.row-siswa').selectedOptions[0];
-                const kelasOpt = row.querySelector('.row-kelas').selectedOptions[0];
-                const nama = opt ? opt.textContent.trim() : '—';
-                const kelas = kelasOpt ? kelasOpt.textContent.trim() : '';
-
-                if (ttdStepCurrent) ttdStepCurrent.textContent = String(i + 1);
-                if (ttdStepTotal)   ttdStepTotal.textContent   = String(wizardRows.length);
-                if (ttdStepSiswa)   ttdStepSiswa.textContent   = (kelas ? nama + ' (' + kelas + ')' : nama);
-
-                const isLast = (i === wizardRows.length - 1);
-                if (btnTtdNext) {
-                    btnTtdNext.innerHTML = isLast
-                        ? '<i class="bi bi-check2-circle me-1"></i> Selesaikan & Simpan'
-                        : '<i class="bi bi-arrow-right-circle me-1"></i> Lanjut ke Siswa Berikutnya';
-                }
-                resetWizardCanvas();
-            }
+            wizardCanvas.addEventListener('pointerdown', wStart);
+            wizardCanvas.addEventListener('pointermove', wMove);
+            wizardCanvas.addEventListener('pointerup', wEnd);
+            wizardCanvas.addEventListener('pointercancel', wEnd);
+            wizardCanvas.addEventListener('touchstart', function (e) { e.preventDefault(); }, { passive: false });
 
             if (btnRisetWizard) {
-                btnRisetWizard.addEventListener('click', resetWizardCanvas);
-            }
-
-            if (btnTtdNext && ttdWizardModal) {
-                btnTtdNext.addEventListener('click', function () {
-                    if (wizardCanvasBlank()) {
-                        if (ttdWizardError) ttdWizardError.classList.remove('d-none');
-                        return;
-                    }
+                btnRisetWizard.addEventListener('click', function () {
+                    initWizardCanvas();
+                    wizardInked = false;
                     if (ttdWizardError) ttdWizardError.classList.add('d-none');
-                    const dataUrl = wizardCanvas.toDataURL('image/png');
-                    wizardRows[wizardIdx]._ttd = dataUrl;
-
-                    if (wizardIdx + 1 < wizardRows.length) {
-                        renderWizardStep(wizardIdx + 1);
-                        return;
-                    }
-
-                    // Selesaikan & Simpan: bangun ttd_siswa[] sejajar id_siswa[] lalu submit.
-                    if (ttdSiswaInputs) ttdSiswaInputs.innerHTML = '';
-                    wizardRows.forEach(function (row) {
-                        const input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = 'ttd_siswa[]';
-                        input.value = row._ttd || '';
-                        if (ttdSiswaInputs) ttdSiswaInputs.appendChild(input);
-                    });
-
-                    const modal = bootstrap.Modal.getInstance(ttdWizardModal);
-                    if (modal) modal.hide();
-
-                    // .submit() tidak men-trigger event 'submit' lagi -> aman.
-                    formDispen.submit();
                 });
             }
 
-            // Inisialisasi canvas wizard (mousedown/move/touch, mirror dari canvas TTD Guru).
-            if (wizardCanvas) {
-                let wdrawing = false;
+            resetWizardCanvas = function resetWizardCanvas() {
+                initWizardCanvas();
+                wizardInked = false;
+                if (ttdWizardError) ttdWizardError.classList.add('d-none');
+            };
 
-                function wStartDraw(e) {
-                    if (e.cancelable) e.preventDefault();
-                    wdrawing = true;
-                    if (isCanvasBlank(wizardCanvas)) {
-                        setupCanvas(wizardCanvas, 220);
-                    }
-                    const wctx = wizardCanvas.getContext('2d');
-                    wctx.strokeStyle = '#0f172a';
-                    wctx.lineWidth = 3;
-                    wctx.lineCap = 'round';
-                    wctx.lineJoin = 'round';
-                    const p = getCanvasPos(e, wizardCanvas);
-                    wctx.beginPath();
-                    wctx.moveTo(p.x, p.y);
-                    wctx.lineTo(p.x, p.y);
-                    wctx.stroke();
-                    if (ttdWizardError) ttdWizardError.classList.add('d-none');
-                }
+            wizardCanvasBlank = function wizardCanvasBlank() {
+                return !wizardInked;
+            };
+        }
 
-                function wMoveDraw(e) {
-                    if (!wdrawing) return;
-                    if (e.cancelable) e.preventDefault();
-                    const wctx = wizardCanvas.getContext('2d');
-                    const p = getCanvasPos(e, wizardCanvas);
-                    wctx.lineTo(p.x, p.y);
-                    wctx.stroke();
-                }
+        // Bagian Part 1 (Jam Pelajaran) untuk memberi tanda visual bila belum ada JP dipilih.
+        const keluarPart1 = document.getElementById('keluarPart1');
+        const jamKeError  = document.getElementById('jamKeError');
 
-                function wEndDraw() {
-                    if (!wdrawing) return;
-                    wdrawing = false;
-                }
+        // Field wajib yang sedang TERLIHAT sesuai mode aktif. Field di bagian yang
+        // disembunyikan (d-none) dilewati agar tidak memblokir submit.
+        function isTampil(el) {
+            return !!(el && el.offsetParent !== null);
+        }
 
-                wizardCanvas.addEventListener('mousedown', wStartDraw);
-                wizardCanvas.addEventListener('mousemove', wMoveDraw);
-                window.addEventListener('mouseup', wEndDraw);
-                wizardCanvas.addEventListener('mouseleave', wEndDraw);
-
-                wizardCanvas.addEventListener('touchstart', wStartDraw, { passive: false });
-                wizardCanvas.addEventListener('touchmove', wMoveDraw, { passive: false });
-                window.addEventListener('touchend', wEndDraw);
-                window.addEventListener('touchcancel', wEndDraw);
+        formDispen.addEventListener('submit', function (e) {
+            // 1) Konversi canvas Tanda Tangan ke Data URL base64 dan isi input hidden
+            if (ttdCanvas && ttdHidden) {
+                ttdHidden.value = filled ? ttdCanvas.toDataURL('image/png') : '';
             }
+
+            // 1b) Bangun ulang jam_ke[] tersembunyi dari rentang 'Dari JP' s/d 'Sampai JP'
+            updateJamKeHidden();
+
+            // 2) Normalisasi baris siswa
+            const filledRows = getFilledRows();
+            document.querySelectorAll('.siswa-row').forEach(function (row) {
+                const s = row.querySelector('.row-siswa');
+                const hid = row.querySelector('.row-catatan');
+                if (!s) return;
+                if (!s.value) {
+                    s.removeAttribute('required');
+                    s.removeAttribute('name');
+                    if (hid) hid.removeAttribute('name');
+                } else {
+                    s.required = true;
+                    s.name = 'id_siswa[]';
+                    if (hid) hid.name = 'catatan_terlambat_id[]';
+                }
+            });
+
+            // 3) Wajib minimal satu siswa dipilih.
+            setSiswaError(false);
+            if (filledRows.length === 0) {
+                e.preventDefault();
+                setSiswaError(true);
+                if (siswaRowsContainer) siswaRowsContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
+            // 4) Kumpulkan field wajib yang tampak namun belum terisi.
+            let invalidVisible = null;
+            formDispen.querySelectorAll('input[required], select[required], textarea[required]').forEach(function (el) {
+                if (invalidVisible) return;
+                if (!isTampil(el)) return;
+                if (!el.checkValidity()) invalidVisible = el;
+            });
+
+            // 5) Tanda tangan Guru Piket wajib digambar.
+            if (!filled) {
+                e.preventDefault();
+                if (ttdError) ttdError.classList.remove('d-none');
+                if (ttdCanvas) {
+                    ttdCanvas.classList.add('border-danger');
+                    ttdCanvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+
+            // 6) Mode KELUAR: minimal satu jam pelajaran harus dipilih (server wajibkan jam_ke).
+            const isMasukMode = !!(tipeDispenInput && tipeDispenInput.value === 'masuk');
+            const adaJamTerpilih = jamTerpilih().length > 0;
+            if (!isMasukMode && !adaJamTerpilih && !invalidVisible) {
+                e.preventDefault();
+                if (jamKeError) jamKeError.classList.remove('d-none');
+                if (keluarPart1) {
+                    keluarPart1.classList.add('border', 'border-danger', 'rounded-3');
+                    keluarPart1.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+            clearJamKeError();
+
+            // 7) Field wajib yang tampak belum diisi
+            if (invalidVisible) {
+                e.preventDefault();
+                invalidVisible.reportValidity();
+                invalidVisible.focus();
+                return;
+            }
+
+            // 8) 2+ siswa (kolektif/rombongan) -> buka wizard TTD digital berurutan.
+            if (filledRows.length >= 2) {
+                e.preventDefault();
+                openTtdWizard(filledRows);
+            }
+        });
+
+        // =====================================================================
+        // WIZARD TTD DIGITAL BERURUTAN (KOLEKTIF): siswa demi siswa
+        // =====================================================================
+        const ttdWizardModal    = document.getElementById('ttdWizardModal');
+        const ttdStepCurrent    = document.getElementById('ttdStepCurrent');
+        const ttdStepTotal      = document.getElementById('ttdStepTotal');
+        const ttdStepSiswa      = document.getElementById('ttdStepSiswa');
+        const btnTtdNext        = document.getElementById('btnTtdNext');
+        const ttdSiswaInputs    = document.getElementById('ttdSiswaInputs');
+
+        let wizardRows = [];
+        let wizardIdx  = 0;
+
+        // Bersihkan input tersembunyi TTD dari pengisian sebelumnya.
+        if (ttdSiswaInputs) ttdSiswaInputs.innerHTML = '';
+
+        openTtdWizard = function openTtdWizard(filledRows) {
+            wizardRows = filledRows.map(function (r) { return r; });
+            wizardIdx  = 0;
+            renderWizardStep(0);
+            const modal = new bootstrap.Modal(ttdWizardModal);
+            modal.show();
+        };
+
+        if (ttdWizardModal) {
+            ttdWizardModal.addEventListener('shown.bs.modal', function () {
+                if (typeof resetWizardCanvas === 'function') resetWizardCanvas();
+            });
+        }
+
+        function renderWizardStep(i) {
+            if (!ttdWizardModal || !wizardRows.length) return;
+            if (i >= wizardRows.length) { return; }
+
+            wizardIdx = i;
+            const row = wizardRows[i];
+            const opt = row.querySelector('.row-siswa').selectedOptions[0];
+            const kelasOpt = row.querySelector('.row-kelas').selectedOptions[0];
+            const nama = opt ? opt.textContent.trim() : '—';
+            const kelas = kelasOpt ? kelasOpt.textContent.trim() : '';
+
+            if (ttdStepCurrent) ttdStepCurrent.textContent = String(i + 1);
+            if (ttdStepTotal)   ttdStepTotal.textContent   = String(wizardRows.length);
+            if (ttdStepSiswa)   ttdStepSiswa.textContent   = (kelas ? nama + ' (' + kelas + ')' : nama);
+
+            const isLast = (i === wizardRows.length - 1);
+            if (btnTtdNext) {
+                btnTtdNext.innerHTML = isLast
+                    ? '<i class="bi bi-check2-circle me-1"></i> Selesaikan & Simpan'
+                    : '<i class="bi bi-arrow-right-circle me-1"></i> Lanjut ke Siswa Berikutnya';
+            }
+            if (typeof resetWizardCanvas === 'function') resetWizardCanvas();
+        }
+
+        if (btnTtdNext && ttdWizardModal) {
+            btnTtdNext.addEventListener('click', function () {
+                if (typeof wizardCanvasBlank === 'function' && wizardCanvasBlank()) {
+                    if (ttdWizardError) ttdWizardError.classList.remove('d-none');
+                    return;
+                }
+                if (ttdWizardError) ttdWizardError.classList.add('d-none');
+                const dataUrl = wizardCanvas.toDataURL('image/png');
+                wizardRows[wizardIdx]._ttd = dataUrl;
+
+                if (wizardIdx + 1 < wizardRows.length) {
+                    renderWizardStep(wizardIdx + 1);
+                    return;
+                }
+
+                // Selesaikan & Simpan: bangun ttd_siswa[] sejajar id_siswa[] lalu submit.
+                if (ttdSiswaInputs) ttdSiswaInputs.innerHTML = '';
+                wizardRows.forEach(function (row) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'ttd_siswa[]';
+                    input.value = row._ttd || '';
+                    if (ttdSiswaInputs) ttdSiswaInputs.appendChild(input);
+                });
+
+                const modal = bootstrap.Modal.getInstance(ttdWizardModal);
+                if (modal) modal.hide();
+
+                formDispen.submit();
+            });
         }
     });
 </script>

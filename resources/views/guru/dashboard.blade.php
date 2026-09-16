@@ -50,6 +50,34 @@
         </div>
     </div>
 
+    <!-- Widget: Verifikasi Surat Dispensasi Telat (Masuk Kelas) -->
+    <div class="table-card-custom mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h5 class="fw-bold text-dark mb-0">
+                <i class="bi bi-qr-code-scan text-primary me-2"></i> Verifikasi Surat Masuk / Telat Siswa
+            </h5>
+            <a href="{{ route('guru.dispensasi.verifikasi') }}" class="btn btn-outline-primary btn-sm rounded-3 fw-semibold flex-shrink-0">
+                <i class="bi bi-arrow-right-circle me-1"></i> Buka Halaman Scan QR
+            </a>
+        </div>
+        <p class="text-muted small mb-3">
+            Cari &amp; verifikasi surat dispensasi telat (masuk kelas): masukkan kode surat / hasil scan QR,
+            sistem memeriksa hak akses JP mengajar Anda, lalu izinkan siswa masuk kelas — presensi jurnal
+            otomatis menjadi <strong>Terlambat (T)</strong>.
+        </p>
+        <form method="GET" action="{{ route('guru.dispensasi.verifikasi') }}" class="d-flex flex-column flex-sm-row gap-2">
+            <input type="text"
+                   name="q"
+                   class="form-control rounded-3"
+                   placeholder="Scan / ketik kode surat — mis. SIM-0001/2026 atau DIS-0001/2026"
+                   autocomplete="off"
+                   aria-label="Kode surat dispensasi">
+            <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold shadow-sm flex-shrink-0">
+                <i class="bi bi-search me-1"></i> Cari &amp; Verifikasi
+            </button>
+        </form>
+    </div>
+
     <!-- Widget: Daftar Siswa Dispen Hari Ini (Guru Mapel) -->
     <div class="table-card-custom mb-4">
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">

@@ -144,7 +144,7 @@
                                 @endif
                             </td>
                             <td style="max-width: 260px;"><span class="text-wrap">{{ $jamModel->alasan }}</span></td>
-                            <td><span class="badge {{ $jamModel->status_badge }} rounded-pill px-2 py-2 whitespace-nowrap">{{ $jamModel->status_label }}</span></td>
+                            <td><span class="badge {{ $jamModel->status_guru_piket_badge }} rounded-pill px-2 py-2 whitespace-nowrap">{{ $jamModel->status_guru_piket_label }}</span></td>
                             <td class="text-end whitespace-nowrap">
                                 <div class="d-flex justify-content-end align-items-center gap-1 flex-wrap">
                                     <a href="{{ $isKolektif ? route('piket.dispensasi.kolektif.surat', $kolektif->id) : route('piket.dispensasi.surat', $dispen->id) }}"

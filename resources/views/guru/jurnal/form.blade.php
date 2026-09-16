@@ -308,6 +308,7 @@
                                                     <option value="Izin" {{ $currentStatus === 'Izin' ? 'selected' : '' }}>Izin (I)</option>
                                                     <option value="Alpa" {{ $currentStatus === 'Alpa' ? 'selected' : '' }}>Alpa (A)</option>
                                                     <option value="Dispen" {{ $currentStatus === 'Dispen' ? 'selected' : '' }}>Dispen (D)</option>
+                                                    <option value="Terlambat" {{ $currentStatus === 'Terlambat' ? 'selected' : '' }}>Terlambat (T)</option>
                                                 </select>
                                             </div>
 

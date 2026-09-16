@@ -199,6 +199,10 @@
                                     <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1 fw-bold">
                                         Dispen (D)
                                     </span>
+                                @elseif($status === 'Terlambat')
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-1 fw-bold">
+                                        <i class="bi bi-clock-fill me-1"></i> Terlambat (T)
+                                    </span>
                                 @else
                                     <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-1 fw-bold">
                                         Alpa (A)
