@@ -332,7 +332,7 @@ class TestingGuruImpersonationTest extends TestCase
         $this->switchToGuruMapel();
 
         $this->post(route('it.reset-view'))
-            ->assertRedirect(route('home'));
+            ->assertRedirect(route('it.dashboard'));
 
         $this->assertNull(session('active_role'));
         $this->assertNull(session('impersonate_target_id'));

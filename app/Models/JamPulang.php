@@ -17,6 +17,7 @@ class JamPulang extends Model
         'kategori_hari',
         'tingkat',
         'max_jam_ke',
+        'is_testing_data',
     ];
 
     protected $casts = [

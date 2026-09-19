@@ -31,20 +31,28 @@ class AgendaRutinController extends Controller
 
         $isActive = $request->has('is_active') ? (bool) $request->input('is_active') : false;
 
+        // Auto-label data testing: Petugas IT / QA Tester (termasuk saat
+        // impersonation) menyimpan is_testing_data = 1, user lain = 0.
+        $isTesting = auth()->user()?->isPetugasIt() ? 1 : 0;
+
         // Guard: simpan ulang tidak boleh menimpa data testing (kecuali IT/QA).
         $existing = AgendaRutin::where('hari', $hari)
             ->where('jam_ke', $validated['jam_ke'])
             ->first();
         $this->authorizeTestingMutation($existing);
 
+        // updateOrCreate mencegah error duplicate entry: kombinasi
+        // (hari, jam_ke, is_testing_data) kini unik.
         AgendaRutin::updateOrCreate(
             [
                 'hari' => $hari,
                 'jam_ke' => $validated['jam_ke'],
+                'is_testing_data' => $isTesting,
             ],
             [
                 'nama_agenda' => $namaAgenda,
                 'is_active' => $isActive,
+                'is_testing_data' => $isTesting,
             ]
         );
 

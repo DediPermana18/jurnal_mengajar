@@ -16,11 +16,26 @@
             </p>
         </div>
         <div class="d-flex align-items-center gap-2">
-            <a href="{{ route('guru.izin.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm">
-                <i class="bi bi-plus-lg me-1"></i> Ajukan Izin
-            </a>
+            @if($canSubmitIzin)
+                <a href="{{ route('guru.izin.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm">
+                    <i class="bi bi-plus-lg me-1"></i> Ajukan Izin
+                </a>
+            @else
+                <span class="btn btn-secondary rounded-3 px-3 py-2 fw-semibold disabled opacity-50" aria-disabled="true" title="Anda masih memiliki pengajuan izin yang sedang diproses">
+                    <i class="bi bi-plus-lg me-1"></i> Ajukan Izin
+                </span>
+            @endif
         </div>
     </div>
+
+    {{-- Info: tidak bisa mengajukan izin baru --}}
+    @if(!$canSubmitIzin)
+        <div class="alert alert-info alert-dismissible fade show rounded-3 border-0 shadow-sm mb-4 d-flex align-items-center gap-2" role="alert">
+            <i class="bi bi-info-circle-fill text-info fs-5"></i>
+            <div><strong>Anda tidak dapat membuat pengajuan baru</strong> sampai pengajuan sebelumnya selesai diproses.</div>
+            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
 
     {{-- Alert --}}
     @if(session('success'))

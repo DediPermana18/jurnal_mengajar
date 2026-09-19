@@ -300,12 +300,18 @@
                                         <i class="bi bi-file-earmark-pdf me-0.5"></i> Dokumen
                                     </button>
                                     @if($izin->isPending() && $izin->ttd_waka === null)
-                                        <button type="button"
-                                                class="btn btn-sm btn-success rounded-3 text-xs py-1 px-2 fw-semibold"
-                                                onclick="openTtdWakaModal({{ $izin->id }}, '{{ addslashes($izin->user?->nama ?? 'Guru') }}')"
-                                                title="Tandatangani sebagai Waka SDM">
-                                            <i class="bi bi-signature me-0.5"></i> Tanda Tangan
-                                        </button>
+                                        @unless($izin->user_id === auth()->id())
+                                            <button type="button"
+                                                    class="btn btn-sm btn-success rounded-3 text-xs py-1 px-2 fw-semibold"
+                                                    onclick="openTtdWakaModal({{ $izin->id }}, '{{ addslashes($izin->user?->nama ?? 'Guru') }}')"
+                                                    title="Tandatangani sebagai Waka SDM">
+                                                <i class="bi bi-signature me-0.5"></i> Tanda Tangan
+                                            </button>
+                                        @else
+                                            <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-2 py-1" style="font-size:0.68rem;">
+                                                <i class="bi bi-person-lock me-1"></i>Pengajuan Anda
+                                            </span>
+                                        @endunless
                                     @endif
                                 </div>
                             </td>

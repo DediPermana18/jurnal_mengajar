@@ -27,6 +27,35 @@ class IzinPiketController extends Controller
     }
 
     /**
+     * Daftar ID "user aktif" yang TIDAK boleh melakukan approval:
+     * - auth()->id()                     → user login asli; dan
+     * - session('impersonate_target_id') → target impersonasi saat ini; dan
+     * - session('simulated_user_id')     → (fallback) key simulasi lain.
+     *
+     * Pengajuan yang dimiliki oleh salah satu ID ini tidak boleh diverifikasi
+     * maupun ditolak oleh user yang sedang aktif (cegah self-approval).
+     */
+    protected function activeUserIds(): array
+    {
+        $ids = array_filter([
+            auth()->id(),
+            session('impersonate_target_id'),
+            session('simulated_user_id'),
+        ], fn ($v) => $v !== null && $v !== '' && (int) $v > 0);
+
+        return array_values(array_unique(array_map('intval', $ids)));
+    }
+
+    /**
+     * Apakah pengajuan izin ini milik user aktif (self-approval / pengajuan
+     * dari user yang sedang disimulasikan)?
+     */
+    protected function isSelfOwnerIzin(IzinGuru $izin): bool
+    {
+        return in_array((int) $izin->user_id, $this->activeUserIds(), true);
+    }
+
+    /**
      * Antrian pengajuan izin guru yang menunggu verifikasi Guru Piket (Step 1).
      */
     public function index(Request $request)
@@ -76,6 +105,12 @@ class IzinPiketController extends Controller
 
         $izin = IzinGuru::with('user')->findOrFail($id);
 
+        // Guard: cegah self-approval — pemilik izin (atau pengajuan milik user
+        // yang sedang disimulasikan/impersonate) tidak boleh diverifikasi sendiri.
+        if ($this->isSelfOwnerIzin($izin)) {
+            return back()->with('error', 'Anda tidak dapat menyetujui pengajuan izin Anda sendiri (termasuk pengajuan dari user yang sedang Anda simulasikan)!');
+        }
+
         // Guard: izin data testing hanya dapat diverifikasi oleh IT/QA.
         $this->authorizeTestingMutation($izin);
 
@@ -122,6 +157,12 @@ class IzinPiketController extends Controller
         $this->authorizePiket();
 
         $izin = IzinGuru::with('user')->findOrFail($id);
+
+        // Guard: cegah self-reject — pemilik izin (atau pengajuan milik user
+        // yang sedang disimulasikan/impersonate) tidak boleh ditolak sendiri.
+        if ($this->isSelfOwnerIzin($izin)) {
+            return back()->with('error', 'Anda tidak dapat menolak pengajuan izin Anda sendiri (termasuk pengajuan dari user yang sedang Anda simulasikan)!');
+        }
 
         // Guard: izin data testing hanya dapat ditolak oleh IT/QA.
         $this->authorizeTestingMutation($izin);

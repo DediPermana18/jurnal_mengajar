@@ -21,6 +21,13 @@
     </div>
 
     {{-- Error --}}
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show rounded-3 border-0 shadow-sm mb-4 d-flex align-items-center gap-2" role="alert">
+            <i class="bi bi-exclamation-triangle-fill text-danger fs-5"></i>
+            <div>{{ session('error') }}</div>
+            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
     @if($errors->any())
         <div class="alert alert-danger alert-dismissible fade show rounded-3 border-0 shadow-sm mb-4" role="alert">
             <i class="bi bi-exclamation-triangle-fill me-1"></i>
@@ -28,6 +35,18 @@
                 @foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach
             </ul>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
+    {{-- Info: tidak bisa mengajukan izin baru --}}
+    @if(!$canSubmitIzin)
+        <div class="alert alert-info alert-dismissible fade show rounded-3 border-0 shadow-sm mb-4 d-flex align-items-center gap-2" role="alert">
+            <i class="bi bi-info-circle-fill text-info fs-5"></i>
+            <div>
+                <strong>Anda tidak dapat membuat pengajuan baru</strong> sampai pengajuan sebelumnya selesai diproses.
+                <span class="d-block text-muted small mt-1">Sistem hanya mengizinkan 1 pengajuan aktif per guru.</span>
+            </div>
+            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
         </div>
     @endif
 
@@ -120,10 +139,16 @@
 
         <div class="d-flex justify-content-end gap-2">
             <a href="{{ route('guru.izin.index') }}" class="btn btn-light rounded-3 px-4 py-2 fw-semibold">Batal</a>
-            <button type="submit" class="btn btn-primary rounded-3 px-4 py-2 fw-semibold shadow-sm" id="btnSubmit">
+            <button type="submit" class="btn btn-primary rounded-3 px-4 py-2 fw-semibold shadow-sm" id="btnSubmit"
+                    {{ !$canSubmitIzin ? 'disabled aria-disabled="true"' : '' }}>
                 <i class="bi bi-send me-1"></i> Kirim Pengajuan
             </button>
         </div>
+        @if(!$canSubmitIzin)
+            <p class="text-muted small mt-2 mb-0 text-end">
+                <i class="bi bi-lock me-1"></i>Formulir terkunci sampai pengajuan sebelumnya selesai diproses.
+            </p>
+        @endif
     </form>
 </div>
 @endsection

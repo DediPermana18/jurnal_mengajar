@@ -13,6 +13,7 @@ use App\Models\TahunAjaran;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class GuruPiketController extends Controller
 {
@@ -132,18 +133,75 @@ class GuruPiketController extends Controller
         ])
             ->whereDate('tanggal', $tanggal)
             ->orderBy('tanggal', 'desc')
-            ->orderBy('id', 'desc')
+            ->orderBy('id', 'asc')
             ->get()
             ->map(function ($jurnal) use ($today) {
                 // Tambah flag editable: hanya bisa edit jika tanggal jurnal = hari ini
-                $jurnal->is_editable = $jurnal->tanggal === $today;
+                $jurnal->is_editable = $jurnal->tanggal?->toDateString() === $today;
 
                 return $jurnal;
-            });
+            })
+            ->sortBy(function ($jurnal) {
+                return $jurnal->jadwal?->jamPelajaran?->jam_mulai ?? '99:99:99';
+            })
+            ->values();
+
+        $dataJurnal = $this->groupJurnalBerurutan($dataJurnal);
 
         $gurus = User::orderBy('nama')->get();
 
         return view('piket.jurnal', compact('dataJurnal', 'tanggal', 'today', 'gurus'));
+    }
+
+    /**
+     * Gabungkan jurnal yang identitasnya sama dan jamnya bersambung tepat.
+     */
+    protected function groupJurnalBerurutan($jurnals)
+    {
+        return $jurnals->reduce(function ($groups, $jurnal) {
+            $jam = $jurnal->jadwal?->jamPelajaran;
+            $guruId = $jurnal->id_guru ?? $jurnal->jadwal?->id_guru;
+            $kelasId = $jurnal->jadwal?->id_kelas;
+            $mapelId = $jurnal->jadwal?->id_mapel;
+
+            if (! $jam || ! $jurnal->tanggal || $guruId === null || $kelasId === null || $mapelId === null) {
+                $jurnal->display_jam_mulai = $jam?->jam_mulai;
+                $jurnal->display_jam_selesai = $jam?->jam_selesai;
+                $jurnal->display_materi = $jurnal->materi;
+                $jurnal->display_catatan = $jurnal->catatan_kejadian;
+
+                return $groups->push($jurnal);
+            }
+
+            $last = $groups->last();
+            $lastJamSelesai = $last?->display_jam_selesai;
+            $lastKey = $last?->group_key;
+            $key = implode('|', [$jurnal->tanggal->toDateString(), $guruId, $kelasId, $mapelId]);
+
+            if ($last && $lastKey === $key && $lastJamSelesai === $jam->jam_mulai) {
+                $last->display_jam_selesai = $jam->jam_selesai;
+                $last->display_materi = $this->gabungkanTeks($last->display_materi, $jurnal->materi);
+                $last->display_catatan = $this->gabungkanTeks($last->display_catatan, $jurnal->catatan_kejadian);
+
+                return $groups;
+            }
+
+            $jurnal->group_key = $key;
+            $jurnal->display_jam_mulai = $jam->jam_mulai;
+            $jurnal->display_jam_selesai = $jam->jam_selesai;
+            $jurnal->display_materi = $jurnal->materi;
+            $jurnal->display_catatan = $jurnal->catatan_kejadian;
+
+            return $groups->push($jurnal);
+        }, collect());
+    }
+
+    protected function gabungkanTeks(?string $sebelumnya, ?string $berikutnya): ?string
+    {
+        return collect([$sebelumnya, $berikutnya])
+            ->filter(fn ($teks) => filled(trim($teks)))
+            ->unique()
+            ->implode(' | ') ?: null;
     }
 
     /**
@@ -202,11 +260,20 @@ class GuruPiketController extends Controller
             'id_kelas' => 'required|exists:kelas,id',
             'presensi' => 'required|array',
             'presensi.*.id_siswa' => 'required|exists:siswa,id',
-            'presensi.*.status' => 'required|in:Hadir,Sakit,Izin,Alpha',
+            'presensi.*.status' => 'required|in:Hadir,Sakit,Izin',
             'presensi.*.keterangan' => 'nullable|string|max:255',
+            'presensi.*.foto_surat' => 'nullable|file|image|mimes:jpg,jpeg,png|max:5120',
         ]);
 
         $user = Auth::user();
+
+        $siswaIds = collect($validated['presensi'])->pluck('id_siswa')->unique()->values()->all();
+        $siswaMap = $siswaIds ? Siswa::whereIn('id', $siswaIds)->get()->keyBy('id') : collect();
+
+        // Prefix file: SRT_{KELAS}_{NIS}_{TANGGAL}_{hash}
+        $kelas = Kelas::find($validated['id_kelas']);
+        $namaKelas = strtoupper(preg_replace('/[\s-]+/', '-', trim(preg_replace('/[^a-zA-Z0-9\s-]/', '', (string) ($kelas?->nama_kelas ?? 'KELAS'))))) ?: 'KELAS';
+        $tglStr = str_replace('-', '', (string) $validated['tanggal']);
 
         foreach ($validated['presensi'] as $item) {
             // Hindari galat unique [id_siswa, tanggal] saat baris lama ter-soft delete:
@@ -225,10 +292,36 @@ class GuruPiketController extends Controller
                 $presensi->restore();
             }
 
+            // Upload foto surat (opsional) jika status Sakit/Izin.
+            $fotoSuratPath = null;
+            $fileSurat = $request->file("presensi.{$item['id_siswa']}.foto_surat");
+            if ($fileSurat && $fileSurat->isValid() && in_array($item['status'], ['Sakit', 'Izin'], true)) {
+                $siswa = $siswaMap->get($item['id_siswa']);
+                $ext = strtolower($fileSurat->getClientOriginalExtension()) ?: 'jpg';
+                if (! in_array($ext, ['jpg', 'jpeg', 'png'], true)) {
+                    $ext = 'jpg';
+                }
+                $nis = preg_replace('/[^a-zA-Z0-9]/', '', (string) ($siswa?->nis ?? $siswa?->nisn ?? $item['id_siswa'])) ?: (string) $item['id_siswa'];
+                $hash = substr(md5(uniqid((string) time(), true)), 0, 6);
+                $filename = "SRT_{$namaKelas}_{$nis}_{$tglStr}_{$hash}.{$ext}";
+                $fotoSuratPath = $fileSurat->storeAs('foto_surat', $filename, 'public');
+
+                // Hapus file lama bila diganti dengan file baru.
+                if ($presensi->exists && $presensi->foto_surat && $presensi->foto_surat !== $fotoSuratPath) {
+                    foreach (['public', 'local'] as $disk) {
+                        if (Storage::disk($disk)->exists($presensi->foto_surat)) {
+                            Storage::disk($disk)->delete($presensi->foto_surat);
+                            break;
+                        }
+                    }
+                }
+            }
+
             $presensi->fill([
                 'id_kelas' => $validated['id_kelas'],
                 'status' => $item['status'],
                 'keterangan' => $item['keterangan'] ?? null,
+                'foto_surat' => $fotoSuratPath ?? $presensi->foto_surat,
                 'id_guru_piket' => $user->id,
             ])->save();
         }

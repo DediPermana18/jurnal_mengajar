@@ -4,15 +4,40 @@
 
 @section('content')
 <div class="container-fluid px-0">
+    <style>
+        .dispensasi-form {
+            font-size: 0.9rem;
+            line-height: 1.45;
+        }
+
+        .dispensasi-form .form-label,
+        .dispensasi-form .form-text,
+        .dispensasi-form p,
+        .dispensasi-form .small,
+        .dispensasi-form .btn,
+        .dispensasi-form .badge,
+        .dispensasi-form .text-muted,
+        .dispensasi-form .text-secondary {
+            font-size: 0.82rem;
+        }
+
+        .dispensasi-form h2 {
+            font-size: 1.45rem;
+        }
+
+        .dispensasi-form h6 {
+            font-size: 1rem;
+        }
+    </style>
 
     {{-- Header --}}
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <div>
             <a href="{{ route('piket.dispensasi.index') }}" class="text-decoration-none text-muted small"><i class="bi bi-arrow-left me-1"></i> Kembali ke Daftar Dispensasi</a>
-            <h2 class="fw-black text-dark mt-2 mb-1" style="letter-spacing: -0.02em; font-weight: 800; font-size: 1.75rem;">
+            <h2 class="fw-black text-dark mt-2 mb-1" style="letter-spacing: -0.02em; font-weight: 800; font-size: 1.45rem;">
                 Form Dispensasi Siswa
             </h2>
-            <p class="text-muted mb-0" style="font-size: 0.9rem;">
+            <p class="text-muted mb-0" style="font-size: 0.82rem;">
                 Guru Piket mengisi detail dispensasi dan langsung menyetujui (ACC). Setelah disetujui,
                 Tanda Tangan Siswa (Pemohon) dilengkapi sebagai konfirmasi akhir.
             </p>
@@ -34,7 +59,7 @@
         </div>
     @endif
 
-    <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+    <div class="card border-0 shadow-sm rounded-4 p-4 bg-white dispensasi-form">
         <form action="{{ route('piket.dispensasi.store') }}" method="POST" id="formDispen" novalidate>
             @csrf
 

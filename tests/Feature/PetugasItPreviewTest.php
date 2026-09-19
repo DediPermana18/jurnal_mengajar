@@ -137,7 +137,7 @@ class PetugasItPreviewTest extends TestCase
         session(['active_role' => 'guru_piket']);
 
         $this->post(route('it.reset-view'))
-            ->assertRedirect(route('home'));
+            ->assertRedirect(route('it.dashboard'));
 
         $this->assertNull(session('active_role'));
     }
@@ -319,7 +319,7 @@ class PetugasItPreviewTest extends TestCase
         $this->assertEquals('guru', auth()->user()->effectiveRole());
 
         $this->post(route('it.reset-view'))
-            ->assertRedirect(route('home'));
+            ->assertRedirect(route('it.dashboard'));
         $this->assertNull(session('active_role'));
     }
 

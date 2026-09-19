@@ -154,13 +154,19 @@ class AuthController extends Controller
                 ->with('success', 'Selamat datang kembali, Waka Kesiswaan '.$user->nama.'!');
         }
 
-        // 4. Admin lainnya (super_admin, TU, warden, dll.) → halaman utama admin
+        // 4. Petugas IT / QA Tester → dashboard IT
+        if ($user->isPetugasIt()) {
+            return redirect()->route('it.dashboard')
+                ->with('success', 'Selamat datang kembali, Petugas IT '.$user->nama.'!');
+        }
+
+        // 5. Admin lainnya (super_admin, TU, warden, dll.) → halaman utama admin
         if (in_array($user->role, ['admin', 'super_admin', 'epic_admin', 'absolute_admin', 'warden'])) {
             return redirect()->route('home')
                 ->with('success', 'Selamat datang kembali, Admin '.$user->nama.'!');
         }
 
-        // 4. Guru yang mendapat jadwal piket HARI INI → portal piket
+        // 6. Guru yang mendapat jadwal piket HARI INI → portal piket
         if ($user->isPiketHariIni()) {
             return redirect()->route('piket.dashboard')
                 ->with('success', 'Selamat datang kembali, Guru Piket '.$user->nama.'!');

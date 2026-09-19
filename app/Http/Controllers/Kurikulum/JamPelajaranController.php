@@ -255,8 +255,12 @@ class JamPelajaranController extends Controller
     /**
      * Bulk update durasi jam pelajaran (Edit Masal).
      *
-     * Hanya memperbarui durasi per ID terpilih (jam_selesai = jam_mulai + durasi).
-     * Nilai jam_ke / label slot TIDAK diubah. Diproses dalam satu transaksi DB.
+     * Menerima array per-slot: updates[{id, durasi}] — payload ini dibangun di
+     * frontend dari input durasi per KELOMPOK slot (run KBM / istirahat) pada
+     * modal "Edit Terpilih". Setiap slot di-set jam_selesai = jam_mulai + durasi,
+     * lalu seluruh timeline kategori dihitung ulang SEKUENSIAL agar rapat
+     * berurutan (jam mulai & jam selesai ikut digeser). Nilai jam_ke / label
+     * slot TIDAK diubah. Diproses dalam satu transaksi DB.
      */
     public function bulkUpdate(Request $request)
     {

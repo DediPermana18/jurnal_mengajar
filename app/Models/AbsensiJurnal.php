@@ -17,6 +17,7 @@ class AbsensiJurnal extends Model
     protected $fillable = [
         'id_jurnal',
         'id_siswa',
+        'id_dispensasi',
         'status',
         'keterangan',
         'foto_surat',
@@ -40,5 +41,13 @@ class AbsensiJurnal extends Model
     public function siswa(): BelongsTo
     {
         return $this->belongsTo(Siswa::class, 'id_siswa', 'id');
+    }
+
+    /**
+     * Relasi ke surat dispensasi siswa (SIS / DIS) terkait presensi ini.
+     */
+    public function dispensasi(): BelongsTo
+    {
+        return $this->belongsTo(DispensasiSiswa::class, 'id_dispensasi', 'id');
     }
 }

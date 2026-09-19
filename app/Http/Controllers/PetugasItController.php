@@ -121,7 +121,7 @@ class PetugasItController extends Controller
 
         $request->session()->forget(['active_role', 'impersonate_target_id']);
 
-        return redirect()->route('home')->with('success', 'Kembali ke Mode IT. Impersonasi dinonaktifkan.');
+        return redirect()->route('it.dashboard')->with('success', 'Kembali ke Mode IT. Impersonasi dinonaktifkan.');
     }
 
     /**
@@ -257,6 +257,14 @@ class PetugasItController extends Controller
         $prosesCount = $kendala->where('status', LaporanKendala::STATUS_PROSES)->count();
         $selesaiCount = $kendala->where('status', LaporanKendala::STATUS_SELESAI)->count();
 
+        $activeKendalaCount = $kendala->where('status', '!=', LaporanKendala::STATUS_SELESAI)->count();
+
+        /**
+         * Status Bot WA (Fonnte) — gunakan data dummy CONNECTED jika API tidak tersedia.
+         * Cek konfigurasi atau endpoint Fonnte jika ingin real-time.
+         */
+        $fonnteConnected = true; // dummy: diasumsikan terconnect
+
         $dbOnline = false;
         try {
             DB::select('select 1');
@@ -265,13 +273,15 @@ class PetugasItController extends Controller
             $dbOnline = false;
         }
 
-        return view('admin.it.dashboard', [
+        return view('it.dashboard', [
             'kendala' => $kendala,
             'pendingCount' => $pendingCount,
             'prosesCount' => $prosesCount,
             'selesaiCount' => $selesaiCount,
+            'activeKendalaCount' => $activeKendalaCount,
             'dbOnline' => $dbOnline,
             'maintenanceActive' => PengaturanJadwal::isMaintenanceModeActive(),
+            'fonnteConnected' => $fonnteConnected,
             'appEnv' => app()->environment(),
             'appName' => config('app.name'),
             'laravelVersion' => app()->version(),
@@ -294,6 +304,11 @@ class PetugasItController extends Controller
         );
 
         $kendala = LaporanKendala::withoutGlobalScope(TestingDataScope::class)->findOrFail($id);
+
+        // Tiket 'Selesai' bersifat final — tidak boleh dikembalikan ke status lain.
+        if ($kendala->status === LaporanKendala::STATUS_SELESAI) {
+            return back()->with('cancel', 'Tiket kendala sudah berstatus Selesai (final) — statusnya tidak dapat diubah kembali.');
+        }
 
         $data = $request->validate([
             'status' => ['required', 'in:pending,proses,selesai'],

@@ -108,6 +108,7 @@ class UserController extends Controller
             'nama' => $validated['name'],
             'username' => $validated['username'],
             'nip' => $validated['nip'] ?? null,
+            'no_hp' => $validated['no_hp'] ?? null,
             'sub_role' => $validated['sub_role'],
             'role' => $this->roleForSubRole($validated['sub_role']),
             'kode_aktivasi' => $kodeAktivasi,
@@ -134,6 +135,7 @@ class UserController extends Controller
             'nama' => $validated['name'],
             'username' => $validated['username'],
             'nip' => $validated['nip'] ?? null,
+            'no_hp' => $validated['no_hp'] ?? null,
             'sub_role' => $validated['sub_role'],
             'role' => $this->roleForSubRole($validated['sub_role']),
             'kode_aktivasi' => $kodeAktivasi,
@@ -181,6 +183,7 @@ class UserController extends Controller
                 'max:50',
                 Rule::unique('users', 'nip')->withoutTrashed()->ignore($ignoreId),
             ],
+            'no_hp' => ['nullable', 'string', 'max:20'],
             'sub_role' => ['required', 'in:'.implode(',', self::SUB_ROLES)],
             'kode_aktivasi' => [
                 'nullable',

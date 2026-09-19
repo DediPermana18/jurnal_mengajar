@@ -13,6 +13,10 @@
         <input type="text" name="nip" value="{{ old('nip', $isEdit ? $guru->nip : '') }}" class="form-control rounded-3" maxlength="50" placeholder="Masukkan NIP (opsional)">
     </div>
     <div class="col-md-6">
+        <label class="form-label fw-semibold text-secondary small">NO HP / WHATSAPP</label>
+        <input type="text" name="no_hp" value="{{ old('no_hp', $isEdit ? $guru->no_hp : '') }}" class="form-control rounded-3" maxlength="20" placeholder="Contoh: 081234567890">
+    </div>
+    <div class="col-md-6">
         <label class="form-label fw-semibold text-secondary small">USERNAME <span class="text-danger">*</span></label>
         <input type="text" name="username" value="{{ old('username', $isEdit ? $guru->username : '') }}" class="form-control rounded-3" required maxlength="100" placeholder="Masukkan username login">
     </div>

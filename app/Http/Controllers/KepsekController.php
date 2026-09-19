@@ -139,6 +139,11 @@ class KepsekController extends Controller
 
         $izin = IzinGuru::with('user')->findOrFail($id);
 
+        // Guard: cegah self-approval — Kepsek tidak boleh menyetujui izinnya sendiri.
+        if ($izin->user_id === auth()->id()) {
+            return back()->with('error', 'Anda tidak dapat menyetujui pengajuan izin Anda sendiri!');
+        }
+
         // Guard: izin data testing hanya dapat diproses oleh IT/QA.
         $this->authorizeTestingMutation($izin);
 
@@ -195,6 +200,11 @@ class KepsekController extends Controller
         $this->authorizeKepsek();
 
         $izin = IzinGuru::with('user')->findOrFail($id);
+
+        // Guard: cegah self-reject — Kepsek tidak boleh menolak pengajuan izinnya sendiri.
+        if ($izin->user_id === auth()->id()) {
+            return back()->with('error', 'Anda tidak dapat menolak pengajuan izin Anda sendiri!');
+        }
 
         // Guard: izin data testing hanya dapat diproses oleh IT/QA.
         $this->authorizeTestingMutation($izin);

@@ -29,6 +29,10 @@ class JamPulangController extends Controller
         $kategoriHariOptions = ['Senin-Kamis', 'Jumat'];
         $tingkatOptions = ['X', 'XI', 'XII'];
 
+        // Auto-label data testing: Petugas IT / QA Tester (termasuk saat
+        // impersonation) menyimpan is_testing_data = 1, user lain = 0.
+        $isTesting = auth()->user()?->isPetugasIt() ? 1 : 0;
+
         foreach ($kategoriHariOptions as $kategoriHari) {
             foreach ($tingkatOptions as $tingkat) {
                 // Ambil nilai; null/kosong = tidak dibatasi
@@ -41,9 +45,11 @@ class JamPulangController extends Controller
                     ->first();
                 $this->authorizeTestingMutation($existing);
 
+                // updateOrCreate mencegah error duplicate entry: kombinasi
+                // (kategori_hari, tingkat, is_testing_data) kini unik.
                 JamPulang::updateOrCreate(
-                    ['kategori_hari' => $kategoriHari, 'tingkat' => $tingkat],
-                    ['max_jam_ke' => $maxJamKe]
+                    ['kategori_hari' => $kategoriHari, 'tingkat' => $tingkat, 'is_testing_data' => $isTesting],
+                    ['max_jam_ke' => $maxJamKe, 'is_testing_data' => $isTesting]
                 );
             }
         }

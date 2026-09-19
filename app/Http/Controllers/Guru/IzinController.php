@@ -29,6 +29,29 @@ class IzinController extends Controller
     }
 
     /**
+     * Cek apakah guru memiliki pengajuan izin AKTIF pada tanggal yang dimaksud
+     * (Pending Piket/Waka/Kepsek atau sudah Disetujui) yang menghalangi
+     * pengajuan baru.
+     *
+     * Riwayat izin pada tanggal LAIN (termasuk Pending dari hari sebelumnya)
+     * ATAU pengajuan di tanggal yang sama yang sudah DITOLAK tidak menghalangi.
+     */
+    protected function hasBlockingSubmission(int $guruId, ?string $tanggal = null): bool
+    {
+        $tanggalCek = $tanggal ?? today()->toDateString();
+
+        return IzinGuru::where('user_id', $guruId)
+            ->where('tanggal', $tanggalCek)
+            ->whereIn('status', [
+                IzinGuru::STATUS_PENDING_PIKET,
+                IzinGuru::STATUS_PENDING_WAKA,
+                IzinGuru::STATUS_PENDING_KEPSEK,
+                IzinGuru::STATUS_DISETUJUI,
+            ])
+            ->exists();
+    }
+
+    /**
      * Daftar izin milik guru yang sedang login / target impersonasi + filter status.
      *
      * Saat Mode QA/IT (preview) belum memilih target guru, halaman wajib kosong
@@ -49,6 +72,7 @@ class IzinController extends Controller
             $totalPending = 0;
             $totalDisetujui = 0;
             $totalDitolak = 0;
+            $canSubmitIzin = false;
         } else {
             $guruId = $this->effectiveGuruId();
             $query->where('user_id', $guruId);
@@ -56,6 +80,8 @@ class IzinController extends Controller
             $totalPending = IzinGuru::where('user_id', $guruId)->whereIn('status', [IzinGuru::STATUS_PENDING_PIKET, IzinGuru::STATUS_PENDING_WAKA, IzinGuru::STATUS_PENDING_KEPSEK])->count();
             $totalDisetujui = IzinGuru::where('user_id', $guruId)->where('status', IzinGuru::STATUS_DISETUJUI)->count();
             $totalDitolak = IzinGuru::where('user_id', $guruId)->where('status', IzinGuru::STATUS_DITOLAK)->count();
+
+            $canSubmitIzin = ! $this->hasBlockingSubmission($guruId);
         }
 
         if (! in_array($filter, ['Semua'], true) && in_array($filter, IzinGuru::STATUSES, true)) {
@@ -64,14 +90,18 @@ class IzinController extends Controller
 
         $daftarIzin = $query->paginate(15)->withQueryString();
 
-        return view('guru.izin.index', compact('daftarIzin', 'filter', 'totalPending', 'totalDisetujui', 'totalDitolak'));
+        return view('guru.izin.index', compact('daftarIzin', 'filter', 'totalPending', 'totalDisetujui', 'totalDitolak', 'canSubmitIzin'));
     }
 
     public function create()
     {
         $this->authorizeGuru();
 
-        return view('guru.izin.form');
+        $canSubmitIzin = $this->isEmptyTargetContext()
+            ? false
+            : ! $this->hasBlockingSubmission($this->effectiveGuruId());
+
+        return view('guru.izin.form', compact('canSubmitIzin'));
     }
 
     public function store(Request $request)
@@ -97,6 +127,33 @@ class IzinController extends Controller
             'lampiran.max' => 'Ukuran lampiran terlalu besar.',
             'tugas_siswa.max' => 'Tugas siswa maksimal :max karakter.',
         ]);
+
+        // Guard A: cegah multiple pengajuan PENDING — selama masih ada pengajuan
+        // yang dalam proses verifikasi (Piket/Waka/Kepsek), guru tidak boleh
+        // membuat pengajuan baru apa pun tanggalnya.
+        $userId = $this->effectiveGuruId();
+
+        $hasPending = IzinGuru::where('user_id', $userId)
+            ->whereIn('status', [
+                IzinGuru::STATUS_PENDING_PIKET,
+                IzinGuru::STATUS_PENDING_WAKA,
+                IzinGuru::STATUS_PENDING_KEPSEK,
+            ])
+            ->exists();
+
+        if ($hasPending) {
+            return back()->withInput()
+                ->with('error', 'Anda masih memiliki pengajuan izin yang dalam proses verifikasi. Tunggu hingga disetujui/ditolak sebelum membuat pengajuan baru.');
+        }
+
+        // Guard B: cegah duplikasi/spam pengajuan izin — hanya pengajuan AKTIF
+        // (Pending Piket/Waka/Kepsek atau Disetujui) pada TANGGAL YANG SAMA
+        // yang menghalangi. Riwayat tanggal lain / status Ditolak dibolehkan.
+        $guruId = $this->effectiveGuruId();
+        if ($this->hasBlockingSubmission($guruId, $validated['tanggal'])) {
+            return back()->withInput()
+                ->with('error', 'Anda sudah mengajukan izin untuk hari ini atau pengajuan hari ini masih diproses.');
+        }
 
         $ttdGuru = isset($validated['ttd_guru']) && preg_match('/^data:image\/png;base64,/i', trim($validated['ttd_guru']))
             ? trim($validated['ttd_guru'])
@@ -128,7 +185,7 @@ class IzinController extends Controller
         }
 
         $izin = IzinGuru::create([
-            'user_id' => Auth::id(),
+            'user_id' => $this->effectiveGuruId(),
             'tanggal' => $validated['tanggal'],
             'kategori_izin' => $validated['kategori_izin'],
             'keterangan' => $validated['keterangan'] ?? null,

@@ -122,7 +122,7 @@
 
     {{-- Presensi Table --}}
     @if($idKelas)
-        <form method="POST" action="{{ route('piket.presensi-siswa.store') }}" id="formPresensi">
+        <form method="POST" action="{{ route('piket.presensi-siswa.store') }}" id="formPresensi" enctype="multipart/form-data">
             @csrf
             <input type="hidden" name="tanggal" value="{{ $tanggal }}">
             <input type="hidden" name="id_kelas" value="{{ $idKelas }}">
@@ -160,6 +160,7 @@
                                         <th>NAMA SISWA</th>
                                         <th class="whitespace-nowrap" style="min-width: 340px;">STATUS ABSENSI</th>
                                         <th style="min-width: 200px;">KETERANGAN</th>
+                                        <th class="whitespace-nowrap" style="min-width: 140px;">FOTO SURAT</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -168,11 +169,11 @@
                                             $existing = $presensiExisting->get($siswa->id);
                                             $currentStatus = $existing ? $existing->status : 'Hadir';
                                             $currentKeterangan = $existing ? $existing->keterangan : '';
+                                            $existingFoto = $existing ? $existing->foto_surat : null;
                                             $pillConfig = [
                                                 'Hadir'  => ['cls' => 'btn-outline-success', 'icon' => 'bi-check-circle-fill'],
                                                 'Sakit'  => ['cls' => 'btn-outline-danger',  'icon' => 'bi-heart-pulse-fill'],
                                                 'Izin'   => ['cls' => 'btn-outline-primary', 'icon' => 'bi-file-earmark-text-fill'],
-                                                'Alpha'  => ['cls' => 'btn-outline-secondary','icon' => 'bi-x-circle-fill'],
                                             ];
                                         @endphp
                                         <tr>
@@ -192,7 +193,7 @@
                                                                    id="status_{{ $siswa->id }}_{{ $status }}"
                                                                    value="{{ $status }}"
                                                                    {{ $currentStatus === $status ? 'checked' : '' }}
-                                                                   onchange="updateCount()"
+                                                                   onchange="updateCount(); toggleFotoCell({{ $siswa->id }})"
                                                                    required>
                                                             <label class="btn btn-sm rounded-pill {{ $cfg['cls'] }}"
                                                                    for="status_{{ $siswa->id }}_{{ $status }}">
@@ -209,6 +210,36 @@
                                                        value="{{ $currentKeterangan }}"
                                                        placeholder="Catatan (opsional)"
                                                        style="font-size: 0.82rem; max-width: 240px;">
+                                            </td>
+                                            <td>
+                                                <div class="foto-surat-cell d-flex flex-column gap-1"
+                                                     data-siswa="{{ $siswa->id }}"
+                                                     style="{{ in_array($currentStatus, ['Sakit', 'Izin'], true) ? '' : 'display:none;' }}">
+                                                    <input type="file"
+                                                           accept="image/*"
+                                                           name="presensi[{{ $siswa->id }}][foto_surat]"
+                                                           class="form-control form-control-sm rounded-3 foto-input"
+                                                           data-siswa="{{ $siswa->id }}"
+                                                           style="font-size: 0.72rem; max-width: 200px;">
+                                                    <img class="foto-thumb rounded-3 border mt-1 d-none"
+                                                         data-siswa="{{ $siswa->id }}"
+                                                         src=""
+                                                         alt="Pratinjau surat"
+                                                         style="max-height: 48px; max-width: 90px; object-fit: cover; cursor: zoom-in;">
+                                                    @if($existingFoto)
+                                                        <div class="d-flex align-items-center gap-1">
+                                                            <img src="{{ asset('storage/' . $existingFoto) }}"
+                                                                 class="rounded-3 border"
+                                                                 alt="Surat tersimpan"
+                                                                 style="max-height: 48px; max-width: 90px; object-fit: cover; cursor: zoom-in;"
+                                                                 onclick="showImagePreview(this.src, 'Foto Surat - {{ addslashes($siswa->nama) }}')">
+                                                            <span class="badge bg-success-subtle text-success border border-success-subtle text-xs" style="font-size: 0.68rem;">
+                                                                <i class="bi bi-check-circle me-1"></i>Tersedia
+                                                            </span>
+                                                        </div>
+                                                    @endif
+                                                    <span class="text-muted" style="font-size: 0.68rem;">Opsional &mdash; bukti surat Sakit/Izin</span>
+                                                </div>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -247,6 +278,9 @@
                 radio.checked = false;
             }
         });
+        document.querySelectorAll('.foto-surat-cell').forEach(function (cell) {
+            toggleFotoCell(cell.dataset.siswa);
+        });
         updateCount();
     }
 
@@ -259,6 +293,64 @@
         if (badge) badge.textContent = total + '/' + {{ $dataSiswa->count() }} + ' Hadir';
     }
 
-    document.addEventListener('DOMContentLoaded', updateCount);
+    // Tampilkan kolom foto surat hanya saat status Sakit/Izin dipilih.
+    function toggleFotoCell(siswaId) {
+        var radio = document.querySelector('input[name="presensi[' + siswaId + '][status]"]:checked');
+        var cell = document.querySelector('.foto-surat-cell[data-siswa="' + siswaId + '"]');
+        if (!cell) return;
+        var val = radio ? radio.value : 'Hadir';
+        if (val === 'Sakit' || val === 'Izin') {
+            cell.style.display = '';
+        } else {
+            cell.style.display = 'none';
+        }
+    }
+
+    function showImagePreview(url, title) {
+        if (!url) return;
+        var modal = new bootstrap.Modal(document.getElementById('modalPreviewSurat'));
+        document.getElementById('modalPreviewSuratTitle').innerText = title || 'Preview Gambar';
+        document.getElementById('previewSuratSrc').src = url;
+        modal.show();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        updateCount();
+
+        // State awal: tampilkan/sembunyikan kolom foto surat per siswa
+        document.querySelectorAll('.foto-surat-cell').forEach(function (cell) {
+            toggleFotoCell(cell.dataset.siswa);
+        });
+
+        // Pratinjau thumbnail saat file dipilih
+        document.querySelectorAll('.foto-input').forEach(function (input) {
+            input.addEventListener('change', function () {
+                var thumb = document.querySelector('.foto-thumb[data-siswa="' + this.dataset.siswa + '"]');
+                if (this.files && this.files[0] && thumb) {
+                    var reader = new FileReader();
+                    reader.onload = function (e) {
+                        thumb.src = e.target.result;
+                        thumb.classList.remove('d-none');
+                    };
+                    reader.readAsDataURL(this.files[0]);
+                }
+            });
+        });
+    });
 </script>
+
+{{-- Modal Preview Gambar --}}
+<div class="modal fade" id="modalPreviewSurat" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-dark text-white border-0 py-3">
+                <h5 class="modal-title fw-bold fs-6" id="modalPreviewSuratTitle">Preview Gambar</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center p-3">
+                <img id="previewSuratSrc" src="" alt="Preview" class="img-fluid rounded-3" style="max-height: 70vh; object-fit: contain;">
+            </div>
+        </div>
+    </div>
+</div>
 @endpush

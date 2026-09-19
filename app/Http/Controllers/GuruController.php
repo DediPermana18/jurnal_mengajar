@@ -146,6 +146,7 @@ class GuruController extends Controller
                 'max:100',
                 Rule::unique('users', 'username')->where(fn ($q) => $q->where('is_testing_data', $isTestingData)),
             ],
+            'no_hp' => 'nullable|string|max:20',
             'password' => 'nullable|string|min:6',
         ], [
             'nama.required' => 'Nama guru wajib diisi.',
@@ -159,6 +160,7 @@ class GuruController extends Controller
             'nama' => $request->nama,
             'nip' => $request->nip,
             'username' => $request->username,
+            'no_hp' => $request->no_hp,
             'password' => Hash::make($request->password ?? 'password123'),
             'role' => User::ROLE_GURU,
             'sub_role' => 'guru_mapel',
@@ -188,6 +190,7 @@ class GuruController extends Controller
                 'max:100',
                 Rule::unique('users', 'username')->where(fn ($q) => $q->where('is_testing_data', $isTestingData))->ignore($user->id),
             ],
+            'no_hp' => 'nullable|string|max:20',
         ], [
             'nama.required' => 'Nama guru wajib diisi.',
             'nip.unique' => 'NIP sudah terdaftar dalam sistem.',
@@ -200,6 +203,7 @@ class GuruController extends Controller
             'nama' => $request->nama,
             'nip' => $request->nip,
             'username' => $request->username,
+            'no_hp' => $request->no_hp,
             'role' => User::ROLE_GURU,
             'sub_role' => $user->sub_role ?: 'guru_mapel',
             'is_active' => $request->has('is_active') ? $request->boolean('is_active') : $user->is_active,

@@ -11,6 +11,7 @@ use App\Models\JamPelajaran;
 use App\Models\JamPulang;
 use App\Models\Jurnal;
 use App\Models\PengaturanJadwal;
+use App\Models\PresensiSiswa;
 use App\Models\Scopes\TestingDataScope;
 use App\Models\Siswa;
 use App\Models\TahunAjaran;
@@ -108,11 +109,11 @@ class JurnalController extends Controller
     }
 
     /**
-     * Integrasi dispensasi: alasan dispen apabila siswa memiliki dispensa yang
-     * AKTIF (Siswa Out / belum kembali) pada tanggal & jam pelajaran tertentu. Null jika tidak ada / sudah kembali.
+     * Dispensasi siswa AKTIF (Siswa Out / belum kembali, is_locked = true) pada
+     * tanggal & jam pelajaran tertentu. Null jika tidak ada / sudah kembali.
      * Mendukung dispensasi individu maupun kolektif/rombongan.
      */
-    protected function dispensaAlasan(?string $tanggal, int $idSiswa, $jamKe = null): ?string
+    protected function dispenAktifHariIni(?string $tanggal, int $idSiswa, $jamKe = null): ?DispensasiSiswa
     {
         $map = $this->dispenMapHariIni($tanggal, $jamKe);
         if (! isset($map[$idSiswa])) {
@@ -121,12 +122,29 @@ class JurnalController extends Controller
 
         $info = $map[$idSiswa];
 
-        // Hanya siswa dengan is_locked = true (Siswa Out / Dispen aktif) yang otomatis berstatus Dispen
-        if (! $info->is_locked) {
+        // Hanya siswa dengan is_locked = true (Siswa Out / Dispen aktif)
+        // yang otomatis berstatus Dispen.
+        if (($info->is_locked ?? false) !== true) {
             return null;
         }
 
-        return $info->alasan ?: 'Dispensasi';
+        return $info->dispen ?? null;
+    }
+
+    /**
+     * Alasan dispensasi apabila siswa memiliki dispensa yang AKTIF
+     * (Siswa Out / belum kembali) pada tanggal & jam pelajaran tertentu.
+     * Null jika tidak ada / sudah kembali.
+     * Mendukung dispensasi individu maupun kolektif/rombongan.
+     */
+    protected function dispensaAlasan(?string $tanggal, int $idSiswa, $jamKe = null): ?string
+    {
+        $dispen = $this->dispenAktifHariIni($tanggal, $idSiswa, $jamKe);
+        if (! $dispen) {
+            return null;
+        }
+
+        return $dispen->alasan ?: 'Dispensasi';
     }
 
     /**
@@ -224,6 +242,7 @@ class JurnalController extends Controller
                     'id_siswa' => $idSiswa,
                     'has_dispen' => true,
                     'is_locked' => false,
+                    'is_terlambat' => false,
                     'is_siswa_out' => false,
                     'is_returned' => true,
                     'status_presensi' => 'Hadir',
@@ -252,6 +271,7 @@ class JurnalController extends Controller
                     'id_siswa' => $idSiswa,
                     'has_dispen' => true,
                     'is_locked' => $isLocked,
+                    'is_terlambat' => $sudahMasukKelas,
                     'is_siswa_out' => $isKeluarGerbang,
                     'is_returned' => false,
                     'status_presensi' => 'Hadir',
@@ -621,7 +641,15 @@ class JurnalController extends Controller
 
         $dispenMap = $this->dispenMapHariIni($today, $jamKeList);
 
-        return view('guru.jurnal.form', compact('jadwal', 'siswas', 'today', 'waktu', 'dispenMap'));
+        // Auto-Sync Presensi Piket: tarik data Sakit/Izin dari Guru Piket untuk
+        // kelas & tanggal yang sama, lalu pre-fill di form absensi jurnal KBM.
+        $piketPresensiMap = PresensiSiswa::where('id_kelas', $jadwal->id_kelas)
+            ->where('tanggal', $today)
+            ->whereIn('status', ['Sakit', 'Izin'])
+            ->get()
+            ->keyBy('id_siswa');
+
+        return view('guru.jurnal.form', compact('jadwal', 'siswas', 'today', 'waktu', 'dispenMap', 'piketPresensiMap'));
     }
 
     /**
@@ -676,6 +704,14 @@ class JurnalController extends Controller
             $todayDate = Carbon::today()->toDateString();
             $loggedGuruId = auth()->id() ?? $jadwal->id_guru;
 
+            // Auto-Sync Presensi Piket: foto surat dari Guru Piket dipakai sebagai
+            // fallback bila guru mapel tidak mengunggah foto surat sendiri.
+            $piketPresensiMap = PresensiSiswa::where('id_kelas', $jadwal->id_kelas)
+                ->where('tanggal', $todayDate)
+                ->whereIn('status', ['Sakit', 'Izin'])
+                ->get()
+                ->keyBy('id_siswa');
+
             foreach ($groupSchedules as $sched) {
                 $existingJurnal = Jurnal::where('id_jadwal', $sched->id)
                     ->whereDate('tanggal', $todayDate)
@@ -708,11 +744,13 @@ class JurnalController extends Controller
                     $fotoSurat = null;
 
                     // Integrasi dispensasi: siswa yang dispen tersetujui otomatis berstatus 'Dispen'
-                    $dispenAlasan = $this->dispensaAlasan($todayDate, $siswa->id, $sched->jamPelajaran?->jam_ke);
-                    if ($dispenAlasan !== null) {
+                    $idDispensasi = null;
+                    $dispenAktif = $this->dispenAktifHariIni($todayDate, $siswa->id, $sched->jamPelajaran?->jam_ke);
+                    if ($dispenAktif !== null) {
                         $status = 'Dispen';
-                        $keterangan = 'Dispensasi: '.$dispenAlasan;
+                        $keterangan = 'Dispensasi: '.($dispenAktif->alasan ?: 'Dispensasi');
                         $fotoSurat = null;
+                        $idDispensasi = (int) $dispenAktif->id;
                     }
 
                     if ($isTidakHadir) {
@@ -737,9 +775,19 @@ class JurnalController extends Controller
                         }
                     }
 
+                    // Auto-Sync Presensi Piket: bila tidak ada foto baru dari guru mapel,
+                    // salin foto surat yang sudah diunggah Guru Piket untuk siswa Sakit/Izin.
+                    if (! $fotoSurat && in_array($status, ['Sakit', 'Izin'], true)) {
+                        $piketEntry = $piketPresensiMap->get($siswa->id);
+                        if ($piketEntry && $piketEntry->foto_surat) {
+                            $fotoSurat = $piketEntry->foto_surat;
+                        }
+                    }
+
                     AbsensiJurnal::create([
                         'id_jurnal' => $idJurnal,
                         'id_siswa' => $siswa->id,
+                        'id_dispensasi' => $idDispensasi,
                         'status' => $status,
                         'keterangan' => $keterangan,
                         'foto_surat' => $fotoSurat,
@@ -761,31 +809,37 @@ class JurnalController extends Controller
     /**
      * Tampilkan detail jurnal secara Read-Only.
      */
-    public function show(Jurnal $jurnal)
+    public function show(Request $request, Jurnal $jurnal)
     {
         $this->authorizeGuru();
 
         $jurnal->load(['jadwal.jamPelajaran', 'jadwal.kelas', 'jadwal.mapel', 'absensiJurnal.siswa']);
 
         $jadwal = $jurnal->jadwal;
-        $eval = $this->evaluateJadwal($jadwal, $jurnal);
+        $context = $this->jurnalGroupContext($request, $jurnal);
+        $jurnalTampil = $context['jurnalTampil'];
+        $jadwal = $jurnalTampil->jadwal ?? $jadwal;
+        $eval = $this->evaluateJadwal($jadwal, $jurnalTampil);
 
         $siswas = Siswa::where('id_kelas', $jadwal->id_kelas)
             ->where('status_siswa', 'Aktif')
             ->orderBy('nama')
             ->get();
 
-        $today = $jurnal->tanggal ? $jurnal->tanggal->format('Y-m-d') : Carbon::today()->toDateString();
-        $waktu = $eval['waktu'];
-        $absensiMap = $jurnal->absensiJurnal->keyBy('id_siswa');
+        $today = $jurnalTampil->tanggal ? $jurnalTampil->tanggal->format('Y-m-d') : Carbon::today()->toDateString();
+        $waktu = $context['waktu'];
+        $absensiMap = $context['absensiMap'];
+        $jpOptions = $context['jpOptions'];
+        $selectedJamKe = $context['selectedJamKe'];
+        $jurnal = $jurnalTampil;
 
-        return view('guru.jurnal.show', compact('jurnal', 'jadwal', 'siswas', 'today', 'waktu', 'absensiMap'));
+        return view('guru.jurnal.show', compact('jurnal', 'jadwal', 'siswas', 'today', 'waktu', 'absensiMap', 'jpOptions', 'selectedJamKe'));
     }
 
     /**
      * Form edit untuk jurnal yang diisi HARI INI.
      */
-    public function edit(Jurnal $jurnal)
+    public function edit(Request $request, Jurnal $jurnal)
     {
         $this->authorizeGuru();
 
@@ -802,6 +856,9 @@ class JurnalController extends Controller
         $jurnal->load(['jadwal.jamPelajaran', 'jadwal.kelas', 'jadwal.mapel', 'absensiJurnal']);
 
         $jadwal = $jurnal->jadwal;
+        $context = $this->jurnalGroupContext($request, $jurnal);
+        $jurnal = $context['jurnalTampil'];
+        $jadwal = $jurnal->jadwal ?? $jadwal;
         $eval = $this->evaluateJadwal($jadwal, $jurnal);
 
         $siswas = Siswa::where('id_kelas', $jadwal->id_kelas)
@@ -817,7 +874,74 @@ class JurnalController extends Controller
 
         $dispenMap = $this->dispenMapHariIni($jurnalTanggal, $jamKeList);
 
-        return view('guru.jurnal.form', compact('jurnal', 'jadwal', 'siswas', 'today', 'waktu', 'absensiMap', 'dispenMap'));
+        $waktu = $context['waktu'];
+        $absensiMap = $jurnal->absensiJurnal->keyBy('id_siswa');
+        $jpOptions = $context['jpOptions'];
+        $selectedJamKe = $context['selectedJamKe'];
+
+        return view('guru.jurnal.form', compact('jurnal', 'jadwal', 'siswas', 'today', 'waktu', 'absensiMap', 'dispenMap', 'jpOptions', 'selectedJamKe'));
+    }
+
+    protected function jurnalGroupContext(Request $request, Jurnal $jurnal): array
+    {
+        $jadwal = $jurnal->jadwal;
+        $groupSchedules = $this->getGroupSchedules($jadwal);
+        $jurnalList = Jurnal::with(['jadwal.jamPelajaran', 'absensiJurnal'])
+            ->whereIn('id_jadwal', $groupSchedules->pluck('id'))
+            ->whereDate('tanggal', $jurnal->tanggal)
+            ->get()
+            ->sortBy(fn ($item) => $item->jadwal?->jamPelajaran?->jam_ke ?? 999)
+            ->values();
+
+        if ($jurnalList->isEmpty()) {
+            $jurnalList = collect([$jurnal]);
+        }
+
+        $jpOptions = $jurnalList->map(function ($item) {
+            $jam = $item->jadwal?->jamPelajaran;
+
+            return [
+                'jam_ke' => $jam?->jam_ke,
+                'waktu' => $jam ? $this->formatWaktu($jam->jam_mulai, $jam->jam_selesai) : '-',
+                'jurnal_id' => $item->id,
+            ];
+        })->filter(fn ($option) => $option['jam_ke'] !== null)->values()->all();
+
+        $selectedJamKe = $request->filled('jp') ? (int) $request->input('jp') : null;
+        $jurnalTampil = $selectedJamKe === null
+            ? $jurnal
+            : ($jurnalList->first(fn ($item) => (int) $item->jadwal?->jamPelajaran?->jam_ke === $selectedJamKe) ?? $jurnal);
+
+        $absensiMap = $selectedJamKe === null
+            ? $this->gabungkanAbsensi($jurnalList)
+            : $jurnalTampil->absensiJurnal->keyBy('id_siswa');
+
+        $waktu = $selectedJamKe === null && $jurnalList->count() > 1
+            ? $this->formatWaktu(
+                $jurnalList->first()->jadwal?->jamPelajaran?->jam_mulai,
+                $jurnalList->last()->jadwal?->jamPelajaran?->jam_selesai
+            )
+            : $this->formatWaktu(
+                $jurnalTampil->jadwal?->jamPelajaran?->jam_mulai,
+                $jurnalTampil->jadwal?->jamPelajaran?->jam_selesai
+            );
+
+        return compact('jurnalTampil', 'jpOptions', 'selectedJamKe', 'absensiMap', 'waktu');
+    }
+
+    protected function gabungkanAbsensi(Collection $jurnalList): Collection
+    {
+        return $jurnalList->flatMap(fn ($item) => $item->absensiJurnal)
+            ->groupBy('id_siswa')
+            ->map(function ($absensi) {
+                $utama = $absensi->first(fn ($item) => $item->status !== 'Hadir') ?? $absensi->first();
+                $keterangan = $absensi->pluck('keterangan')->filter()->unique()->implode(' | ');
+                if ($utama) {
+                    $utama->keterangan = $keterangan ?: null;
+                }
+
+                return $utama;
+            });
     }
 
     /**
@@ -876,6 +1000,14 @@ class JurnalController extends Controller
             $tidakHadirIds = collect($request->input('tidak_hadir', []))->map(fn ($id) => (int) $id);
             $presensiInput = $request->input('presensi', []);
 
+            // Auto-Sync Presensi Piket: foto surat dari Guru Piket dipakai sebagai
+            // fallback bila guru mapel tidak mengunggah foto surat sendiri.
+            $piketPresensiMap = PresensiSiswa::where('id_kelas', $jadwal->id_kelas)
+                ->where('tanggal', $jurnal->tanggal?->toDateString())
+                ->whereIn('status', ['Sakit', 'Izin'])
+                ->get()
+                ->keyBy('id_siswa');
+
             foreach ($siswas as $siswa) {
                 $pData = $presensiInput[$siswa->id] ?? [];
                 $isTidakHadir = $tidakHadirIds->contains($siswa->id) || isset($pData['status']);
@@ -884,10 +1016,12 @@ class JurnalController extends Controller
                 $keterangan = $isTidakHadir ? ($pData['keterangan'] ?? $request->input("keterangan.{$siswa->id}")) : null;
 
                 // Integrasi dispensasi: siswa yang dispen tersetujui otomatis berstatus 'Dispen'
-                $dispenAlasan = $this->dispensaAlasan($jurnal->tanggal?->toDateString(), $siswa->id, $jadwal->jamPelajaran?->jam_ke);
-                if ($dispenAlasan !== null) {
+                $idDispensasi = null;
+                $dispenAktif = $this->dispenAktifHariIni($jurnal->tanggal?->toDateString(), $siswa->id, $jadwal->jamPelajaran?->jam_ke);
+                if ($dispenAktif !== null) {
                     $status = 'Dispen';
-                    $keterangan = 'Dispensasi: '.$dispenAlasan;
+                    $keterangan = 'Dispensasi: '.($dispenAktif->alasan ?: 'Dispensasi');
+                    $idDispensasi = (int) $dispenAktif->id;
                 }
 
                 $fotoSurat = null;
@@ -913,6 +1047,15 @@ class JurnalController extends Controller
                     }
                 }
 
+                // Auto-Sync Presensi Piket: bila tidak ada foto baru dari guru mapel,
+                // salin foto surat yang sudah diunggah Guru Piket untuk siswa Sakit/Izin.
+                if (! $fotoSurat && in_array($status, ['Sakit', 'Izin'], true)) {
+                    $piketEntry = $piketPresensiMap->get($siswa->id);
+                    if ($piketEntry && $piketEntry->foto_surat) {
+                        $fotoSurat = $piketEntry->foto_surat;
+                    }
+                }
+
                 $existingAbsensi = AbsensiJurnal::where('id_jurnal', $jurnal->id)
                     ->where('id_siswa', $siswa->id)
                     ->first();
@@ -921,6 +1064,7 @@ class JurnalController extends Controller
                     $updateData = [
                         'status' => $status,
                         'keterangan' => $keterangan,
+                        'id_dispensasi' => $idDispensasi,
                     ];
                     if ($fotoSurat) {
                         if ($existingAbsensi->foto_surat) {
@@ -937,6 +1081,7 @@ class JurnalController extends Controller
                     AbsensiJurnal::create([
                         'id_jurnal' => $jurnal->id,
                         'id_siswa' => $siswa->id,
+                        'id_dispensasi' => $idDispensasi,
                         'status' => $status,
                         'keterangan' => $keterangan,
                         'foto_surat' => $fotoSurat,

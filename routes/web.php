@@ -165,6 +165,7 @@ use App\Http\Controllers\GuruPiketController;
 // seluruh langkah publik (Waka -> Kepsek) sesuai level approval yang dikonfigurasi.
 use App\Http\Controllers\IzinApprovalController;
 use App\Http\Controllers\IzinPiketController;
+use App\Http\Controllers\StatusKehadiranGuruController;
 
 Route::get('/approve-izin/{token}', [IzinApprovalController::class, 'show'])->name('izin.approval.show');
 Route::post('/approve-izin/{token}', [IzinApprovalController::class, 'submit'])->name('izin.approval.submit');
@@ -197,6 +198,10 @@ Route::prefix('piket')->group(function () {
     Route::get('/izin', [IzinPiketController::class, 'index'])->name('piket.izin.index');
     Route::post('/izin/{id}/approve', [IzinPiketController::class, 'approve'])->name('piket.izin.approve');
     Route::post('/izin/{id}/reject', [IzinPiketController::class, 'reject'])->name('piket.izin.reject');
+
+    // Status Kehadiran Guru oleh Guru Piket (pantau & override status harian)
+    Route::get('/status-guru', [StatusKehadiranGuruController::class, 'index'])->name('piket.status-guru');
+    Route::post('/status-guru/update', [StatusKehadiranGuruController::class, 'update'])->name('piket.status-guru.update');
 });
 
 // ================= PORTAL SATPAM / KEAMANAN (independen, tanpa cek jadwal piket) =================
@@ -236,6 +241,10 @@ Route::prefix('kurikulum')->group(function () {
 
     // Jadwal Piket Guru
     Route::get('/jadwal-piket', [JadwalPiketController::class, 'index'])->name('kurikulum.jadwal-piket.index');
+    Route::get('/jadwal-piket/shifts', [JadwalPiketController::class, 'shifts'])->name('kurikulum.jadwal-piket.shifts');
+    Route::post('/jadwal-piket/shifts', [JadwalPiketController::class, 'storeShift'])->name('kurikulum.jadwal-piket.shifts.store');
+    Route::put('/jadwal-piket/shifts/{shift}', [JadwalPiketController::class, 'updateShift'])->name('kurikulum.jadwal-piket.shifts.update');
+    Route::delete('/jadwal-piket/shifts/{shift}', [JadwalPiketController::class, 'destroyShift'])->name('kurikulum.jadwal-piket.shifts.destroy');
     Route::get('/jadwal-piket/create', [JadwalPiketController::class, 'create'])->name('kurikulum.jadwal-piket.create');
     Route::get('/jadwal-piket/{hari}/edit', [JadwalPiketController::class, 'edit'])->name('kurikulum.jadwal-piket.edit');
     Route::post('/jadwal-piket', [JadwalPiketController::class, 'store'])->name('kurikulum.jadwal-piket.store');

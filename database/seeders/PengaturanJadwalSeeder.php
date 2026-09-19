@@ -26,8 +26,15 @@ class PengaturanJadwalSeeder extends Seeder
         $jpCount = 0;
         foreach ($dataJamPulang as $item) {
             JamPulang::updateOrCreate(
-                ['kategori_hari' => $item['kategori_hari'], 'tingkat' => $item['tingkat']],
-                ['max_jam_ke' => $item['max_jam_ke']]
+                [
+                    'kategori_hari' => $item['kategori_hari'],
+                    'tingkat' => $item['tingkat'],
+                    'is_testing_data' => 0,
+                ],
+                [
+                    'max_jam_ke' => $item['max_jam_ke'],
+                    'is_testing_data' => 0,
+                ]
             );
             $jpCount++;
         }

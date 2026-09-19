@@ -88,10 +88,10 @@
                             <!-- Waktu Jam Pelajaran -->
                             <td>
                                 <div class="fw-semibold text-dark" style="font-size: 0.88rem;">
-                                    @if($jurnal->jadwal && $jurnal->jadwal->jamPelajaran)
-                                        {{ \Carbon\Carbon::parse($jurnal->jadwal->jamPelajaran->jam_mulai)->format('H:i') }}
+                                    @if($jurnal->display_jam_mulai && $jurnal->display_jam_selesai)
+                                        {{ \Carbon\Carbon::parse($jurnal->display_jam_mulai)->format('H:i') }}
                                         –
-                                        {{ \Carbon\Carbon::parse($jurnal->jadwal->jamPelajaran->jam_selesai)->format('H:i') }}
+                                        {{ \Carbon\Carbon::parse($jurnal->display_jam_selesai)->format('H:i') }}
                                     @else
                                         -
                                     @endif
@@ -135,11 +135,11 @@
                             <!-- Materi & Catatan Kejadian -->
                             <td>
                                 <div class="text-dark" style="font-size: 0.85rem; max-width: 400px;">
-                                    {{ \Illuminate\Support\Str::limit($jurnal->materi, 80) }}
+                                    {{ \Illuminate\Support\Str::limit($jurnal->display_materi, 80) }}
                                 </div>
-                                @if($jurnal->catatan_kejadian)
+                                @if($jurnal->display_catatan)
                                     <div class="text-warning small mt-1">
-                                        <i class="bi bi-exclamation-triangle-fill me-1"></i>{{ \Illuminate\Support\Str::limit($jurnal->catatan_kejadian, 50) }}
+                                        <i class="bi bi-exclamation-triangle-fill me-1"></i>{{ \Illuminate\Support\Str::limit($jurnal->display_catatan, 50) }}
                                     </div>
                                 @endif
                                 @if($jurnal->foto_kegiatan)

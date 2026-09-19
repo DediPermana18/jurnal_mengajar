@@ -17,6 +17,10 @@
         <input type="text" name="nip" value="{{ old('nip', $isEdit ? $user->nip : '') }}" class="form-control rounded-3" maxlength="50">
     </div>
     <div class="col-md-6">
+        <label class="form-label fw-semibold text-secondary small">NOMOR WHATSAPP / HP</label>
+        <input type="text" name="no_hp" value="{{ old('no_hp', $isEdit ? $user->no_hp : '') }}" class="form-control rounded-3" maxlength="20" placeholder="Contoh: 081234567890">
+    </div>
+    <div class="col-md-6">
         <label class="form-label fw-semibold text-secondary small">SUB-ROLE <span class="text-danger">*</span></label>
         <select name="sub_role" class="form-select rounded-3" required>
             <option value="">-- Pilih Sub-Role --</option>

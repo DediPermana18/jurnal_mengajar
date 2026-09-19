@@ -17,6 +17,7 @@ class AgendaRutin extends Model
         'jam_ke',
         'nama_agenda',
         'is_active',
+        'is_testing_data',
     ];
 
     protected $casts = [

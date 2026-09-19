@@ -179,6 +179,16 @@
 
         {{-- Presensi Siswa --}}
         <div class="form-section-card mb-4">
+            @if(isset($jpOptions) && count($jpOptions) > 0 && isset($jurnal))
+                <div class="d-flex gap-2 flex-wrap mb-3" role="tablist" aria-label="Pilih Jam Pelajaran">
+                    <a href="{{ route('guru.jurnal.edit', $jurnal->id) }}" class="btn btn-sm {{ $selectedJamKe === null ? 'btn-primary' : 'btn-outline-primary' }} rounded-pill">Semua JP</a>
+                    @foreach($jpOptions as $jp)
+                        <a href="{{ route('guru.jurnal.edit', $jurnal->id) }}?jp={{ $jp['jam_ke'] }}" class="btn btn-sm {{ $selectedJamKe === (int) $jp['jam_ke'] ? 'btn-primary' : 'btn-outline-primary' }} rounded-pill">
+                            Jam ke-{{ $jp['jam_ke'] }}
+                        </a>
+                    @endforeach
+                </div>
+            @endif
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                 <h5 class="fw-bold text-dark mb-0">
                     <i class="bi bi-people-fill text-primary me-2"></i> Presensi Siswa Kelas {{ $jadwal->kelas?->nama_kelas }}
@@ -200,6 +210,16 @@
                 </div>
             @endif
 
+            @php
+                $piketPrefillCount = isset($piketPresensiMap) ? count($piketPresensiMap) : 0;
+            @endphp
+            @if($piketPrefillCount > 0)
+                <div class="alert alert-info border-0 rounded-3 py-2 px-3 small mb-3 d-flex align-items-center gap-2">
+                    <i class="bi bi-clipboard-check-fill"></i>
+                    <span><strong>{{ $piketPrefillCount }} siswa</strong> otomatis terisi <strong>Sakit/Izin</strong> dari Presensi Piket untuk kelas &amp; tanggal yang sama. Anda tinggal menentukan siswa lain yang <strong>Hadir / Alpa</strong> pada jam pelajaran ini.</span>
+                </div>
+            @endif
+
             <div class="table-responsive w-full overflow-x-auto">
                 <table class="table table-custom align-middle mb-0 min-w-full" id="tabelPresensi">
                     <thead>
@@ -216,32 +236,60 @@
                             @php
                                 $existingAbsensi = isset($absensiMap) ? ($absensiMap[$siswa->id] ?? null) : null;
                                 
+                                // Auto-Sync Presensi Piket: data Sakit/Izin dari Guru Piket
+                                // untuk kelas & tanggal yang sama (hanya saat form baru).
+                                $piketEntry = isset($piketPresensiMap) ? ($piketPresensiMap[$siswa->id] ?? null) : null;
+                                $prefillFromPiket = ! $existingAbsensi
+                                    && $piketEntry
+                                    && in_array($piketEntry->status, ['Sakit', 'Izin'], true);
+
                                 // Evaluasi status dispensasi & verifikasi gate Satpam
                                 $dispenInfo = isset($dispenMap) ? ($dispenMap[$siswa->id] ?? null) : null;
                                 $isDispenLocked = $dispenInfo ? (bool) $dispenInfo->is_locked : false;
                                 $dispen = $dispenInfo ? $dispenInfo->dispen : null;
+                                $isTerlambatLocked = ($dispenInfo && ($dispenInfo->is_terlambat ?? false))
+                                    || ($existingAbsensi && $existingAbsensi->status === 'Terlambat');
+                                $isAutomaticStatusLocked = $isDispenLocked || $isTerlambatLocked;
 
                                 if ($isDispenLocked) {
                                     $isTidakHadir = true;
                                     $currentStatus  = 'Dispen';
                                     $currentKeterangan = 'Dispensasi: ' . ($dispenInfo->alasan ?: 'Dispen');
+                                } elseif ($isTerlambatLocked) {
+                                    $isTidakHadir = true;
+                                    $currentStatus = 'Terlambat';
+                                    $currentKeterangan = $existingAbsensi?->keterangan
+                                        ?: 'Terlambat - Surat Masuk Kelas Digital';
                                 } else {
+                                    $defaultStatus = $prefillFromPiket ? $piketEntry->status : 'Sakit';
+                                    $defaultKeterangan = $prefillFromPiket
+                                        ? ($piketEntry->keterangan ?: 'Dari Presensi Piket: ' . $piketEntry->status)
+                                        : '';
+
                                     $isTidakHadir = old("tidak_hadir") 
                                         ? in_array($siswa->id, old("tidak_hadir", []))
-                                        : (old("presensi.{$siswa->id}.status") ? true : ($existingAbsensi ? $existingAbsensi->status !== 'Hadir' : false));
+                                        : (old("presensi.{$siswa->id}.status") ? true : ($existingAbsensi ? $existingAbsensi->status !== 'Hadir' : $prefillFromPiket));
 
-                                    $currentStatus = old("presensi.{$siswa->id}.status", old("status.{$siswa->id}", $existingAbsensi ? $existingAbsensi->status : 'Sakit'));
+                                    $currentStatus = old("presensi.{$siswa->id}.status", old("status.{$siswa->id}", $existingAbsensi ? $existingAbsensi->status : $defaultStatus));
                                     if ($currentStatus === 'Hadir') { $currentStatus = 'Sakit'; }
 
-                                    $currentKeterangan = old("presensi.{$siswa->id}.keterangan", old("keterangan.{$siswa->id}", $existingAbsensi ? $existingAbsensi->keterangan : ''));
+                                    $currentKeterangan = old("presensi.{$siswa->id}.keterangan", old("keterangan.{$siswa->id}", $existingAbsensi ? $existingAbsensi->keterangan : $defaultKeterangan));
                                 }
                             @endphp
 
-                            <tr class="presensi-row {{ $isTidakHadir ? 'tidak-hadir' : 'hadir-default' }} {{ $isDispenLocked ? 'dispen-locked-row' : '' }}" id="main_row_{{ $siswa->id }}" style="{{ $isDispenLocked ? 'opacity: 0.85;' : '' }}">
+                            <tr class="presensi-row {{ $isTidakHadir ? 'tidak-hadir' : 'hadir-default' }} {{ $isAutomaticStatusLocked ? 'dispen-locked-row' : '' }}" id="main_row_{{ $siswa->id }}" style="{{ $isAutomaticStatusLocked ? 'opacity: 0.85;' : '' }}">
                                 <td class="whitespace-nowrap">{{ $index + 1 }}</td>
                                 <td class="whitespace-nowrap">{{ $siswa->nis }}</td>
                                 <td class="fw-semibold">
                                     {{ $siswa->nama }}
+                                    @if($prefillFromPiket)
+                                        <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-2 py-1 ms-1" style="font-size: 0.7rem;">
+                                            <i class="bi bi-clipboard-check me-1"></i>Dari Presensi Piket
+                                        </span>
+                                        <div class="text-muted small mt-1">
+                                            <small><i class="bi bi-info-circle me-1"></i>Otomatis {{ $piketEntry->status }} oleh Guru Piket</small>
+                                        </div>
+                                    @endif
                                     @if($dispenInfo)
                                         <span class="badge {{ $dispenInfo->badge_class }} rounded-pill px-2 py-1 ms-1" style="font-size: 0.7rem;">
                                             <i class="bi {{ $dispenInfo->is_returned ? 'bi-box-arrow-in-left' : ($dispenInfo->is_siswa_out ? 'bi-shield-check' : 'bi-person-check-fill') }} me-1"></i>{{ $dispenInfo->badge_text }}
@@ -255,7 +303,7 @@
                                     @endif
                                 </td>
                                 <td class="text-center">
-                                    <div class="form-check d-flex justify-content-center" style="{{ $isDispenLocked ? 'cursor: not-allowed;' : '' }}">
+                                    <div class="form-check d-flex justify-content-center" style="{{ $isAutomaticStatusLocked ? 'cursor: not-allowed;' : '' }}">
                                         <input type="checkbox"
                                                class="form-check-input chk-tidak-hadir"
                                                name="tidak_hadir[]"
@@ -263,13 +311,18 @@
                                                id="tidak_hadir_{{ $siswa->id }}"
                                                onchange="togglePresensiDetail({{ $siswa->id }}, this.checked)"
                                                {{ $isTidakHadir ? 'checked' : '' }}
-                                               {{ $isDispenLocked ? 'disabled' : '' }}
-                                               style="{{ $isDispenLocked ? 'cursor: not-allowed;' : '' }}"
-                                               {{ $isDispenLocked ? 'title=Status-Dispen-Terkunci-Otomatis' : '' }}>
+                                                 {{ $isAutomaticStatusLocked ? 'disabled' : '' }}
+                                                 style="{{ $isAutomaticStatusLocked ? 'cursor: not-allowed;' : '' }}"
+                                                 {{ $isAutomaticStatusLocked ? 'title=Status-Otomatis-Terkunci' : '' }}>
                                         @if($isDispenLocked)
                                             {{-- Payload tersembunyi agar status Dispen (D) tetap terproses saat elemen di-disabled --}}
                                             <input type="hidden" name="tidak_hadir[]" value="{{ $siswa->id }}">
                                             <input type="hidden" name="presensi[{{ $siswa->id }}][status]" value="Dispen">
+                                            <input type="hidden" name="presensi[{{ $siswa->id }}][is_absent]" value="1">
+                                            <input type="hidden" name="presensi[{{ $siswa->id }}][keterangan]" value="{{ $currentKeterangan }}">
+                                        @elseif($isTerlambatLocked)
+                                            <input type="hidden" name="tidak_hadir[]" value="{{ $siswa->id }}">
+                                            <input type="hidden" name="presensi[{{ $siswa->id }}][status]" value="Terlambat">
                                             <input type="hidden" name="presensi[{{ $siswa->id }}][is_absent]" value="1">
                                             <input type="hidden" name="presensi[{{ $siswa->id }}][keterangan]" value="{{ $currentKeterangan }}">
                                         @endif
@@ -279,6 +332,10 @@
                                     @if($isDispenLocked)
                                         <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-3 py-1 fw-bold">
                                             <i class="bi bi-person-check-fill me-1"></i> Dispen
+                                        </span>
+                                    @elseif($isTerlambatLocked)
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-1 fw-bold">
+                                            <i class="bi bi-clock-history me-1"></i> Terlambat (T)
                                         </span>
                                     @else
                                         <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1 fw-bold {{ $isTidakHadir ? 'd-none' : '' }}" id="badge_hadir_{{ $siswa->id }}">
@@ -290,7 +347,7 @@
                                     @endif
                                 </td>
                             </tr>
-                            <tr class="presensi-detail {{ $isTidakHadir ? '' : 'd-none' }} {{ $isDispenLocked ? 'dispen-locked-row' : '' }}" id="detail_row_{{ $siswa->id }}" style="{{ $isDispenLocked ? 'opacity: 0.9;' : '' }}">
+                            <tr class="presensi-detail {{ $isTidakHadir ? '' : 'd-none' }} {{ $isAutomaticStatusLocked ? 'dispen-locked-row' : '' }}" id="detail_row_{{ $siswa->id }}" style="{{ $isAutomaticStatusLocked ? 'opacity: 0.9;' : '' }}">
                                 <td colspan="5" class="bg-light rounded-3">
                                     <div class="p-3">
                                         <div class="row g-3 align-items-start">
@@ -299,6 +356,11 @@
                                                 <label class="form-label fw-semibold small text-uppercase text-secondary">
                                                     Status Ketidakhadiran <span class="text-danger">*</span>
                                                 </label>
+                                                @if($isTerlambatLocked)
+                                                    <div class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-2 fw-bold">
+                                                        <i class="bi bi-clock-history me-1"></i> Terlambat (T) · Otomatis
+                                                    </div>
+                                                @else
                                                 <select name="presensi[{{ $siswa->id }}][status]"
                                                         id="status_select_{{ $siswa->id }}"
                                                         class="form-select form-select-sm rounded-3 status-ketidakhadiran input-detail-{{ $siswa->id }}"
@@ -308,12 +370,12 @@
                                                     <option value="Izin" {{ $currentStatus === 'Izin' ? 'selected' : '' }}>Izin (I)</option>
                                                     <option value="Alpa" {{ $currentStatus === 'Alpa' ? 'selected' : '' }}>Alpa (A)</option>
                                                     <option value="Dispen" {{ $currentStatus === 'Dispen' ? 'selected' : '' }}>Dispen (D)</option>
-                                                    <option value="Terlambat" {{ $currentStatus === 'Terlambat' ? 'selected' : '' }}>Terlambat (T)</option>
                                                 </select>
+                                                @endif
                                             </div>
 
                                             <!-- 2 & 3. Wrapper Container Keterangan & Foto Surat (Sakit / Izin) -->
-                                            <div class="col-md-8 detail-ketidakhadiran-wrapper {{ $currentStatus === 'Dispen' ? 'd-none' : '' }}" id="wrapper-izin-sakit-{{ $siswa->id }}">
+                                            <div class="col-md-8 detail-ketidakhadiran-wrapper {{ in_array($currentStatus, ['Dispen', 'Terlambat'], true) ? 'd-none' : '' }}" id="wrapper-izin-sakit-{{ $siswa->id }}">
                                                 <div class="row g-3">
                                                     <!-- Input Text Keterangan -->
                                                     <div class="col-md-6">
@@ -326,7 +388,7 @@
                                                                class="form-control form-control-sm rounded-3 input-detail-{{ $siswa->id }}"
                                                                placeholder="Opsional (misal: Demam, Acara Keluarga)"
                                                                value="{{ $currentKeterangan }}"
-                                                               {{ $isTidakHadir ? '' : 'disabled' }}>
+                                                               {{ ($isTidakHadir && !$isAutomaticStatusLocked) ? '' : 'disabled' }}>
                                                     </div>
 
                                                     <!-- Foto Surat Izin via Kamera Live -->
@@ -340,22 +402,22 @@
                                                                name="presensi[{{ $siswa->id }}][foto_surat_camera]" 
                                                                id="foto_surat_camera_input_{{ $siswa->id }}"
                                                                class="input-detail-{{ $siswa->id }}"
-                                                               {{ $isTidakHadir ? '' : 'disabled' }}>
+                                                               {{ ($isTidakHadir && !$isAutomaticStatusLocked) ? '' : 'disabled' }}>
 
                                                         <div class="d-flex align-items-center gap-2 flex-wrap">
                                                             <button type="button" 
                                                                     class="btn btn-sm btn-outline-primary rounded-3 input-detail-{{ $siswa->id }}"
                                                                     id="btn_trigger_surat_{{ $siswa->id }}"
                                                                     onclick="openCameraModal('foto_surat_camera_input_{{ $siswa->id }}', 'preview_surat_thumb_{{ $siswa->id }}', 'Foto Surat - {{ addslashes($siswa->nama) }}')"
-                                                                    {{ $isTidakHadir ? '' : 'disabled' }}>
+                                                                    {{ ($isTidakHadir && !$isAutomaticStatusLocked) ? '' : 'disabled' }}>
                                                                 <i class="bi bi-camera-fill me-1"></i> Kamera Live
                                                             </button>
 
                                                             <!-- THUMBNAIL SURAT SISWA -->
                                                             <div id="preview_surat_container_{{ $siswa->id }}" 
-                                                                 class="{{ ($existingAbsensi && $existingAbsensi->foto_surat) ? '' : 'd-none' }}">
+                                                                 class="{{ (($existingAbsensi && $existingAbsensi->foto_surat) || ($prefillFromPiket && $piketEntry->foto_surat)) ? '' : 'd-none' }}">
                                                                 <img id="preview_surat_thumb_{{ $siswa->id }}" 
-                                                                     src="{{ ($existingAbsensi && $existingAbsensi->foto_surat) ? asset('storage/' . $existingAbsensi->foto_surat) : '' }}" 
+                                                                     src="{{ ($existingAbsensi && $existingAbsensi->foto_surat) ? asset('storage/' . $existingAbsensi->foto_surat) : (($prefillFromPiket && $piketEntry->foto_surat) ? asset('storage/' . $piketEntry->foto_surat) : '') }}" 
                                                                      alt="Surat {{ $siswa->nama }}" 
                                                                      class="img-preview-thumbnail"
                                                                      style="width: 60px; height: 45px;"

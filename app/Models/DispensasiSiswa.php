@@ -1111,108 +1111,78 @@ class DispensasiSiswa extends Model
     }
 
     /**
-     * Terapkan status "Terlambat (T)" otomatis ke absensi_jurnal pada jurnal
-     * mengajar JP masuk kelas (jam_masuk_jp) yang sudah dibuat, setelah surat
-     * dispensasi telat berstatus "Siswa Masuk Kelas".
+     * Terapkan status "Terlambat (T)" otomatis ke SEMUA rekaman presensi
+     * (absensi_jurnal) milik siswa pada jurnal mengajar tanggal surat yang
+     * masih berstatus Alpa / A / Alfa / Hadir — setelah surat dispensasi
+     * telat berstatus "Siswa Masuk Kelas".
      *
-     * Hanya menimpa status Alpa / A / Alfa / Hadir / baris kosong — status yang
-     * lebih informatif (Sakit / Izin / Dispen / Terlambat) tidak diubah.
-     * Kolom keterangan diisi otomatis: "Terlambat - Surat Masuk Kelas Digital
-     * (kode_surat)" contoh "Terlambat - Surat Masuk Kelas Digital (SIM-0009/2026)".
+     * Status yang lebih informatif (Sakit / Izin / Dispen / Terlambat)
+     * tidak ditimpa. Kolom keterangan diisi otomatis:
+     * "Terlambat - Surat Masuk Kelas Digital (kode_surat)"
+     * contoh "Terlambat - Surat Masuk Kelas Digital (SIM-0009/2026)".
      *
-     * @param  JadwalPelajaran|null  $jadwal  Slot jadwal JP masuk kelas (opsional).
-     *                                        Bila null, slot dicari dari kelas siswa.
      * @return int Jumlah baris absensi jurnal yang diubah menjadi Terlambat.
      */
-    public function terapkanMasukKelasKeAbsensi(?JadwalPelajaran $jadwal = null): int
+    public function terapkanMasukKelasKeAbsensi(): int
     {
         if (! $this->isTipeMasuk() || ! $this->isMasukKelas()) {
             return 0;
         }
 
-        $jamMasuk = (int) ($this->jam_masuk_jp ?? 0);
         $tanggal = $this->tanggal?->toDateString();
-        $idKelas = $this->siswa?->id_kelas;
+        $idSiswa = (int) $this->id_siswa;
 
-        if ($jamMasuk < 1 || ! $tanggal || ! $idKelas) {
+        if (! $tanggal || $idSiswa < 1) {
             return 0;
         }
 
-        $jadwals = $jadwal
-            ? collect([$jadwal])
-            : JadwalPelajaran::with('jamPelajaran')
-                ->where('id_kelas', $idKelas)
-                ->get()
-                ->filter(fn (JadwalPelajaran $j) => $j->jamPelajaran && (int) $j->jamPelajaran->jam_ke === $jamMasuk);
-
-        $idSiswa = (int) $this->id_siswa;
-        $count = 0;
-
-        foreach ($jadwals as $j) {
-            $jurnal = Jurnal::where('id_jadwal', $j->id)
-                ->whereDate('tanggal', $tanggal)
-                ->first();
-
-            if (! $jurnal) {
-                continue;
-            }
-
-            $row = AbsensiJurnal::where('id_jurnal', $jurnal->id)
-                ->where('id_siswa', $idSiswa)
-                ->first();
-
-            $current = $row?->status;
-
-            // Jangan menimpa status yang lebih informatif (Sakit / Izin / Dispen / Terlambat).
-            if (in_array($current, ['Sakit', 'Izin', 'Dispen', 'Terlambat'], true)) {
-                continue;
-            }
-
-            // Alpa / A / Alfa / Hadir / NULL (baris belum ada) -> Terlambat.
-            AbsensiJurnal::updateOrCreate(
-                ['id_jurnal' => $jurnal->id, 'id_siswa' => $idSiswa],
-                [
-                    'status' => 'Terlambat',
-                    'keterangan' => 'Terlambat - Surat Masuk Kelas Digital ('.$this->nomor_surat.')',
-                ]
-            );
-            $count++;
-        }
-
-        return $count;
+        // Update SEMUA rekaman presensi siswa ini pada jurnal mengajar tanggal
+        // surat (hari yang sama) yang masih Alpa / Alfa / A / Hadir menjadi
+        // "Terlambat". Query Eloquent otomatis menghormati scope data testing
+        // (is_testing_data) sesuai user yang sedang login.
+        return AbsensiJurnal::query()
+            ->where('id_siswa', $idSiswa)
+            ->whereIn('status', ['Alpa', 'Alfa', 'A', 'Hadir'])
+            ->whereIn(
+                'id_jurnal',
+                Jurnal::query()->whereDate('tanggal', $tanggal)->select('id')
+            )
+            ->update([
+                'status' => 'Terlambat',
+                'keterangan' => 'Terlambat - Surat Masuk Kelas Digital ('.$this->nomor_surat.')',
+                'id_dispensasi' => (int) $this->id,
+            ]);
     }
 
     /**
      * Rekonsiliasi saat jurnal mengajar disimpan/diubah: terapkan "Terlambat"
      * untuk semua siswa dengan surat dispensasi masuk kelas yang sudah
-     * diverifikasi ("Siswa Masuk Kelas") pada JP & tanggal jurnal tersebut.
-     * Menjamin siswa telat tercatat Terlambat meski jurnal diisi SETELAH
-     * verifikasi masuk kelas.
+     * diverifikasi ("Siswa Masuk Kelas") pada tanggal jurnal tersebut.
+     * Menjamin siswa telat tercatat Terlambat di SEMUA jurnal hari itu meski
+     * jurnal diisi SETELAH verifikasi masuk kelas.
      *
      * @return int Jumlah baris absensi jurnal yang diubah menjadi Terlambat.
      */
     public static function terapkanMasukKelasUntukJadwal(int $idJadwal, string $tanggal): int
     {
-        $jadwal = JadwalPelajaran::with('jamPelajaran')->find($idJadwal);
+        $jadwal = JadwalPelajaran::find($idJadwal);
 
-        if (! $jadwal || ! $jadwal->jamPelajaran) {
+        if (! $jadwal) {
             return 0;
         }
 
-        $jamKe = (int) $jadwal->jamPelajaran->jam_ke;
         $count = 0;
 
         $suratSurat = static::withoutGlobalScope(TestingDataScope::class)
             ->with('siswa')
             ->where('tipe_dispen', self::TIPE_MASUK)
             ->where('status', self::STATUS_MASUK_KELAS)
-            ->where('jam_masuk_jp', $jamKe)
             ->whereDate('tanggal', $tanggal)
             ->whereHas('siswa', fn ($q) => $q->where('id_kelas', $jadwal->id_kelas))
             ->get();
 
         foreach ($suratSurat as $surat) {
-            $count += $surat->terapkanMasukKelasKeAbsensi($jadwal);
+            $count += $surat->terapkanMasukKelasKeAbsensi();
         }
 
         return $count;

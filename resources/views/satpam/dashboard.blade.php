@@ -82,7 +82,7 @@
         <li class="nav-item" role="presentation">
             <button class="nav-link rounded-3 px-4 py-2 fw-semibold {{ $tab === 'dispensasi' ? 'active' : '' }}"
                     id="tab-dispensasi-btn" data-bs-toggle="pill" data-bs-target="#tab-dispensasi" type="button" role="tab">
-                <i class="bi bi-door-open-fill me-1"></i> Input / Cek Dispensasi
+                <i class="bi bi-qr-code-scan me-1"></i> Cek Dispensasi / Izin Keluar
             </button>
         </li>
     </ul>
@@ -220,87 +220,11 @@
             </div>
         </div>
 
-        {{-- ================= TAB 2: INPUT / CEK DISPENSASI ================= --}}
+        {{-- ================= TAB 2: CEK DISPENSASI / IZIN KELUAR ================= --}}
         <div class="tab-pane fade {{ $tab === 'dispensasi' ? 'show active' : '' }}" id="tab-dispensasi" role="tabpanel">
             <div class="row g-4">
-                {{-- Form Input Dispensasi --}}
-                <div class="col-xl-5">
-                    <div class="table-card-custom h-100">
-                        <h5 class="fw-bold text-dark mb-1"><i class="bi bi-door-open-fill me-2 text-primary"></i>Input Dispensasi Siswa</h5>
-                        <p class="text-muted small mb-1">Siswa izin keluar / tidak ikut KBM. Guru Mapel terdeteksi otomatis dari jam pelajaran yang sedang berlangsung.</p>
-                        <div class="alert border-0 rounded-3 py-2 px-3 mb-4 bg-primary-subtle text-primary d-flex align-items-center gap-2" style="font-size:0.8rem;">
-                            <i class="bi bi-lightning-charge-fill"></i>
-                            @if($jamKeSekarang)
-                                Jam saat ini: <strong>ke-{{ $jamKeSekarang }}</strong>
-                            @else
-                                Jam KBM sedang libur / belum terjadwal.
-                            @endif
-                        </div>
-
-                        <form method="POST" action="{{ route('satpam.dispensasi.store') }}" id="formDispensasi">
-                            @csrf
-                            <input type="hidden" name="tanggal" value="{{ old('tanggal', $today) }}">
-
-                            <div class="mb-3">
-                                <label class="form-label fw-bold text-secondary text-uppercase small mb-1">Filter Kelas</label>
-                                <select id="filterKelasDispen" class="form-select rounded-3 py-2">
-                                    <option value="">Semua Kelas</option>
-                                    @foreach($kelasList as $kelas)
-                                        <option value="{{ $kelas->id }}">{{ $kelas->nama_lengkap }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label fw-bold text-secondary text-uppercase small mb-1">Siswa <span class="text-danger">*</span></label>
-                                <select name="id_siswa" id="selectSiswaDispen" class="form-select rounded-3 py-2" required>
-                                    <option value="">-- Pilih Siswa --</option>
-                                    @foreach($siswaList as $siswa)
-                                        <option value="{{ $siswa->id }}" data-kelas="{{ $siswa->id_kelas }}">
-                                            @if($siswa->kelas) {{ $siswa->kelas->nama_lengkap }} - @endif{{ $siswa->nama }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                @error('id_siswa') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label fw-bold text-secondary text-uppercase small mb-1">Jenis Dispensasi <span class="text-danger">*</span></label>
-                                <select name="jenis" class="form-select rounded-3 py-2" required>
-                                    @foreach($jenisOptions as $jenisKey => $jenisLabel)
-                                        <option value="{{ $jenisKey }}" @selected(old('jenis') === $jenisKey)>{{ $jenisLabel }}</option>
-                                    @endforeach
-                                </select>
-                                @error('jenis') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label fw-bold text-secondary text-uppercase small mb-1">
-                                    Mata Pelajaran / Guru Pengajar <span class="text-muted fw-normal">(auto-detect jam sekarang)</span>
-                                </label>
-                                <select name="id_jadwal" id="selectJadwalDispen" class="form-select rounded-3 py-2">
-                                    <option value="">-- Pilih Jam / Mapel / Guru --</option>
-                                </select>
-                                <div id="deteksiJadwalInfo" class="mt-2 small text-muted" style="display:none;"></div>
-                                @error('id_jadwal') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label fw-bold text-secondary text-uppercase small mb-1">Alasan <span class="text-danger">*</span></label>
-                                <textarea name="alasan" rows="2" class="form-control rounded-3 py-2" required maxlength="500"
-                                          placeholder="Contoh: izin dokter, keperluan keluarga...">{{ old('alasan') }}</textarea>
-                                @error('alasan') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
-                            </div>
-
-                            <button type="submit" class="btn btn-primary rounded-3 px-4 py-2 fw-semibold w-100 shadow-sm">
-                                <i class="bi bi-check2-circle me-1"></i> Catat & Setujui Dispensasi
-                            </button>
-                        </form>
-                    </div>
-                </div>
-
-                {{-- Cek / Rekap Dispensasi --}}
-                <div class="col-xl-7">
+                {{-- Cek / Verifikasi Surat Izin --}}
+                <div class="col-12">
                     <div class="table-card-custom mb-4">
                         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                             <h5 class="fw-bold text-dark mb-0"><i class="bi bi-qr-code-scan me-2 text-primary"></i>Cek Surat Izin (Kode Unik)</h5>
@@ -390,8 +314,6 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const mapJadwalKelas = {!! json_encode($mapJadwalKelas, JSON_UNESCAPED_UNICODE) !!};
-
         function setupSiswaFilter(filterId, selectId) {
             const filter = document.getElementById(filterId);
             const select = document.getElementById(selectId);
@@ -414,52 +336,6 @@
         }
 
         setupSiswaFilter('filterKelasTerlambat', 'selectSiswaTerlambat');
-        setupSiswaFilter('filterKelasDispen', 'selectSiswaDispen');
-
-        // Auto-detect Mata Pelajaran / Guru Pengajar berdasarkan jam sekarang
-        const selectSiswaDispen = document.getElementById('selectSiswaDispen');
-        const selectJadwalDispen = document.getElementById('selectJadwalDispen');
-        const deteksiInfo = document.getElementById('deteksiJadwalInfo');
-
-        if (selectSiswaDispen && selectJadwalDispen) {
-            selectSiswaDispen.addEventListener('change', function () {
-                const option = selectSiswaDispen.options[selectSiswaDispen.selectedIndex];
-                const kelasId = option ? option.dataset.kelas : '';
-                const slots = mapJadwalKelas[kelasId] || [];
-
-                selectJadwalDispen.innerHTML = '';
-                selectJadwalDispen.appendChild(new Option('-- Pilih Jam / Mapel / Guru --', ''));
-
-                if (slots.length === 0) {
-                    deteksiInfo.style.display = 'block';
-                    deteksiInfo.textContent = 'Tidak ada jadwal KBM hari ini untuk kelas ini. Dispensasi tetap dapat dicatat tanpa jam pelajaran.';
-                    return;
-                }
-
-                deteksiInfo.style.display = 'block';
-                deteksiInfo.textContent = '';
-
-                slots.forEach(function (slot) {
-                    const label = 'Jam ' + slot.jam_ke + ' (' + slot.waktu + ') | ' + slot.mapel + ' | ' + slot.guru;
-                    const opt = new Option(label, slot.id_jadwal);
-                    opt.disabled = slot.is_testing_data;
-                    selectJadwalDispen.appendChild(opt);
-                    if (slot.aktif) {
-                        opt.selected = true;
-                        deteksiInfo.innerHTML = '<i class="bi bi-magic me-1 text-primary"></i> Terdeteksi otomatis: <strong>Jam ke-' + slot.jam_ke + ' — ' + slot.mapel + ' (' + slot.guru + ')</strong>';
-                    }
-                });
-
-                if (deteksiInfo.textContent === '' && slots.length > 0) {
-                    deteksiInfo.textContent = 'Pilih jam / mapel / guru yang ditinggalkan siswa.';
-                }
-            });
-
-            // Auto-select jika siswa sudah dipilih dari old() setelah validasi gagal.
-            if (selectSiswaDispen.value) {
-                selectSiswaDispen.dispatchEvent(new Event('change'));
-            }
-        }
     });
 </script>
 @endpush

@@ -285,6 +285,7 @@
                                     <div>
                                         <div class="fw-bold text-dark">{{ $guru->nama }}</div>
                                         <div class="text-muted small">NIP: {{ $guru->nip ?: '-' }}</div>
+                                        <div class="text-muted small">No. HP: {{ $guru->no_hp ?: '-' }}</div>
                                     </div>
                                 </div>
                             </td>

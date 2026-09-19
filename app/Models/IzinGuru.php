@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasTestingData;
+use App\Services\FonnteService;
+use App\Services\StatusKehadiranService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -100,6 +102,33 @@ class IzinGuru extends Model
 
             if ($izin->status === self::STATUS_PENDING_KEPSEK && ! $izin->token_kepsek) {
                 $izin->token_kepsek = (string) Str::uuid();
+            }
+        });
+
+        // Sinkronisasi otomatis status kehadiran guru & notifikasi WA:
+        // - Final approval (status -> 'disetujui') => catat Sakit/Izin/Dinas Luar
+        //   pada tanggal terkait + kirim notifikasi WhatsApp via Fonnte.
+        // - Rollback / pembatalan dari 'disetujui'   => kembalikan ke 'Hadir'.
+        static::created(function (IzinGuru $izin) {
+            if ($izin->status === self::STATUS_DISETUJUI) {
+                StatusKehadiranService::otomatiskanDariIzinDisetujui($izin);
+                FonnteService::notifyIzinDisetujui($izin);
+            }
+        });
+
+        static::updated(function (IzinGuru $izin) {
+            $statusLama = $izin->getOriginal('status');
+            $statusBaru = $izin->status;
+
+            if ($statusBaru === self::STATUS_DISETUJUI && $statusLama !== self::STATUS_DISETUJUI) {
+                StatusKehadiranService::otomatiskanDariIzinDisetujui($izin);
+                FonnteService::notifyIzinDisetujui($izin);
+
+                return;
+            }
+
+            if ($statusLama === self::STATUS_DISETUJUI && $statusBaru !== self::STATUS_DISETUJUI) {
+                StatusKehadiranService::kembalikanKeHadir($izin);
             }
         });
     }

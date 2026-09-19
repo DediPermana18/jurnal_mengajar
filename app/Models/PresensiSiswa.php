@@ -20,6 +20,7 @@ class PresensiSiswa extends Model
         'tanggal',
         'status',
         'keterangan',
+        'foto_surat',
         'id_guru_piket',
     ];
 

@@ -136,8 +136,8 @@ class SatpamController extends Controller
      * Dashboard Satpam fokus kedisiplinan siswa di gerbang dengan 2 tab:
      * - Tab 1 "Input Siswa Terlambat" (form + rekap, otomatis diteruskan ke
      *   semua Guru Piket hari ini & Wali Kelas siswa).
-     * - Tab 2 "Input / Cek Dispensasi" (form dispen + auto-detect mapel/guru
-     *   + rekap dispensasi hari ini + verifikasi surat izin).
+     * - Tab 2 "Cek Dispensasi / Izin Keluar" (verifikasi surat izin via kode unik
+     *   + rekap dispensasi hari ini).
      */
     public function dashboard(Request $request)
     {
@@ -178,9 +178,6 @@ class SatpamController extends Controller
         $kelasList = Kelas::withCount('siswa')->orderBy('tingkat')->orderBy('nama_kelas')->get();
         $siswaList = Siswa::with('kelas')->orderBy('nama')->get();
 
-        $jamKeSekarang = $this->jamKeSekarang();
-        $mapJadwalKelas = $this->jadwalHariIniByKelas();
-        $jenisOptions = DispensasiSiswa::JENIS_LABELS;
         $guruPiketHariIni = static::guruPiketBertugasHariIni();
 
         return view('satpam.dashboard', compact(
@@ -193,9 +190,6 @@ class SatpamController extends Controller
             'daftarIzinKeluar',
             'kelasList',
             'siswaList',
-            'jamKeSekarang',
-            'mapJadwalKelas',
-            'jenisOptions',
             'guruPiketHariIni'
         ));
     }

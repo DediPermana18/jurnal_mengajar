@@ -60,6 +60,18 @@ class AuthRedirectTest extends TestCase
         ])->assertRedirect(route('home'));
     }
 
+    public function test_petugas_it_di_redirect_ke_dashboard_it(): void
+    {
+        $it = $this->makeUser('petugas_it', null, 'it123');
+
+        $this->post('/login', [
+            'login_id' => $it->username,
+            'password' => 'password123',
+            'mode' => 'admin',
+            'kode_aktivasi' => 'it123',
+        ])->assertRedirect(route('it.dashboard'));
+    }
+
     public function test_guru_di_redirect_ke_dashboard_guru(): void
     {
         $guru = $this->makeUser('guru', 'guru');

@@ -197,24 +197,30 @@
                             <td class="text-end">
                                 <div class="d-flex align-items-center justify-content-end gap-1">
                                     @if($izin->status === \App\Models\IzinGuru::STATUS_PENDING_KEPSEK)
-                                        <button type="button" class="btn btn-sm btn-success rounded-3 text-xs fw-semibold shadow-sm d-inline-flex align-items-center gap-1"
-                                                onclick="openTtdKepsekModal({{ $izin->id }}, '{{ addslashes($izin->user?->nama ?? 'Guru') }}')"
-                                                title="Proses TTD Kepsek">
-                                            <i class="bi bi-pencil-square"></i>
-                                            <span>Tinjau & Tanda Tangan</span>
-                                        </button>
-                                        @if($izin->token_kepsek)
-                                            <a href="{{ route('izin.approval.show', $izin->token_kepsek) }}" target="_blank"
-                                               class="btn btn-sm btn-outline-primary rounded-3 text-xs"
-                                               title="Buka Form Standalone TTD Kepsek">
-                                                <i class="bi bi-box-arrow-up-right"></i>
-                                            </a>
+                                        @if($izin->user_id === auth()->id())
+                                            <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-2 py-1" style="font-size:0.68rem;">
+                                                <i class="bi bi-person-lock me-1"></i>Pengajuan Anda (Menunggu Petugas Lain)
+                                            </span>
+                                        @else
+                                            <button type="button" class="btn btn-sm btn-success rounded-3 text-xs fw-semibold shadow-sm d-inline-flex align-items-center gap-1"
+                                                    onclick="openTtdKepsekModal({{ $izin->id }}, '{{ addslashes($izin->user?->nama ?? 'Guru') }}')"
+                                                    title="Proses TTD Kepsek">
+                                                <i class="bi bi-pencil-square"></i>
+                                                <span>Tinjau & Tanda Tangan</span>
+                                            </button>
+                                            @if($izin->token_kepsek)
+                                                <a href="{{ route('izin.approval.show', $izin->token_kepsek) }}" target="_blank"
+                                                   class="btn btn-sm btn-outline-primary rounded-3 text-xs"
+                                                   title="Buka Form Standalone TTD Kepsek">
+                                                    <i class="bi bi-box-arrow-up-right"></i>
+                                                </a>
+                                            @endif
+                                            <button type="button" class="btn btn-sm btn-outline-danger rounded-3 text-xs"
+                                                    onclick="openRejectKepsekModal({{ $izin->id }}, '{{ addslashes($izin->user?->nama ?? 'Guru') }}')"
+                                                    title="Tolak Pengajuan">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
                                         @endif
-                                        <button type="button" class="btn btn-sm btn-outline-danger rounded-3 text-xs"
-                                                onclick="openRejectKepsekModal({{ $izin->id }}, '{{ addslashes($izin->user?->nama ?? 'Guru') }}')"
-                                                title="Tolak Pengajuan">
-                                            <i class="bi bi-x-circle"></i>
-                                        </button>
                                     @endif
 
                                     <button type="button" class="btn btn-sm btn-light border rounded-3 text-xs"

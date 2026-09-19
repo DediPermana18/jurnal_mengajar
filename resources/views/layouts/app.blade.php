@@ -760,6 +760,16 @@
                     </a>
                 </div>
 
+                <!-- Status Kehadiran Guru -->
+                <div class="nav-item-container">
+                    <a href="{{ route('piket.status-guru') }}" class="nav-btn {{ request()->routeIs('piket.status-guru*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-people-fill"></i>
+                            <span>Status Kehadiran Guru</span>
+                        </span>
+                    </a>
+                </div>
+
             @elseif($isGuruContext)
                 {{-- ================= NAVIGASI GURU (GURU MAPEL & WALI KELAS) ================= --}}
                 <div class="nav-item-container mt-2">
@@ -916,6 +926,16 @@
                             <span class="btn-left">
                                 <i class="bi bi-person-check-fill"></i>
                                 <span>Approval Izin Guru</span>
+                            </span>
+                        </a>
+                    </div>
+
+                    <!-- Status Kehadiran Guru -->
+                    <div class="nav-item-container">
+                        <a href="{{ route('piket.status-guru') }}" class="nav-btn {{ request()->routeIs('piket.status-guru*') ? 'active' : '' }}">
+                            <span class="btn-left">
+                                <i class="bi bi-people-fill"></i>
+                                <span>Status Kehadiran Guru</span>
                             </span>
                         </a>
                     </div>
@@ -1143,11 +1163,16 @@
 
                 @if($isPetugasTU || $isSuperAdmin)
                     @php
-                        $isJadwalAdminActive = request()->is('*jadwal*') 
-                                            || request()->is('*jam-pelajaran*') 
-                                            || request()->routeIs('admin.jam-pelajaran.*') 
-                                            || request()->routeIs('admin.jam-pulang.*') 
-                                            || request()->routeIs('admin.agenda-rutin.*') 
+                        // Dropdown "Jadwal Pelajaran" hanya aktif pada submenu pelajaran.
+                        // TIDAK memakai pola '*jadwal*' (terlalu luas & menabrak
+                        // "Jadwal Piket Guru" di /kurikulum/jadwal-piket*).
+                        // Plotting Jadwal Kelas berada di URL /admin/jadwal*.
+                        $isJadwalAdminActive = request()->is('admin/jam-pelajaran*')
+                                            || request()->is('admin/jadwal*')
+                                            || request()->is('kurikulum/jam-pelajaran*')
+                                            || request()->routeIs('admin.jam-pelajaran.*')
+                                            || request()->routeIs('admin.jam-pulang.*')
+                                            || request()->routeIs('admin.agenda-rutin.*')
                                             || request()->routeIs('admin.jadwal.*');
                     @endphp
                     <div class="nav-item-container" x-data="{ open: {{ $isJadwalAdminActive ? 'true' : 'false' }} }">
@@ -1213,7 +1238,7 @@
                 {{-- Jadwal Piket Guru: Super Admin & Petugas TU --}}
                 @if($isSuperAdmin || $isPetugasTU)
                     <div class="nav-item-container">
-                        <a href="{{ route('kurikulum.jadwal-piket.index') }}" class="nav-btn {{ request()->routeIs('kurikulum.jadwal-piket.*') ? 'active' : '' }}">
+                        <a href="{{ route('kurikulum.jadwal-piket.index') }}" class="nav-btn {{ (request()->is('*jadwal-piket*') || request()->routeIs('kurikulum.jadwal-piket.*')) ? 'active' : '' }}">
                             <span class="btn-left">
                                 <i class="bi bi-shield-check"></i>
                                 <span>Jadwal Piket Guru</span>

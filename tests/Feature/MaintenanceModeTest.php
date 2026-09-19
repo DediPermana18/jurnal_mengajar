@@ -155,7 +155,7 @@ class MaintenanceModeTest extends TestCase
                 'kode_aktivasi' => 'it123',
                 'mode' => 'admin',
             ])
-            ->assertRedirect(route('home'))
+            ->assertRedirect(route('it.dashboard'))
             ->assertSessionHasNoErrors();
 
         $this->assertAuthenticated();
@@ -174,7 +174,7 @@ class MaintenanceModeTest extends TestCase
                 'kode_aktivasi' => 'qa123',
                 'mode' => 'admin',
             ])
-            ->assertRedirect(route('home'))
+            ->assertRedirect(route('it.dashboard'))
             ->assertSessionHasNoErrors();
 
         $this->assertAuthenticated();

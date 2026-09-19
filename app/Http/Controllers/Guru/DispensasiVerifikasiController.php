@@ -198,8 +198,9 @@ class DispensasiVerifikasiController extends Controller
     /**
      * Aksi "Izinkan Masuk Kelas":
      *   a. Status surat -> "Siswa Masuk Kelas" (dengan audit verifikator).
-     *   b. Presensi siswa pada Jurnal Mengajar JP tersebut -> "Terlambat"
-     *      (bila jurnal sudah diisi; bila belum, akan otomatis saat diisi).
+     *   b. SEMUA presensi siswa pada jurnal mengajar tanggal surat (hari yang
+     *      sama) yang masih Alpa / Hadir -> "Terlambat" (bila jurnal belum
+     *      diisi, presensi akan otomatis diterapkan saat jurnal diisi).
      */
     public function izinkanMasuk(Request $request, DispensasiSiswa $dispen)
     {
@@ -219,10 +220,9 @@ class DispensasiVerifikasiController extends Controller
                 ->with('error', 'Anda tidak mengajar pada Jam Pelajaran masuk kelas siswa tersebut, sehingga tidak berhak memverifikasi surat ini.');
         }
 
-        $jadwal = $eval['jadwal'];
         $jurnalAda = $eval['jurnal'] !== null;
 
-        $jumlahPresensi = DB::transaction(function () use ($dispen, $jadwal) {
+        $jumlahPresensi = DB::transaction(function () use ($dispen) {
             // 1. Update status surat menjadi "Siswa Masuk Kelas".
             $dispen->update([
                 'status' => DispensasiSiswa::STATUS_MASUK_KELAS,
@@ -230,8 +230,9 @@ class DispensasiVerifikasiController extends Controller
                 'masuk_kelas_by' => auth()->id(),
             ]);
 
-            // 2. Presensi jurnal JP masuk kelas -> Terlambat (untuk surat ini).
-            return $dispen->terapkanMasukKelasKeAbsensi($jadwal);
+            // 2. Presensi jurnal hari ini (semua jurnal mengajar tanggal surat)
+            //    milik siswa -> Terlambat (untuk surat ini).
+            return $dispen->terapkanMasukKelasKeAbsensi();
         });
 
         $pesan = 'Siswa '.($dispen->siswa?->nama ?: '-')

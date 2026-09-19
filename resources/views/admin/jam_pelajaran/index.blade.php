@@ -188,6 +188,11 @@
                                         };
                                     }
 
+                                    // Label ringkas per baris (dipakai JS untuk grouping bulk edit)
+                                    $rowLabel = $jam->jenis === 'istirahat'
+                                        ? $jenisLabel
+                                        : (($jam->jam_ke ? "Jam {$jam->jam_ke} (KBM)" : 'KBM'));
+
                                     $jenisBadge = match($jam->jenis) {
                                         'kbm'       => ['bg' => '#ecfdf5', 'color' => '#059669', 'border' => '#a7f3d0', 'icon' => 'bi-book-fill'],
                                         'istirahat' => ['bg' => '#fff7ed', 'color' => '#ea580c', 'border' => '#fed7aa', 'icon' => 'bi-cup-hot-fill'],
@@ -196,7 +201,12 @@
                                 @endphp
                                 <tr>
                                     <td class="ps-4">
-                                        <input type="checkbox" class="form-check-input jp-checkbox" value="{{ $jam->id }}" style="cursor: pointer;">
+                                        <input type="checkbox" class="form-check-input jp-checkbox" value="{{ $jam->id }}"
+                                                       data-jenis="{{ $jam->jenis }}"
+                                                       data-jam-ke="{{ $jam->jam_ke ?? '' }}"
+                                                       data-label="{{ $rowLabel }}"
+                                                       data-durasi="{{ $durasi }}"
+                                                       style="cursor: pointer;">
                                     </td>
                                     <td class="ps-4 whitespace-nowrap">
                                         <div class="d-flex align-items-center gap-2">
@@ -768,10 +778,13 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">
-                            Durasi Baru (menit) <span class="text-danger">*</span>
+                            Durasi per Kelompok Slot (menit) <span class="text-danger">*</span>
                         </label>
-                        <input type="number" name="durasi_bulk" id="bulkDurasi" class="form-control rounded-3"
-                               min="1" max="600" step="1" value="40" autocomplete="off" required>
+                        <div id="bulkGroupList" class="d-flex flex-column gap-3"></div>
+                        <div class="form-text text-muted mt-2" style="font-size: 0.76rem;">
+                            Setiap kelompok slot memiliki input durasi sendiri. Timeline jam dihitung ulang otomatis
+                            agar tetap rapat berurutan.
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer border-0 pt-0">
@@ -1234,8 +1247,9 @@
         const btnBulkBatal    = document.getElementById('btnBulkBatal');
         const modalBulkEdit   = document.getElementById('modalBulkEdit');
         const formBulkEdit    = document.getElementById('formBulkEdit');
-        const bulkDurasiInput = document.getElementById('bulkDurasi');
+        const bulkGroupList   = document.getElementById('bulkGroupList');
         let bulkSelectedIds   = [];
+        let bulkGroups        = []; // [{ jenis, slots: [{id, jenis, jamKe, label, durasi}] }]
 
         function getAllBulkBoxes() {
             return Array.prototype.slice.call(document.querySelectorAll('.jp-checkbox'));
@@ -1278,7 +1292,92 @@
             cb.addEventListener('change', updateBulkUI);
         });
 
-        // Tombol "Edit Terpilih": kunci ID terpilih lalu buka modal bulk edit
+        // Kelompokkan slot tercentang berdasarkan run urutan jenis (KBM/istirahat)
+        function buildBulkGroups() {
+            const groups = [];
+            getAllBulkBoxes()
+                .filter(function (cb) { return cb.checked; })
+                .forEach(function (cb) {
+                    const jenis = cb.getAttribute('data-jenis') || 'kbm';
+                    const slot = {
+                        id: cb.value,
+                        jenis: jenis,
+                        jamKe: parseInt(cb.getAttribute('data-jam-ke'), 10),
+                        label: cb.getAttribute('data-label')
+                            || (jenis === 'istirahat' ? 'Istirahat' : 'Jam ' + cb.getAttribute('data-jam-ke') + ' (KBM)'),
+                        durasi: parseInt(cb.getAttribute('data-durasi'), 10),
+                    };
+                    const last = groups[groups.length - 1];
+                    if (last && last.jenis === jenis) {
+                        last.slots.push(slot);
+                    } else {
+                        groups.push({ jenis: jenis, slots: [slot] });
+                    }
+                });
+            return groups;
+        }
+
+        function buildGroupLabel(group) {
+            if (!group || group.slots.length === 0) return '';
+            if (group.slots.length === 1) return group.slots[0].label;
+            if (group.jenis === 'kbm') {
+                const nums = group.slots
+                    .map(function (s) { return s.jamKe; })
+                    .filter(function (n) { return Number.isFinite(n); })
+                    .sort(function (a, b) { return a - b; });
+                if (nums.length > 0) {
+                    return 'Jam ' + nums[0] + ' - Jam ' + nums[nums.length - 1] + ' (KBM)';
+                }
+            }
+            return group.slots[0].label + ' - ' + group.slots[group.slots.length - 1].label;
+        }
+
+        // Render satu input durasi per kelompok slot di dalam modal
+        function renderBulkGroups(groups) {
+            if (!bulkGroupList) return;
+            bulkGroupList.innerHTML = '';
+
+            groups.forEach(function (group) {
+                const firstDurasi = group.slots[0].durasi;
+                const variatif = group.slots.some(function (s) { return s.durasi !== firstDurasi; });
+
+                const item = document.createElement('div');
+                item.className = 'bulk-group border rounded-3 p-3';
+                item.style.backgroundColor = '#fcfcfd';
+
+                const head = document.createElement('div');
+                head.className = 'd-flex flex-wrap justify-content-between align-items-center gap-2 mb-2';
+                const label = document.createElement('label');
+                label.className = 'fw-semibold text-dark mb-0';
+                label.style.fontSize = '0.82rem';
+                label.textContent = buildGroupLabel(group);
+                const badge = document.createElement('span');
+                badge.className = 'text-muted small';
+                badge.textContent = group.slots.length + ' slot';
+                head.appendChild(label);
+                head.appendChild(badge);
+
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.min = '1';
+                input.max = '600';
+                input.step = '1';
+                input.autocomplete = 'off';
+                input.required = true;
+                input.className = 'form-control rounded-3 bulk-group-durasi';
+                if (variatif) {
+                    input.placeholder = 'Variatif (Isi durasi baru)';
+                } else if (Number.isFinite(firstDurasi)) {
+                    input.value = firstDurasi;
+                }
+
+                item.appendChild(head);
+                item.appendChild(input);
+                bulkGroupList.appendChild(item);
+            });
+        }
+
+        // Tombol "Edit Terpilih": kunci ID terpilih, kelompokkan & buka modal bulk edit
         if (btnBulkEdit && modalBulkEdit) {
             btnBulkEdit.addEventListener('click', function () {
                 bulkSelectedIds = getSelectedBulkIds();
@@ -1288,39 +1387,59 @@
                 const lblCountBtn  = document.getElementById('bulkEditCountBtn');
                 if (lblCount)    lblCount.textContent    = bulkSelectedIds.length;
                 if (lblCountBtn) lblCountBtn.textContent = bulkSelectedIds.length;
-                if (bulkDurasiInput) bulkDurasiInput.value = 40;
+
+                // Kelompokkan slot tercentang (run urutan jenis) & render input per kelompok
+                bulkGroups = buildBulkGroups();
+                renderBulkGroups(bulkGroups);
 
                 const modal = new bootstrap.Modal(modalBulkEdit);
                 modal.show();
             });
         }
 
-        // Submit form bulk edit: bangun payload updates[] dari ID terpilih
+        // Submit form bulk edit: bangun payload updates[] dari durasi per kelompok slot
         if (formBulkEdit) {
             formBulkEdit.addEventListener('submit', function (e) {
                 e.preventDefault();
                 if (!formBulkEdit.reportValidity()) return;
 
-                const durasi = parseInt(bulkDurasiInput ? bulkDurasiInput.value : '40', 10);
-                if (isNaN(durasi) || durasi < 1) return;
+                // Baca durasi dari tiap kelompok (urutan render = urutan kelompok)
+                const inputs = Array.prototype.slice.call(
+                    document.querySelectorAll('#bulkGroupList .bulk-group-durasi')
+                );
+                const durasis = inputs.map(function (inp) {
+                    return parseInt(inp.value, 10);
+                });
+
+                // Validasi: semua kelompok wajib terisi durasi valid (1-600)
+                if (durasis.length === 0) return;
+                if (durasis.some(function (d) { return !Number.isFinite(d) || d < 1 || d > 600; })) return;
 
                 // Hapus input tersembunyi lama (jika ada)
                 formBulkEdit.querySelectorAll('input[type="hidden"][name^="updates"]').forEach(function (el) {
                     el.remove();
                 });
 
-                bulkSelectedIds.forEach(function (id, i) {
-                    const hid = document.createElement('input');
-                    hid.type = 'hidden';
-                    hid.name = 'updates[' + i + '][id]';
-                    hid.value = id;
-                    formBulkEdit.appendChild(hid);
+                // Expose payload tambahan agar durable (untuk kompatibilitas XHR)
+                let idx = 0;
+                durasis.forEach(function (durasi, gi) {
+                    const group = bulkGroups[gi];
+                    if (!group) return;
+                    group.slots.forEach(function (slot) {
+                        const hid = document.createElement('input');
+                        hid.type = 'hidden';
+                        hid.name = 'updates[' + idx + '][id]';
+                        hid.value = slot.id;
+                        formBulkEdit.appendChild(hid);
 
-                    const hd = document.createElement('input');
-                    hd.type = 'hidden';
-                    hd.name = 'updates[' + i + '][durasi]';
-                    hd.value = durasi;
-                    formBulkEdit.appendChild(hd);
+                        const hd = document.createElement('input');
+                        hd.type = 'hidden';
+                        hd.name = 'updates[' + idx + '][durasi]';
+                        hd.value = durasi;
+                        formBulkEdit.appendChild(hd);
+
+                        idx++;
+                    });
                 });
 
                 formBulkEdit.submit();

@@ -67,6 +67,17 @@
         </ul>
     </div>
 
+    @php
+        // Kumpulan ID "user aktif" (login asli + target simulasi/impersonasi).
+        // Pengajuan milik ID mana pun dari daftar ini TIDAK boleh diverifikasi/ditolak oleh diri sendiri.
+        $izinOwnerIds = array_values(array_unique(array_filter([
+            (int) auth()->id(),
+            (int) session('impersonate_target_id'),
+            (int) session('simulated_user_id'),
+        ], fn ($v) => $v > 0)));
+        $isOwnIzin = fn ($izin) => in_array((int) $izin->user_id, $izinOwnerIds, true);
+    @endphp
+
     {{-- Tabel --}}
     <div class="table-card-custom mb-4">
         <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
@@ -102,17 +113,24 @@
                             <td class="text-end text-nowrap whitespace-nowrap">
                                 <div class="flex items-center justify-center gap-2 whitespace-nowrap">
                                     @if($izin->status === \App\Models\IzinGuru::STATUS_PENDING_PIKET)
-                                        <form action="{{ route('piket.izin.approve', $izin->id) }}" method="POST" class="d-inline"
-                                              onsubmit="return confirm('Verifikasi izin {{ addslashes($izin->user?->nama ?? 'guru') }} dari Piket?')">
-                                            @csrf
-                                            <button type="submit" class="btn btn-sm btn-success rounded-3" title="Verifikasi Step 1 (Piket)">
-                                                <i class="bi bi-check-lg me-1"></i>Verifikasi Piket
+                                        @if($isOwnIzin($izin))
+                                            <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-2 py-1" style="font-size:0.72rem;"
+                                                  title="Pengajuan milik Anda atau user yang sedang Anda simulasikan — Anda tidak memiliki akses approval.">
+                                                <i class="bi bi-person-lock me-1"></i>Pengajuan Anda / Tidak Memiliki Akses Approval
+                                            </span>
+                                        @else
+                                            <form action="{{ route('piket.izin.approve', $izin->id) }}" method="POST" class="d-inline"
+                                                  onsubmit="return confirm('Verifikasi izin {{ addslashes($izin->user?->nama ?? 'guru') }} dari Piket?')">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-success rounded-3" title="Verifikasi Step 1 (Piket)">
+                                                    <i class="bi bi-check-lg me-1"></i>Verifikasi Piket
+                                                </button>
+                                            </form>
+                                            <button type="button" class="btn btn-sm btn-danger rounded-3"
+                                                    data-bs-toggle="modal" data-bs-target="#modalTolak{{ $izin->id }}">
+                                                <i class="bi bi-x-lg me-1"></i>Tolak
                                             </button>
-                                        </form>
-                                        <button type="button" class="btn btn-sm btn-danger rounded-3"
-                                                data-bs-toggle="modal" data-bs-target="#modalTolak{{ $izin->id }}">
-                                            <i class="bi bi-x-lg me-1"></i>Tolak
-                                        </button>
+                                        @endif
                                     @elseif($izin->status === \App\Models\IzinGuru::STATUS_PENDING_WAKA || $izin->status === \App\Models\IzinGuru::STATUS_PENDING_KEPSEK)
                                         @php
                                             $approvalLink = $izin->status === \App\Models\IzinGuru::STATUS_PENDING_WAKA
@@ -186,7 +204,7 @@
 
 {{-- Modal Tolak --}}
 @foreach($daftarIzin as $izin)
-    @if($izin->isPending())
+    @if($izin->isPending() && ! $isOwnIzin($izin))
         <div class="modal fade" id="modalTolak{{ $izin->id }}" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content border-0 shadow-lg rounded-4">

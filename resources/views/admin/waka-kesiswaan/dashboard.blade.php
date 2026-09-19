@@ -42,7 +42,7 @@
 <div class="container-fluid px-0">
 
     {{-- Header --}}
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <div class="d-flex align-items-center gap-2 mb-1">
                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 rounded-pill fw-semibold text-xs">
@@ -56,11 +56,11 @@
                 Peninjauan dispensasi siswa, verifikasi kelayakan, dan penandatanganan digital surat dispensasi.
             </p>
         </div>
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-            <a href="{{ route('waka-kesiswaan.dispensasi.approval.index') }}" class="btn btn-primary rounded-3 fw-semibold text-sm d-flex align-items-center gap-1.5 shadow-sm">
+        <div class="d-flex flex-column align-items-end gap-2">
+            <a href="{{ route('waka-kesiswaan.dispensasi.approval.index') }}" class="btn btn-primary rounded-3 fw-semibold text-sm m-0 d-flex align-items-center gap-1.5 shadow-sm">
                 <i class="bi bi-clipboard-check"></i> Approval Dispensasi
             </a>
-            <span class="badge bg-white text-dark border shadow-2xs rounded-pill px-3 py-2 fw-semibold text-sm">
+            <span class="badge bg-white text-dark border shadow-2xs rounded-pill px-3 py-2 fw-semibold text-sm m-0">
                 <i class="bi bi-calendar3 me-1 text-primary"></i>
                 {{ now()->translatedFormat('l, d F Y') }}
             </span>

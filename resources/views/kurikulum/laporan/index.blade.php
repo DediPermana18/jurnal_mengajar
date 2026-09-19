@@ -6,7 +6,7 @@
 <div class="container-fluid px-0">
 
     {{-- Page Header --}}
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="fw-black text-dark mb-1" style="font-weight: 900; font-size: 1.75rem; letter-spacing: -0.02em;">
                 Laporan KBM
@@ -15,11 +15,11 @@
                 Rekapitulasi keterlaksanaan Kegiatan Belajar Mengajar per tanggal, kelas, guru, dan mata pelajaran.
             </p>
         </div>
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-            <a href="{{ route('kurikulum.laporan.print', request()->query()) }}" class="btn btn-outline-danger rounded-3 px-3 py-2 fw-semibold">
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ route('kurikulum.laporan.print', request()->query()) }}" class="btn btn-outline-danger rounded-3 px-3 py-2 fw-semibold m-0">
                 <i class="bi bi-file-earmark-pdf me-1"></i> Download PDF
             </a>
-            <a href="{{ route('kurikulum.laporan.excel', request()->query()) }}" class="btn btn-outline-success rounded-3 px-3 py-2 fw-semibold">
+            <a href="{{ route('kurikulum.laporan.excel', request()->query()) }}" class="btn btn-outline-success rounded-3 px-3 py-2 fw-semibold m-0">
                 <i class="bi bi-file-earmark-excel me-1"></i> Export Excel
             </a>
         </div>
