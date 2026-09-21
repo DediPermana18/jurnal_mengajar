@@ -166,8 +166,10 @@
             {{-- Profile Identity Card --}}
             <div class="profil-card p-4 text-center mb-3 d-flex flex-column align-items-center justify-content-center">
                 @php
-                    $defaultAvatar = 'https://ui-avatars.com/api/?name=' . urlencode($user->nama) . '&background=1677ff&color=fff&size=128&bold=true';
-                    $avatarSrc = ($user->foto_profil && \Illuminate\Support\Facades\Storage::disk('public')->exists($user->foto_profil))
+                    // Null-safe: user mungkin tidak punya kolom nama terisi / tanpa record relasi
+                    $namaProfil = ($user?->nama ?? $user?->name ?? 'Pengguna');
+                    $defaultAvatar = 'https://ui-avatars.com/api/?name=' . urlencode($namaProfil) . '&background=1677ff&color=fff&size=128&bold=true';
+                    $avatarSrc = ($user?->foto_profil && \Illuminate\Support\Facades\Storage::disk('public')->exists($user->foto_profil))
                         ? asset('storage/' . $user->foto_profil)
                         : $defaultAvatar;
                 @endphp
@@ -175,13 +177,13 @@
                      onerror="this.onerror=null;this.src='{{ $defaultAvatar }}';"
                      class="rounded-circle border mb-3 d-block mx-auto shadow-sm"
                      style="width:80px;height:80px;object-fit:cover;border-width:3px!important;border-color:#e2e8f0!important;">
-                <div class="fw-bold text-dark text-center" style="font-size:1rem;">{{ $user->nama }}</div>
-                <div class="text-muted text-center" style="font-size:0.78rem;">{{ $user->role_label }}</div>
-                @if($user->nip)
-                    <div class="badge bg-light text-secondary border rounded-pill px-3 mt-1 text-center" style="font-size:0.72rem;">NIP: {{ $user->nip }}</div>
+                <div class="fw-bold text-dark text-center" style="font-size:1rem;">{{ $namaProfil }}</div>
+                <div class="text-muted text-center" style="font-size:0.78rem;">{{ $user?->role_label }}</div>
+                @if($user?->nip)
+                    <div class="badge bg-light text-secondary border rounded-pill px-3 mt-1 text-center" style="font-size:0.72rem;">NIP: {{ $user->nip ?? '-' }}</div>
                 @endif
                 <div class="mt-2 text-center">
-                    @if($user->is_active)
+                    @if($user?->is_active)
                         <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1" style="font-size:0.72rem;">
                             <i class="bi bi-circle-fill me-1" style="font-size:0.5rem;"></i>Akun Aktif
                         </span>
@@ -203,7 +205,7 @@
                    onclick="switchTab(this,'section-password')">
                     <i class="bi bi-shield-lock"></i> Ganti Password
                 </a>
-                @if(auth()->user()->role === 'admin')
+                @if((auth()->user()?->role ?? '') === 'admin')
                 <a href="#section-kode" class="nav-link d-flex align-items-center gap-2"
                    onclick="switchTab(this,'section-kode')">
                     <i class="bi bi-key-fill"></i> Kode Aktivasi
@@ -248,7 +250,7 @@
                                     <label for="inputFoto" class="btn btn-outline-primary btn-sm rounded-3" style="font-size:0.8rem;">
                                         <i class="bi bi-upload me-1"></i>Pilih Foto
                                     </label>
-                                    @if($user->foto_profil)
+                                    @if($user?->foto_profil)
                                         <span class="text-muted ms-2" style="font-size:0.78rem;">
                                             <i class="bi bi-check-circle text-success me-1"></i>Foto telah diupload
                                         </span>
@@ -263,7 +265,7 @@
                                         Nama Lengkap <span class="text-danger">*</span>
                                     </label>
                                     <input type="text" name="nama" class="form-control rounded-3 @error('nama') is-invalid @enderror"
-                                           value="{{ old('nama', $user->nama) }}" required
+                                           value="{{ old('nama', $user?->nama) }}" required
                                            placeholder="Nama lengkap" style="font-size:0.875rem;">
                                     @error('nama')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
@@ -273,7 +275,7 @@
                                         NIP <span class="text-muted fw-normal">(opsional)</span>
                                     </label>
                                     <input type="text" name="nip" class="form-control rounded-3 @error('nip') is-invalid @enderror"
-                                           value="{{ old('nip', $user->nip) }}"
+                                           value="{{ old('nip', $user?->nip) }}"
                                            placeholder="Nomor Induk Pegawai" style="font-size:0.875rem;">
                                     @error('nip')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
@@ -285,7 +287,7 @@
                                     <div class="input-group">
                                         <span class="input-group-text bg-light border-end-0 rounded-start-3" style="font-size:0.85rem;">@</span>
                                         <input type="text" name="username" class="form-control rounded-end-3 border-start-0 @error('username') is-invalid @enderror"
-                                               value="{{ old('username', $user->username) }}" required
+                                               value="{{ old('username', $user?->username) }}" required
                                                placeholder="username_anda" style="font-size:0.875rem;">
                                         @error('username')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                     </div>
@@ -296,7 +298,7 @@
                                         Email <span class="text-muted fw-normal">(opsional)</span>
                                     </label>
                                     <input type="email" name="email" class="form-control rounded-3 @error('email') is-invalid @enderror"
-                                           value="{{ old('email', $user->email) }}"
+                                           value="{{ old('email', $user?->email) }}"
                                            placeholder="contoh@sekolah.sch.id" style="font-size:0.875rem;">
                                     @error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
@@ -308,7 +310,7 @@
                                     <div class="input-group">
                                         <span class="input-group-text bg-light border-end-0 rounded-start-3" style="font-size:0.85rem;"><i class="bi bi-whatsapp"></i></span>
                                         <input type="text" name="no_hp" class="form-control rounded-end-3 @error('no_hp') is-invalid @enderror"
-                                               value="{{ old('no_hp', $user->no_hp) }}"
+                                               value="{{ old('no_hp', $user?->no_hp) }}"
                                                placeholder="081234567890" style="font-size:0.875rem;">
                                         @error('no_hp')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                     </div>
@@ -422,7 +424,7 @@
             </div>
 
             {{-- ========== SECTION 3: KODE AKTIVASI ========== --}}
-            @if(auth()->user()->role === 'admin')
+            @if((auth()->user()?->role ?? '') === 'admin')
             <div id="section-kode" class="profil-section d-none">
                 <div class="profil-card">
                     <div class="card-header-custom">
@@ -442,7 +444,7 @@
                             <div class="col-12 col-md-5">
                                 <div class="p-3 rounded-3 border bg-light">
                                     <div class="text-muted mb-1" style="font-size:0.78rem;"><i class="bi bi-info-circle me-1"></i>Status Aktivasi Akun</div>
-                                    @if($user->is_active)
+                                    @if($user?->is_active)
                                         <div class="d-flex align-items-center gap-2">
                                             <span class="badge bg-success rounded-pill px-2">Aktif</span>
                                             <span class="text-success fw-semibold" style="font-size:0.875rem;">Akun sudah diaktifkan</span>
@@ -458,9 +460,9 @@
                             <div class="col-12 col-md-7">
                                 <div class="p-3 rounded-3 border bg-light">
                                     <div class="text-muted mb-2" style="font-size:0.78rem;"><i class="bi bi-qr-code me-1"></i>Kode Aktivasi Saat Ini</div>
-                                    @if($user->kode_aktivasi)
+                                    @if($user?->kode_aktivasi)
                                         <div class="d-flex align-items-center gap-3 flex-wrap">
-                                            <span class="kode-chip" id="kodeAktivasiDisplay">{{ $user->kode_aktivasi }}</span>
+                                            <span class="kode-chip" id="kodeAktivasiDisplay">{{ $user->kode_aktivasi ?? '-' }}</span>
                                             <button type="button" class="btn btn-outline-secondary btn-sm rounded-3"
                                                     onclick="copyKode()" title="Salin kode">
                                                 <i class="bi bi-clipboard" id="copyIcon"></i> Salin

@@ -143,7 +143,7 @@
 @endpush
 
 @section('content')
-<div class="container-fluid px-0">
+<div class="container-fluid px-4 py-3 md:px-0 md:py-0">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <div>
             <h2 class="fw-black text-dark mb-1" style="letter-spacing: -0.02em; font-weight: 800; font-size: 1.75rem;">Data Master Guru</h2>
@@ -262,9 +262,16 @@
         </form>
     </div>
 
-    <div class="table-card-custom mb-4">
+    {{-- ====================================================== --}}
+    {{-- TABEL DATA GURU (hanya tampil di layar ≥ md / tablet landscape) --}}
+    {{-- Catatan: wrapper ini adalah mekanisme utama sembunyi/tampil (`hidden md:block`).
+         Class `md:table` pada <table> menjaga display:table saat ≥md. `hidden` tidak
+         ditempelkan ke <table> karena utility Tailwind `.table{display:table}` (bentrok
+         dengan class Bootstrap `table`) akan menimpanya. --}}
+    {{-- ====================================================== --}}
+    <div class="table-card-custom mb-4 hidden md:block">
         <div class="table-responsive w-full overflow-x-auto">
-            <table class="table table-custom align-middle min-w-full">
+            <table class="table table-custom align-middle min-w-full md:table">
                 <thead><tr><th class="whitespace-nowrap" style="width: 28%;">GURU</th><th style="width: 28%;">MATA PELAJARAN</th><th style="width: 18%;">WALI KELAS</th><th class="whitespace-nowrap" style="width: 10%;">STATUS</th><th class="text-end whitespace-nowrap" style="width: 16%;">AKSI</th></tr></thead>
                 <tbody>
                     @forelse($dataGuru as $guru)
@@ -337,6 +344,95 @@
                 </tbody>
             </table>
         </div>
+    </div>
+
+    {{-- ====================================================== --}}
+    {{-- CARD STACK DATA GURU (hanya tampil di layar < md / HP) --}}
+    {{-- ====================================================== --}}
+    <div class="block md:hidden mb-4">
+        @forelse($dataGuru as $guru)
+            @php
+                $words = explode(' ', trim($guru->nama));
+                $initials = strtoupper(substr($words[0], 0, 1));
+                $initials .= count($words) > 1 ? strtoupper(substr(end($words), 0, 1)) : strtoupper(substr($words[0], 1, 1));
+                $mapelDiampu = $guru->mataPelajaran->unique('id');
+                $namaKelasWali = $guru->waliKelas->isEmpty() ? $guru->kelas?->nama_kelas : $guru->waliKelas->pluck('nama_kelas')->join(', ');
+            @endphp
+
+            <div class="card border-0 rounded-4 shadow-sm mb-3 overflow-hidden">
+                <div class="card-body p-3 p-sm-4">
+                    {{-- Header Card: Avatar, Nama, NIP (plus status) --}}
+                    <div class="d-flex align-items-start gap-3 pb-3 mb-3 border-bottom">
+                        <div class="rounded-circle bg-secondary-subtle text-secondary fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width: 44px; height: 44px;">
+                            {{ $initials }}
+                        </div>
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="fw-bold text-dark" style="font-size: 0.95rem; line-height: 1.35;">{{ $guru->nama }}</div>
+                            <div class="text-muted small mt-0.5">NIP: {{ $guru->nip ?: '-' }}</div>
+                        </div>
+                        <span class="badge {{ $guru->is_active ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis' }} rounded-pill px-2 py-1 flex-shrink-0" style="font-size: 0.72rem;">{{ $guru->is_active ? 'Aktif' : 'Nonaktif' }}</span>
+                    </div>
+
+                    {{-- Body Card: Mata Pelajaran & No. HP secara vertikal --}}
+                    <div class="d-flex flex-column gap-3">
+                        <div>
+                            <div class="text-uppercase small fw-semibold text-muted" style="font-size: 0.7rem; letter-spacing: 0.06em;">Mata Pelajaran</div>
+                            <div class="mt-1 d-flex flex-wrap align-items-center gap-1">
+                                @if($mapelDiampu->isNotEmpty())
+                                    @foreach($mapelDiampu as $mapel)
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 rounded-2" style="font-size: 0.78rem; font-weight: 600;">
+                                            <i class="bi bi-journal-bookmark me-1"></i>{{ $mapel->nama_mapel }}
+                                        </span>
+                                    @endforeach
+                                @else
+                                    <span class="badge bg-light text-muted border px-2 py-1 rounded-pill" style="font-size: 0.78rem;">
+                                        <i class="bi bi-dash-circle me-1"></i>Belum di-plot
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+
+                        @if($namaKelasWali)
+                            <div>
+                                <div class="text-uppercase small fw-semibold text-muted" style="font-size: 0.7rem; letter-spacing: 0.06em;">Wali Kelas</div>
+                                <div class="mt-1">
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-2" style="font-size: 0.78rem; font-weight: 600;">
+                                        <i class="bi bi-person-check me-1"></i>{{ $namaKelasWali }}
+                                    </span>
+                                </div>
+                            </div>
+                        @endif
+
+                        <div>
+                            <div class="text-uppercase small fw-semibold text-muted" style="font-size: 0.7rem; letter-spacing: 0.06em;">No. HP</div>
+                            <div class="mt-1 d-flex align-items-center gap-2">
+                                <i class="bi bi-telephone text-muted" style="font-size: 0.85rem;"></i>
+                                <span class="text-dark fw-medium" style="font-size: 0.9rem;">{{ $guru->no_hp ?: '-' }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Footer Card / Aksi --}}
+                    @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
+                        <div class="d-flex flex-wrap gap-2 pt-3 mt-3 border-top">
+                            <a href="{{ route('admin.guru.edit', $guru->id) }}" class="btn btn-sm btn-outline-warning rounded-3 flex-fill" title="Edit guru"><i class="bi bi-pencil-square me-1"></i> Edit</a>
+                            <form action="{{ route('guru.reset-password', $guru->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Reset password guru ini ke password default?')">@csrf<button type="submit" class="btn btn-sm btn-outline-info rounded-3" title="Reset password"><i class="bi bi-key"></i></button></form>
+                            @if(!$guru->is_active)
+                                <form action="{{ route('guru.approve', $guru->id) }}" method="POST" class="d-inline">@csrf<button type="submit" class="btn btn-sm btn-outline-success rounded-3" title="Aktifkan guru"><i class="bi bi-check-circle"></i></button></form>
+                            @else
+                                <form action="{{ route('guru.toggle-status', $guru->id) }}" method="POST" class="d-inline">@csrf<button type="submit" class="btn btn-sm btn-outline-secondary rounded-3" title="Nonaktifkan guru"><i class="bi bi-slash-circle"></i></button></form>
+                            @endif
+                            <form action="{{ route('guru.destroy', $guru->id) }}" method="POST" class="d-inline flex-fill" onsubmit="return confirm('Hapus data guru ini?')">@csrf @method('DELETE')<button type="submit" class="btn btn-sm btn-outline-danger rounded-3 w-100" title="Hapus guru"><i class="bi bi-trash me-1"></i> Hapus</button></form>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        @empty
+            <div class="table-card-custom text-center py-5">
+                <i class="bi bi-person-badge fs-1 d-block mb-2 text-muted"></i>
+                <div class="text-muted">Tidak ada data guru yang sesuai.</div>
+            </div>
+        @endforelse
     </div>
 </div>
 

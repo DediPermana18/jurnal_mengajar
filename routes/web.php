@@ -113,10 +113,13 @@ Route::resource('admin/mata-pelajaran', MataPelajaranController::class)
 Route::redirect('/admin/laporan', '/kurikulum/laporan')->name('laporan.index');
 
 // ================= PROFIL & PENGATURAN AKUN =================
-Route::get('/profil', [ProfilController::class, 'index'])->name('profil.index');
-Route::post('/profil/update-profil', [ProfilController::class, 'updateProfil'])->name('profil.update-profil');
-Route::post('/profil/update-password', [ProfilController::class, 'updatePassword'])->name('profil.update-password');
-Route::post('/profil/generate-kode-aktivasi', [ProfilController::class, 'generateKodeAktivasi'])->name('profil.generate-kode-aktivasi');
+// Wajib autentikasi: halaman ini mengakses Auth::user() untuk menampilkan/mengedit profil.
+// Tanpa middleware 'auth', pengunjung yang belum login akan memicu
+// "Attempt to read property on null" di resources/views/profil/index.blade.php.
+Route::get('/profil', [ProfilController::class, 'index'])->name('profil.index')->middleware('auth');
+Route::post('/profil/update-profil', [ProfilController::class, 'updateProfil'])->name('profil.update-profil')->middleware('auth');
+Route::post('/profil/update-password', [ProfilController::class, 'updatePassword'])->name('profil.update-password')->middleware('auth');
+Route::post('/profil/generate-kode-aktivasi', [ProfilController::class, 'generateKodeAktivasi'])->name('profil.generate-kode-aktivasi')->middleware('auth');
 // Legacy redirect
 Route::get('/admin/pengaturan', fn () => redirect()->route('profil.index'))->name('pengaturan.index');
 
