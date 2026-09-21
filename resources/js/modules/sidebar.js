@@ -33,23 +33,49 @@ export function initSidebar() {
         }, 300);
     }
 
-    if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', function () {
-            if (isMobile()) {
-                if (appSidebar.classList.contains('show')) {
-                    closeSidebar();
-                } else {
-                    openSidebar();
-                }
+    function toggleSidebar() {
+        if (isMobile()) {
+            if (appSidebar.classList.contains('show')) {
+                closeSidebar();
             } else {
-                appSidebar.classList.toggle('show');
+                openSidebar();
             }
+        } else {
+            appSidebar.classList.toggle('show');
+        }
+    }
+
+    if (sidebarToggle) {
+        // iOS/Safari: event 'click' kadang tidak di-trigger dengan andal pada layar
+        // sentuh (terutama tombol kecil tanpa cursor:pointer / touch-action).
+        // Solusi: tambahkan 'touchstart' (passive) di samping 'click', dengan guard
+        // `touchHandled` agar rangkaian touchend -> click tidak men-toggle dua kali
+        // (yang membuat tombol tampak "tidak merespons").
+        let touchHandled = false;
+
+        sidebarToggle.addEventListener('click', function () {
+            if (touchHandled) {
+                touchHandled = false;
+                return;
+            }
+            toggleSidebar();
         });
+
+        sidebarToggle.addEventListener('touchstart', function () {
+            touchHandled = true;
+            toggleSidebar();
+        }, { passive: true });
     }
 
     sidebarBackdrop.addEventListener('click', function () {
         closeSidebar();
     });
+    // Backdrop juga harus menutup saat disentuh langsung di iOS (touch tidak selalu
+    // menghasilkan 'click' bila elemen bergerak/animasi di belakangnya).
+    sidebarBackdrop.addEventListener('touchstart', function () {
+        if (!sidebarBackdrop.classList.contains('show')) return;
+        closeSidebar();
+    }, { passive: true });
 
     appSidebar.querySelectorAll('a').forEach(function (link) {
         link.addEventListener('click', function () {

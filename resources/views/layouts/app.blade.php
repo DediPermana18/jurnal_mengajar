@@ -71,7 +71,7 @@
             top: 0;
             bottom: 0;
             left: 0;
-            z-index: 1040;
+            z-index: 1040; /* drawer mobile ~= Tailwind z-50 (di atas backdrop 1035) */
             transition: transform 0.3s ease;
         }
 
@@ -245,7 +245,7 @@
             padding: 0 2rem;
             position: sticky;
             top: 0;
-            z-index: 1030;
+            z-index: 1030; /* di bawah backdrop (1035) & drawer sidebar (1040) */
         }
 
         .topbar-actions {
@@ -342,6 +342,8 @@
         }
 
         /* ================= SIDEBAR BACKDROP (mobile drawer) ================= */
+        /* Urutan z-index layar mobile (iOS fix: tombol hamburger harus selalu bisa ditap):
+             topbar 1030  <  backdrop 1035 (~z-40)  <  drawer sidebar 1040 (~z-50)  <  modal 1055  */
         .sidebar-backdrop {
             position: fixed;
             inset: 0;
@@ -1285,7 +1287,17 @@
         <!-- TOPBAR HEADER -->
         <header class="topbar-header">
             <!-- Mobile Toggle -->
-            <button class="btn btn-sm btn-light border d-md-none" type="button" id="sidebarToggle" aria-label="Buka menu navigasi" aria-controls="appSidebar" aria-expanded="false">
+            {{-- iOS/Safari fix: button + cursor-pointer + relative z-50 + touch-action: manipulation.
+                 - cursor-pointer  : dikenali iOS sebagai elemen interaktif.
+                 - touch-action    : menghilangkan penundaan double-tap-zoom Safari.
+                 - min 44px        : tap target ergonomis untuk jari (Apple HIG). --}}
+            <button class="btn btn-sm btn-light border d-md-none cursor-pointer relative z-50"
+                    type="button"
+                    id="sidebarToggle"
+                    aria-label="Buka menu navigasi"
+                    aria-controls="appSidebar"
+                    aria-expanded="false"
+                    style="touch-action: manipulation; -webkit-tap-highlight-color: transparent; min-width: 44px; min-height: 44px;">
                 <i class="bi bi-list fs-5"></i>
             </button>
 
