@@ -1023,6 +1023,16 @@
                     </div>
                 </div>
 
+                <!-- Pengaturan WhatsApp Gateway (Fonnte) -->
+                <div class="nav-item-container">
+                    <a href="{{ route('it.settings.wa') }}" class="nav-btn {{ request()->routeIs('it.settings.wa*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-whatsapp"></i>
+                            <span>Pengaturan WA</span>
+                        </span>
+                    </a>
+                </div>
+
             @elseif($isPreviewSiswa)
                 {{-- ================= NAVIGASI SISWA (Preview) ================= --}}
                 <div class="nav-item-container mt-2">

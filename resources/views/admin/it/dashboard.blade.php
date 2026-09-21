@@ -56,7 +56,7 @@
             </div>
         </div>
         <div>
-            <div class="stat-card-custom p-3 md:p-4 h-100">
+            <a href="{{ route('it.settings.wa') }}" class="stat-card-custom p-3 md:p-4 h-100 d-block text-decoration-none" title="Buka Pengaturan WA Gateway">
                 <div class="stat-card-title text-xs md:text-sm truncate mb-1 md:mb-2" title="Status Bot WA (Fonnte)">Status Bot WA</div>
                 <div class="d-flex align-items-center gap-2 mb-1">
                     @if($fonnteConnected)
@@ -78,7 +78,10 @@
                         </span>
                     @endif
                 </div>
-            </div>
+                <div class="mt-2 small text-primary fw-semibold" style="font-size:0.72rem !important;">
+                    <i class="bi bi-gear-wide-connected me-1"></i>Kelola & Tes Kirim →
+                </div>
+            </a>
         </div>
     </div>
 

@@ -94,7 +94,15 @@ class JadwalPiketController extends Controller
             ->orderBy('nama', 'asc')
             ->get();
 
-        $wakaList = User::whereIn('role', ['waka', 'wakakurikulum'])
+        // Waka Piket: role legacy ('waka'/'wakakurikulum') ATAU skema baru
+        // role 'admin' + sub_role 'waka_piket' (ditambah lewat /admin/users).
+        $wakaList = User::where(function ($query) {
+            $query->whereIn('role', ['waka', 'wakakurikulum'])
+                ->orWhere(function ($query) {
+                    $query->where('role', User::ROLE_ADMIN)
+                        ->where('sub_role', 'waka_piket');
+                });
+        })
             ->orderBy('nama', 'asc')
             ->get();
 
@@ -150,8 +158,9 @@ class JadwalPiketController extends Controller
 
     /**
      * Form Halaman Terpisah: Edit Petugas Piket per hari
+     * (menggunakan form yang sama dengan create — include create.blade.php).
      */
-    public function edit($hari)
+    public function edit(Request $request, $hari)
     {
         $this->authorizeManage();
 
@@ -161,22 +170,67 @@ class JadwalPiketController extends Controller
         }
 
         $selectedHari = $hari;
+        $mingguKe = $this->mingguKe($request);
 
         $guruList = User::where('role', 'guru')
             ->orderBy('nama', 'asc')
             ->get();
 
-        $assignedGuruIds = JadwalPiket::where('hari', $selectedHari)
+        // Waka Piket: role legacy ('waka'/'wakakurikulum') ATAU skema baru
+        // role 'admin' + sub_role 'waka_piket'.
+        $wakaList = User::where(function ($query) {
+            $query->whereIn('role', ['waka', 'wakakurikulum'])
+                ->orWhere(function ($query) {
+                    $query->where('role', User::ROLE_ADMIN)
+                        ->where('sub_role', 'waka_piket');
+                });
+        })
+            ->orderBy('nama', 'asc')
+            ->get();
+
+        $shiftList = ShiftPiket::where('is_active', true)->orderBy('urutan')->orderBy('id')->get();
+
+        $jadwalHariIni = JadwalPiket::where('hari', $selectedHari)
+            ->where('minggu_ke', $mingguKe);
+
+        $assignedByShift = (clone $jadwalHariIni)
+            ->whereNotNull('shift_id')
+            ->get()
+            ->groupBy('shift_id')
+            ->map(fn ($items) => $items->pluck('user_id')->filter()->values()->all())
+            ->all();
+
+        $assignedGuruIds = (clone $jadwalHariIni)
             ->pluck('user_id')
-            ->toArray();
+            ->filter()
+            ->values()
+            ->all();
+
+        $assignedWakaId = (clone $jadwalHariIni)->pluck('waka_user_id')->filter()->first();
+
+        $assignedKoordinatorPagiIds = (clone $jadwalHariIni)->pluck('koordinator_pagi_user_id')->filter()->values()->all();
+        $assignedPetugasPagiIds = (clone $jadwalHariIni)->pluck('petugas_pagi_user_id')->filter()->values()->all();
+        $assignedKoordinatorSiangIds = (clone $jadwalHariIni)->pluck('koordinator_siang_user_id')->filter()->values()->all();
+        $assignedPetugasSiangIds = (clone $jadwalHariIni)->pluck('petugas_siang_user_id')->filter()->values()->all();
 
         return view('kurikulum.jadwal_piket.edit', compact(
-            'hariList', 'selectedHari', 'guruList', 'assignedGuruIds'
+            'hariList', 'selectedHari', 'mingguKe', 'guruList', 'wakaList', 'shiftList',
+            'assignedGuruIds', 'assignedWakaId', 'assignedByShift',
+            'assignedKoordinatorPagiIds', 'assignedPetugasPagiIds',
+            'assignedKoordinatorSiangIds', 'assignedPetugasSiangIds'
         ));
     }
 
     /**
-     * Menyimpan data penugasan piket per hari (sync)
+     * Menyimpan data penugasan piket per hari (sync).
+     *
+     * Mendukung DUA format kiriman:
+     * 1. Format SK (legacy) — form Pagi & Siang: waka_user_id,
+     *    koordinator_pagi_user_id, petugas_pagi_user_id[],
+     *    koordinator_siang_user_id, petugas_siang_user_id[].
+     *    Guru pada petugas_pagi dan petugas_siang TIDAK boleh sama
+     *    (mutual exclusion; divalidasi server sebagai fallback JS di form).
+     * 2. Format shift dinamis — shift_users[shiftId][] / guru_ids.
      */
     public function store(Request $request)
     {
@@ -203,28 +257,107 @@ class JadwalPiketController extends Controller
             'shift_users.*.*' => 'exists:users,id',
             'guru_ids' => 'nullable|array|min:1',
             'guru_ids.*' => 'exists:users,id',
+            'koordinator_pagi_user_id' => 'nullable|exists:users,id',
+            'koordinator_siang_user_id' => 'nullable|exists:users,id',
+            'petugas_pagi_user_id' => 'nullable|array',
+            'petugas_pagi_user_id.*' => 'exists:users,id',
+            'petugas_siang_user_id' => 'nullable|array',
+            'petugas_siang_user_id.*' => 'exists:users,id',
         ];
         $request->validate($rules, [
             'hari.required' => 'Hari piket wajib dipilih.',
             'hari.in' => 'Hari piket tidak valid.',
             'shift_users.*.*.exists' => 'Guru yang dipilih tidak ditemukan dalam sistem.',
             'guru_ids.*.exists' => 'Guru yang dipilih tidak ditemukan dalam sistem.',
+            'petugas_pagi_user_id.*.exists' => 'Guru petugas Pagi tidak ditemukan dalam sistem.',
+            'petugas_siang_user_id.*.exists' => 'Guru petugas Siang tidak ditemukan dalam sistem.',
         ]);
 
         $hari = $request->hari;
         $bulan = now()->month;
         $tahun = now()->year;
         $mingguKe = $this->mingguKe($request);
-        $shiftUsers = collect($request->input('shift_users', []))
-            ->map(fn ($ids) => array_values(array_unique(array_filter((array) $ids))))
-            ->filter(fn ($ids) => count($ids) > 0);
-        $guruIds = array_unique(array_filter((array) $request->guru_ids));
 
-        if ($shiftUsers->isEmpty() && empty($guruIds)) {
-            $errorKey = $request->hasAny(['guru_ids', 'user_ids', 'user_id']) ? 'guru_ids' : 'shift_users';
+        // Format SK (legacy): field checkbox petugas Pagi/Siang hadir di kiriman.
+        $isLegacySk = $request->has('petugas_pagi_user_id') || $request->has('petugas_siang_user_id');
+
+        $pagiIds = array_values(array_unique(array_filter((array) $request->input('petugas_pagi_user_id', []))));
+        $siangIds = array_values(array_unique(array_filter((array) $request->input('petugas_siang_user_id', []))));
+
+        // Validasi mutual exclusion: satu guru tidak boleh di shift Pagi & Siang.
+        if (! empty(array_intersect($pagiIds, $siangIds))) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                $errorKey => 'Pilih minimal satu guru pada salah satu shift.',
+                'petugas_pagi_user_id' => 'Guru yang sama tidak dapat bertugas di shift Pagi dan Siang bersamaan.',
             ]);
+        }
+
+        // Validasi mutual exclusion: Koordinator Piket (Pagi/Siang) tidak boleh
+        // merangkap menjadi Petugas Piket biasa (fallback server untuk JS form).
+        $koordinatorIds = array_values(array_unique(array_filter([
+            $request->input('koordinator_pagi_user_id'),
+            $request->input('koordinator_siang_user_id'),
+        ])));
+
+        if (! empty($koordinatorIds) && ! empty(array_intersect(array_merge($pagiIds, $siangIds), $koordinatorIds))) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'koordinator_pagi_user_id' => 'Guru yang menjadi Koordinator Piket tidak dapat dipilih sebagai Petugas Piket biasa.',
+            ]);
+        }
+
+        if ($isLegacySk) {
+            $wakaId = $request->input('waka_user_id');
+            $koordinatorPagiId = $request->input('koordinator_pagi_user_id');
+            $koordinatorSiangId = $request->input('koordinator_siang_user_id');
+
+            $adaPenugasan = ! empty($pagiIds) || ! empty($siangIds)
+                || ! empty($wakaId) || ! empty($koordinatorPagiId) || ! empty($koordinatorSiangId);
+
+            if (! $adaPenugasan) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'petugas_pagi_user_id' => 'Pilih minimal satu guru pada salah satu shift.',
+                ]);
+            }
+        } else {
+            $shiftUsers = collect($request->input('shift_users', []))
+                ->map(fn ($ids) => array_values(array_unique(array_filter((array) $ids))))
+                ->filter(fn ($ids) => count($ids) > 0);
+            $guruIds = array_unique(array_filter((array) $request->guru_ids));
+
+            // Mutual exclusion antar sesi Pagi & Siang (format shift dinamis):
+            // sesi dikenali dari nama shift (SK sekolah memakai 'Pagi'/'Siang').
+            $shiftPagiId = ShiftPiket::where('is_active', true)
+                ->whereRaw('LOWER(nama) LIKE ?', ['pagi%'])
+                ->orderBy('urutan')->value('id');
+            $shiftSiangId = ShiftPiket::where('is_active', true)
+                ->whereRaw('LOWER(nama) LIKE ?', ['siang%'])
+                ->orderBy('urutan')->value('id');
+
+            if ($shiftPagiId && $shiftSiangId) {
+                $selectedPagi = array_values(array_unique(array_filter((array) ($shiftUsers[$shiftPagiId] ?? []))));
+                $selectedSiang = array_values(array_unique(array_filter((array) ($shiftUsers[$shiftSiangId] ?? []))));
+
+                if (! empty(array_intersect($selectedPagi, $selectedSiang))) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'shift_users' => 'Guru yang sama tidak dapat bertugas di shift Pagi dan Siang bersamaan.',
+                    ]);
+                }
+            }
+
+            // Validasi mutual exclusion: Koordinator Piket tidak boleh merangkap
+            // menjadi Petugas Piket biasa (format shift dinamis).
+            $petugasShiftIds = $shiftUsers->flatten()->values()->all();
+            if (! empty($koordinatorIds) && ! empty(array_intersect($petugasShiftIds, $koordinatorIds))) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'koordinator_pagi_user_id' => 'Guru yang menjadi Koordinator Piket tidak dapat dipilih sebagai Petugas Piket biasa.',
+                ]);
+            }
+
+            if ($shiftUsers->isEmpty() && empty($guruIds)) {
+                $errorKey = $request->hasAny(['guru_ids', 'user_ids', 'user_id']) ? 'guru_ids' : 'shift_users';
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    $errorKey => 'Pilih minimal satu guru pada salah satu shift.',
+                ]);
+            }
         }
 
         // Guard: penggantian penugasan piket tidak boleh menimpa data testing (kecuali IT/QA).
@@ -238,7 +371,28 @@ class JadwalPiketController extends Controller
             ->delete();
 
         // Masukkan data baru
-        if ($shiftUsers->isNotEmpty()) {
+        if ($isLegacySk) {
+            // Format SK: satu baris per petugas, masing-masing mengisi kolom
+            // waka / koordinator / petugas sesuai perannya (skema jadwal_piket).
+            foreach ((array) $request->input('waka_user_id') as $userId) {
+                if (! $userId) {
+                    continue;
+                }
+                $this->buatBarisJadwal($hari, $mingguKe, $bulan, $tahun, $userId, ['waka_user_id' => $userId]);
+            }
+            if ($koordinatorPagiId) {
+                $this->buatBarisJadwal($hari, $mingguKe, $bulan, $tahun, $koordinatorPagiId, ['koordinator_pagi_user_id' => $koordinatorPagiId]);
+            }
+            foreach ($pagiIds as $userId) {
+                $this->buatBarisJadwal($hari, $mingguKe, $bulan, $tahun, $userId, ['petugas_pagi_user_id' => $userId]);
+            }
+            if ($koordinatorSiangId) {
+                $this->buatBarisJadwal($hari, $mingguKe, $bulan, $tahun, $koordinatorSiangId, ['koordinator_siang_user_id' => $koordinatorSiangId]);
+            }
+            foreach ($siangIds as $userId) {
+                $this->buatBarisJadwal($hari, $mingguKe, $bulan, $tahun, $userId, ['petugas_siang_user_id' => $userId]);
+            }
+        } elseif ($shiftUsers->isNotEmpty()) {
             $wakaId = $request->input('waka_user_id');
             $first = true;
             foreach ($shiftUsers as $shiftId => $userIds) {
@@ -255,19 +409,49 @@ class JadwalPiketController extends Controller
                     $first = false;
                 }
             }
-        }
-        foreach ($guruIds as $userId) {
-            JadwalPiket::create([
-                'hari' => $hari,
-                'minggu_ke' => $mingguKe,
-                'bulan' => $bulan,
-                'tahun' => $tahun,
-                'user_id' => $userId,
-            ]);
+
+            // Koordinator Piket (Pagi/Siang) — format SK: simpan sebagai baris
+            // terpisah dengan kolom koordinator_* terisi agar turut menerima
+            // notifikasi WA tahap pengajuan izin.
+            $koordinatorPagiId = $request->input('koordinator_pagi_user_id');
+            $koordinatorSiangId = $request->input('koordinator_siang_user_id');
+
+            if ($koordinatorPagiId) {
+                $this->buatBarisJadwal($hari, $mingguKe, $bulan, $tahun, (int) $koordinatorPagiId, ['koordinator_pagi_user_id' => (int) $koordinatorPagiId]);
+            }
+            if ($koordinatorSiangId) {
+                $this->buatBarisJadwal($hari, $mingguKe, $bulan, $tahun, (int) $koordinatorSiangId, ['koordinator_siang_user_id' => (int) $koordinatorSiangId]);
+            }
+        } else {
+            foreach ($guruIds as $userId) {
+                JadwalPiket::create([
+                    'hari' => $hari,
+                    'minggu_ke' => $mingguKe,
+                    'bulan' => $bulan,
+                    'tahun' => $tahun,
+                    'user_id' => $userId,
+                ]);
+            }
         }
 
         return redirect()->route('kurikulum.jadwal-piket.index')
             ->with('success', 'Petugas piket hari '.$hari.' berhasil diperbarui.');
+    }
+
+    /**
+     * Membuat satu baris `jadwal_piket` untuk format SK. Karena kolom
+     * `user_id` wajib terisi (NOT NULL), baris memakai user_id = guru yang
+     * ditugaskan, dan kolom peran (waka/koordinator/petugas) diisi di $kolom.
+     */
+    protected function buatBarisJadwal(string $hari, int $mingguKe, int $bulan, int $tahun, int $userId, array $kolom): JadwalPiket
+    {
+        return JadwalPiket::create(array_merge([
+            'hari' => $hari,
+            'minggu_ke' => $mingguKe,
+            'bulan' => $bulan,
+            'tahun' => $tahun,
+            'user_id' => $userId,
+        ], $kolom));
     }
 
     public function shifts()

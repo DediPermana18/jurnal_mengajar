@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasTestingData;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Collection;
 
 class JadwalPiket extends Model
 {
@@ -41,6 +43,86 @@ class JadwalPiket extends Model
         'bulan' => 'integer',
         'tahun' => 'integer',
     ];
+
+    /**
+     * Guru Piket (role sementara berbasis jadwal) yang bertugas pada tanggal
+     * tertentu — default hari ini (`today()`).
+     *
+     * Pengambilan dari tabel `jadwal_piket` via kolom `hari` (Senin s.d. Jumat)
+     * + `user_id`, konsisten dengan User::isPiketHariIni(). Menghormati
+     * TestingDataScope (data testing/real terisolasi sesuai konteks aktif).
+     *
+     * @return Collection<int, User>
+     */
+    public static function getGuruPiketHariIni(?Carbon $tanggal = null): Collection
+    {
+        $tanggal = $tanggal ?? today();
+        $hari = static::namaHariTanggal($tanggal);
+
+        if ($hari === null) {
+            return collect();
+        }
+
+        $ids = static::where('hari', $hari)
+            ->pluck('user_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->map(fn ($id) => (int) $id);
+
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        return User::whereIn('id', $ids)->orderBy('nama')->get();
+    }
+
+    /**
+     * Koordinator Piket (Pagi & Siang) yang tercantum pada jadwal tanggal
+     * tertentu — dari kolom `koordinator_pagi_user_id` & `koordinator_siang_user_id`.
+     *
+     * Melengkapi getGuruPiketHariIni(): memastikan nomor WA Koordinator Piket
+     * ikut menerima notifikasi pengajuan izin (tahap approval) meskipun baris
+     * jadwalnya tidak mengisi `user_id` atas nama koordinator tersebut.
+     * Menghormati TestingDataScope (data testing/real terisolasi).
+     *
+     * @return Collection<int, User>
+     */
+    public static function koordinatorPiketBertugasTanggal(?Carbon $tanggal = null): Collection
+    {
+        $tanggal = $tanggal ?? today();
+        $hari = static::namaHariTanggal($tanggal);
+
+        if ($hari === null) {
+            return collect();
+        }
+
+        $ids = static::where('hari', $hari)
+            ->pluck('koordinator_pagi_user_id')
+            ->merge(static::where('hari', $hari)->pluck('koordinator_siang_user_id'))
+            ->filter()
+            ->unique()
+            ->values()
+            ->map(fn ($id) => (int) $id);
+
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        return User::whereIn('id', $ids)->orderBy('nama')->get();
+    }
+    protected static function namaHariTanggal(Carbon $tanggal): ?string
+    {
+        $hariMap = [
+            Carbon::MONDAY => 'Senin',
+            Carbon::TUESDAY => 'Selasa',
+            Carbon::WEDNESDAY => 'Rabu',
+            Carbon::THURSDAY => 'Kamis',
+            Carbon::FRIDAY => 'Jumat',
+        ];
+
+        return $hariMap[$tanggal->dayOfWeek] ?? null;
+    }
 
     /**
      * Relasi ke User (Guru / Petugas Piket)

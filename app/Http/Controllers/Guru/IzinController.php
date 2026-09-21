@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Guru;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Guru\Concerns\ResolvesTargetGuru;
 use App\Models\IzinGuru;
+use App\Services\FonnteService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -198,6 +199,11 @@ class IzinController extends Controller
         ]);
 
         NotificationService::izinBaruDiajukan($izin);
+
+        // Tahap 1 alur notifikasi WA berantai: siarkan ke SELURUH Guru Piket
+        // yang bertugas pada tanggal pengajuan (link quick-approve unik).
+        // Waka SDM baru diberi tahu setelah Guru Piket menyetujui (Tahap 1b).
+        FonnteService::notifyGuruPiketIzinBaru($izin);
 
         return redirect()->route('guru.izin.index')
             ->with('success', 'Pengajuan izin berhasil dikirim. Menunggu verifikasi Guru Piket, lalu persetujuan Waka/Kepsek.');

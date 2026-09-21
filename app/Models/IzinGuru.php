@@ -79,6 +79,7 @@ class IzinGuru extends Model
         'approval_token',
         'token_waka',
         'token_kepsek',
+        'token_piket',
     ];
 
     protected $casts = [
@@ -89,6 +90,8 @@ class IzinGuru extends Model
 
     /**
      * Auto-generasi token tahap:
+     * - token_piket selalu tersedia untuk tiap pengajuan izin (dipakai link
+     *   quick-approve yang disiarkan ke Guru Piket yang bertugas).
      * - token_waka   selalu tersedia untuk tiap pengajuan izin.
      * - token_kepsek baru dibuat saat status berubah menjadi Pending Kepsek,
      *   sehingga link Kepala Sekolah belum pernah ada sebelumnya.
@@ -96,6 +99,10 @@ class IzinGuru extends Model
     protected static function booted(): void
     {
         static::saving(function (IzinGuru $izin) {
+            if (! $izin->token_piket) {
+                $izin->token_piket = (string) Str::uuid();
+            }
+
             if (! $izin->token_waka) {
                 $izin->token_waka = (string) Str::uuid();
             }
@@ -105,9 +112,13 @@ class IzinGuru extends Model
             }
         });
 
-        // Sinkronisasi otomatis status kehadiran guru & notifikasi WA:
+        // Sinkronisasi otomatis status kehadiran guru & alur notifikasi WA berantai:
+        // - Izin diverifikasi Piket    => Tahap 1b: kirim WA ke nomor Waka SDM
+        //   (status -> Pending Waka pada alur 3 level).
+        // - Izin masuk tahap Pending Kepsek  => Tahap 2: kirim WA ke nomor Kepsek
+        //   (Waka SDM setuju di alur 3 level / Piket lanjutkan di alur 2 level).
         // - Final approval (status -> 'disetujui') => catat Sakit/Izin/Dinas Luar
-        //   pada tanggal terkait + kirim notifikasi WhatsApp via Fonnte.
+        //   pada tanggal terkait + Tahap 3: kirim WA final ke guru pengaju.
         // - Rollback / pembatalan dari 'disetujui'   => kembalikan ke 'Hadir'.
         static::created(function (IzinGuru $izin) {
             if ($izin->status === self::STATUS_DISETUJUI) {
@@ -119,6 +130,19 @@ class IzinGuru extends Model
         static::updated(function (IzinGuru $izin) {
             $statusLama = $izin->getOriginal('status');
             $statusBaru = $izin->status;
+
+            // Tahap 1b: izin diverifikasi Guru Piket -> masuk tahap menunggu Waka
+            // SDM. Kirim WA otomatis ke nomor Waka (setelah quick-approve Piket
+            // maupun approval Piket dari dashboard).
+            if ($statusBaru === self::STATUS_PENDING_WAKA && $statusLama === self::STATUS_PENDING_PIKET) {
+                FonnteService::notifyWakaMenungguApproval($izin);
+            }
+
+            // Tahap 2: izin masuk ke tahap menunggu persetujuan Kepala Sekolah.
+            if ($statusBaru === self::STATUS_PENDING_KEPSEK && $statusLama !== self::STATUS_PENDING_KEPSEK) {
+                $disetujuiOleh = $statusLama === self::STATUS_PENDING_PIKET ? 'Guru Piket' : 'Waka SDM';
+                FonnteService::notifyKepsekMenungguApproval($izin, $disetujuiOleh);
+            }
 
             if ($statusBaru === self::STATUS_DISETUJUI && $statusLama !== self::STATUS_DISETUJUI) {
                 StatusKehadiranService::otomatiskanDariIzinDisetujui($izin);
@@ -240,6 +264,11 @@ class IzinGuru extends Model
     public function getWakaApprovalUrlAttribute(): ?string
     {
         return $this->token_waka ? url('/approve-izin/'.$this->token_waka) : null;
+    }
+
+    public function getPiketApprovalUrlAttribute(): ?string
+    {
+        return $this->token_piket ? url('/approve-piket/'.$this->token_piket) : null;
     }
 
     public function getKepsekApprovalUrlAttribute(): ?string

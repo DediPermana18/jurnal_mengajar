@@ -34,6 +34,16 @@
         cursor: pointer;
     }
 
+    /* Guru yang sudah dipilih di shift lain (Pagi <-> Siang) dikunci */
+    .guru-checkbox-card.is-locked {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+        border-color: #e2e8f0;
+        background-color: #f8fafc;
+        box-shadow: none;
+    }
+
     /* Styling untuk field select Waka */
     .select-waka-card {
         border: 1px solid #e2e8f0;
@@ -184,26 +194,25 @@
                            {{ old('waka_user_id', $assignedWakaId ?? null) == $waka->id ? 'selected' : '' }}>{{ $waka->nama }}</option>
                     @endforeach
                 </select>
-                <small class="text-muted">Guru dengan jabatan Waka/kakurikulum</small>
+                <small class="text-muted">Guru dengan jabatan Waka/Kakurikulum/Waka Piket</small>
             </div>
 
-            <div class="row g-4">
+            <div class="d-flex flex-column gap-4 shift-panels-stack">
             @if($shiftList->isEmpty())
             {{-- 3. Sesi Pagi (07.00 - 11.00) --}}
-            <div class="col-12 col-xl-6 mb-4">
-                <div class="border rounded-4 p-4 h-100">
+            <div class="border rounded-4 p-4 w-100">
                 <div class="shift-header">
                     <span class="shift-title">SESI PAGI (07.00 - 11.00)</span>
                 </div>
 
                 {{-- Koordinator Pagi: Single dropdown --}}
                 <div class="mb-2">
-                    <label class="form-label fw-bold text-dark small">Koordinator Pagi</label>
+                    <label class="form-label fw-bold text-dark small">Koordinator Piket Pagi</label>
                     <select name="koordinator_pagi_user_id" class="form-select rounded-3" style="font-size: 0.875rem;">
-                        <option value="">-- Pilih Koordinator Pagi --</option>
+                        <option value="">-- Pilih Koordinator Piket Pagi --</option>
                         @foreach($guruList as $guru)
                             <option value="{{ $guru->id }}"
-                               {{ old('koordinator_pagi_user_id') == $guru->id ? 'selected' : '' }}>{{ $guru->nama }}</option>
+                               {{ old('koordinator_pagi_user_id', $assignedKoordinatorPagiIds[0] ?? null) == $guru->id ? 'selected' : '' }}>{{ $guru->nama }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -221,7 +230,7 @@
                             @php
                                 $isChecked = in_array($guru->id, old('petugas_pagi_user_id', $assignedPetugasPagiIds ?? []));
                             @endphp
-                            <div class="col-12 col-md-6 col-lg-4 guru-item-col"
+                            <div class="col-6 col-md-3 guru-item-col"
                                  data-name="{{ strtolower($guru->nama) }}"
                                  data-nip="{{ strtolower($guru->nip ?? '') }}">
                                 <div class="guru-checkbox-card d-flex align-items-center gap-3 {{ $isChecked ? 'selected' : '' }}"
@@ -255,20 +264,19 @@
             </div>
 
             {{-- 4. Sesi Siang (11.00 - 15.00) --}}
-            <div class="col-12 col-xl-6 mb-4">
-                <div class="shift-panel">
+            <div class="shift-panel w-100">
                 <div class="shift-header">
                     <span class="shift-title">SESI SIANG (11.00 - 15.00)</span>
                 </div>
 
                 {{-- Koordinator Siang: Single dropdown --}}
                 <div class="mb-2">
-                    <label class="form-label fw-bold text-dark small">Koordinator Siang</label>
+                    <label class="form-label fw-bold text-dark small">Koordinator Piket Siang</label>
                     <select name="koordinator_siang_user_id" class="form-select rounded-3" style="font-size: 0.875rem;">
-                        <option value="">-- Pilih Koordinator Siang --</option>
+                        <option value="">-- Pilih Koordinator Piket Siang --</option>
                         @foreach($guruList as $guru)
                             <option value="{{ $guru->id }}"
-                               {{ old('koordinator_siang_user_id') == $guru->id ? 'selected' : '' }}>{{ $guru->nama }}</option>
+                               {{ old('koordinator_siang_user_id', $assignedKoordinatorSiangIds[0] ?? null) == $guru->id ? 'selected' : '' }}>{{ $guru->nama }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -286,7 +294,7 @@
                             @php
                                 $isChecked = in_array($guru->id, old('petugas_siang_user_id', $assignedPetugasSiangIds ?? []));
                             @endphp
-                            <div class="col-12 col-md-6 col-lg-4 guru-item-col"
+                            <div class="col-6 col-md-3 guru-item-col"
                                  data-name="{{ strtolower($guru->nama) }}"
                                  data-nip="{{ strtolower($guru->nip ?? '') }}">
                                 <div class="guru-checkbox-card d-flex align-items-center gap-3 {{ $isChecked ? 'selected' : '' }}"
@@ -317,20 +325,34 @@
                     </div>
                 </div>
                 </div>
-            </div>
-            </div>
 
             @else
                 @foreach($shiftList as $shift)
                     @php
+                        $sesiNama = strtolower($shift->nama);
+                        $sesi = str_starts_with($sesiNama, 'pagi') ? 'pagi' : (str_starts_with($sesiNama, 'siang') ? 'siang' : null);
+                        $kolomKoordinator = $sesi === 'pagi' ? 'koordinator_pagi_user_id' : ($sesi === 'siang' ? 'koordinator_siang_user_id' : null);
+                        $assignedKoordinator = $kolomKoordinator === 'koordinator_pagi_user_id'
+                            ? ($assignedKoordinatorPagiIds[0] ?? null)
+                            : ($kolomKoordinator === 'koordinator_siang_user_id' ? ($assignedKoordinatorSiangIds[0] ?? null) : null);
                         $selectedUsers = old('shift_users.' . $shift->id, $assignedByShift[$shift->id] ?? []);
                     @endphp
-                    <div class="col-12 col-xl-6 mb-4">
-                        <div class="shift-panel">
+                    <div class="shift-panel w-100">
                             <div class="shift-header">
                                 <span class="shift-title">{{ strtoupper($shift->nama) }} ({{ $shift->jam_label }})</span>
                                 <span class="shift-count" data-quota="{{ $shift->maksimal_petugas }}">Maks. {{ $shift->maksimal_petugas }} petugas</span>
                             </div>
+                            @if($kolomKoordinator)
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-dark small">Koordinator Piket {{ ucfirst($shift->nama) }}</label>
+                                <select name="{{ $kolomKoordinator }}" class="form-select rounded-3" style="font-size: 0.875rem;">
+                                    <option value="">-- Pilih Koordinator Piket {{ ucfirst($shift->nama) }} --</option>
+                                    @foreach($guruList as $guru)
+                                        <option value="{{ $guru->id }}" {{ old($kolomKoordinator, $assignedKoordinator) == $guru->id ? 'selected' : '' }}>{{ $guru->nama }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @endif
                             <div class="mb-3">
                                 <label class="form-label fw-bold text-dark small">Petugas {{ $shift->nama }}</label>
                                 <div class="d-flex align-items-center gap-2 mb-2">
@@ -340,9 +362,9 @@
                                 <div class="row g-3" style="max-height: 480px; overflow-y: auto; scrollbar-width: thin;">
                                     @foreach($guruList as $guru)
                                         @php $isChecked = in_array($guru->id, $selectedUsers); @endphp
-                                        <div class="col-12 col-md-6 col-xxl-4">
+                                        <div class="col-6 col-md-3">
                                             <label class="guru-checkbox-card d-flex align-items-center gap-3 {{ $isChecked ? 'selected' : '' }}">
-                                                <input class="form-check-input shift-checkbox" type="checkbox" name="shift_users[{{ $shift->id }}][]" value="{{ $guru->id }}" data-shift-id="{{ $shift->id }}" data-quota="{{ $shift->maksimal_petugas }}" {{ $isChecked ? 'checked' : '' }}>
+                                                <input class="form-check-input shift-checkbox" type="checkbox" name="shift_users[{{ $shift->id }}][]" value="{{ $guru->id }}" data-shift-id="{{ $shift->id }}" data-quota="{{ $shift->maksimal_petugas }}" data-sesi="{{ $sesi }}" {{ $isChecked ? 'checked' : '' }}>
                                                 <span class="rounded-circle bg-primary-subtle text-primary fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 0.85rem;">{{ strtoupper(substr($guru->nama, 0, 2)) }}</span>
                                                 <span class="overflow-hidden"><span class="d-block fw-bold text-dark text-truncate" style="font-size: 0.88rem;">{{ $guru->nama }}</span><span class="d-block text-muted text-truncate" style="font-size: 0.75rem;">NIP: {{ $guru->nip ?? '-' }}</span></span>
                                             </label>
@@ -351,7 +373,6 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
                 @endforeach
             @endif
 
@@ -373,6 +394,66 @@
 
 @push('scripts')
 <script>
+    // ===== Mutual Exclusive Shift Pagi & Siang (format SK / legacy) =====
+    // 1. Koordinator Piket Pagi/Siang tidak boleh merangkap Petugas Piket:
+    //    jika Guru X dipilih sebagai Koordinator, checkbox X di Petugas Pagi
+    //    DAN Siang dikunci (disabled + styling) dan otomatis di-uncheck.
+    //    Mengganti/mengosongkan Koordinator membuka kembali pilihan X.
+    // 2. Guru yang dicentang di "Petugas Pagi" otomatis dikunci di "Petugas
+    //    Siang", dan sebaliknya. Membatalkan centang akan membuka kembali.
+    (function () {
+        var pagiGrid = document.getElementById('guruGridListPagi');
+        var siangGrid = document.getElementById('guruGridListSiang');
+        if (!pagiGrid || !siangGrid) return;
+
+        // ID guru yang sedang terpilih sebagai Koordinator Piket Pagi/Siang.
+        function koordinatorTerpilih() {
+            var ids = [];
+            document.querySelectorAll('select[name="koordinator_pagi_user_id"], select[name="koordinator_siang_user_id"]').forEach(function (sel) {
+                if (sel.value) ids.push(sel.value);
+            });
+            return new Set(ids);
+        }
+
+        // Guru dikunci bila: (a) menjadi Koordinator Piket Pagi/Siang, atau
+        // (b) sudah dicentang sebagai petugas di shift sebelah.
+        // Mengganti/mengosongkan pilihan Koordinator otomatis membuka kembali
+        // status checkbox guru tersebut di daftar Petugas.
+        function syncExclusive(grid, otherGrid) {
+            var koordSet = koordinatorTerpilih();
+            var otherSelected = new Set();
+            otherGrid.querySelectorAll('.guru-checkbox:checked').forEach(function (cb) {
+                if (!cb.disabled) otherSelected.add(cb.value);
+            });
+
+            grid.querySelectorAll('.guru-checkbox').forEach(function (cb) {
+                var isLocked = koordSet.has(cb.value) || otherSelected.has(cb.value);
+                cb.disabled = isLocked;
+                var card = cb.closest('.guru-checkbox-card');
+                if (card) card.classList.toggle('is-locked', isLocked);
+                // Uncheck otomatis bila guru jadi koordinator padahal dicentang.
+                if (isLocked && cb.checked) {
+                    cb.checked = false;
+                    if (card) card.classList.remove('selected');
+                }
+            });
+        }
+
+        function syncAll() {
+            syncExclusive(pagiGrid, siangGrid);
+            syncExclusive(siangGrid, pagiGrid);
+            if (typeof updateCounterPagi === 'function') updateCounterPagi();
+            if (typeof updateCounterSiang === 'function') updateCounterSiang();
+        }
+
+        pagiGrid.addEventListener('change', syncAll);
+        siangGrid.addEventListener('change', syncAll);
+        document.querySelectorAll('select[name="koordinator_pagi_user_id"], select[name="koordinator_siang_user_id"]').forEach(function (sel) {
+            sel.addEventListener('change', syncAll);
+        });
+        syncAll(); // sinkronisasi awal (mis. re-render saat ada error validasi)
+    })();
+
     function toggleCardCheck(card, event) {
         if (event.target.type !== 'checkbox') {
             var checkbox = card.querySelector('input[type="checkbox"]');
@@ -398,6 +479,72 @@
             this.closest('label').classList.toggle('selected', this.checked);
         });
     });
+
+    // ===== Mutual Exclusive antar sesi Pagi & Siang (format shift dinamis) =====
+    // Satu guru tidak boleh dipilih di panel Pagi DAN panel Siang sekaligus.
+    // Checkbox guru yang sama di shift sebelah dikunci (disabled + styling).
+    (function () {
+        var pagi = [], siang = [];
+        document.querySelectorAll('.shift-checkbox[data-sesi]').forEach(function (cb) {
+            if (cb.dataset.sesi === 'pagi') pagi.push(cb);
+            else if (cb.dataset.sesi === 'siang') siang.push(cb);
+        });
+        if (!pagi.length && !siang.length) return;
+
+        var koordSelects = Array.prototype.slice.call(document.querySelectorAll(
+            'select[name="koordinator_pagi_user_id"], select[name="koordinator_siang_user_id"]'
+        ));
+
+        // Perbarui badge counter shift (tanpa memicu confirm kuota).
+        function perbaruiBadge(cb) {
+            var shiftId = cb.dataset.shiftId;
+            var badge = document.getElementById('badgeCounterShift' + shiftId);
+            if (!badge) return;
+            var selected = document.querySelectorAll('.shift-checkbox[data-shift-id="' + shiftId + '"]:checked').length;
+            badge.textContent = selected + ' dipilih';
+        }
+
+        function kunciCheckbox(cb, isLocked) {
+            cb.disabled = isLocked;
+            var card = cb.closest('.guru-checkbox-card');
+            if (card) card.classList.toggle('is-locked', isLocked);
+            // Uncheck otomatis bila guru jadi koordinator padahal dicentang.
+            if (isLocked && cb.checked) {
+                cb.checked = false;
+                if (card) card.classList.remove('selected');
+                perbaruiBadge(cb);
+            }
+        }
+
+        function syncPanel() {
+            var koordSet = new Set();
+            koordSelects.forEach(function (sel) { if (sel.value) koordSet.add(sel.value); });
+
+            // Kumpulkan pilihan petugas (sebelum kunci dibuka kembali).
+            var pagiSel = new Set();
+            pagi.forEach(function (cb) { if (cb.checked && !cb.disabled) pagiSel.add(cb.value); });
+            var siangSel = new Set();
+            siang.forEach(function (cb) { if (cb.checked && !cb.disabled) siangSel.add(cb.value); });
+
+            // Buka semua kunci, lalu kunci ulang sesuai aturan.
+            var all = pagi.concat(siang);
+            all.forEach(function (cb) { kunciCheckbox(cb, false); });
+
+            // a) Koordinator Piket Pagi/Siang tidak boleh jadi petugas biasa.
+            all.forEach(function (cb) { if (koordSet.has(cb.value)) kunciCheckbox(cb, true); });
+            // b) Petugas Pagi <-> Petugas Siang saling mengunci.
+            pagi.forEach(function (cb) { if (siangSel.has(cb.value)) kunciCheckbox(cb, true); });
+            siang.forEach(function (cb) { if (pagiSel.has(cb.value)) kunciCheckbox(cb, true); });
+        }
+
+        pagi.concat(siang).forEach(function (cb) {
+            cb.addEventListener('change', syncPanel);
+        });
+        koordSelects.forEach(function (sel) {
+            sel.addEventListener('change', syncPanel);
+        });
+        syncPanel(); // sinkronisasi awal (re-render setelah error validasi)
+    })();
 
     // Counter untuk Petugas Piket Pagi
     function updateCounterPagi() {

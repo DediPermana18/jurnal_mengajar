@@ -165,10 +165,16 @@ use App\Http\Controllers\GuruPiketController;
 // seluruh langkah publik (Waka -> Kepsek) sesuai level approval yang dikonfigurasi.
 use App\Http\Controllers\IzinApprovalController;
 use App\Http\Controllers\IzinPiketController;
+use App\Http\Controllers\IzinPiketQuickApproveController;
 use App\Http\Controllers\StatusKehadiranGuruController;
 
 Route::get('/approve-izin/{token}', [IzinApprovalController::class, 'show'])->name('izin.approval.show');
 Route::post('/approve-izin/{token}', [IzinApprovalController::class, 'submit'])->name('izin.approval.submit');
+
+// Quick Approve tahap "Menunggu Piket" — link disiarkan via WA ke Guru Piket
+// bertugas. Guru Piket pertama menyetujui, piket lain melihat "sudah diproses".
+Route::get('/approve-piket/{token}', [IzinPiketQuickApproveController::class, 'show'])->name('piket.quick-approve.show');
+Route::post('/approve-piket/{token}', [IzinPiketQuickApproveController::class, 'approve'])->name('piket.quick-approve.submit');
 
 Route::get('/dispen/approve/{token}', [DispensasiController::class, 'publicApproveView'])->name('dispen.approval.show');
 Route::post('/dispen/approve/{token}', [DispensasiController::class, 'publicApproveStore'])->name('dispen.approval.store');
@@ -221,6 +227,7 @@ Route::prefix('satpam')->group(function () {
 });
 
 use App\Http\Controllers\PetugasItController;
+use App\Http\Controllers\IT\WaSettingController;
 
 // ================= ROUTE PETUGAS IT / QA TESTER (Switch View As) =================
 Route::prefix('it')->middleware(['auth'])->group(function () {
@@ -231,6 +238,12 @@ Route::prefix('it')->middleware(['auth'])->group(function () {
     Route::post('/testing-view', [PetugasItController::class, 'setTestingView'])->name('it.testing-view');
     Route::post('/maintenance-mode', [PetugasItController::class, 'toggleMaintenanceMode'])->name('it.maintenance-mode');
     Route::post('/kendala/{id}/status', [PetugasItController::class, 'updateKendalaStatus'])->name('it.kendala.status');
+
+    // Pengaturan WhatsApp Gateway (Fonnte)
+    Route::get('/settings/wa', [WaSettingController::class, 'index'])->name('it.settings.wa');
+    Route::post('/settings/wa/update', [WaSettingController::class, 'update'])->name('it.settings.wa.update');
+    Route::post('/settings/wa/test', [WaSettingController::class, 'test'])->name('it.settings.wa.test');
+    Route::post('/settings/wa/toggle', [WaSettingController::class, 'toggle'])->name('it.settings.wa.toggle');
 });
 
 use App\Http\Controllers\Kurikulum\JadwalPiketController;

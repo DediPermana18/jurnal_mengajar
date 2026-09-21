@@ -43,6 +43,7 @@ class User extends Authenticatable
         'waka_kesiswaan' => 'Waka Kesiswaan',
         'waka_kurikulum' => 'Waka Kurikulum',
         'waka_sdm' => 'Waka SDM',
+        'waka_piket' => 'Waka Piket',
         'kepsek' => 'Kepala Sekolah',
         'guru_piket' => 'Guru Piket',
         'guru_mapel' => 'Guru Mapel',
@@ -60,6 +61,7 @@ class User extends Authenticatable
         'waka_kesiswaan' => ['role' => 'admin',     'sub_role' => 'waka_kesiswaan'],
         'waka_kurikulum' => ['role' => 'admin',     'sub_role' => 'waka_kurikulum'],
         'waka_sdm' => ['role' => 'admin',     'sub_role' => 'waka_sdm'],
+        'waka_piket' => ['role' => 'admin',     'sub_role' => 'waka_piket'],
         'kepsek' => ['role' => 'admin',     'sub_role' => 'kepsek'],
         'guru_piket' => ['role' => 'guru',      'sub_role' => 'guru'],
         'guru_mapel' => ['role' => 'guru',      'sub_role' => 'guru_mapel'],
@@ -70,6 +72,7 @@ class User extends Authenticatable
         'waka_kesiswaan',
         'waka_kurikulum',
         'waka_sdm',
+        'waka_piket',
         'kepsek',
         'kepala_sekolah',
         'petugas_tu',
@@ -228,6 +231,29 @@ class User extends Authenticatable
     public function isWakaKesiswaan(): bool
     {
         return $this->role === static::ROLE_ADMIN && $this->sub_role === 'waka_kesiswaan';
+    }
+
+    /**
+     * Daftar semua user yang berjabatan Waka Piket (sub-role 'waka_piket'),
+     * urut nama. Waka Piket merupakan garda verifikasi tahap "Menunggu Piket"
+     * bersama Guru Piket yang bertugas; ikut menerima broadcast WA quick-approve.
+     */
+    public static function wakaPiketUsers(): Collection
+    {
+        return static::query()
+            ->where('role', static::ROLE_ADMIN)
+            ->where('sub_role', 'waka_piket')
+            ->where('is_active', true)
+            ->orderBy('nama')
+            ->get();
+    }
+
+    /**
+     * Apakah user ini adalah Waka Piket (role admin + sub_role waka_piket)?
+     */
+    public function isWakaPiket(): bool
+    {
+        return $this->role === static::ROLE_ADMIN && $this->sub_role === 'waka_piket';
     }
 
     /**
@@ -422,6 +448,7 @@ class User extends Authenticatable
                 '' => 'Admin',
                 'waka_kurikulum' => 'Waka Kurikulum',
                 'waka_sdm' => 'Waka SDM',
+                'waka_piket' => 'Waka Piket',
                 'petugas_tu' => 'Petugas TU',
                 'satpam' => 'Satpam',
             ],

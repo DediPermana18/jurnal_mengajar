@@ -4,42 +4,38 @@
 
 @push('styles')
 <style>
-    /* Mengubah layout jadi 3 kolom di baris atas dan 2 kolom di baris bawah */
-    .jadwal-piket-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+    /* Layout vertikal: 1 hari = 1 card full-width, berurutan Senin-Jumat */
+    .jadwal-piket-stack {
+        display: flex;
+        flex-direction: column;
         gap: 1.25rem;
     }
 
-    /* Membuat card Kamis & Jumat di baris kedua melebar rapi */
-    .jadwal-piket-grid > div:nth-child(4),
-    .jadwal-piket-grid > div:nth-child(5) {
-        grid-column: span 1;
+    /* Highlight card hari ini */
+    .ring-active {
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.55);
     }
 
-    /* Tablet/Laptop sedang: 2 Kolom */
-    @media (max-width: 991.98px) {
-        .jadwal-piket-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
+    /* Chip guru per kategori */
+    .guru-chip {
+        max-width: 100%;
     }
 
-    /* HP/Mobile: 1 Kolom Full */
-    @media (max-width: 575.98px) {
-        .jadwal-piket-grid {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    /* Style untuk badge shift */
+    /* Style untuk badge kategori (format SK) */
     .shift-badge {
         font-size: 0.7rem;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        font-weight: 600;
+        padding: 0.3rem 0.65rem;
+        border-radius: 999px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
     }
-    .shift-pagi { background: #bfdbfe; color: #374151; }
+    .shift-pagi { background: #dbeafe; color: #1e40af; }
+    .shift-koord-pagi { background: #ddd6fe; color: #5b21b6; }
     .shift-siang { background: #f3f4f6; color: #374151; }
+    .shift-koord-siang { background: #e0e7ff; color: #3730a3; }
+    .shift-waka { background: #fef3c7; color: #92400e; }
+    .shift-lain { background: #f1f5f9; color: #475569; }
 </style>
 @endpush
 
@@ -100,15 +96,15 @@
         </div>
     @endif
 
-    {{-- Grid Jadwal Hari (Senin - Jumat) --}}
-    <div class="jadwal-piket-grid mb-4">
+    {{-- Daftar Jadwal Hari (Senin - Jumat) — Layout Vertikal 1 Kolom --}}
+    <div class="jadwal-piket-stack mb-4">
         @php
             $dayColors = [
-                'Senin'  => ['bg' => '#eff6ff', 'badge' => 'primary',   'border' => '#bfdbfe', 'icon' => 'bi-calendar-event'],
-                'Selasa' => ['bg' => '#f0fdf4', 'badge' => 'success',   'border' => '#bbf7d0', 'icon' => 'bi-calendar-event'],
-                'Rabu'   => ['bg' => '#fefce8', 'badge' => 'warning',   'border' => '#fef08a', 'icon' => 'bi-calendar-event'],
-                'Kamis'  => ['bg' => '#faf5ff', 'badge' => 'secondary', 'border' => '#e9d5ff', 'icon' => 'bi-calendar-event'],
-                'Jumat'  => ['bg' => '#ecfeff', 'badge' => 'info',      'border' => '#a5f3fc', 'icon' => 'bi-calendar-event'],
+                'Senin'  => ['bg' => '#eff6ff', 'border' => '#bfdbfe', 'icon' => 'bi-calendar-event'],
+                'Selasa' => ['bg' => '#f0fdf4', 'border' => '#bbf7d0', 'icon' => 'bi-calendar-event'],
+                'Rabu'   => ['bg' => '#fefce8', 'border' => '#fef08a', 'icon' => 'bi-calendar-event'],
+                'Kamis'  => ['bg' => '#faf5ff', 'border' => '#e9d5ff', 'icon' => 'bi-calendar-event'],
+                'Jumat'  => ['bg' => '#ecfeff', 'border' => '#a5f3fc', 'icon' => 'bi-calendar-event'],
             ];
 
             // Cek hari ini
@@ -126,196 +122,193 @@
         @foreach($hariList as $hari)
             @php
                 $petugasHariIni = $jadwalByHari[$hari] ?? collect();
-                $color = $dayColors[$hari] ?? ['bg' => '#f8fafc', 'badge' => 'secondary', 'border' => '#e2e8f0', 'icon' => 'bi-calendar-event'];
+                $color = $dayColors[$hari] ?? ['bg' => '#f8fafc', 'border' => '#e2e8f0', 'icon' => 'bi-calendar-event'];
                 $isToday = ($hari === $hariIni);
-                // Ambil data per shift dari jadwal hari ini
-                $wakaHariIni = $petugasHariIni->whereNotNull('waka_user_id')->values();
-                $koorPagiHariIni = $petugasHariIni->whereNotNull('koordinator_pagi_user_id')->values();
-                $petugasPagiHariIni = $petugasHariIni->whereNotNull('petugas_pagi_user_id')->values();
-                $koorSiangHariIni = $petugasHariIni->whereNotNull('koordinator_siang_user_id')->values();
-                $petugasSiangHariIni = $petugasHariIni->whereNotNull('petugas_siang_user_id')->values();
-            @endphp
-            <div>
-                <div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden position-relative {{ $isToday ? 'ring-active' : '' }}"
-                     style="background: #ffffff; border: 1px solid {{ $isToday ? '#3b82f6' : '#e2e8f0' }} !important;">
 
-                    @if($isToday)
-                        <div class="position-absolute top-0 end-0 m-3">
-                            <span class="badge bg-primary rounded-pill px-2 py-1 shadow-sm" style="font-size: 0.7rem;">
-                                <i class="bi bi-clock-history me-1"></i>HARI INI
+                // ===== Pengelompokan data per kategori (format SK + shift dinamis) =====
+                $wakaHariIni       = $petugasHariIni->whereNotNull('waka_user_id');
+                $koorPagiHariIni   = $petugasHariIni->whereNotNull('koordinator_pagi_user_id');
+                $petugasPagiSk     = $petugasHariIni->whereNotNull('petugas_pagi_user_id');
+                $koorSiangHariIni  = $petugasHariIni->whereNotNull('koordinator_siang_user_id');
+                $petugasSiangSk    = $petugasHariIni->whereNotNull('petugas_siang_user_id');
+
+                // Petugas berbasis shift (user_id + shift_id)
+                $shiftRows = $petugasHariIni->whereNotNull('shift_id');
+                $petugasPagiShift = $shiftRows->filter(fn ($r) => str_starts_with(strtolower((string) optional($r->shift)->nama), 'pagi'));
+                $petugasSiangShift = $shiftRows->filter(fn ($r) => str_starts_with(strtolower((string) optional($r->shift)->nama), 'siang'));
+
+                // Shift di luar Pagi/Siang (jika sekolah punya shift lain)
+                $rowsShiftLain = $shiftRows
+                    ->reject(fn ($r) => str_starts_with(strtolower((string) optional($r->shift)->nama), 'pagi')
+                        || str_starts_with(strtolower((string) optional($r->shift)->nama), 'siang'))
+                    ->groupBy(fn ($r) => optional($r->shift)->nama ?? 'Lainnya');
+
+                $sections = collect([
+                    [
+                        'label'  => 'Waka Piket',
+                        'icon'   => 'bi-person-badge-fill',
+                        'class'  => 'shift-waka',
+                        'rows'   => $wakaHariIni,
+                        'person' => fn ($row) => $row->waka,
+                    ],
+                    [
+                        'label'  => 'Koordinator Pagi',
+                        'icon'   => 'bi-flag-fill',
+                        'class'  => 'shift-koord-pagi',
+                        'rows'   => $koorPagiHariIni,
+                        'person' => fn ($row) => $row->koordinatorPagi,
+                    ],
+                    [
+                        'label'  => 'Petugas Pagi',
+                        'icon'   => 'bi-sun-fill',
+                        'class'  => 'shift-pagi',
+                        'rows'   => $petugasPagiSk->merge($petugasPagiShift),
+                        'person' => fn ($row) => $row->petugas_pagi_user_id ? $row->petugasPagi : $row->user,
+                    ],
+                    [
+                        'label'  => 'Koordinator Siang',
+                        'icon'   => 'bi-moon-stars-fill',
+                        'class'  => 'shift-koord-siang',
+                        'rows'   => $koorSiangHariIni,
+                        'person' => fn ($row) => $row->koordinatorSiang,
+                    ],
+                    [
+                        'label'  => 'Petugas Siang',
+                        'icon'   => 'bi-moon-fill',
+                        'class'  => 'shift-siang',
+                        'rows'   => $petugasSiangSk->merge($petugasSiangShift),
+                        'person' => fn ($row) => $row->petugas_siang_user_id ? $row->petugasSiang : $row->user,
+                    ],
+                ]);
+
+                // Shift tambahan di luar Pagi/Siang (jika ada)
+                foreach ($rowsShiftLain as $namaShift => $groupRows) {
+                    $sections->push([
+                        'label'  => 'Petugas '.$namaShift,
+                        'icon'   => 'bi-people-fill',
+                        'class'  => 'shift-lain',
+                        'rows'   => $groupRows,
+                        'person' => fn ($row) => $row->user,
+                    ]);
+                }
+            @endphp
+
+            {{-- Card Hari — Full Width --}}
+            <div class="card w-100 border-0 shadow-sm rounded-4 overflow-hidden {{ $isToday ? 'ring-active' : '' }}"
+                 style="background: #ffffff; border: 1px solid {{ $isToday ? '#3b82f6' : '#e2e8f0' }} !important;">
+
+                {{-- Card Header: Hari di kiri, Aksi Edit/Kelola di kanan --}}
+                <div class="card-header border-0 pb-0 pt-4 px-4 bg-transparent d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="rounded-3 d-flex align-items-center justify-content-center"
+                             style="width: 40px; height: 40px; background: {{ $color['bg'] }}; color: #334155; border: 1px solid {{ $color['border'] }};">
+                            <i class="bi {{ $color['icon'] }} fs-5"></i>
+                        </div>
+                        <div>
+                            <div class="d-flex align-items-center gap-2">
+                                <h5 class="fw-bold mb-0 text-dark">{{ $hari }}</h5>
+                                @if($isToday)
+                                    <span class="badge bg-primary rounded-pill px-2 py-1" style="font-size: 0.68rem;">
+                                        <i class="bi bi-clock-history me-1"></i>HARI INI
+                                    </span>
+                                @endif
+                            </div>
+                            <span class="text-muted" style="font-size: 0.78rem;">
+                                {{ $petugasHariIni->count() }} Guru Bertugas &bull; Minggu ke-{{ $mingguKe }}
                             </span>
                         </div>
-                    @endif
+                    </div>
 
-                    {{-- Card Header --}}
-                    <div class="card-header border-0 pb-0 pt-4 px-4 bg-transparent d-flex align-items-center justify-content-between">
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="rounded-3 d-flex align-items-center justify-content-center"
-                                 style="width: 38px; height: 38px; background: {{ $color['bg'] }}; color: #334155; border: 1px solid {{ $color['border'] }};">
-                                <i class="bi {{ $color['icon'] }} fs-5"></i>
-                            </div>
-                            <div>
-                                <h5 class="fw-bold mb-0 text-dark">{{ $hari }}</h5>
-                                <span class="text-muted" style="font-size: 0.78rem;">
-                                    {{ $petugasHariIni->count() }} Guru Bertugas
-                                </span>
+                    @if($canManage)
+                    <a href="{{ route('kurikulum.jadwal-piket.create', ['hari' => $hari, 'minggu_ke' => $mingguKe]) }}"
+                       class="btn btn-sm btn-light border rounded-3 d-inline-flex align-items-center gap-1 px-3 shadow-none"
+                       title="Kelola Guru Piket Hari {{ $hari }}">
+                        <i class="bi bi-pencil-fill text-primary" style="font-size: 0.8rem;"></i>
+                        <span class="small fw-semibold">Kelola</span>
+                    </a>
+                    @endif
+                </div>
+
+                {{-- Card Body: Kolom Informasi Petugas --}}
+                <div class="card-body px-4 py-3">
+                    @if($petugasHariIni->isEmpty())
+                        {{-- Empty State Hari (belum ada petugas sama sekali) --}}
+                        <div class="d-flex align-items-center justify-content-center text-center py-4 px-3 rounded-3"
+                             style="border: 1.5px dashed #e2e8f0; background: #fafbfc;">
+                            <div class="d-flex align-items-center gap-3 flex-wrap justify-content-center">
+                                <div class="rounded-circle bg-white border d-flex align-items-center justify-content-center flex-shrink-0"
+                                     style="width: 48px; height: 48px;">
+                                    <i class="bi bi-calendar2-x text-secondary" style="font-size: 1.4rem;"></i>
+                                </div>
+                                <div class="text-center text-sm-start">
+                                    <div class="fw-semibold text-secondary" style="font-size: 0.9rem;">
+                                        Belum ada penugasan piket hari {{ $hari }}
+                                    </div>
+                                    @if($canManage)
+                                    <a href="{{ route('kurikulum.jadwal-piket.create', ['hari' => $hari, 'minggu_ke' => $mingguKe]) }}"
+                                       class="btn btn-sm btn-primary rounded-3 mt-1">
+                                        <i class="bi bi-plus-lg me-1"></i>Tambah Petugas Piket
+                                    </a>
+                                    @else
+                                    <div class="text-muted small">Belum ada guru piket yang ditugaskan.</div>
+                                    @endif
+                                </div>
                             </div>
                         </div>
-
-                        {{-- Dedicated Page Edit Button for this day --}}
-                        @if($canManage)
-                        <a href="{{ route('kurikulum.jadwal-piket.create', ['hari' => $hari, 'minggu_ke' => $mingguKe]) }}"
-                           class="btn btn-sm btn-light rounded-circle border shadow-none text-secondary d-flex align-items-center justify-content-center"
-                           style="width: 32px; height: 32px; padding: 0;"
-                           title="Kelola Guru Piket Hari {{ $hari }}">
-                            <i class="bi bi-pencil-fill text-primary" style="font-size: 0.8rem;"></i>
-                        </a>
-                        @endif
-                    </div>
-
-                    {{-- Card Body: Daftar Guru Piket dengan Shift Pagi & Siang --}}
-                    <div class="card-body px-4 py-3">
-                        @if($petugasHariIni->isEmpty())
-                            <div class="text-center py-4 text-muted">
-                                <i class="bi bi-person-x fs-2 d-block mb-1 text-secondary opacity-50"></i>
-                                <span class="small">Belum ada guru piket</span>
-                            </div>
-                        @else
-                            <div class="d-flex flex-column gap-2">
-                                {{-- Show Shift Info --}}
-                                @if($wakaHariIni->isNotEmpty())
-                                    <div class="d-flex align-items-center justify-content-between mb-2">
-                                        <span class="shift-badge shift-pagi fw-semibold">WAKA PIKET</span>
-                                        @foreach($wakaHariIni as $waka)
-                                            <span class="badge bg-primary rounded-pill px-2 py-1 small"
-                                                  style="font-size: 0.7rem;">
-                                                {{ $waka->user ? strtoupper(substr($waka->user->nama, 0, 2)) : 'Waka' }}
-                                            </span>
-                                        @endforeach
+                    @else
+                        {{-- Kolom info: Waka / Koordinator / Petugas Pagi & Siang --}}
+                        <div class="d-flex flex-column gap-3">
+                            @foreach($sections as $sec)
+                                @php
+                                    $secRows = $sec['rows']->values();
+                                    $person = $sec['person'];
+                                @endphp
+                                <div class="row g-2 align-items-start">
+                                    <div class="col-12 col-md-3 col-xl-2">
+                                        <span class="shift-badge {{ $sec['class'] }} d-inline-flex align-items-center gap-1">
+                                            <i class="bi {{ $sec['icon'] }}"></i>{{ $sec['label'] }}
+                                        </span>
                                     </div>
-                                @endif
-
-                                @if($koorPagiHariIni->isNotEmpty())
-                                    <div class="d-flex align-items-center justify-content-between mb-2">
-                                        <span class="shift-badge shift-pagi fw-semibold">KOORDINATOR PAGI (07.00-11.00)</span>
-                                        @foreach($koorPagiHariIni as $koor)
-                                            <span class="badge bg-primary rounded-pill px-2 py-1 small"
-                                                  style="font-size: 0.7rem;">
-                                                Koor: {{ $koor->user ? strtoupper(substr($koor->user->nama, 0, 2)) : 'Koordinator' }}
-                                            </span>
-                                        @endforeach
-                                    </div>
-                                @endif
-
-                                @if($petugasPagiHariIni->isNotEmpty())
-                                    <div class="d-flex align-items-center justify-content-between mb-2">
-                                        <span class="shift-badge shift-pagi fw-semibold">PETUGAS PAGI (3-4 ORANG)</span>
-                                        @foreach($petugasPagiHariIni as $petugasPagi)
-                                            @php
-                                                $nip = $petugasPagi->user ? ($petugasPagi->user->nip ?? '-') : '-';
-                                                $nama = $petugasPagi->user ? $petugasPagi->user->nama : 'Petugas';
-                                            @endphp
-                                            <span class="badge bg-primary rounded-pill px-2 py-1 small"
-                                                  style="font-size: 0.7rem;">
-                                                {{ strtoupper(substr($nama, 0, 2)) }} ({{ $nip }})
-                                            </span>
-                                        @endforeach
-                                        <span class="text-muted small">(3-4 orang)</span>
-                                    </div>
-                                @endif
-
-                                {{-- Sesi Siang divider --}}
-                                @if($koorSiangHariIni->isNotEmpty() || $petugasSiangHariIni->isNotEmpty())
-                                    <hr class="my-3 border-primary-subtle">
-                                    <div class="d-flex align-items-center justify-content-between mb-2">
-                                        <span class="shift-badge shift-siang fw-semibold">KOORDINATOR SIANG (11.00-15.00)</span>
-                                        @foreach($koorSiangHariIni as $koorSiang)
-                                            <span class="badge bg-slate-500 rounded-pill px-2 py-1 small"
-                                                  style="font-size: 0.7rem;">
-                                                Koor: {{ $koorSiang->user ? strtoupper(substr($koorSiang->user->nama, 0, 2)) : 'Koordinator' }}
-                                            </span>
-                                        @endforeach
-                                    </div>
-
-                                    <div class="d-flex align-items-center justify-content-between mb-2">
-                                        <span class="shift-badge shift-siang fw-semibold">PETUGAS SIANG (3-4 ORANG)</span>
-                                        @foreach($petugasSiangHariIni as $petugasSiang)
-                                            @php
-                                                $nip = $petugasSiang->user ? ($petugasSiang->user->nip ?? '-') : '-';
-                                                $nama = $petugasSiang->user ? $petugasSiang->user->nama : 'Petugas';
-                                            @endphp
-                                            <span class="badge bg-slate-500 rounded-pill px-2 py-1 small"
-                                                  style="font-size: 0.7rem;">
-                                                {{ strtoupper(substr($nama, 0, 2)) }} ({{ $nip }})
-                                            </span>
-                                        @endforeach
-                                        <span class="text-muted small">(3-4 orang)</span>
-                                    </div>
-                                @endif
-
-                                @foreach($petugasHariIni as $item)
-                                    @php
-                                        $user = $item->user;
-                                        $waka = $item->waka;
-                                        $koorPagi = $item->koordinatorPagi;
-                                        $petugasPagi = $item->petugasPagi;
-                                        $koorSiang = $item->koordinatorSiang;
-                                        $petugasSiang = $item->petugasSiang;
-                                    @endphp
-                                    <div class="d-flex align-items-center justify-content-between p-2 rounded-3 border bg-light-subtle">
-                                        <div class="d-flex align-items-center gap-2 overflow-hidden">
-                                            <div class="rounded-circle bg-primary-subtle text-primary fw-bold d-flex align-items-center justify-content-center flex-shrink-0"
-                                                 style="width: 34px; height: 34px; font-size: 0.8rem;">
-                                                @if($user)
-                                                    {{ strtoupper(substr($user->nama, 0, 2)) }}
-                                                @elseif($waka)
-                                                    {{ strtoupper(substr($waka->nama, 0, 2)) }}
-                                                @elseif($koorPagi && $koorPagi->user)
-                                                    {{ strtoupper(substr($koorPagi->user->nama, 0, 2)) }}
-                                                @elseif($koorSiang && $koorSiang->user)
-                                                    {{ strtoupper(substr($koorSiang->user->nama, 0, 2)) }}
-                                                @else
-                                                    -
+                                    <div class="col-12 col-md-9 col-xl-10 d-flex flex-wrap align-items-start gap-2">
+                                        @forelse($secRows as $row)
+                                            @php($u = $person($row))
+                                            <div class="guru-chip d-inline-flex align-items-center gap-2 bg-light-subtle border rounded-3 py-1 ps-1 pe-2">
+                                                <span class="rounded-circle bg-white border d-flex align-items-center justify-content-center flex-shrink-0"
+                                                      style="width: 34px; height: 34px; font-size: 0.72rem; font-weight: 700; color: #334155;">
+                                                    {{ $u ? strtoupper(substr($u->nama, 0, 2)) : '?' }}
+                                                </span>
+                                                <span class="overflow-hidden">
+                                                    <span class="d-block fw-semibold text-dark text-truncate" style="font-size: 0.8rem; max-width: 240px;"
+                                                          title="{{ $u->nama ?? '-' }}">
+                                                        {{ $u->nama ?? 'Data guru tidak ditemukan' }}
+                                                    </span>
+                                                    @if($u)
+                                                        <span class="d-block text-muted text-truncate" style="font-size: 0.7rem; max-width: 240px;">
+                                                            NIP: {{ $u->nip ?? '-' }}
+                                                        </span>
+                                                    @endif
+                                                </span>
+                                                @if($canManage)
+                                                <form action="{{ route('kurikulum.jadwal-piket.destroy', $row->id) }}" method="POST"
+                                                      onsubmit="return confirm('Hapus penugasan {{ $u->nama ?? 'guru ini' }} pada hari {{ $hari }}?')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit"
+                                                            class="btn btn-sm btn-outline-danger border-0 rounded-circle p-0 d-flex align-items-center justify-content-center"
+                                                            style="width: 24px; height: 24px;" title="Hapus Penugasan">
+                                                        <i class="bi bi-x-lg" style="font-size: 0.7rem;"></i>
+                                                    </button>
+                                                </form>
                                                 @endif
                                             </div>
-                                            <div class="overflow-hidden">
-                                                <div class="fw-semibold text-dark text-truncate" style="font-size: 0.875rem;" title="{{ $user->nama ?? $waka->nama ?? $koorPagi->user->nama ?? $koorSiang->user->nama ?? '-' }}">
-                                                    @if($user) {{$user->nama}}
-                                                    @elseif($waka) {{$waka->nama}}
-                                                    @elseif($koorPagi && $koorPagi->user) {{$koorPagi->user->nama}}
-                                                    @elseif($koorSiang && $koorSiang->user) {{$koorSiang->user->nama}}
-                                                    @endif
-                                                </div>
-                                                @if($item->shift)
-                                                    <div class="text-primary small text-truncate">{{ $item->shift->nama }} ({{ $item->shift->jam_label }}) - Maks. {{ $item->shift->maksimal_petugas }}</div>
-                                                @endif
-                                                <div class="text-muted small text-truncate" style="font-size: 0.75rem;">
-                                                    @if($user) NIP: {{ $user->nip ?? '-' }} &bull; {{ $user->role_label }}
-                                                    @elseif($waka) Waka: {{ $waka->role_label ?? '-' }}
-                                                    @elseif($koorPagi && $koorPagi->user) KoorPagi: {{ $koorPagi->user->role_label ?? '-' }}
-                                                    @elseif($koorSiang && $koorSiang->user) KoorSiang: {{ $koorSiang->user->role_label ?? '-' }}
-                                                    @endif
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {{-- Delete Action --}}
-                                        @if($canManage)
-                                        <form action="{{ route('kurikulum.jadwal-piket.destroy', $item->id) }}" method="POST"
-                                              onsubmit="return confirm('Hapus penugasan piket {{ $user->nama ?? $waka->nama ?? 'Guru ini' }} pada hari {{ $hari }}?')">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn btn-outline-danger btn-sm rounded-circle border-0 p-1 ms-2"
-                                                    title="Hapus Penugasan">
-                                                <i class="bi bi-trash3"></i>
-                                            </button>
-                                        </form>
-                                        @endif
+                                        @empty
+                                            <span class="text-muted small" style="padding: 0.4rem 0;">Belum diisi</span>
+                                        @endforelse
                                     </div>
-                                @endforeach
-                            </div>
-                        @endif
-                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
             </div>
         @endforeach

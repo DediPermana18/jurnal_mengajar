@@ -7,7 +7,9 @@ use App\Models\LaporanKendala;
 use App\Models\PengaturanJadwal;
 use App\Models\Scopes\TestingDataScope;
 use App\Models\User;
+use App\Services\FonnteService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class PetugasItController extends Controller
@@ -260,10 +262,11 @@ class PetugasItController extends Controller
         $activeKendalaCount = $kendala->where('status', '!=', LaporanKendala::STATUS_SELESAI)->count();
 
         /**
-         * Status Bot WA (Fonnte) — gunakan data dummy CONNECTED jika API tidak tersedia.
-         * Cek konfigurasi atau endpoint Fonnte jika ingin real-time.
+         * Status Bot WA (Fonnte) — dicek ke endpoint device Fonnte.
+         * Direspon cache 60 detik agar halaman tidak memukul API berulang kali.
          */
-        $fonnteConnected = true; // dummy: diasumsikan terconnect
+        $fonnteStatus = Cache::remember('fonnte.connection_status', 60, fn () => FonnteService::checkConnection());
+        $fonnteConnected = $fonnteStatus['connected'];
 
         $dbOnline = false;
         try {
