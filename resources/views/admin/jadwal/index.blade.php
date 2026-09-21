@@ -136,7 +136,7 @@
                             <option value="">-- Pilih Kelas --</option>
                             @foreach($kelasList as $kelas)
                                 <option value="{{ $kelas->id }}" {{ $selectedKelas && $selectedKelas->id == $kelas->id ? 'selected' : '' }}>
-                                    {{ $kelas->tingkat }} - {{ $kelas->nama_kelas }} ({{ $kelas->jurusan->nama_jurusan ?? 'Umum' }})
+                                    {{ $kelas->nama_lengkap }}
                                 </option>
                             @endforeach
                         </select>

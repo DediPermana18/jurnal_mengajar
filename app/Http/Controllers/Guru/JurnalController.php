@@ -642,10 +642,11 @@ class JurnalController extends Controller
         $dispenMap = $this->dispenMapHariIni($today, $jamKeList);
 
         // Auto-Sync Presensi Piket: tarik data Sakit/Izin dari Guru Piket untuk
-        // kelas & tanggal yang sama, lalu pre-fill di form absensi jurnal KBM.
+        // kelas & tanggal yang sama pada JP yang sama, lalu pre-fill di form absensi jurnal KBM.
         $piketPresensiMap = PresensiSiswa::where('id_kelas', $jadwal->id_kelas)
             ->where('tanggal', $today)
             ->whereIn('status', ['Sakit', 'Izin'])
+            ->when($jadwal->jamPelajaran?->id, fn ($q, $jpId) => $q->where('jam_pelajaran_id', $jpId))
             ->get()
             ->keyBy('id_siswa');
 
@@ -709,6 +710,7 @@ class JurnalController extends Controller
             $piketPresensiMap = PresensiSiswa::where('id_kelas', $jadwal->id_kelas)
                 ->where('tanggal', $todayDate)
                 ->whereIn('status', ['Sakit', 'Izin'])
+                ->when($jadwal->jamPelajaran?->id, fn ($q, $jpId) => $q->where('jam_pelajaran_id', $jpId))
                 ->get()
                 ->keyBy('id_siswa');
 
@@ -1005,6 +1007,7 @@ class JurnalController extends Controller
             $piketPresensiMap = PresensiSiswa::where('id_kelas', $jadwal->id_kelas)
                 ->where('tanggal', $jurnal->tanggal?->toDateString())
                 ->whereIn('status', ['Sakit', 'Izin'])
+                ->when($jadwal->jamPelajaran?->id, fn ($q, $jpId) => $q->where('jam_pelajaran_id', $jpId))
                 ->get()
                 ->keyBy('id_siswa');
 

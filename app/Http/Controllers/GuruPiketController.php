@@ -5,12 +5,15 @@ namespace App\Http\Controllers;
 use App\Models\DispensasiSiswa;
 use App\Models\IzinGuru;
 use App\Models\JadwalPelajaran;
+use App\Models\JadwalPiket;
+use App\Models\JamPelajaran;
 use App\Models\Jurnal;
 use App\Models\Kelas;
 use App\Models\PresensiSiswa;
 use App\Models\Siswa;
 use App\Models\TahunAjaran;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -32,6 +35,33 @@ class GuruPiketController extends Controller
     }
 
     /**
+     * Restriksi "batasi hari": guru piket (non-Petugas IT) hanya boleh mengelola
+     * presensi pada tanggal yang merupakan hari tugas piketnya (jadwal_piket).
+     * Petugas IT / Waka (impersonasi) bebas mengelola tanggal berapa pun.
+     */
+    protected function authorizeHariTugas(string $tanggal): void
+    {
+        $user = Auth::user();
+
+        if (! $user instanceof User || $user->isPetugasIt()) {
+            return;
+        }
+
+        $hari = JadwalPiket::namaHariTanggal(Carbon::parse($tanggal));
+        if ($hari === null) {
+            return; // Sabtu/Minggu: guard `authorizeGuruPiket` sudah menangani akses umum
+        }
+
+        $bertugas = $user->jadwalPiket()->where('hari', $hari)->exists();
+
+        abort_unless(
+            $bertugas,
+            403,
+            "Anda hanya dapat mengelola presensi pada hari tugas piket Anda ({$hari})."
+        );
+    }
+
+    /**
      * Dashboard Guru Piket
      */
     public function dashboard()
@@ -44,9 +74,11 @@ class GuruPiketController extends Controller
         $tahunAktif = TahunAjaran::where('is_active', true)->first();
 
         // 1. Total siswa tidak hadir (Sakit / Izin / Alpha) hari ini
+        //    (presensi kini per JP — hitung siswa unik agar tidak ganda)
         $siswaTidakHadir = PresensiSiswa::whereDate('tanggal', $today)
             ->whereIn('status', ['Sakit', 'Izin', 'Alpha'])
-            ->count();
+            ->distinct()
+            ->count('id_siswa');
 
         // 2. Guru tidak hadir / mengajukan izin hari ini
         $guruIzinHariIni = IzinGuru::whereDate('tanggal', $today)->count();
@@ -215,8 +247,15 @@ class GuruPiketController extends Controller
         $tanggal = $request->get('tanggal', $today);
         $idKelas = $request->get('id_kelas');
 
+        // Restriksi hari tugas (guru piket non-IT hanya pada tanggal jadwalnya)
+        $this->authorizeHariTugas($tanggal);
+
         // Ambil daftar kelas untuk dropdown filter
-        $kelasList = Kelas::orderBy('nama_kelas')->get();
+        // (with('jurusan') agar aksesor nama_lengkap tidak memicu lazy loading N+1)
+        $kelasList = Kelas::with('jurusan')
+            ->orderBy('tingkat')
+            ->orderBy('nama_kelas')
+            ->get();
 
         // Ambil siswa berdasarkan kelas yang dipilih
         $siswaQuery = Siswa::with('kelas')
@@ -229,13 +268,35 @@ class GuruPiketController extends Controller
 
         $dataSiswa = $siswaQuery->get();
 
-        // Ambil presensi yang sudah ada untuk tanggal & kelas tsb
+        // JP aktif dari master data jam_pelajaran sesuai kategori hari (senin-kamis/jumat)
+        $kategoriHari = Carbon::parse($tanggal)->isFriday() ? 'Jumat' : 'Senin-Kamis';
+        $jamPelajaranList = JamPelajaran::where('kategori_hari', $kategoriHari)
+            ->where('jenis', 'kbm')
+            ->orderBy('jam_ke')
+            ->get();
+
+        // JP yang dipilih (default: JP pertama). Fallback bila param `jp` tidak valid.
+        $selectedJpId = (int) $request->integer('jp');
+        $selectedJp = $jamPelajaranList->firstWhere('id', $selectedJpId) ?? $jamPelajaranList->first();
+        $selectedJpId = $selectedJp?->id;
+
+        // Presensi yang sudah ada untuk kelas, tanggal & JP terpilih
         $presensiExisting = collect();
-        if ($idKelas) {
+        $jumlahSiswaTerisiPerJp = collect();
+        if ($idKelas && $selectedJpId) {
             $presensiExisting = PresensiSiswa::where('tanggal', $tanggal)
                 ->where('id_kelas', $idKelas)
+                ->where('jam_pelajaran_id', $selectedJpId)
                 ->get()
                 ->keyBy('id_siswa');
+
+            // Indikator visual per tombol JP: jumlah siswa yang presensinya sudah terisi per JP
+            $jumlahSiswaTerisiPerJp = PresensiSiswa::where('tanggal', $tanggal)
+                ->where('id_kelas', $idKelas)
+                ->whereNotNull('jam_pelajaran_id')
+                ->get()
+                ->groupBy('jam_pelajaran_id')
+                ->map->count();
         }
 
         return view('piket.presensi_siswa', compact(
@@ -244,7 +305,12 @@ class GuruPiketController extends Controller
             'presensiExisting',
             'tanggal',
             'today',
-            'idKelas'
+            'idKelas',
+            'jamPelajaranList',
+            'selectedJp',
+            'selectedJpId',
+            'jumlahSiswaTerisiPerJp',
+            'kategoriHari'
         ));
     }
 
@@ -258,6 +324,7 @@ class GuruPiketController extends Controller
         $validated = $request->validate([
             'tanggal' => 'required|date',
             'id_kelas' => 'required|exists:kelas,id',
+            'jp' => 'required|integer',
             'presensi' => 'required|array',
             'presensi.*.id_siswa' => 'required|exists:siswa,id',
             'presensi.*.status' => 'required|in:Hadir,Sakit,Izin',
@@ -265,22 +332,41 @@ class GuruPiketController extends Controller
             'presensi.*.foto_surat' => 'nullable|file|image|mimes:jpg,jpeg,png|max:5120',
         ]);
 
+        // Restriksi hari tugas : guru piket non-IT hanya pada tanggal jadwalnya
+        $this->authorizeHariTugas($validated['tanggal']);
+
+        // Master JP: hanya JP KBM sesuai kategori hari dari tanggal terpilih yang sah.
+        $kategoriHari = Carbon::parse($validated['tanggal'])->isFriday() ? 'Jumat' : 'Senin-Kamis';
+        $jamPelajaran = JamPelajaran::where('id', (int) $request->integer('jp'))
+            ->where('kategori_hari', $kategoriHari)
+            ->where('jenis', 'kbm')
+            ->first();
+
+        abort_unless(
+            $jamPelajaran,
+            422,
+            'Jam pelajaran tidak valid untuk tanggal yang dipilih.'
+        );
+
         $user = Auth::user();
 
         $siswaIds = collect($validated['presensi'])->pluck('id_siswa')->unique()->values()->all();
         $siswaMap = $siswaIds ? Siswa::whereIn('id', $siswaIds)->get()->keyBy('id') : collect();
 
-        // Prefix file: SRT_{KELAS}_{NIS}_{TANGGAL}_{hash}
+        // Prefix file: SRT_{KELAS}_JP{n}_{NIS}_{TANGGAL}_{hash}
         $kelas = Kelas::find($validated['id_kelas']);
         $namaKelas = strtoupper(preg_replace('/[\s-]+/', '-', trim(preg_replace('/[^a-zA-Z0-9\s-]/', '', (string) ($kelas?->nama_kelas ?? 'KELAS'))))) ?: 'KELAS';
         $tglStr = str_replace('-', '', (string) $validated['tanggal']);
+        $labelJp = $jamPelajaran->jam_ke ? 'JP'.$jamPelajaran->jam_ke : 'JP';
 
         foreach ($validated['presensi'] as $item) {
-            // Hindari galat unique [id_siswa, tanggal] saat baris lama ter-soft delete:
-            // temukan termasuk baris trashed, lalu restore & perbarui baris yang sama.
+            // Hindari galat unique [id_siswa, tanggal, jam_pelajaran_id] saat baris
+            // lama ter-soft delete: temukan termasuk baris trashed, lalu restore &
+            // perbarui baris yang sama.
             $presensi = PresensiSiswa::withTrashed()->firstOrNew([
                 'id_siswa' => $item['id_siswa'],
                 'tanggal' => $validated['tanggal'],
+                'jam_pelajaran_id' => $jamPelajaran->id,
             ]);
 
             // Guard: presensi data testing hanya dapat diubah oleh IT/QA.
@@ -303,7 +389,7 @@ class GuruPiketController extends Controller
                 }
                 $nis = preg_replace('/[^a-zA-Z0-9]/', '', (string) ($siswa?->nis ?? $siswa?->nisn ?? $item['id_siswa'])) ?: (string) $item['id_siswa'];
                 $hash = substr(md5(uniqid((string) time(), true)), 0, 6);
-                $filename = "SRT_{$namaKelas}_{$nis}_{$tglStr}_{$hash}.{$ext}";
+                $filename = "SRT_{$namaKelas}_{$labelJp}_{$nis}_{$tglStr}_{$hash}.{$ext}";
                 $fotoSuratPath = $fileSurat->storeAs('foto_surat', $filename, 'public');
 
                 // Hapus file lama bila diganti dengan file baru.
@@ -319,6 +405,7 @@ class GuruPiketController extends Controller
 
             $presensi->fill([
                 'id_kelas' => $validated['id_kelas'],
+                'jp_ke' => $jamPelajaran->jam_ke,
                 'status' => $item['status'],
                 'keterangan' => $item['keterangan'] ?? null,
                 'foto_surat' => $fotoSuratPath ?? $presensi->foto_surat,
@@ -329,6 +416,7 @@ class GuruPiketController extends Controller
         return redirect()->route('piket.presensi-siswa', [
             'tanggal' => $validated['tanggal'],
             'id_kelas' => $validated['id_kelas'],
-        ])->with('success', 'Presensi siswa berhasil disimpan.');
+            'jp' => $jamPelajaran->id,
+        ])->with('success', 'Presensi siswa untuk jam pelajaran terpilih berhasil disimpan.');
     }
 }

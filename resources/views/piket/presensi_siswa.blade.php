@@ -86,7 +86,7 @@
                         <option value="">-- Pilih Kelas --</option>
                         @foreach($kelasList as $kelas)
                             <option value="{{ $kelas->id }}" {{ $idKelas == $kelas->id ? 'selected' : '' }}>
-                                {{ $kelas->nama_kelas }} ({{ $kelas->jurusan?->nama_jurusan ?? '-' }})
+                                {{ $kelas->nama_lengkap }}
                             </option>
                         @endforeach
                     </select>
@@ -107,6 +107,9 @@
                 </div>
 
                 <div class="d-flex align-items-center gap-2 ms-auto">
+                    @if($selectedJpId)
+                        <input type="hidden" name="jp" value="{{ $selectedJpId }}">
+                    @endif
                     <button type="submit" class="btn btn-primary btn-sm fw-semibold rounded-3 px-3">
                         <i class="bi bi-search me-1"></i> Tampilkan Siswa
                     </button>
@@ -120,19 +123,81 @@
         </div>
     </form>
 
+    {{-- Filter Jam Pelajaran (Pill Buttons) — dinamis dari master data --}}
+    @if($idKelas && $jamPelajaranList->isNotEmpty())
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body py-3">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                    <h6 class="fw-bold text-dark mb-0">
+                        <i class="bi bi-clock-history me-1 text-primary"></i> Pilih Jam Pelajaran
+                        <span class="badge bg-light text-dark border rounded-3 ms-1 px-2 py-1" style="font-size: 0.7rem;">{{ $kategoriHari }}</span>
+                    </h6>
+                    <span class="ms-auto small text-muted d-flex align-items-center gap-3">
+                        <span class="d-inline-flex align-items-center gap-1">
+                            <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background: #198754;"></span>
+                            <span class="text-dark">Terisi</span>
+                        </span>
+                        <span class="d-inline-flex align-items-center gap-1">
+                            <span class="d-inline-block rounded-circle border" style="width: 10px; height: 10px; border: 2px solid #adb5bd !important;"></span>
+                            <span class="text-dark">Belum terisi</span>
+                        </span>
+                    </span>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach($jamPelajaranList as $jp)
+                        @php
+                            $isActive = $selectedJpId == $jp->id;
+                            $terisi = ($jumlahSiswaTerisiPerJp[$jp->id] ?? 0) > 0;
+                            $btnClass = $isActive
+                                ? 'btn-primary border-primary text-white shadow-sm'
+                                : ($terisi
+                                    ? 'btn-light border-success text-success'
+                                    : 'btn-light border-secondary text-secondary');
+                            $waktu = substr($jp->jam_mulai, 0, 5).'–'.substr($jp->jam_selesai, 0, 5);
+                        @endphp
+                        <a href="{{ route('piket.presensi-siswa', ['tanggal' => $tanggal, 'id_kelas' => $idKelas, 'jp' => $jp->id]) }}"
+                           class="btn btn-sm rounded-pill border fw-semibold d-inline-flex align-items-center gap-2 {{ $btnClass }}"
+                           style="padding: 0.35rem 0.9rem;"
+                           title="JP {{ $jp->jam_ke }} &middot; {{ $waktu }}">
+                            @if($isActive)
+                                <i class="bi bi-check-circle-fill"></i>
+                            @elseif($terisi)
+                                <i class="bi bi-check-circle"></i>
+                            @else
+                                <i class="bi bi-circle"></i>
+                            @endif
+                            <span>JP {{ $jp->jam_ke }}</span>
+                            <span class="opacity-75 text-nowrap" style="font-size: 0.72rem;">{{ $waktu }}</span>
+                            @if($terisi)
+                                <span class="badge rounded-pill {{ $isActive ? 'bg-white text-primary' : 'bg-success text-white' }}"
+                                      title="Siswa terisi: {{ $jumlahSiswaTerisiPerJp[$jp->id] }}/{{ $dataSiswa->count() }}">
+                                    {{ $jumlahSiswaTerisiPerJp[$jp->id] }}/{{ $dataSiswa->count() }}
+                                </span>
+                            @endif
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- Presensi Table --}}
-    @if($idKelas)
+    @if($idKelas && $jamPelajaranList->isNotEmpty() && $selectedJp)
         <form method="POST" action="{{ route('piket.presensi-siswa.store') }}" id="formPresensi" enctype="multipart/form-data">
             @csrf
             <input type="hidden" name="tanggal" value="{{ $tanggal }}">
             <input type="hidden" name="id_kelas" value="{{ $idKelas }}">
+            <input type="hidden" name="jp" value="{{ $selectedJp->id }}">
 
             <div class="card border-0 shadow-sm rounded-4 mb-4">
                 <div class="card-header bg-white border-bottom rounded-top-4 py-3">
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <h5 class="fw-bold text-dark mb-0">
                             <i class="bi bi-people-fill text-primary me-2"></i>
-                            Daftar Siswa - {{ $dataSiswa->first()?->kelas?->nama_kelas ?? 'Kelas' }}
+                            Daftar Siswa - {{ $dataSiswa->first()?->kelas?->nama_lengkap ?? 'Kelas' }}
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-3 ms-1 px-2 py-1" style="font-size: 0.72rem;">
+                                JP {{ $selectedJp->jam_ke }} &middot; {{ substr($selectedJp->jam_mulai, 0, 5) }}–{{ substr($selectedJp->jam_selesai, 0, 5) }}
+                            </span>
                             <span class="badge bg-light text-dark border rounded-3 ms-1 px-2 py-1" id="countPresent">0/{{ $dataSiswa->count() }} Hadir</span>
                         </h5>
                         <div class="d-flex gap-2">
@@ -140,12 +205,12 @@
                                 <i class="bi bi-check-circle me-1"></i> Set Semua Hadir
                             </button>
                             <button type="submit" class="btn btn-sm btn-primary fw-semibold rounded-3">
-                                <i class="bi bi-save me-1"></i> Simpan Presensi
+                                <i class="bi bi-save me-1"></i> Simpan Presensi JP {{ $selectedJp->jam_ke }}
                             </button>
                         </div>
                     </div>
                     <div class="text-muted mt-2" style="font-size: 0.78rem;">
-                        <i class="bi bi-info-circle me-1"></i>Semua siswa berstatus <strong>Hadir</strong> secara default. Klik pill untuk mengubah status siswa yang tidak hadir saja.
+                        <i class="bi bi-info-circle me-1"></i>Semua siswa berstatus <strong>Hadir</strong> secara default. Presensi tersimpan <strong>khusus untuk JP {{ $selectedJp->jam_ke }}</strong> — pilih pill JP lain di atas untuk mengisi jam yang berbeda.
                     </div>
                 </div>
 
@@ -255,6 +320,17 @@
                 </div>
             </div>
         </form>
+    @elseif($idKelas)
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-clock text-muted mb-3" style="font-size: 3rem;"></i>
+                <h5 class="fw-bold text-dark mb-2">Tidak Ada Jam Pelajaran</h5>
+                <p class="text-muted mb-3">Belum ada master data jam pelajaran KBM untuk kategori hari <strong>{{ $kategoriHari }}</strong> pada tanggal terpilih.</p>
+                <a href="{{ route('piket.presensi-siswa') }}" class="btn btn-outline-secondary btn-sm fw-semibold rounded-3">
+                    <i class="bi bi-x-circle me-1"></i> Reset
+                </a>
+            </div>
+        </div>
     @else
         <div class="card border-0 shadow-sm rounded-4">
             <div class="card-body text-center py-5">

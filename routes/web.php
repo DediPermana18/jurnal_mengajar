@@ -75,6 +75,10 @@ Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
     Route::post('admin/import/guru', [DataImportController::class, 'importGuru'])->name('import.guru');
     Route::post('admin/import/kelas', [DataImportController::class, 'importKelas'])->name('import.kelas');
     Route::post('admin/import/ruangan', [DataImportController::class, 'importRuangan'])->name('import.ruangan');
+    Route::post('admin/import/reset-siswa', [DataImportController::class, 'resetSiswa'])->name('import.reset-siswa');
+    Route::post('admin/import/reset-guru', [DataImportController::class, 'resetGuru'])->name('import.reset-guru');
+    Route::post('admin/import/reset-kelas-jurusan', [DataImportController::class, 'resetKelasJurusan'])->name('import.reset-kelas-jurusan');
+    Route::post('admin/import/reset-ruangan', [DataImportController::class, 'resetRuangan'])->name('import.reset-ruangan');
     Route::get('admin/siswa/export', [SiswaController::class, 'export'])->name('siswa.export');
     Route::delete('admin/siswa/delete-all', [SiswaController::class, 'deleteAll'])->name('siswa.delete-all');
     Route::resource('admin/siswa', SiswaController::class);

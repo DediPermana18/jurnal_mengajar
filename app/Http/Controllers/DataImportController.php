@@ -10,7 +10,9 @@ use App\Models\Guru;
 use App\Models\Kelas;
 use App\Models\Scopes\TestingDataScope;
 use App\Models\Siswa;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Excel as ExcelFormat;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -283,5 +285,161 @@ class DataImportController extends Controller
             return redirect()->route('import.index')
                 ->with('error', 'Import ruangan gagal: '.$e->getMessage());
         }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // RESET / HAPUS MASAL DATA MASTER (Zona Berbahaya)
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Partisi data aktif (0 = real, 1 = testing), selaras dengan index()
+     * dan SiswaImport — agar reset TIDAK PERNAH menyentuh partisi lain.
+     */
+    private function resetScope(Request $request): int
+    {
+        return SiswaImport::isImportTestingContext($request->user()) ? 1 : 0;
+    }
+
+    /**
+     * Validasi frasa konfirmasi berbahaya — harus diketik utuh (huruf besar).
+     */
+    private function validateResetConfirmation(Request $request, string $expected): void
+    {
+        $request->validate([
+            'reset_confirm' => [
+                'required',
+                'string',
+                function ($attribute, $value, $fail) use ($expected) {
+                    if (mb_strtoupper(trim($value)) !== $expected) {
+                        $fail("Frasa konfirmasi tidak cocok. Tulis persis: {$expected}");
+                    }
+                },
+            ],
+        ], [
+            'reset_confirm.required' => 'Ketik frasa konfirmasi untuk melanjutkan.',
+        ]);
+    }
+
+    /**
+     * Reset semua Data Siswa (beserta presensi/dispensasi/catatan/absensi terkait).
+     */
+    public function resetSiswa(Request $request)
+    {
+        $this->validateResetConfirmation($request, 'HAPUS DATA SISWA');
+        $scope = $this->resetScope($request);
+
+        $deleted = DB::transaction(function () use ($scope) {
+            // Anak-anak siswa dihapus dulu (partisi sama) sebelum tabel induk.
+            foreach (['absensi_jurnal', 'catatan_terlambat', 'catatan_siswa_bermasalah', 'dispensasi_siswa', 'presensi_siswa'] as $table) {
+                DB::table($table)->where('is_testing_data', $scope)->delete();
+            }
+
+            return DB::table('siswa')->where('is_testing_data', $scope)->delete();
+        });
+
+        return redirect()->route('import.index')
+            ->with('success', 'Seluruh Data Siswa Berhasil Dihapus ('.number_format($deleted).' siswa).');
+    }
+
+    /**
+     * Reset semua akun Guru (role=guru) beserta riwayat mengajar/piket/izin
+     * yang menyandang guru tersebut.
+     */
+    public function resetGuru(Request $request)
+    {
+        $this->validateResetConfirmation($request, 'HAPUS DATA GURU');
+        $scope = $this->resetScope($request);
+
+        $deleted = DB::transaction(function () use ($scope) {
+            $ids = DB::table('users')
+                ->where('role', User::ROLE_GURU)
+                ->where('is_testing_data', $scope)
+                ->pluck('id')
+                ->all();
+
+            if (empty($ids)) {
+                return 0;
+            }
+
+            // Baris dependen yang memuat guru (FK → users: CASCADE / SET NULL)
+            // dihapus eksplisit agar deterministik & sesuai partisi.
+            DB::table('status_kehadiran_guru')->whereIn('user_id', $ids)->delete();
+            DB::table('pengurus_ruangan')->whereIn('user_id', $ids)->delete();
+            DB::table('laporan_kendala')->whereIn('user_id', $ids)->delete();
+            DB::table('penerima_catatan_terlambat')->whereIn('user_id', $ids)->delete();
+            DB::table('catatan_siswa_bermasalah')->whereIn('id_wali_kelas', $ids)->delete();
+            DB::table('catatan_terlambat')->whereIn('id_satpam', $ids)->delete();
+
+            DB::table('dispensasi_kolektif')->where(function ($q) use ($ids) {
+                $q->whereIn('id_guru', $ids)->orWhereIn('id_guru_piket', $ids);
+            })->delete();
+
+            DB::table('dispensasi_siswa')->where(function ($q) use ($ids) {
+                $q->whereIn('id_guru', $ids)->orWhereIn('id_guru_piket', $ids);
+            })->delete();
+
+            DB::table('izin_guru')->whereIn('user_id', $ids)->delete();
+            DB::table('presensi_siswa')->whereIn('id_guru_piket', $ids)->delete();
+            DB::table('jadwal_piket')->whereIn('user_id', $ids)->delete();
+            DB::table('jadwal_pelajaran')->whereIn('id_guru', $ids)->delete();
+
+            // Jurnal guru (absensi_jurnal ikut ter-cascade via id_jurnal).
+            DB::table('jurnal')->whereIn('id_guru', $ids)->delete();
+
+            return DB::table('users')->whereIn('id', $ids)->where('role', User::ROLE_GURU)->delete();
+        });
+
+        return redirect()->route('import.index')
+            ->with('success', 'Seluruh Data Guru Berhasil Dihapus ('.number_format($deleted).' guru).');
+    }
+
+    /**
+     * Reset semua Data Kelas & Jurusan (kelas menyeret jadwal pelajaran,
+     * jurnal, presensi, dan siswa yang berada di kelas tsb sesuai relasi).
+     */
+    public function resetKelasJurusan(Request $request)
+    {
+        $this->validateResetConfirmation($request, 'HAPUS DATA KELAS JURUSAN');
+        $scope = $this->resetScope($request);
+
+        $deleted = DB::transaction(function () use ($scope) {
+            // Tabel ber-FK ke kelas di partisi sama dibersihkan dulu.
+            DB::table('jadwal_pelajaran')->where('is_testing_data', $scope)->delete();
+            DB::table('presensi_siswa')->where('is_testing_data', $scope)->delete();
+            DB::table('siswa')->where('is_testing_data', $scope)->delete();
+
+            // Lepas referensi kelas pada users (kelas_id → SET NULL).
+            DB::table('users')->where('is_testing_data', $scope)->update(['kelas_id' => null]);
+
+            $kelas   = DB::table('kelas')->where('is_testing_data', $scope)->delete();
+            $jurusan = DB::table('jurusan')->where('is_testing_data', $scope)->delete();
+
+            return $kelas + $jurusan;
+        });
+
+        return redirect()->route('import.index')
+            ->with('success', 'Seluruh Data Kelas & Jurusan Berhasil Dihapus ('.number_format($deleted).' baris).');
+    }
+
+    /**
+     * Reset semua Data Ruangan (referensi pada jadwal pelajaran dinull-kan,
+     * pengurus ruangan ikut dihapus).
+     */
+    public function resetRuangan(Request $request)
+    {
+        $this->validateResetConfirmation($request, 'HAPUS DATA RUANGAN');
+        $scope = $this->resetScope($request);
+
+        $deleted = DB::transaction(function () use ($scope) {
+            DB::table('pengurus_ruangan')->where('is_testing_data', $scope)->delete();
+
+            // jadwal_pelajaran.id_ruangan → SET NULL (jadwal tetap tersimpan).
+            DB::table('jadwal_pelajaran')->where('is_testing_data', $scope)->update(['id_ruangan' => null]);
+
+            return DB::table('ruangans')->where('is_testing_data', $scope)->delete();
+        });
+
+        return redirect()->route('import.index')
+            ->with('success', 'Seluruh Data Ruangan Berhasil Dihapus ('.number_format($deleted).' ruangan).');
     }
 }

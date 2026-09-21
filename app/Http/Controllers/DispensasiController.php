@@ -109,7 +109,7 @@ class DispensasiController extends Controller
             ->get();
 
         // Daftar kelas untuk dropdown "Pilih Kelas" (cascading ke dropdown siswa).
-        $kelasList = Kelas::orderBy('tingkat')->orderBy('nama_kelas')->get();
+        $kelasList = Kelas::with('jurusan')->orderBy('tingkat')->orderBy('nama_kelas')->get();
 
         // Saat validasi gagal (old()): pra-pilih kelas dari siswa yang terpilih
         // agar dropdown siswa & filter jadwal tetap konsisten setelah redirect back.

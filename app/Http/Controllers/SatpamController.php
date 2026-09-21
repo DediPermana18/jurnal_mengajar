@@ -175,7 +175,7 @@ class SatpamController extends Controller
             ->limit(20)
             ->get();
 
-        $kelasList = Kelas::withCount('siswa')->orderBy('tingkat')->orderBy('nama_kelas')->get();
+        $kelasList = Kelas::with('jurusan')->withCount('siswa')->orderBy('tingkat')->orderBy('nama_kelas')->get();
         $siswaList = Siswa::with('kelas')->orderBy('nama')->get();
 
         $guruPiketHariIni = static::guruPiketBertugasHariIni();

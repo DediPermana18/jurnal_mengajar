@@ -4,7 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Exports\GuruExport;
 use App\Models\Guru;
+use App\Models\IzinGuru;
+use App\Models\JadwalPelajaran;
+use App\Models\JadwalPiket;
+use App\Models\Jurnal;
 use App\Models\Kelas;
+use App\Models\PresensiSiswa;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -144,7 +149,9 @@ class GuruController extends Controller
                 'required',
                 'string',
                 'max:100',
-                Rule::unique('users', 'username')->where(fn ($q) => $q->where('is_testing_data', $isTestingData)),
+                Rule::unique('users', 'username')
+                    ->where(fn ($q) => $q->where('is_testing_data', $isTestingData))
+                    ->whereNull('deleted_at'),
             ],
             'no_hp' => 'nullable|string|max:20',
             'password' => 'nullable|string|min:6',
@@ -188,7 +195,10 @@ class GuruController extends Controller
                 'required',
                 'string',
                 'max:100',
-                Rule::unique('users', 'username')->where(fn ($q) => $q->where('is_testing_data', $isTestingData))->ignore($user->id),
+                Rule::unique('users', 'username')
+                    ->where(fn ($q) => $q->where('is_testing_data', $isTestingData))
+                    ->whereNull('deleted_at')
+                    ->ignore($user->id),
             ],
             'no_hp' => 'nullable|string|max:20',
         ], [
@@ -228,23 +238,45 @@ class GuruController extends Controller
     {
         $this->authorizeAdmin();
 
-        $user = User::where('role', User::ROLE_GURU)->findOrFail($id);
+        // Pakai model Guru (scope role=guru + soft delete) agar pencarian selalu
+        // konsisten dengan daftar pada halaman ini.
+        $guru = Guru::withTrashed()->findOrFail($id);
 
-        if ($user->trashed()) {
+        if ($guru->trashed()) {
             return redirect()->route('guru.index')->with('error', 'Data guru sudah dalam status tidak aktif.');
         }
 
         // Validasi: Cek apakah guru masih menjabat sebagai Wali Kelas
-        $kelasWali = Kelas::where('id_wali_kelas', $user->id)->first();
+        $kelasWali = Kelas::where('id_wali_kelas', $guru->id)->first();
         if ($kelasWali) {
             $namaKelas = $kelasWali->nama_lengkap ?? $kelasWali->nama_kelas;
 
             return redirect()->route('guru.index')->with('error', "Gagal menghapus! Guru ini masih aktif sebagai Wali Kelas di {$namaKelas}. Silakan ganti wali kelas terlebih dahulu.");
         }
 
-        $user->delete();
+        // Referensi yang masih menyandang nama guru. FK ke users pada tabel ini
+        // semuanya CASCADE, sehingga hard delete guru ber-riwayat akan memusnahkan
+        // jadwal KBM/jurnal/presensi/izin — harus ditangani dengan soft delete.
+        $masihDiJadwalPelajaran = JadwalPelajaran::where('id_guru', $guru->id)->exists();
+        $masihDiJadwalPiket     = JadwalPiket::where('user_id', $guru->id)->exists();
+        $punyaJurnal            = Jurnal::where('id_guru', $guru->id)->exists();
+        $punyaPresensiPiket     = PresensiSiswa::withTrashed()->where('id_guru_piket', $guru->id)->exists();
+        $punyaIzin              = IzinGuru::where('user_id', $guru->id)->exists();
 
-        return redirect()->route('guru.index')->with('success', 'Data Guru "'.$user->nama.'" berhasil dihapus (soft delete).');
+        if (! $masihDiJadwalPelajaran && ! $masihDiJadwalPiket && ! $punyaJurnal && ! $punyaPresensiPiket && ! $punyaIzin) {
+            // Guru tanpa jadwal/riwayat apa pun → hapus permanen dari tabel users,
+            // sehingga benar-benar tidak tersisa (tidak bakal muncul di mana pun).
+            $guru->forceDelete();
+
+            return redirect()->route('guru.index')->with('success', 'Data Guru "'.$guru->nama.'" berhasil dihapus (permanen).');
+        }
+
+        // Ada riwayat mengajar/piket → soft delete. Query index sudah memfilter
+        // soft delete, jadi guru tidak lagi muncul di daftar, sedangkan riwayat
+        // KBM/absensi yang menyandang namanya tetap tersimpan aman.
+        $guru->delete();
+
+        return redirect()->route('guru.index')->with('success', 'Data Guru "'.$guru->nama.'" berhasil dihapus. Guru sudah tidak muncul di daftar; riwayat jadwal/absensi tetap tersimpan.');
     }
 
     /**

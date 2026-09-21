@@ -289,6 +289,18 @@
             </div>
         </div>
     @endif
+
+    @if($errors->any())
+        <div class="alert alert-danger alert-dismissible fade show border-0 rounded-3 mb-4 d-flex align-items-center gap-2" role="alert" style="background:#fef2f2; color:#991b1b;">
+            <i class="bi bi-x-circle-fill fs-5"></i>
+            <div>
+                @foreach ($errors->all() as $error)
+                    <div>{{ $error }}</div>
+                @endforeach
+            </div>
+            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
     {{-- ====================================================== --}}
     {{-- TAB NAVIGASI                                           --}}
     {{-- ====================================================== --}}
@@ -400,8 +412,7 @@
                                     @foreach($dataKelas as $kelas)
                                         <option value="{{ $kelas->id }}"
                                             {{ old('id_kelas') == $kelas->id ? 'selected' : '' }}>
-                                            {{ $kelas->tingkat }} • {{ $kelas->nama_kelas }}
-                                            {{ $kelas->jurusan ? '(' . $kelas->jurusan->nama_jurusan . ')' : '' }}
+                                            {{ $kelas->nama_lengkap }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -433,6 +444,37 @@
                             <div class="fw-bold text-dark" style="font-size:1rem;">{{ number_format($totalSiswa) }} siswa terdaftar</div>
                             <div style="font-size:0.8rem;color:#64748b;">Import dengan NISN yang sama akan me-update data yang sudah ada (bukan duplikat).</div>
                         </div>
+                    </div>
+                </div>
+
+                {{-- Zona Berbahaya: Reset Data Siswa --}}
+                <div class="card-import mt-4" style="border-color:#fecaca;background:#fff7f7;">
+                    <div class="card-import-header d-flex align-items-center gap-3" style="border-color:#fee2e2;">
+                        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#ef4444,#b91c1c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i class="bi bi-trash3-fill text-white"></i>
+                        </div>
+                        <div>
+                            <h5 class="card-import-title mb-0">Zona Berbahaya — Reset Data</h5>
+                            <p class="mb-0" style="font-size:0.78rem;color:#b91c1c;">Hapus MASAL &amp; permanen. Tidak dapat dikembalikan.</p>
+                        </div>
+                    </div>
+                    <div class="card-import-body">
+                        <p class="mb-3" style="font-size:0.85rem;color:#7f1d1d;">
+                            Menghapus <strong>seluruh data siswa</strong> pada konteks data ini, termasuk <strong>presensi siswa,
+                            dispensasi, catatan terlambat/bermasalah, dan absensi jurnal</strong> yang terkait.
+                            Gunakan hanya saat akan import ulang data yang benar.
+                        </p>
+                        <button type="button"
+                                class="btn btn-danger rounded-3 px-4 py-2 fw-semibold d-inline-flex align-items-center gap-2"
+                                style="font-size:0.875rem;"
+                                data-reset-route="{{ route('import.reset-siswa') }}"
+                                data-reset-label="seluruh data Siswa"
+                                data-reset-phrase="HAPUS DATA SISWA"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalResetData">
+                            <i class="bi bi-trash3"></i>
+                            <span>Reset / Hapus Semua Data Siswa</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -580,6 +622,36 @@
                             <div class="fw-bold text-dark" style="font-size:1rem;">{{ number_format($totalGuru ?? 0) }} guru terdaftar</div>
                             <div style="font-size:0.8rem;color:#64748b;">Import dengan NIP yang sama akan me-update data yang sudah ada (bukan duplikat).</div>
                         </div>
+                    </div>
+                </div>
+
+                {{-- Zona Berbahaya: Reset Data Guru --}}
+                <div class="card-import mt-4" style="border-color:#fecaca;background:#fff7f7;">
+                    <div class="card-import-header d-flex align-items-center gap-3" style="border-color:#fee2e2;">
+                        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#ef4444,#b91c1c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i class="bi bi-trash3-fill text-white"></i>
+                        </div>
+                        <div>
+                            <h5 class="card-import-title mb-0">Zona Berbahaya — Reset Data</h5>
+                            <p class="mb-0" style="font-size:0.78rem;color:#b91c1c;">Hapus MASAL &amp; permanen. Tidak dapat dikembalikan.</p>
+                        </div>
+                    </div>
+                    <div class="card-import-body">
+                        <p class="mb-3" style="font-size:0.85rem;color:#7f1d1d;">
+                            Menghapus <strong>seluruh akun guru</strong> pada konteks data ini, termasuk <strong>jadwal pelajaran,
+                            jadwal piket, jurnal mengajar, izin guru, presensi piket, dan status kehadiran</strong> yang menyandang guru tersebut.
+                        </p>
+                        <button type="button"
+                                class="btn btn-danger rounded-3 px-4 py-2 fw-semibold d-inline-flex align-items-center gap-2"
+                                style="font-size:0.875rem;"
+                                data-reset-route="{{ route('import.reset-guru') }}"
+                                data-reset-label="seluruh data Guru"
+                                data-reset-phrase="HAPUS DATA GURU"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalResetData">
+                            <i class="bi bi-trash3"></i>
+                            <span>Reset / Hapus Semua Data Guru</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -762,6 +834,37 @@
                         </form>
                     </div>
                 </div>
+
+                {{-- Zona Berbahaya: Reset Data Kelas / Jurusan --}}
+                <div class="card-import mb-4" style="border-color:#fecaca;background:#fff7f7;">
+                    <div class="card-import-header d-flex align-items-center gap-3" style="border-color:#fee2e2;">
+                        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#ef4444,#b91c1c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i class="bi bi-trash3-fill text-white"></i>
+                        </div>
+                        <div>
+                            <h5 class="card-import-title mb-0">Zona Berbahaya — Reset Data</h5>
+                            <p class="mb-0" style="font-size:0.78rem;color:#b91c1c;">Hapus MASAL &amp; permanen. Tidak dapat dikembalikan.</p>
+                        </div>
+                    </div>
+                    <div class="card-import-body">
+                        <p class="mb-3" style="font-size:0.85rem;color:#7f1d1d;">
+                            Menghapus <strong>seluruh kelas &amp; jurusan</strong> pada konteks data ini. Karena siswa &amp; jadwal
+                            pelajaran terikat pada kelas, <strong>siswa, jadwal pelajaran, jurnal, dan presensi</strong> pada konteks
+                            tersebut <strong>ikut terhapus</strong>.
+                        </p>
+                        <button type="button"
+                                class="btn btn-danger rounded-3 px-4 py-2 fw-semibold d-inline-flex align-items-center gap-2"
+                                style="font-size:0.875rem;"
+                                data-reset-route="{{ route('import.reset-kelas-jurusan') }}"
+                                data-reset-label="seluruh data Kelas &amp; Jurusan"
+                                data-reset-phrase="HAPUS DATA KELAS JURUSAN"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalResetData">
+                            <i class="bi bi-trash3"></i>
+                            <span>Reset / Hapus Semua Data Kelas &amp; Jurusan</span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {{-- Kolom Kanan: Panduan & Template --}}
@@ -916,6 +1019,36 @@
                         </form>
                     </div>
                 </div>
+
+                {{-- Zona Berbahaya: Reset Data Ruangan --}}
+                <div class="card-import mt-4" style="border-color:#fecaca;background:#fff7f7;">
+                    <div class="card-import-header d-flex align-items-center gap-3" style="border-color:#fee2e2;">
+                        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#ef4444,#b91c1c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i class="bi bi-trash3-fill text-white"></i>
+                        </div>
+                        <div>
+                            <h5 class="card-import-title mb-0">Zona Berbahaya — Reset Data</h5>
+                            <p class="mb-0" style="font-size:0.78rem;color:#b91c1c;">Hapus MASAL &amp; permanen. Tidak dapat dikembalikan.</p>
+                        </div>
+                    </div>
+                    <div class="card-import-body">
+                        <p class="mb-3" style="font-size:0.85rem;color:#7f1d1d;">
+                            Menghapus <strong>seluruh data ruangan</strong> pada konteks data ini beserta <strong>pengurus ruangan</strong>.
+                            Referensi ruangan pada <strong>jadwal pelajaran</strong> dikosongkan (jadwal tetap tersimpan).
+                        </p>
+                        <button type="button"
+                                class="btn btn-danger rounded-3 px-4 py-2 fw-semibold d-inline-flex align-items-center gap-2"
+                                style="font-size:0.875rem;"
+                                data-reset-route="{{ route('import.reset-ruangan') }}"
+                                data-reset-label="seluruh data Ruangan"
+                                data-reset-phrase="HAPUS DATA RUANGAN"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalResetData">
+                            <i class="bi bi-trash3"></i>
+                            <span>Reset / Hapus Semua Data Ruangan</span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {{-- Kolom Kanan: Panduan & Template --}}
@@ -972,6 +1105,54 @@
         </div>
     </div>
 
+</div>
+
+{{-- ====================================================== --}}
+{{-- MODAL KONFIRMASI RESET / HAPUS MASAL                   --}}
+{{-- ====================================================== --}}
+<div class="modal fade" id="modalResetData" tabindex="-1" aria-labelledby="modalResetDataLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <form method="POST" id="formResetData" action="" class="modal-content">
+            @csrf
+            <div class="modal-header" style="background:#fef2f2;border-bottom:1px solid #fee2e2;">
+                <h5 class="modal-title fw-bold text-danger" id="modalResetDataLabel">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Konfirmasi Hapus Masal Data
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger border-0 rounded-3 d-flex align-items-start gap-2" style="background:#fef2f2;color:#7f1d1d;">
+                    <i class="bi bi-exclamation-octagon-fill fs-5 mt-1"></i>
+                    <div>
+                        Anda akan menghapus <strong id="resetLabelText">seluruh data</strong> beserta seluruh data terkait secara
+                        <strong>permanen</strong>. Tindakan ini <strong class="text-danger">tidak dapat dibatalkan</strong>.
+                    </div>
+                </div>
+                <label for="resetConfirmInput" class="form-label fw-semibold" style="font-size:0.875rem;color:#374151;">
+                    Ketik frasa konfirmasi <code id="resetPhraseText" class="text-danger fw-bold px-2 py-1" style="background:#fee2e2;border-radius:6px;">HAPUS DATA SISWA</code>
+                    pada kolom di bawah untuk mengaktifkan tombol hapus:
+                </label>
+                <input type="text"
+                       class="form-control form-control-lg @error('reset_confirm') is-invalid @enderror"
+                       id="resetConfirmInput"
+                       name="reset_confirm"
+                       placeholder="Ketik frasa konfirmasi di sini…"
+                       autocomplete="off"
+                       autofocus
+                       style="border-radius:10px;border:1px solid #fecaca;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;"
+                       required>
+                @error('reset_confirm')
+                    <div class="text-danger mt-2" style="font-size:0.8rem;">{{ $message }}</div>
+                @enderror
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light border rounded-3 px-4 fw-semibold" data-bs-dismiss="modal">Batal</button>
+                <button type="submit" id="btnConfirmReset" class="btn btn-danger rounded-3 px-4 fw-semibold d-inline-flex align-items-center gap-2" disabled>
+                    <i class="bi bi-trash3-fill"></i> Ya, Hapus Semua Data
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 @endsection
 
@@ -1313,6 +1494,43 @@
 
         btnRemove.addEventListener('click', clearFile);
         document.getElementById('formImportGuru').addEventListener('reset', clearFile);
+    })();
+
+    // ── Modal Konfirmasi Reset / Hapus Masal Data ────────────────────
+    (function () {
+        const modalEl  = document.getElementById('modalResetData');
+        const form     = document.getElementById('formResetData');
+        const input    = document.getElementById('resetConfirmInput');
+        const btnReset = document.getElementById('btnConfirmReset');
+        const lblText  = document.getElementById('resetLabelText');
+        const phText   = document.getElementById('resetPhraseText');
+
+        if (!modalEl || !form || !input || !btnReset) return;
+
+        let expectedPhrase = '';
+
+        function lockReset() {
+            input.value = '';
+            btnReset.disabled = true;
+        }
+
+        // Tombol "Reset / Hapus Semua Data ..." (di setiap tab) → isi modal.
+        document.querySelectorAll('[data-reset-route]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                expectedPhrase = (btn.dataset.resetPhrase || '').toUpperCase();
+                form.setAttribute('action', btn.dataset.resetRoute);
+                lblText.textContent = btn.dataset.resetLabel || 'seluruh data';
+                phText.textContent  = expectedPhrase;
+                lockReset();
+            });
+        });
+
+        // Tombol eksekusi hanya aktif saat frasa diketik persis (case-insensitive).
+        input.addEventListener('input', function () {
+            btnReset.disabled = this.value.trim().toUpperCase() !== expectedPhrase;
+        });
+
+        modalEl.addEventListener('hidden.bs.modal', lockReset);
     })();
 </script>
 @endpush

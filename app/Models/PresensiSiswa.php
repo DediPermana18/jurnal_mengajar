@@ -17,6 +17,8 @@ class PresensiSiswa extends Model
     protected $fillable = [
         'id_siswa',
         'id_kelas',
+        'jam_pelajaran_id',
+        'jp_ke',
         'tanggal',
         'status',
         'keterangan',
@@ -26,6 +28,7 @@ class PresensiSiswa extends Model
 
     protected $casts = [
         'tanggal' => 'date',
+        'jp_ke' => 'integer',
         'is_testing_data' => 'boolean',
     ];
 
@@ -43,6 +46,14 @@ class PresensiSiswa extends Model
     public function kelas(): BelongsTo
     {
         return $this->belongsTo(Kelas::class, 'id_kelas', 'id');
+    }
+
+    /**
+     * Relasi ke Jam Pelajaran (master data JP)
+     */
+    public function jamPelajaran(): BelongsTo
+    {
+        return $this->belongsTo(JamPelajaran::class, 'jam_pelajaran_id', 'id');
     }
 
     /**

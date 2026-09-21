@@ -116,7 +116,8 @@ class KurikulumLaporanController extends Controller
             'idGuruInput' => (int) $request->input('id_guru'),
             'idMapelInput' => (int) $request->input('id_mapel'),
             'tingkatList' => Kelas::distinct()->orderBy('tingkat')->pluck('tingkat'),
-            'kelasList' => Kelas::when($tingkat !== '', fn ($q) => $q->where('tingkat', $tingkat))
+            'kelasList' => Kelas::with('jurusan')
+                ->when($tingkat !== '', fn ($q) => $q->where('tingkat', $tingkat))
                 ->orderBy('tingkat')
                 ->orderBy('nama_kelas')
                 ->get(),

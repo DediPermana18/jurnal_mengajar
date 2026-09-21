@@ -29,11 +29,20 @@ class Kelas extends Model
 
     public function getNamaLengkapAttribute(): string
     {
-        if (str_starts_with(trim($this->nama_kelas), $this->tingkat.' ')) {
-            return trim($this->nama_kelas);
+        $label = trim((string) $this->nama_kelas);
+        $tingkat = trim((string) $this->tingkat);
+
+        // Tambahkan tingkat (X/XI/XII) bila nama_kelas belum memuatnya — mis. "PSPT 1" → "XII PSPT 1".
+        if ($tingkat !== '' && ! str_starts_with($label, $tingkat.' ')) {
+            $label = $tingkat.' '.$label;
         }
 
-        return trim($this->tingkat.' '.$this->nama_kelas);
+        // Lampirkan nama panjang jurusan — mis. "XII PSPT 1 (Produksi Siaran dan Program Televisi)".
+        if ($namaJurusan = $this->jurusan?->nama_jurusan) {
+            $label .= ' ('.$namaJurusan.')';
+        }
+
+        return trim($label);
     }
 
     /**

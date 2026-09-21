@@ -400,7 +400,7 @@
                                     :hidden="jurusanId && jurusanId != '{{ $k->id_jurusan ?? '' }}'"
                                     :disabled="jurusanId && jurusanId != '{{ $k->id_jurusan ?? '' }}'"
                                     {{ (string)request('id_kelas') === (string)$k->id ? 'selected' : '' }}>
-                                {{ $k->tingkat }} • {{ $k->nama_kelas }}{{ $k->jurusan ? ' (' . $k->jurusan->nama_jurusan . ')' : '' }}
+                                {{ $k->nama_lengkap }}
                             </option>
                         @endforeach
                     </select>
