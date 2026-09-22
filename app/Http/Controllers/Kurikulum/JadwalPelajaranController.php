@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Kurikulum;
 
+use App\Exports\JadwalPelajaranExport;
 use App\Http\Controllers\Controller;
+use App\Imports\SiswaImport;
 use App\Models\AgendaRutin;
 use App\Models\JadwalPelajaran;
 use App\Models\JamPelajaran;
@@ -20,6 +22,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Excel as ExcelFormat;;
+use Maatwebsite\Excel\Facades\Excel;
 
 class JadwalPelajaranController extends Controller
 {
@@ -159,6 +163,28 @@ class JadwalPelajaranController extends Controller
     }
 
     /**
+     * Unduh seluruh data Jadwal Pelajaran aktif sebagai XLSX / CSV.
+     * Format kolom: Kelas, Hari, Jam, MataPelajaran, Guru, Ruang.
+     */
+    public function export(Request $request)
+    {
+        $testing = SiswaImport::isImportTestingContext(request()->user()) ? 1 : 0;
+        $tahunAktif = $this->resolveTahunAjaranContext($request);
+        $format = strtolower((string) $request->input('format', 'xlsx'));
+        $filename = 'jadwal_pelajaran_'.date('Y-m-d_His');
+
+        $export = new JadwalPelajaranExport($tahunAktif?->id, $testing);
+
+        if ($format === 'csv') {
+            return Excel::download($export, $filename.'.csv', ExcelFormat::CSV, [
+                'Content-Type' => 'text/csv',
+            ]);
+        }
+
+        return Excel::download($export, $filename.'.xlsx', ExcelFormat::XLSX);
+    }
+
+    /**
      * Monitoring Slot Jadwal Kosong: cari kelas & slot KBM yang belum di-plot.
      * Menampilkan halaman penuh berisi ringkasan per Kelas -> per Hari -> daftar Jam Ke- kosong.
      */
@@ -202,8 +228,11 @@ class JadwalPelajaranController extends Controller
             }
         }
 
-        // Master slot KBM (bukan Istirahat/Upacara) dikelompokkan per hari.
-        $slotsPerHari = JamPelajaran::whereNotIn('jenis', ['istirahat', 'upacara'])
+        // Master slot KBM MURNI — hanya berjenis 'kbm' yang dihitung sebagai slot kosong.
+        // Slot non-KBM (istirahat, upacara, pembiasaan, agenda rutin, pulang, dsb.)
+        // TIDAK dimasukkan ke dalam kalkulasi slot_kosong. Batas per tingkat kelas
+        // (JamPulang) tetap diaplikasikan terpisah pada loop di bawah.
+        $slotsPerHari = JamPelajaran::where('jenis', 'kbm')
             ->whereNotNull('jam_ke')
             ->get()
             ->groupBy('hari');
@@ -219,13 +248,6 @@ class JadwalPelajaranController extends Controller
         $jumlahKelasLengkap = 0;
 
         foreach ($kelasList as $kelas) {
-            $tingkatSlug = match (strtoupper(trim($kelas->tingkat))) {
-                'X' => '10',
-                'XI' => '11',
-                'XII' => '12',
-                default => $kelas->tingkat,
-            };
-
             $punyaKosong = false;
 
             foreach ($hariList as $hari) {
@@ -245,7 +267,10 @@ class JadwalPelajaranController extends Controller
                     }
                 }
                 $agendaHari = $agendaAktif->get($hari, collect());
-                $maxJamKe = JamPulang::getMaxJamKe($kategori, $tingkatSlug);
+                // Batas Jam Pulang per tingkat kelas (format tingkat sama dengan master:
+                // huruf Romawi, mis. 'X', 'XI', 'XII' — lihat PengaturanJadwalSeeder).
+                // Slot dengan jam_ke > max_jam_ke (mis. jam ke-13 saat max 12) tidak dihitung kosong.
+                $maxJamKe = JamPulang::getMaxJamKe($kategori, strtoupper(trim($kelas->tingkat)));
 
                 $kosong = [];
                 foreach ($slots as $slot) {

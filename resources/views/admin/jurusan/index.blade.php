@@ -10,10 +10,10 @@
             <p class="text-muted mb-0" style="font-size: 0.9rem;">Kelola kode dan nama jurusan yang digunakan pada data kelas.</p>
         </div>
         @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
-            <div class="d-flex gap-2">
+            <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto flex-shrink-0">
                 <!-- Tombol Export Jurusan -->
-                <div class="dropdown">
-                    <button class="btn btn-outline-primary rounded-3 px-3 py-2 fw-semibold shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <div class="dropdown w-full sm:w-auto">
+                    <button class="btn btn-outline-primary rounded-3 px-3 py-2 fw-semibold shadow-sm dropdown-toggle w-full sm:w-auto" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-download me-1"></i> Export
                     </button>
                     <ul class="dropdown-menu shadow-sm border-0 rounded-3" style="z-index: 1050;">
@@ -31,7 +31,7 @@
                 </div>
 
                 <!-- Tombol Tambah Jurusan -->
-                <a href="{{ route('jurusan.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm">
+                <a href="{{ route('jurusan.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm w-full sm:w-auto text-center">
                     <i class="bi bi-plus-lg me-1"></i> Tambah Jurusan
                 </a>
             </div>

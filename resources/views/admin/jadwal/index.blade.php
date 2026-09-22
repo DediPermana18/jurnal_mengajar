@@ -102,6 +102,18 @@
                     <i class="bi bi-chevron-down" style="font-size: 0.7rem;"></i>
                 </button>
             @endif
+            <a href="{{ route('import.template-jadwal') }}" class="btn btn-outline-info rounded-3 fw-semibold px-3 d-flex align-items-center gap-2" style="font-size: 0.875rem;" title="Unduh Contoh Template CSV">
+                <i class="bi bi-filetype-csv"></i> Template CSV
+            </a>
+            <div class="dropdown">
+                <button class="btn btn-outline-success rounded-3 fw-semibold px-3 d-flex align-items-center gap-2 dropdown-toggle" type="button" data-bs-toggle="dropdown" style="font-size: 0.875rem;">
+                    <i class="bi bi-download"></i> Export Jadwal
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                    <li><a class="dropdown-menu-item dropdown-item d-flex align-items-center gap-2" href="{{ route('admin.jadwal.export', ['format' => 'xlsx']) }}"><i class="bi bi-file-earmark-excel text-success"></i> Export Excel (.xlsx)</a></li>
+                    <li><a class="dropdown-menu-item dropdown-item d-flex align-items-center gap-2" href="{{ route('admin.jadwal.export', ['format' => 'csv']) }}"><i class="bi bi-filetype-csv text-info"></i> Export CSV (.csv)</a></li>
+                </ul>
+            </div>
             <a href="{{ route('admin.jam-pelajaran.index') }}" class="btn btn-outline-secondary rounded-3 fw-semibold px-3 d-flex align-items-center gap-2" style="font-size: 0.875rem;">
                 <i class="bi bi-clock-history"></i> Master Jam
             </a>
@@ -377,7 +389,7 @@
                                         </td>
                                     </tr>
                                     @else
-                                    <tr class="{{ $isIstirahat ? 'bg-light-subtle' : '' }}" style="{{ $isIstirahat ? 'background-color: #fafafa;' : '' }}">
+                                    <tr class="{{ $isIstirahat ? 'bg-light-subtle' : '' }}" style="vertical-align: middle; {{ $isIstirahat ? 'background-color: #fafafa;' : '' }}">
 
 
                                         {{-- 1. Jam Ke- --}}
@@ -434,7 +446,7 @@
                                         </td>
 
                                         {{-- 4. Mata Pelajaran --}}
-                                        <td>
+                                        <td style="max-width: 240px;">
                                             @if($isIstirahat)
                                                 <div class="d-inline-flex align-items-center gap-1 text-muted px-2 py-1 bg-light rounded-2 border border-dashed" style="font-size: 0.82rem;">
                                                     <i class="bi bi-lock-fill text-muted"></i>
@@ -442,11 +454,13 @@
                                                 </div>
                                             @elseif($jadwal)
                                                 <div class="d-flex align-items-center gap-2">
-                                                    <div class="rounded-2 d-flex align-items-center justify-content-center bg-primary-subtle text-primary fw-bold" style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                                    <div class="rounded-2 d-flex align-items-center justify-content-center bg-primary-subtle text-primary fw-bold flex-shrink-0" style="width: 32px; height: 32px; font-size: 0.8rem;">
                                                         <i class="bi bi-journal-text"></i>
                                                     </div>
-                                                    <div>
-                                                        <div class="fw-bold text-dark" style="font-size: 0.92rem;">
+                                                    <div class="min-w-0" style="overflow: hidden;">
+                                                        <div class="fw-bold text-dark text-truncate"
+                                                             style="font-size: 0.92rem;"
+                                                             title="{{ $jadwal->mataPelajaran->nama_mapel ?? 'Mapel Terhapus' }}">
                                                             {{ $jadwal->mataPelajaran->nama_mapel ?? 'Mapel Terhapus' }} @include('partials.testing-badge', ['record' => $jadwal])
                                                         </div>
                                                         <div class="text-muted" style="font-size: 0.75rem;">
@@ -462,7 +476,7 @@
                                         </td>
 
                                         {{-- 5. Guru Pengajar --}}
-                                        <td>
+                                        <td style="max-width: 220px;">
                                             @if($isIstirahat)
                                                 <span class="text-muted" style="font-size: 0.85rem;">-</span>
                                             @elseif($jadwal)
@@ -472,11 +486,13 @@
                                                         {{ strtoupper(substr($jadwal->guru->nama ?? 'G', 0, 1)) }}
                                                     </div>
                                                     <div class="min-w-0" style="overflow: hidden;">
-                                                        <div class="fw-semibold text-dark text-truncate" style="font-size: 0.88rem;">
+                                                        <div class="fw-semibold text-dark text-truncate"
+                                                             style="font-size: 0.88rem;"
+                                                             title="{{ $jadwal->guru->nama ?? 'Guru Tidak Ditemukan' }}">
                                                             {{ $jadwal->guru->nama ?? 'Guru Tidak Ditemukan' }}
                                                         </div>
                                                         @if(!empty($jadwal->guru->nip))
-                                                            <div class="text-muted text-truncate" style="font-size: 0.72rem;">NIP: {{ $jadwal->guru->nip }}</div>
+                                                            <div class="text-muted text-truncate" style="font-size: 0.72rem;" title="NIP: {{ $jadwal->guru->nip }}">NIP: {{ $jadwal->guru->nip }}</div>
                                                         @endif
                                                     </div>
                                                 </div>
@@ -513,13 +529,15 @@
                                                     <button type="button" class="btn btn-sm btn-light border rounded-3 px-2 py-1 {{ $jadwalLocked ? 'opacity-50' : '' }}"
                                                             style="font-size: 0.78rem;" title="{{ $jadwalLocked ? 'Data ini adalah data pengujian IT dan tidak dapat diubah.' : 'Edit Plotting' }}"
                                                             {{ $jadwalLocked ? 'disabled' : '' }}
+                                                            data-jam-ke="{{ $jam->jam_ke ?? 1 }}"
                                                             onclick="preparePlotModalEdit(
                                                                 '{{ $jadwal->group_id ?? '' }}',
                                                                 {{ $jadwal->id_kelas }},
                                                                 {{ $jadwal->id_mapel }},
                                                                 {{ $jadwal->id_guru }},
                                                                 {{ $jadwal->id_ruangan ?? 'null' }},
-                                                                {{ $jadwal->id_jam }}
+                                                                {{ $jadwal->id_jam }},
+                                                                {{ $jam->jam_ke ?? 1 }}
                                                             )">
                                                         <i class="bi bi-pencil-fill text-primary me-1"></i> Edit
                                                     </button>
@@ -880,6 +898,11 @@
                     }
                 }
             });
+
+            // Pastikan badge JP dan validasi rentang selalu akurat saat modal tampil penuh
+            modalPlotting.addEventListener('shown.bs.modal', function () {
+                refreshDropdownAvailability();
+            });
         }
 
         // 3. Cegah auto-submit saat Enter ditekan di dalam input/select modal
@@ -973,8 +996,10 @@
         refreshDropdownAvailability();
     }
 
-    function preparePlotModalEdit(groupId, idKelas, idMapel, idGuru, idRuangan, idJam) {
+    function preparePlotModalEdit(groupId, idKelas, idMapel, idGuru, idRuangan, idJam, jamKeSlot) {
         // Mode Edit: rentang jam diambil dari seluruh slot yang memiliki group_id sama.
+        // jamKeSlot = jam_ke baris jadwal yang diklik (dipakai sebagai fallback bila rentang
+        // grup tidak dapat ditentukan, mis. data lama tanpa group_id).
         plotEditExemptJamKe = new Set();
 
         const grupSlots = groupId
@@ -985,6 +1010,12 @@
             // Fallback: data lama tanpa group_id, gunakan satu slot yang diklik
             const single = allSlots.find(s => s.id === idJam);
             if (single) grupSlots.push(single);
+        }
+
+        // Fallback terakhir: gunakan jam_ke baris jadwal yang diklik (id_jam lama/testing tak cocok)
+        if (grupSlots.length === 0 && jamKeSlot) {
+            const byJamKe = allSlots.find(s => parseInt(s.jam_ke, 10) === parseInt(jamKeSlot, 10));
+            if (byJamKe) grupSlots.push(byJamKe);
         }
         if (grupSlots.length === 0) return;
 
@@ -1024,7 +1055,19 @@
         const ruanganEl = document.getElementById('plotIdRuangan');
         if (ruanganEl) ruanganEl.value = idRuangan ? idRuangan : '';
 
+        // Rebuild opsi jam (termasuk exempt-set) + update badge JP langsung
         refreshDropdownAvailability();
+
+        // Paksa re-set nilai setelah rebuildJamOptions agar tidak tertimpa prevMulai/prevSelesai
+        // dari sesi sebelumnya yang kebetulan berbeda.
+        if (mulaiEl) {
+            mulaiEl.value = String(mulaiKe);
+            mulaiEl.dispatchEvent(new Event('change'));
+        }
+        if (selesaiEl) {
+            selesaiEl.value = String(selesaiKe);
+            selesaiEl.dispatchEvent(new Event('change'));
+        }
 
         const modal = new bootstrap.Modal(document.getElementById('modalPlottingJadwal'));
         modal.show();

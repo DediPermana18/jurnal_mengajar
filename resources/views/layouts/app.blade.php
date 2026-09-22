@@ -335,9 +335,9 @@
             color: #64748b;
         }
 
-        /* Page Content Area */
+        /* Page Content Area — padding diserahkan ke utility Tailwind px-3 sm:px-6 py-4
+           pada elemen <main class="page-content"> (lebih tipis di layar mobile). */
         .page-content {
-            padding: 2rem 2.25rem;
             flex: 1;
         }
 
@@ -392,8 +392,11 @@
                 justify-content: space-between;
                 padding: 0 1rem;
             }
-            .page-content {
-                padding: 1.25rem 1rem;
+            /* Padding .page-content kini dari utility px-3 sm:px-6 py-4 (padanan:
+               mobile 0.75rem samping / 1rem atas-bawah) — padding card tabel juga
+               diringkas di mobile agar kolom tidak terdesak. */
+            .table-card-custom {
+                padding: 1rem 0.75rem;
             }
 
             /* Judul halaman: ukuran pas di layar HP agar tidak "zoom" memenuhi layar */
@@ -1523,8 +1526,10 @@
             </div>
         </header>
 
-        <!-- PAGE CONTENT BODY -->
-        <main class="page-content">
+        <!-- PAGE CONTENT BODY
+             Padding responsive pakai utility Tailwind (px-3 sm:px-6 py-4):
+             mobile = padding samping tipis (0.75rem), >= sm = 1.5rem, vertical 1rem. -->
+        <main class="page-content px-3 sm:px-6 py-4">
             @yield('content')
         </main>
     </div>

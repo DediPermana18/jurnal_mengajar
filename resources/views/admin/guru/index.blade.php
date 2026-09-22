@@ -14,6 +14,12 @@
         box-shadow: 0 1px 6px rgba(15, 23, 42, 0.04);
     }
 
+    @media (max-width: 575.98px) {
+        .filter-bar {
+            padding: 0.9rem 0.9rem;
+        }
+    }
+
     .filter-bar .form-control,
     .filter-bar .form-select {
         background-color: #f8fafc;
@@ -143,17 +149,17 @@
 @endpush
 
 @section('content')
-<div class="container-fluid px-4 py-3 md:px-0 md:py-0">
+<div class="container-fluid px-0">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <div>
             <h2 class="fw-black text-dark mb-1" style="letter-spacing: -0.02em; font-weight: 800; font-size: 1.75rem;">Data Master Guru</h2>
             <p class="text-muted mb-0" style="font-size: 0.9rem;">Kelola data guru pengajar dan wali kelas.</p>
         </div>
         @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
-            <div class="d-flex gap-2">
+            <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto flex-shrink-0">
                 <!-- Tombol Export Guru -->
-                <div class="dropdown">
-                    <button class="btn btn-outline-primary rounded-3 px-3 py-2 fw-semibold shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <div class="dropdown w-full sm:w-auto">
+                    <button class="btn btn-outline-primary rounded-3 px-3 py-2 fw-semibold shadow-sm dropdown-toggle w-full sm:w-auto" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-download me-1"></i> Export
                     </button>
                     <ul class="dropdown-menu shadow-sm border-0 rounded-3" style="z-index: 1050;">
@@ -170,7 +176,7 @@
                     </ul>
                 </div>
 
-                <a href="{{ route('admin.guru.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm"><i class="bi bi-plus-lg me-1"></i> Tambah Guru</a>
+                <a href="{{ route('admin.guru.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm w-full sm:w-auto text-center"><i class="bi bi-plus-lg me-1"></i> Tambah Guru</a>
             </div>
         @endif
     </div>
@@ -190,9 +196,9 @@
     {{-- ====================================================== --}}
     <div class="filter-bar">
         <form id="filterGuruForm" action="{{ route('guru.index') }}" method="GET">
-            <div class="row g-3 align-items-center">
+            <div class="flex flex-col sm:flex-row gap-2">
                 {{-- Input Cari Nama/NIP --}}
-                <div class="col-12 col-md-5">
+                <div class="w-full sm:flex-[5]">
                     <div class="search-wrapper">
                         <i class="bi bi-search"></i>
                         <input type="text"
@@ -204,7 +210,7 @@
                 </div>
 
                 {{-- Dropdown Status --}}
-                <div class="col-6 col-md-3">
+                <div class="w-full sm:flex-[3]">
                     <select name="status" class="form-select" onchange="this.form.submit()">
                         <option value="Semua Status" {{ request('status') === 'Semua Status' || !request()->filled('status') ? 'selected' : '' }}>Semua Status</option>
                         <option value="Aktif" {{ request('status') === 'Aktif' ? 'selected' : '' }}>Aktif</option>
@@ -213,7 +219,7 @@
                 </div>
 
                 {{-- Dropdown Penugasan Wali Kelas & Option Kelas --}}
-                <div class="col-6 col-md-4">
+                <div class="w-full sm:flex-[4]">
                     <select name="wali_kelas" class="form-select" onchange="this.form.submit()">
                         <option value="Semua" {{ request('wali_kelas') === 'Semua' || !request()->filled('wali_kelas') ? 'selected' : '' }}>Semua Penugasan</option>
                         <option value="Ya" {{ request('wali_kelas') === 'Ya' ? 'selected' : '' }}>Wali Kelas</option>

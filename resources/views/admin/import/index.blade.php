@@ -1133,7 +1133,7 @@
                         </div>
                         <div>
                             <h5 class="card-import-title mb-0">Import Jadwal Pelajaran</h5>
-                            <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Format: Kelas • Hari • WaktuMulai • WaktuSelesai • MataPelajaran • Guru • Ruang (.xlsx / .csv)</p>
+                            <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Format: Kelas • Hari • Jam • MataPelajaran • Guru • Ruang (.xlsx / .csv)</p>
                         </div>
                     </div>
 
@@ -1243,6 +1243,21 @@
                     </div>
 
                     <div class="card-import-body">
+                        <div class="d-grid gap-2 mb-3">
+                            <a href="{{ route('import.template-jadwal') }}" class="btn btn-outline-info rounded-3 fw-semibold text-start" style="font-size:0.875rem;">
+                                <i class="bi bi-filetype-csv me-2"></i> Unduh Template CSV (.csv)
+                            </a>
+                            <div class="dropdown">
+                                <button class="btn btn-outline-success rounded-3 fw-semibold text-start w-100 dropdown-toggle" type="button" data-bs-toggle="dropdown" style="font-size:0.875rem;">
+                                    <i class="bi bi-download me-2"></i> Export Jadwal Saat Ini
+                                </button>
+                                <ul class="dropdown-menu w-100 shadow-sm">
+                                    <li><a class="dropdown-item d-flex align-items-center gap-2" href="{{ route('admin.jadwal.export', ['format' => 'xlsx']) }}"><i class="bi bi-file-earmark-excel text-success"></i> Export Excel (.xlsx)</a></li>
+                                    <li><a class="dropdown-item d-flex align-items-center gap-2" href="{{ route('admin.jadwal.export', ['format' => 'csv']) }}"><i class="bi bi-filetype-csv text-info"></i> Export CSV (.csv)</a></li>
+                                </ul>
+                            </div>
+                        </div>
+
                         {{-- Tabel contoh --}}
                         <div class="mb-4 rounded-3 overflow-hidden" style="border:1px solid #e2e8f0;">
                             <table class="table table-sm mb-0" style="font-size:0.78rem;">
@@ -1256,11 +1271,10 @@
                                 <tbody>
                                     <tr><td class="px-2"><code>Kelas</code></td><td class="px-2">X TKI 1</td><td class="px-2 text-danger fw-semibold">Wajib</td></tr>
                                     <tr><td class="px-2"><code>Hari</code></td><td class="px-2">Senin</td><td class="px-2 text-danger fw-semibold">Wajib</td></tr>
-                                    <tr><td class="px-2"><code>WaktuMulai</code></td><td class="px-2">07:30</td><td class="px-2 text-danger fw-semibold">Wajib</td></tr>
-                                    <tr><td class="px-2"><code>WaktuSelesai</code></td><td class="px-2">08:10</td><td class="px-2 text-danger fw-semibold">Wajib</td></tr>
-                                    <tr><td class="px-2"><code>MataPelajaran</code></td><td class="px-2">Matematika</td><td class="px-2 text-danger fw-semibold">Wajib</td></tr>
-                                    <tr><td class="px-2"><code>Guru</code></td><td class="px-2">Dedi Permana</td><td class="px-2 text-danger fw-semibold">Wajib</td></tr>
-                                    <tr><td class="px-2"><code>Ruang</code></td><td class="px-2">Lab TKI 1</td><td class="px-2 text-muted">Opsional</td></tr>
+                                    <tr><td class="px-2"><code>Jam</code></td><td class="px-2">4.5.6 (atau 2-3)</td><td class="px-2 text-danger fw-semibold">Wajib</td></tr>
+                                    <tr><td class="px-2"><code>MataPelajaran</code></td><td class="px-2">Bahasa Indonesia</td><td class="px-2 text-danger fw-semibold">Wajib</td></tr>
+                                    <tr><td class="px-2"><code>Guru</code></td><td class="px-2">Yani, S.Pd.</td><td class="px-2 text-danger fw-semibold">Wajib</td></tr>
+                                    <tr><td class="px-2"><code>Ruang</code></td><td class="px-2">Lab. KI 1</td><td class="px-2 text-muted">Opsional</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1276,9 +1290,8 @@
                         <div class="guide-item">
                             <div class="guide-num">2</div>
                             <div class="guide-text">
-                                Kolom <strong>WaktuMulai</strong> dan <strong>WaktuSelesai</strong> harus cocok dengan
-                                <strong>Jam Pelajaran</strong> yang sudah terdaftar (format: <code>07:30</code> atau <code>07.30</code>).
-                                Baris yang tidak cocok akan <strong>dilewati + dicatat</strong> sebagai peringatan.
+                                Kolom <strong>Jam</strong> dapat diisi tunggal (<code>1</code>), urutan bermata titik (<code>4.5.6</code>),
+                                atau rentang strip (<code>2-3</code>). Setiap nomor jam akan di-mapping ke Master Jam Pelajaran secara otomatis.
                             </div>
                         </div>
                         <div class="guide-item">

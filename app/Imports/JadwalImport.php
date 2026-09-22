@@ -12,6 +12,7 @@ use App\Models\Scopes\TestingDataScope;
 use App\Models\TahunAjaran;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithCustomCsvSettings;
@@ -161,19 +162,14 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
             if ($hari === '') {
                 $missing[] = 'Hari';
             }
+            if ($slotJam === '' && $waktuMulai === '') {
+                $missing[] = 'Jam';
+            }
             if ($namaMapel === '') {
                 $missing[] = 'MataPelajaran';
             }
             if ($namaGuru === '') {
                 $missing[] = 'Guru';
-            }
-            // WaktuMulai & WaktuSelesai wajib, KECUALI jika kolom Jam/slot tersedia
-            $hasTimeBySlot = ($slotJam !== '');
-            if ($waktuMulai === '' && ! $hasTimeBySlot) {
-                $missing[] = 'WaktuMulai';
-            }
-            if ($waktuSelesai === '' && ! $hasTimeBySlot) {
-                $missing[] = 'WaktuSelesai';
             }
 
             if (! empty($missing)) {
@@ -199,26 +195,7 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
                 );
             }
 
-            // ── 8. Resolve JamPelajaran ───────────────────────────────
-            // Strategi (berurutan, berhenti pada yang berhasil):
-            //   a) Gunakan WaktuMulai + WaktuSelesai jika tersedia.
-            //   b) Parse waktu dari kolom Jam/slot (nomor slot → cari di master).
-            //   c) Fallback: parse nilai Excel serial date yang salah terbaca.
-            $jamPelajaran = $this->resolveJamFlexible(
-                $waktuMulai,
-                $waktuSelesai,
-                $slotJam,
-                $hariNorm
-            );
-
-            if (! $jamPelajaran) {
-                $this->skippedCount++;
-                $this->rowErrors[] = "Baris {$rowNum} (Kelas {$namaKelas}, {$hariNorm}): "
-                    ."Jam '{$waktuMulai}–{$waktuSelesai}' (slot '{$slotJam}') tidak ditemukan di master Jam Pelajaran.";
-                continue;
-            }
-
-            // ── 9. Resolve MataPelajaran (strict — skip jika tidak ada) ─
+            // ── 8. Resolve MataPelajaran & Guru & Ruangan ──────────────
             $mapel = $this->resolveMapel($namaMapel);
             if (! $mapel) {
                 $this->skippedCount++;
@@ -227,7 +204,6 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
                 continue;
             }
 
-            // ── 10. Resolve Guru (strict — skip jika tidak ada) ───────
             $guru = $this->resolveGuru($namaGuru);
             if (! $guru) {
                 $this->skippedCount++;
@@ -236,49 +212,78 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
                 continue;
             }
 
-            // ── 11. Resolve Ruangan (strict — opsional, null jika tidak ada) ──
             $ruangan = null;
             if ($namaRuang !== '') {
                 $ruangan = $this->resolveRuangan($namaRuang);
-                if (! $ruangan) {
-                    $this->skippedCount++;
-                    $this->rowErrors[] = "Baris {$rowNum} (Kelas {$namaKelas}, {$hariNorm}, {$namaMapel}): "
-                        ."Ruangan '{$namaRuang}' belum terdaftar di Data Master.";
-                    continue;
+            }
+
+            // ── 9. Parse slot jam_ke (multi-slot support: "4.5.6", "2-3", "1") ──
+            $jamKeList = $this->parseJamSlots($slotJam);
+
+            // Fallback jika slotJam tidak menghasilkan angka tapi waktuMulai ada
+            if (empty($jamKeList) && $waktuMulai !== '') {
+                $fallbackJam = $this->resolveJamFlexible($waktuMulai, $waktuSelesai, '', $hariNorm);
+                if ($fallbackJam && $fallbackJam->jam_ke) {
+                    $jamKeList = [$fallbackJam->jam_ke];
                 }
             }
 
-            // ── 12. updateOrCreate ke jadwal_pelajaran ─────────────────
-            $uniqueKey = [
-                'id_kelas'        => $kelas->id,
-                'hari'            => $hariNorm,
-                'id_jam'          => $jamPelajaran->id,
-                'id_tahun_ajaran' => $tahunAjaran->id,
-            ];
+            if (empty($jamKeList)) {
+                $this->skippedCount++;
+                $this->rowErrors[] = "Baris {$rowNum} (Kelas {$namaKelas}, Hari {$hariNorm}): Kolom 'Jam' ('{$slotJam}') tidak dapat diparsing ke nomor jam yang valid.";
+                continue;
+            }
 
-            $fillValues = [
-                'group_id'        => (string) Str::uuid(),
-                'id_mapel'        => $mapel->id,
-                'id_guru'         => $guru->id,
-                'id_ruangan'      => $ruangan?->id,
-                'is_testing_data' => $this->targetIsTestingData() ? 1 : 0,
-            ];
+            // Satu UUID group_id untuk seluruh slot jam pada baris ini
+            $groupId = (string) Str::uuid();
 
-            $existing = JadwalPelajaran::withoutGlobalScope(TestingDataScope::class)
-                ->withTrashed()
-                ->where($uniqueKey)
-                ->first();
+            // ── 10. Loop insert/update ke jadwal_pelajaran per jam_ke ─
+            foreach ($jamKeList as $jamKe) {
+                $jamPelajaran = $this->queryMasterJamByHariAndJamKe($hariNorm, $jamKe);
 
-            if ($existing) {
-                if ($existing->trashed()) {
-                    $existing->restore();
+                if (! $jamPelajaran) {
+                    $this->skippedCount++;
+                    $this->rowErrors[] = "Baris {$rowNum} (Kelas {$namaKelas}, Hari {$hariNorm}): Master jam ke-{$jamKe} tidak ditemukan.";
+                    continue;
                 }
 
-                $existing->forceFill($fillValues)->save();
-                $this->updatedCount++;
-            } else {
-                JadwalPelajaran::create(array_merge($uniqueKey, $fillValues));
-                $this->importedCount++;
+                // Skip slot non-KBM (istirahat, agenda_rutin)
+                if (in_array($jamPelajaran->jenis, ['istirahat', 'agenda_rutin'], true)) {
+                    $this->skippedCount++;
+                    continue;
+                }
+
+                $uniqueKey = [
+                    'id_kelas'        => $kelas->id,
+                    'hari'            => $hariNorm,
+                    'id_jam'          => $jamPelajaran->id,
+                    'id_tahun_ajaran' => $tahunAjaran->id,
+                ];
+
+                $fillValues = [
+                    'group_id'        => $groupId,
+                    'id_mapel'        => $mapel->id,
+                    'id_guru'         => $guru->id,
+                    'id_ruangan'      => $ruangan?->id,
+                    'is_testing_data' => $this->targetIsTestingData() ? 1 : 0,
+                ];
+
+                $existing = JadwalPelajaran::withoutGlobalScope(TestingDataScope::class)
+                    ->withTrashed()
+                    ->where($uniqueKey)
+                    ->first();
+
+                if ($existing) {
+                    if ($existing->trashed()) {
+                        $existing->restore();
+                    }
+
+                    $existing->forceFill($fillValues)->save();
+                    $this->updatedCount++;
+                } else {
+                    JadwalPelajaran::create(array_merge($uniqueKey, $fillValues));
+                    $this->importedCount++;
+                }
             }
         }
     }
@@ -382,16 +387,50 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
         return $map[strtolower(trim($raw))] ?? null;
     }
 
+    // ── Parsing Slot Jam (multi-slot: "4.5.6", "2-3", "1") ───────
+
+    /**
+     * Memecah string kolom 'Jam' (misal: "4.5.6", "2-3", "1, 2, 3", "1")
+     * menjadi array integer jam_ke.
+     */
+    protected function parseJamSlots(string $slotJam): array
+    {
+        $slotJam = trim($slotJam);
+        if ($slotJam === '') {
+            return [];
+        }
+
+        // Cek jika formatnya range angka dengan strip (misal "2-4" atau "1-3")
+        if (preg_match('/^(\d+)\s*-\s*(\d+)$/', $slotJam, $m)) {
+            $start = (int) $m[1];
+            $end   = (int) $m[2];
+
+            if ($start > 0 && $end >= $start && ($end - $start) <= 12) {
+                return range($start, $end);
+            }
+        }
+
+        // Split berdasarkan titik, koma, strip, slash, atau spasi
+        $parts = preg_split('/[\.\-,\/\s]+/', $slotJam);
+        $result = [];
+
+        foreach ($parts as $part) {
+            if (is_numeric($part)) {
+                $val = (int) $part;
+                if ($val > 0) {
+                    $result[] = $val;
+                }
+            }
+        }
+
+        return array_values(array_unique($result));
+    }
+
     // ── Resolve JamPelajaran — strategi fleksibel ─────────────────
 
     /**
-     * Coba tiga strategi secara berurutan:
-     *
-     *  1. WaktuMulai + WaktuSelesai (format HH:MM atau HH.MM) — paling andal.
-     *  2. Kolom Jam/slot (nomor "1", "2", "2-3", "4") → cari di master berdasarkan
-     *     `jam_ke` (ambil jam pertama dari range).
-     *  3. Nilai yang terbaca sebagai serial tanggal Excel atau string tanggal
-     *     (mis. "5/4/2006 07:30:00") → ekstrak komponen waktu-nya.
+     * Resolve record Master Jam Pelajaran aktif berdasarkan kombinasi 'hari'
+     * dan 'jam_ke' (atau waktu mulai/selesai).
      */
     protected function resolveJamFlexible(
         string $waktuMulai,
@@ -399,8 +438,12 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
         string $slotJam,
         string $hari = ''
     ): ?JamPelajaran {
+        if ($hari === '') {
+            return null;
+        }
+
         // Strategi 1: slot/nomor jam + hari (paling presisi)
-        if ($slotJam !== '' && $hari !== '') {
+        if ($slotJam !== '') {
             $jam = $this->resolveJamBySlot($slotJam, $hari);
             if ($jam) {
                 return $jam;
@@ -420,15 +463,7 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
             }
         }
 
-        // Strategi 3: slot/nomor jam tanpa filter hari
-        if ($slotJam !== '') {
-            $jam = $this->resolveJamBySlot($slotJam, '');
-            if ($jam) {
-                return $jam;
-            }
-        }
-
-        // Strategi 4: nilai waktu tunggal — cari berdasarkan mulai saja + hari
+        // Strategi 3: nilai waktu tunggal — cari berdasarkan mulai saja + hari
         if ($waktuMulai !== '') {
             $mulaiNorm = $this->parseTimeString($waktuMulai);
             if ($mulaiNorm) {
@@ -445,19 +480,28 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
     /**
      * Query JamPelajaran berdasarkan jam_mulai + jam_selesai (HH:MM) dan hari.
      */
-    protected function queryJamByTime(string $mulaiHHMM, string $selesaiHHMM, string $hari = ''): ?JamPelajaran
+    protected function queryJamByTime(string $mulaiHHMM, string $selesaiHHMM, string $hari): ?JamPelajaran
     {
+        if ($hari === '') {
+            return null;
+        }
+
         $key = $hari.'|'.$mulaiHHMM.'|'.$selesaiHHMM;
 
         if (array_key_exists($key, $this->jamCache)) {
             return $this->jamCache[$key];
         }
 
-        $jam = JamPelajaran::withoutGlobalScope(TestingDataScope::class)
-            ->when($hari !== '', fn ($q) => $q->where('hari', $hari))
+        $query = JamPelajaran::withoutGlobalScope(TestingDataScope::class)
+            ->where('hari', $hari)
             ->whereRaw("TIME_FORMAT(jam_mulai, '%H:%i') = ?", [$mulaiHHMM])
-            ->whereRaw("TIME_FORMAT(jam_selesai, '%H:%i') = ?", [$selesaiHHMM])
-            ->first();
+            ->whereRaw("TIME_FORMAT(jam_selesai, '%H:%i') = ?", [$selesaiHHMM]);
+
+        if (Schema::hasColumn('jam_pelajaran', 'deleted_at')) {
+            $query->whereNull('deleted_at');
+        }
+
+        $jam = $query->orderBy('id')->first();
 
         $this->jamCache[$key] = $jam;
 
@@ -467,19 +511,27 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
     /**
      * Fallback: cari JamPelajaran hanya berdasarkan jam_mulai dan hari.
      */
-    protected function queryJamByMulaiOnly(string $mulaiHHMM, string $hari = ''): ?JamPelajaran
+    protected function queryJamByMulaiOnly(string $mulaiHHMM, string $hari): ?JamPelajaran
     {
+        if ($hari === '') {
+            return null;
+        }
+
         $key = $hari.'|mulai_only:'.$mulaiHHMM;
 
         if (array_key_exists($key, $this->jamCache)) {
             return $this->jamCache[$key];
         }
 
-        $jam = JamPelajaran::withoutGlobalScope(TestingDataScope::class)
-            ->when($hari !== '', fn ($q) => $q->where('hari', $hari))
-            ->whereRaw("TIME_FORMAT(jam_mulai, '%H:%i') = ?", [$mulaiHHMM])
-            ->orderBy('jam_ke')
-            ->first();
+        $query = JamPelajaran::withoutGlobalScope(TestingDataScope::class)
+            ->where('hari', $hari)
+            ->whereRaw("TIME_FORMAT(jam_mulai, '%H:%i') = ?", [$mulaiHHMM]);
+
+        if (Schema::hasColumn('jam_pelajaran', 'deleted_at')) {
+            $query->whereNull('deleted_at');
+        }
+
+        $jam = $query->orderBy('jam_ke')->orderBy('id')->first();
 
         $this->jamCache[$key] = $jam;
 
@@ -487,26 +539,43 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
     }
 
     /**
-     * Cari JamPelajaran berdasarkan nomor slot / jam_ke dan hari.
+     * Cari Master JamPelajaran aktif berdasarkan nomor slot / jam_ke dan hari.
+     * Mengabaikan record soft delete (whereNull('deleted_at')).
      */
-    protected function resolveJamBySlot(string $slotRaw, string $hari = ''): ?JamPelajaran
+    protected function resolveJamBySlot(string $slotRaw, string $hari): ?JamPelajaran
     {
-        if (! preg_match('/(\d+)/', $slotRaw, $m)) {
+        if ($hari === '' || ! preg_match('/(\d+)/', $slotRaw, $m)) {
             return null;
         }
 
-        $jamKe = (int) $m[1];
-        $key   = $hari.'|slot:'.$jamKe;
+        return $this->queryMasterJamByHariAndJamKe($hari, (int) $m[1]);
+    }
+
+    /**
+     * Query Master JamPelajaran aktif berdasarkan kombinasi 'hari' dan 'jam_ke'.
+     * Mengabaikan record soft delete (whereNull('deleted_at')).
+     */
+    protected function queryMasterJamByHariAndJamKe(string $hari, int $jamKe): ?JamPelajaran
+    {
+        if ($hari === '' || $jamKe <= 0) {
+            return null;
+        }
+
+        $key = $hari.'|jam_ke:'.$jamKe;
 
         if (array_key_exists($key, $this->jamCache)) {
             return $this->jamCache[$key];
         }
 
-        $jam = JamPelajaran::withoutGlobalScope(TestingDataScope::class)
-            ->when($hari !== '', fn ($q) => $q->where('hari', $hari))
-            ->where('jam_ke', $jamKe)
-            ->orderBy('id')
-            ->first();
+        $query = JamPelajaran::withoutGlobalScope(TestingDataScope::class)
+            ->where('hari', $hari)
+            ->where('jam_ke', $jamKe);
+
+        if (Schema::hasColumn('jam_pelajaran', 'deleted_at')) {
+            $query->whereNull('deleted_at');
+        }
+
+        $jam = $query->orderBy('id')->first();
 
         $this->jamCache[$key] = $jam;
 
@@ -641,18 +710,24 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
         return $kelas;
     }
 
-    // ── Resolve MataPelajaran (strict match, no auto-create) ──────
+    // ── Resolve MataPelajaran (flexible matching) ─────────────────
 
     protected function resolveMapel(string $namaInput): ?MataPelajaran
     {
-        $key = strtolower(trim($namaInput));
+        $norm = trim((string) preg_replace('/\s+/', ' ', $namaInput));
+        if ($norm === '') {
+            return null;
+        }
+
+        $key = strtolower($norm);
 
         if (array_key_exists($key, $this->mapelCache)) {
             return $this->mapelCache[$key];
         }
 
-        // Match via nama_mapel (case-insensitive) ATAU kode_mapel (uppercase)
-        $kode  = strtoupper(trim($namaInput));
+        $kode = strtoupper($norm);
+
+        // 1. Case-insensitive match via nama_mapel ATAU kode_mapel
         $mapel = MataPelajaran::withoutGlobalScope(TestingDataScope::class)
             ->whereNull('deleted_at')
             ->where(function ($q) use ($key, $kode) {
@@ -661,50 +736,143 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
             })
             ->first();
 
+        // 2. Fallback: pencarian toleran tanda baca/spasi (contoh: "P.J.O.K" vs "PJOK")
+        if (! $mapel) {
+            $cleanedInput = strtolower((string) preg_replace('/[^\w]/u', '', $norm));
+            if ($cleanedInput !== '') {
+                $allMapel = MataPelajaran::withoutGlobalScope(TestingDataScope::class)
+                    ->whereNull('deleted_at')
+                    ->get();
+
+                foreach ($allMapel as $m) {
+                    $cleanedDBName = strtolower((string) preg_replace('/[^\w]/u', '', $m->nama_mapel));
+                    $cleanedDBKode = strtolower((string) preg_replace('/[^\w]/u', '', $m->kode_mapel ?? ''));
+
+                    if ($cleanedDBName === $cleanedInput || ($cleanedDBKode !== '' && $cleanedDBKode === $cleanedInput)) {
+                        $mapel = $m;
+                        break;
+                    }
+                }
+            }
+        }
+
         $this->mapelCache[$key] = $mapel;
 
         return $mapel;
     }
 
-    // ── Resolve Guru ──────────────────────────────────────────────
+    // ── Helper Sanitasi Nama Guru ─────────────────────────────────
+
+    /**
+     * Membersihkan gelar akademik, gelar keagamaan/kehormatan, serta tanda baca
+     * dari string nama guru agar pencarian pencocokan nama bersifat fleksibel.
+     */
+    protected function sanitizeNamaGuru(string $raw): string
+    {
+        $str = strtolower(trim($raw));
+
+        // Hapus gelar umum (case-insensitive)
+        $pattern = '/\b(drs|dra|ir|hj|h|dr|prof|kh|ustd|ust|s\.?pd\.?i?|s\.?t|s\.?kom|s\.?si|s\.?ag|s\.?se|s\.?e|s\.?sos|s\.?h|s\.?psi|m\.?pd\.?i?|m\.?t|m\.?kom|m\.?si|m\.?ag|m\.?m|m\.?se|m\.?e|m\.?sos|m\.?h|m\.?psi|a\.?md\.?(?:kom|t)?|gr)\b/i';
+        $str = preg_replace($pattern, '', $str);
+
+        // Hapus tanda baca & karakter khusus
+        $str = preg_replace('/[^\w\s]/u', ' ', $str);
+
+        // Normalize spasi berlebih
+        return trim((string) preg_replace('/\s+/', ' ', $str));
+    }
+
+    // ── Resolve Guru (flexible matching with titles/punctuation) ──
 
     protected function resolveGuru(string $namaInput): ?User
     {
-        $key = strtolower(trim($namaInput));
+        $rawNorm = trim((string) preg_replace('/\s+/', ' ', $namaInput));
+        if ($rawNorm === '') {
+            return null;
+        }
+
+        $key = strtolower($rawNorm);
 
         if (array_key_exists($key, $this->guruCache)) {
             return $this->guruCache[$key];
         }
 
+        // 1. Exact case-insensitive match
         $guru = User::withoutGlobalScope(TestingDataScope::class)
             ->where('role', User::ROLE_GURU)
             ->whereRaw('LOWER(nama) = ?', [$key])
             ->first();
+
+        // 2. Flexible match: sanitasi gelar & tanda baca pada input dan data DB
+        if (! $guru) {
+            $sanitizedInput = $this->sanitizeNamaGuru($rawNorm);
+
+            if ($sanitizedInput !== '') {
+                $guruList = User::withoutGlobalScope(TestingDataScope::class)
+                    ->where('role', User::ROLE_GURU)
+                    ->get();
+
+                // Match 2a: Sanitized exact match
+                foreach ($guruList as $g) {
+                    $sanitizedDB = $this->sanitizeNamaGuru($g->nama);
+                    if ($sanitizedDB === $sanitizedInput) {
+                        $guru = $g;
+                        break;
+                    }
+                }
+
+                // Match 2b: Substring / containment match (e.g. "Budi Santoso" vs "Budi")
+                if (! $guru) {
+                    foreach ($guruList as $g) {
+                        $sanitizedDB = $this->sanitizeNamaGuru($g->nama);
+                        if ($sanitizedDB !== '' && (str_contains($sanitizedDB, $sanitizedInput) || str_contains($sanitizedInput, $sanitizedDB))) {
+                            $guru = $g;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
 
         $this->guruCache[$key] = $guru;
 
         return $guru;
     }
 
-    // ── Resolve Ruangan (strict match, no auto-create) ──────────
+    // ── Resolve Ruangan (with auto-create fallback) ─────────────
 
     protected function resolveRuangan(string $namaInput): ?Ruangan
     {
-        $key = strtolower(trim($namaInput));
+        $rawNorm = trim((string) preg_replace('/\s+/', ' ', $namaInput));
+        if ($rawNorm === '') {
+            return null;
+        }
+
+        $key = strtolower($rawNorm);
 
         if (array_key_exists($key, $this->ruanganCache)) {
             return $this->ruanganCache[$key];
         }
 
-        $kode = RuanganImport::generateKodeRuangan($namaInput);
+        $kode = RuanganImport::generateKodeRuangan($rawNorm);
 
-        // Match via kode_ruangan (auto-generated slug) ATAU nama_ruangan
+        // 1. Match via kode_ruangan (auto-generated slug) ATAU nama_ruangan
         $ruangan = Ruangan::withoutGlobalScope(TestingDataScope::class)
-            ->where(function ($q) use ($kode, $namaInput) {
+            ->where(function ($q) use ($kode, $rawNorm) {
                 $q->where('kode_ruangan', $kode)
-                  ->orWhereRaw('LOWER(nama_ruangan) = ?', [strtolower($namaInput)]);
+                  ->orWhereRaw('LOWER(nama_ruangan) = ?', [strtolower($rawNorm)]);
             })
             ->first();
+
+        // 2. Auto-create jika ruangan belum terdaftar di data master
+        if (! $ruangan && $kode !== '') {
+            $ruangan = Ruangan::create([
+                'kode_ruangan'    => $kode,
+                'nama_ruangan'    => $rawNorm,
+                'lokasi'          => 'Gedung Utama',
+                'is_testing_data' => $this->targetIsTestingData() ? 1 : 0,
+            ]);
+        }
 
         $this->ruanganCache[$key] = $ruangan;
 

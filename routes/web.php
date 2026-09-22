@@ -71,6 +71,7 @@ Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
     // Resource Routes untuk Data Master
     Route::get('admin/import', [DataImportController::class, 'index'])->name('import.index');
     Route::get('admin/import/template-siswa', [DataImportController::class, 'downloadTemplateSiswa'])->name('import.template-siswa');
+    Route::get('admin/import/template-jadwal', [DataImportController::class, 'downloadTemplateJadwal'])->name('import.template-jadwal');
     Route::post('admin/import/siswa', [DataImportController::class, 'importSiswa'])->name('import.siswa');
     Route::post('admin/import/guru', [DataImportController::class, 'importGuru'])->name('import.guru');
     Route::post('admin/import/kelas', [DataImportController::class, 'importKelas'])->name('import.kelas');
@@ -304,6 +305,7 @@ Route::prefix('admin')->middleware(['auth', AdminScheduleAccess::class])->group(
     Route::post('/toggle-mode-khusus', [PengaturanJadwalController::class, 'toggleModeKhusus'])->name('admin.toggle-mode-khusus');
 
     Route::get('/jadwal', [JadwalPelajaranController::class, 'index'])->name('admin.jadwal.index');
+    Route::get('/jadwal/export', [JadwalPelajaranController::class, 'export'])->name('admin.jadwal.export');
     Route::get('/jadwal/debug/{id_kelas}', [JadwalPelajaranController::class, 'debugJadwalKelas'])->name('admin.jadwal.debug');
     Route::get('/jadwal/slot-kosong', [JadwalPelajaranController::class, 'monitoringSlotKosong'])->name('admin.jadwal.monitoring');
     Route::post('/jadwal', [JadwalPelajaranController::class, 'store'])->name('admin.jadwal.store');

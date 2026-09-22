@@ -28,6 +28,12 @@
         box-shadow: 0 1px 6px rgba(15, 23, 42, 0.04);
     }
 
+    @media (max-width: 575.98px) {
+        .filter-bar {
+            padding: 0.9rem 0.9rem;
+        }
+    }
+
     .filter-bar .form-control,
     .filter-bar .form-select {
         background-color: #f8fafc;
@@ -282,12 +288,12 @@
                 Kelola data identitas siswa, NISN, dan rombel kelas.
             </p>
         </div>
-        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+        <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto flex-shrink-0">
             {{-- Tombol Hapus Semua --}}
             @if(auth()->user()?->isAdmin())
             <button type="button"
                     id="btnHapusSemua"
-                    class="btn btn-outline-danger rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-2"
+                    class="btn btn-outline-danger rounded-3 px-3 py-2 fw-semibold d-flex align-items-center justify-content-center gap-2 w-full sm:w-auto"
                     style="font-size: 0.9rem;"
                     data-bs-toggle="modal"
                     data-bs-target="#modalHapusSemua">
@@ -298,7 +304,7 @@
             {{-- Tombol Export --}}
             <button type="button"
                     id="btnExport"
-                    class="btn btn-outline-success rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-2"
+                    class="btn btn-outline-success rounded-3 px-3 py-2 fw-semibold d-flex align-items-center justify-content-center gap-2 w-full sm:w-auto"
                     style="font-size: 0.9rem;"
                     data-bs-toggle="modal"
                     data-bs-target="#modalExport">
@@ -307,7 +313,7 @@
             </button>
             {{-- Tombol Tambah Siswa --}}
             <a href="{{ route('siswa.create') }}"
-               class="btn btn-primary rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-2"
+               class="btn btn-primary rounded-3 px-3 py-2 fw-semibold d-flex align-items-center justify-content-center gap-2 w-full sm:w-auto"
                style="background-color: var(--primary-blue, #1677ff); border-color: var(--primary-blue, #1677ff); font-size: 0.9rem;">
                 <i class="bi bi-plus-lg"></i>
                 <span>Tambah Siswa</span>
@@ -375,9 +381,9 @@
                   {!! json_encode(request('id_kelas')) !!},
                   {!! json_encode(request('id_jurusan')) !!}
               )'>
-            <div class="row g-3 align-items-center">
+            <div class="flex flex-col sm:flex-row gap-2">
                 {{-- Search Input --}}
-                <div class="col-12 col-md-4">
+                <div class="w-full sm:flex-[4]">
                     <div class="search-wrapper">
                         <i class="bi bi-search"></i>
                         <input type="text"
@@ -389,7 +395,7 @@
                 </div>
 
                 {{-- Dropdown Pilih Kelas --}}
-                <div class="col-12 col-sm-4 col-md-3">
+                <div class="w-full sm:flex-[3]">
                     <select name="id_kelas" id="filterKelas" class="form-select"
                             x-model="kelasId"
                             @change="onKelasChange()">
@@ -407,7 +413,7 @@
                 </div>
 
                 {{-- Dropdown Pilih Jurusan --}}
-                <div class="col-6 col-sm-4 col-md-3">
+                <div class="w-full sm:flex-[3]">
                     <select name="id_jurusan" id="filterJurusan" class="form-select"
                             x-model="jurusanId"
                             @change="onJurusanChange()">
@@ -422,7 +428,7 @@
                 </div>
 
                 {{-- Dropdown Jenis Kelamin --}}
-                <div class="col-6 col-sm-4 col-md-2">
+                <div class="w-full sm:flex-[2]">
                     <select name="jenis_kelamin" class="form-select" onchange="this.form.submit()">
                         <option value="">Jenis Kelamin</option>
                         <option value="L" {{ request('jenis_kelamin') == 'L' ? 'selected' : '' }}>Laki-laki</option>
@@ -467,7 +473,7 @@
 
         {{-- Table --}}
         <div class="table-responsive w-full overflow-x-auto">
-            <table class="table table-custom align-middle min-w-full">
+            <table class="table table-custom align-middle min-w-full" style="min-width: 760px;">
                 <thead>
                     <tr>
                         <th style="width: 30%;">NISN & NAMA SISWA</th>

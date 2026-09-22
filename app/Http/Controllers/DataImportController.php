@@ -96,6 +96,27 @@ class DataImportController extends Controller
     }
 
     /**
+     * Mengunduh contoh file template CSV untuk Import Jadwal Pelajaran (6 kolom).
+     */
+    public function downloadTemplateJadwal()
+    {
+        $filename = 'template-import-jadwal.csv';
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ];
+
+        $content = implode("\n", [
+            'Kelas,Hari,Jam,MataPelajaran,Guru,Ruang',
+            'X TKI 1,Senin,1,Matematika,"Yani, S.Pd.",Lab. KI 1',
+            'X TKI 1,Senin,2.3,Bahasa Indonesia,"Dedi Permana, S.Pd.",Lab. KI 1',
+            'XI RPL 2,Selasa,4.5.6,Pemrograman Web,"Ahmad Fauzi, S.Pd.",R-101',
+        ]);
+
+        return response()->make($content, 200, $headers);
+    }
+
+    /**
      * Menangani upload & import file Excel DAFTAR PRESENSI PESERTA DIDIK.
      */
     public function importSiswa(Request $request)
