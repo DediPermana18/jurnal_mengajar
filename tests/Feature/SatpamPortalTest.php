@@ -143,7 +143,7 @@ class SatpamPortalTest extends TestCase
             ->assertSee('Siswa Terlambat Hari Ini')
             ->assertSee('Izin Keluar Gerbang Hari Ini')
             ->assertSee('Input Siswa Terlambat')
-            ->assertSee('Input / Cek Dispensasi');
+            ->assertSee('Cek Dispensasi / Izin Keluar');
     }
 
     public function test_guru_tanpa_jadwal_piket_ditolak_akses_portal_satpam(): void

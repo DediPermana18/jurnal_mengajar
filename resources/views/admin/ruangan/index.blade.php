@@ -48,6 +48,25 @@
         </div>
     @endif
 
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm rounded-4 mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
+    @if(session('import_warnings') && count(session('import_warnings')) > 0)
+        <div class="alert alert-warning alert-dismissible fade show border-0 shadow-sm rounded-4 mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Peringatan Import:</strong>
+            <ul class="mb-0 mt-1 ps-3">
+                @foreach (session('import_warnings') as $warn)
+                    <li>{{ $warn }}</li>
+                @endforeach
+            </ul>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
     @if ($errors->any())
         <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm rounded-4 mb-4" role="alert">
             <strong class="d-block mb-1">Terjadi kesalahan:</strong>
@@ -110,8 +129,13 @@
                                 @else
                                     <div class="d-flex flex-wrap gap-1">
                                         @foreach($kelasDipakai as $kelas)
+                                            @php
+                                                $namaLengkapKelas = ($kelas->tingkat && !str_starts_with($kelas->nama_kelas, $kelas->tingkat . ' '))
+                                                    ? $kelas->tingkat . ' ' . $kelas->nama_kelas
+                                                    : $kelas->nama_kelas;
+                                            @endphp
                                             <span class="badge bg-light text-dark border rounded-pill px-2 py-1" style="font-size: 0.75rem;">
-                                                {{ $kelas->nama_kelas }}
+                                                {{ $namaLengkapKelas }}
                                             </span>
                                         @endforeach
                                     </div>
@@ -281,6 +305,52 @@
                     <button type="button" class="btn btn-light rounded-3 fw-semibold" data-bs-dismiss="modal">Batal</button>
                     <button type="submit" class="btn btn-warning rounded-3 fw-semibold px-4">
                         <i class="bi bi-check-lg me-1"></i> Simpan Perubahan
+                    </button>
+                </div>
+{{-- ==================== MODAL IMPORT RUANGAN ==================== --}}
+<div class="modal fade" id="modalImportRuangan" tabindex="-1" aria-labelledby="modalImportRuanganLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-0 pb-0 pt-4 px-4">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-2 d-flex align-items-center justify-content-center bg-primary-subtle text-primary" style="width: 36px; height: 36px;">
+                        <i class="bi bi-file-earmark-arrow-up-fill fs-5"></i>
+                    </div>
+                    <h5 class="modal-title fw-bold text-dark" id="modalImportRuanganLabel">Import Data Ruangan</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('ruangan.import') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-body p-4">
+                    <div class="alert alert-info border-0 rounded-3 small mb-3">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-info-circle-fill fs-6 mt-0.5"></i>
+                            <div>
+                                Anda dapat mengunggah file <strong>Template Ruangan</strong> ataupun mentahan file <strong>Data Jadwal.csv</strong> (kolom <em>Ruang</em>). Kode ruangan akan dibuatkan secara otomatis.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-dark">Pilih File Excel / CSV <span class="text-danger">*</span></label>
+                        <input type="file" name="file_ruangan" class="form-control rounded-3" accept=".xlsx,.xls,.csv" required>
+                        <div class="form-text text-muted small">Format didukung: .xlsx, .xls, .csv (Maks. 10 MB)</div>
+                    </div>
+
+                    <div class="d-flex align-items-center justify-content-between p-3 bg-light rounded-3 border">
+                        <div class="small text-muted">
+                            <i class="bi bi-file-earmark-arrow-down text-primary me-1"></i> Format Template Master
+                        </div>
+                        <a href="{{ route('ruangan.export', ['format' => 'xlsx']) }}" class="btn btn-sm btn-outline-primary rounded-2 fw-semibold">
+                            Unduh Contoh (.xlsx)
+                        </a>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0 d-flex justify-content-between">
+                    <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold shadow-sm">
+                        <i class="bi bi-upload me-1"></i> Unggah & Import
                     </button>
                 </div>
             </form>

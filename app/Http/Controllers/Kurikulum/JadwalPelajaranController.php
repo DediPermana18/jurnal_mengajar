@@ -71,19 +71,42 @@ class JadwalPelajaranController extends Controller
         } : '10';
 
         // 4. Ambil master jam pelajaran global sekolah
-        $jamPelajaranList = JamPelajaran::where('kategori_hari', $kategoriHari)
+        $jamPelajaranList = JamPelajaran::where('hari', $selectedHari)
             ->orderBy('jam_mulai')
             ->get();
 
         // 5. Ambil data jadwal pelajaran yang sudah di-plot
         $jadwalList = collect();
         if ($selectedKelas) {
-            $jadwalList = JadwalPelajaran::with(['mataPelajaran', 'guru', 'jamPelajaran', 'ruangan'])
+            $rawJadwals = JadwalPelajaran::with(['mataPelajaran', 'guru', 'jamPelajaran', 'ruangan'])
                 ->where('id_kelas', $selectedKelas->id)
                 ->where('hari', $selectedHari)
                 ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
-                ->get()
-                ->keyBy('id_jam');
+                ->get();
+
+            $jamIdMap = $jamPelajaranList->keyBy('id');
+            $jamKeMap = $jamPelajaranList->where('jenis', '!=', 'istirahat')->keyBy('jam_ke');
+
+            $mappedJadwals = collect();
+            foreach ($rawJadwals as $j) {
+                if ($jamIdMap->has($j->id_jam)) {
+                    $mappedJadwals->put($j->id_jam, $j);
+                } else {
+                    // Auto-heal: match via jamPelajaran->jam_ke jika id_jam mengacu pada ID lama/testing
+                    $targetJamObj = $j->jamPelajaran;
+                    $jamKe = $targetJamObj?->jam_ke;
+                    if ($jamKe && $jamKeMap->has($jamKe)) {
+                        $matchedJam = $jamKeMap->get($jamKe);
+                        $j->id_jam = $matchedJam->id;
+                        $j->save();
+                        $mappedJadwals->put($matchedJam->id, $j);
+                    } else {
+                        $mappedJadwals->put($j->id_jam, $j);
+                    }
+                }
+            }
+
+            $jadwalList = $mappedJadwals;
         }
 
         // 6. Ambil status sakelar Senin Tanpa Upacara (dipakai widget Sakelar Mode Khusus di view)
@@ -179,15 +202,11 @@ class JadwalPelajaranController extends Controller
             }
         }
 
-        // Master slot KBM (bukan Istirahat/Upacara) per kategori hari.
-        $slotsSeninKamis = JamPelajaran::where('kategori_hari', 'Senin-Kamis')
-            ->whereNotIn('jenis', ['istirahat', 'upacara'])
+        // Master slot KBM (bukan Istirahat/Upacara) dikelompokkan per hari.
+        $slotsPerHari = JamPelajaran::whereNotIn('jenis', ['istirahat', 'upacara'])
             ->whereNotNull('jam_ke')
-            ->get();
-        $slotsJumat = JamPelajaran::where('kategori_hari', 'Jumat')
-            ->whereNotIn('jenis', ['istirahat', 'upacara'])
-            ->whereNotNull('jam_ke')
-            ->get();
+            ->get()
+            ->groupBy('hari');
 
         // Agenda rutin aktif dikunci per hari -> jam_ke.
         $agendaAktif = AgendaRutin::where('is_active', true)
@@ -216,7 +235,15 @@ class JadwalPelajaranController extends Controller
                 }
 
                 $kategori = ($hari === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
-                $slots = ($hari === 'Jumat') ? $slotsJumat : $slotsSeninKamis;
+                $slots = $slotsPerHari->get($hari);
+                if (! $slots || $slots->isEmpty()) {
+                    // Fallback untuk hari Senin-Kamis jika slot disimpan dengan hari='Senin'
+                    if (in_array($hari, ['Senin', 'Selasa', 'Rabu', 'Kamis'], true)) {
+                        $slots = $slotsPerHari->get('Senin', collect());
+                    } else {
+                        $slots = collect();
+                    }
+                }
                 $agendaHari = $agendaAktif->get($hari, collect());
                 $maxJamKe = JamPulang::getMaxJamKe($kategori, $tingkatSlug);
 
@@ -298,7 +325,7 @@ class JadwalPelajaranController extends Controller
             } : '10';
 
             // 1. Ambil semua slot KBM dalam rentang jam_ke_mulai s/d jam_ke_selesai (abaikan jenis istirahat)
-            $targetSlots = JamPelajaran::where('kategori_hari', $kategoriHari)
+            $targetSlots = JamPelajaran::where('hari', $validated['hari'])
                 ->whereNotNull('jam_ke')
                 ->where('jenis', '!=', 'istirahat')
                 ->whereBetween('jam_ke', [$validated['jam_ke_mulai'], $validated['jam_ke_selesai']])
@@ -446,6 +473,9 @@ class JadwalPelajaranController extends Controller
                     ->forceDelete();
 
                 foreach ($targetSlots as $slot) {
+                    if ($slot->jenis !== 'kbm') {
+                        continue;
+                    }
                     JadwalPelajaran::withTrashed()->updateOrCreate(
                         [
                             'id_kelas' => $validated['id_kelas'],
@@ -775,8 +805,11 @@ class JadwalPelajaranController extends Controller
         $blocked = [];
 
         foreach ($targetSlots as $slot) {
-            // a) Non-KBM pada master jam
+            // a) Non-KBM (Skip istirahat agar rentang jam dapat menyeberangi waktu istirahat)
             if ($slot->jenis !== 'kbm') {
+                if ($slot->jenis === 'istirahat') {
+                    continue;
+                }
                 $blocked[] = [
                     'jam_ke' => $slot->jam_ke,
                     'reason' => 'non_kbm',
@@ -837,25 +870,6 @@ class JadwalPelajaranController extends Controller
                     'detail' => $occupied->mataPelajaran->nama_mapel ?? 'Mapel',
                 ];
             }
-        }
-
-        // e) Istirahat di tengah rentang waktu
-        $rangeStart = Carbon::parse($targetSlots->first()->jam_mulai);
-        $rangeEnd = Carbon::parse($targetSlots->last()->jam_selesai);
-
-        $istirahatSpan = JamPelajaran::where('kategori_hari', $kategoriHari)
-            ->where('jenis', 'istirahat')
-            ->where('jam_mulai', '<', $rangeEnd->format('H:i:s'))
-            ->where('jam_selesai', '>', $rangeStart->format('H:i:s'))
-            ->first();
-
-        if ($istirahatSpan) {
-            $blocked[] = [
-                'jam_ke' => null,
-                'reason' => 'istirahat',
-                'label' => 'ISTIRAHAT',
-                'detail' => $istirahatSpan->rentang_waktu,
-            ];
         }
 
         return $blocked;
@@ -927,5 +941,34 @@ class JadwalPelajaranController extends Controller
 
         // 4. Default: tahun aktif / baris pertama
         return TahunAjaran::where('is_active', true)->first() ?? TahunAjaran::first();
+    }
+
+    /**
+     * Route temporary debugging untuk mengecek data raw jadwal_pelajaran per kelas.
+     */
+    public function debugJadwalKelas(Request $request, $id_kelas)
+    {
+        $kelas = Kelas::find($id_kelas);
+        $tahunAktif = $this->resolveTahunAjaranContext($request);
+        $jadwals = JadwalPelajaran::with(['mataPelajaran', 'guru', 'jamPelajaran', 'ruangan'])
+            ->where('id_kelas', $id_kelas)
+            ->get();
+
+        return response()->json([
+            'id_kelas' => (int) $id_kelas,
+            'kelas' => $kelas ? "{$kelas->tingkat} {$kelas->nama_kelas}" : 'Tidak ditemukan',
+            'tahun_aktif' => $tahunAktif ? "ID: {$tahunAktif->id} ({$tahunAktif->tahun_ajaran} {$tahunAktif->semester})" : null,
+            'total_jadwal' => $jadwals->count(),
+            'jadwals' => $jadwals->map(fn ($j) => [
+                'id' => $j->id,
+                'hari' => $j->hari,
+                'id_jam' => $j->id_jam,
+                'id_tahun_ajaran' => $j->id_tahun_ajaran,
+                'mapel' => $j->mataPelajaran?->nama_mapel,
+                'guru' => $j->guru?->nama,
+                'jam_valid' => $j->jamPelajaran !== null,
+                'jam_ke' => $j->jamPelajaran?->jam_ke,
+            ]),
+        ]);
     }
 }

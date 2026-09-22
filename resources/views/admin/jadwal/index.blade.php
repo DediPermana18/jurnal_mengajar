@@ -1140,7 +1140,7 @@
         kbmInRange.forEach(function (s) {
             if (plotEditExemptJamKe.has(s.jam_ke)) return;
 
-            const hardLock = (s.lock_reason === 'agenda' || s.lock_reason === 'pulang' || s.lock_reason === 'istirahat');
+            const hardLock = (s.lock_reason === 'agenda' || s.lock_reason === 'pulang');
             if (hardLock || !!s.is_plotted) {
                 blocked.push({
                     jam_ke: s.jam_ke,
@@ -1149,20 +1149,6 @@
                 });
             }
         });
-
-        // Istirahat yang terentang di dalam rentang waktu
-        if (kbmInRange.length > 0) {
-            const rangeMulai = Math.min(...kbmInRange.map(s => s.jam_mulai));
-            const rangeSelesai = Math.max(...kbmInRange.map(s => s.jam_selesai));
-            const spansIstirahat = allSlots.some(s =>
-                s.jenis === 'istirahat' &&
-                s.jam_mulai < rangeSelesai &&
-                s.jam_selesai > rangeMulai
-            );
-            if (spansIstirahat) {
-                blocked.push({ jam_ke: null, label: 'ISTIRAHAT', mapel: null });
-            }
-        }
 
         return blocked;
     }

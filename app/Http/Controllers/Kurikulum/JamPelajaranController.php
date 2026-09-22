@@ -24,15 +24,17 @@ class JamPelajaranController extends Controller
             $tab = 'Senin-Kamis';
         }
 
-        // Pastikan penomoran jam_ke terurut konsisten
-        $this->syncJamKe('Senin-Kamis');
-        $this->syncJamKe('Jumat');
+        // Pastikan penomoran jam_ke terurut konsisten untuk semua hari
+        foreach (['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'] as $h) {
+            $this->syncJamKe($h);
+        }
 
-        $seninKamis = JamPelajaran::where('kategori_hari', 'Senin-Kamis')
+        // Tampilan perwakilan tab "Senin-Kamis" menggunakan hari 'Senin'
+        $seninKamis = JamPelajaran::where('hari', 'Senin')
             ->orderBy('jam_mulai')
             ->get();
 
-        $jumat = JamPelajaran::where('kategori_hari', 'Jumat')
+        $jumat = JamPelajaran::where('hari', 'Jumat')
             ->orderBy('jam_mulai')
             ->get();
 
@@ -49,15 +51,14 @@ class JamPelajaranController extends Controller
         $agendaRutin = $agendaSenin ?? AgendaRutin::first();
 
         // Opsi dropdown jam untuk Pengaturan Upacara (Senin-Kamis) & Pembiasaan (Jumat).
-        // Hanya ambil slot KBM yang aktif/valid, urutkan berdasar urutan jam (jam_ke, lalu jam_mulai).
-        $jamOptionsSenin = JamPelajaran::where('kategori_hari', 'Senin-Kamis')
+        $jamOptionsSenin = JamPelajaran::where('hari', 'Senin')
             ->where('jenis', 'kbm')
             ->whereNotNull('jam_ke')
             ->orderBy('jam_ke')
             ->orderBy('jam_mulai')
             ->get();
 
-        $jamOptionsJumat = JamPelajaran::where('kategori_hari', 'Jumat')
+        $jamOptionsJumat = JamPelajaran::where('hari', 'Jumat')
             ->where('jenis', 'kbm')
             ->whereNotNull('jam_ke')
             ->orderBy('jam_ke')
@@ -65,7 +66,6 @@ class JamPelajaranController extends Controller
             ->get();
 
         // Hitung max jam_ke KBM tersedia per kategori (untuk dropdown batas jam pulang).
-        // Berbasis total slot KBM aktif saat ini agar label "(Jam Terakhir)" selalu akurat.
         $maxJamKeSeninKamis = $jamOptionsSenin->max('jam_ke') ?? 0;
         $maxJamKeJumat = $jamOptionsJumat->max('jam_ke') ?? 0;
 
@@ -107,15 +107,21 @@ class JamPelajaranController extends Controller
             'jenis' => 'required|in:kbm,istirahat',
         ]);
 
-        JamPelajaran::create([
-            'kategori_hari' => $validated['kategori_hari'],
-            'jam_ke' => $validated['jenis'] === 'istirahat' ? null : 1,
-            'jam_mulai' => $validated['jam_mulai'],
-            'jam_selesai' => $validated['jam_selesai'],
-            'jenis' => $validated['jenis'],
-        ]);
+        $daysToCreate = ($validated['kategori_hari'] === 'Senin-Kamis')
+            ? ['Senin', 'Selasa', 'Rabu', 'Kamis']
+            : ['Jumat'];
 
-        $this->syncJamKe($validated['kategori_hari']);
+        foreach ($daysToCreate as $d) {
+            JamPelajaran::create([
+                'hari' => $d,
+                'kategori_hari' => $validated['kategori_hari'],
+                'jam_ke' => $validated['jenis'] === 'istirahat' ? null : 1,
+                'jam_mulai' => $validated['jam_mulai'],
+                'jam_selesai' => $validated['jam_selesai'],
+                'jenis' => $validated['jenis'],
+            ]);
+            $this->syncJamKe($d);
+        }
 
         return redirect()
             ->route('admin.jam-pelajaran.index', ['tab' => $validated['kategori_hari']])
@@ -134,28 +140,41 @@ class JamPelajaranController extends Controller
             'jenis' => 'required|in:kbm,istirahat',
         ]);
 
-        $oldHari = $jamPelajaran->kategori_hari;
         $oldSelesai = $jamPelajaran->jam_selesai;
 
         // Guard: hanya IT/QA yang dapat mengubah slot jam data testing.
         $this->authorizeTestingMutation($jamPelajaran);
 
-        $jamPelajaran->update([
-            'kategori_hari' => $validated['kategori_hari'],
-            'jam_ke' => $validated['jenis'] === 'istirahat' ? null : $jamPelajaran->jam_ke,
-            'jam_mulai' => $validated['jam_mulai'],
-            'jam_selesai' => $validated['jam_selesai'],
-            'jenis' => $validated['jenis'],
-        ]);
+        $targetDays = ($validated['kategori_hari'] === 'Senin-Kamis')
+            ? ['Senin', 'Selasa', 'Rabu', 'Kamis']
+            : ['Jumat'];
 
-        // Auto-shift: geser slot-slot berikutnya bila dicentang
-        if ($request->boolean('auto_shift')) {
-            $this->shiftFollowingSlots($jamPelajaran, $validated['kategori_hari'], $oldSelesai);
-        }
+        foreach ($targetDays as $d) {
+            $targetSlot = JamPelajaran::where('hari', $d)
+                ->when($jamPelajaran->jenis === 'kbm' && $jamPelajaran->jam_ke !== null, fn ($q) => $q->where('jam_ke', $jamPelajaran->jam_ke))
+                ->when($jamPelajaran->jenis === 'istirahat', fn ($q) => $q->where('jam_mulai', $jamPelajaran->jam_mulai)->where('jenis', 'istirahat'))
+                ->first();
 
-        $this->syncJamKe($validated['kategori_hari']);
-        if ($oldHari !== $validated['kategori_hari']) {
-            $this->syncJamKe($oldHari);
+            if (! $targetSlot && $d === $jamPelajaran->hari) {
+                $targetSlot = $jamPelajaran;
+            }
+
+            if ($targetSlot) {
+                $targetSlot->update([
+                    'hari' => $d,
+                    'kategori_hari' => $validated['kategori_hari'],
+                    'jam_ke' => $validated['jenis'] === 'istirahat' ? null : $targetSlot->jam_ke,
+                    'jam_mulai' => $validated['jam_mulai'],
+                    'jam_selesai' => $validated['jam_selesai'],
+                    'jenis' => $validated['jenis'],
+                ]);
+
+                if ($request->boolean('auto_shift')) {
+                    $this->shiftFollowingSlots($targetSlot, $d, $oldSelesai);
+                }
+
+                $this->syncJamKe($d);
+            }
         }
 
         $this->normalizeJamPulang();
@@ -167,47 +186,42 @@ class JamPelajaranController extends Controller
 
     /**
      * Geser slot-slot berikutnya secara berantai (strict sequential) pada kategori hari yang sama.
-     *
-     * Setiap slot berikutnya (slot X+1, X+2, dst.) dirapatkan langsung ke jam selesai
-     * slot sebelumnya dengan tetap mempertahankan durasi asli masing-masing slot:
-     *   - jam_mulai   = jam_selesai slot sebelumnya
-     *   - jam_selesai = jam_mulai baru + durasi asli
      */
-    private function shiftFollowingSlots(JamPelajaran $edited, string $kategoriHari, string $oldSelesai): void
+    private function shiftFollowingSlots(JamPelajaran $edited, string $hariOrGroup, string $oldSelesai): void
     {
-        // Ambil semua slot setelah slot yang di-edit pada kategori yang sama.
-        // Slots berikutnya dimulai dari jam selesai (lama) slot yang di-edit, urutkan berdasarkan jam_mulai (lalu id).
-        $nextSlots = JamPelajaran::where('kategori_hari', $kategoriHari)
-            ->where('id', '!=', $edited->id)
-            ->where('jam_mulai', '>=', $oldSelesai)
-            ->orderBy('jam_mulai')
-            ->orderBy('id')
-            ->get();
+        $days = ($hariOrGroup === 'Senin-Kamis')
+            ? ['Senin', 'Selasa', 'Rabu', 'Kamis']
+            : [$hariOrGroup];
 
-        if ($nextSlots->isEmpty()) {
-            return;
-        }
+        foreach ($days as $h) {
+            $nextSlots = JamPelajaran::where('hari', $h)
+                ->where('id', '!=', $edited->id)
+                ->where('jam_mulai', '>=', $oldSelesai)
+                ->orderBy('jam_mulai')
+                ->orderBy('id')
+                ->get();
 
-        // Anchor awal: jam selesai baru dari slot yang di-edit
-        $anchor = Carbon::createFromFormat('H:i', substr($edited->jam_selesai, 0, 5));
+            if ($nextSlots->isEmpty()) {
+                continue;
+            }
 
-        foreach ($nextSlots as $slot) {
-            // Durasi asli slot ini (tidak boleh berubah)
-            $origMulai = Carbon::createFromFormat('H:i:s', $slot->jam_mulai);
-            $origSelesai = Carbon::createFromFormat('H:i:s', $slot->jam_selesai);
-            $durasi = max(1, $origMulai->diffInMinutes($origSelesai));
+            $anchor = Carbon::createFromFormat('H:i', substr($edited->jam_selesai, 0, 5));
 
-            // Raparkan: jam_mulai = jam_selesai slot sebelumnya, jam_selesai = mulai + durasi asli
-            $newMulai = $anchor;
-            $newSelesai = $newMulai->copy()->addMinutes($durasi);
+            foreach ($nextSlots as $slot) {
+                $origMulai = Carbon::createFromFormat('H:i:s', $slot->jam_mulai);
+                $origSelesai = Carbon::createFromFormat('H:i:s', $slot->jam_selesai);
+                $durasi = max(1, $origMulai->diffInMinutes($origSelesai));
 
-            $slot->update([
-                'jam_mulai' => $newMulai->format('H:i:s'),
-                'jam_selesai' => $newSelesai->format('H:i:s'),
-            ]);
+                $newMulai = $anchor;
+                $newSelesai = $newMulai->copy()->addMinutes($durasi);
 
-            // Lanjutkan rantai
-            $anchor = $newSelesai;
+                $slot->update([
+                    'jam_mulai' => $newMulai->format('H:i:s'),
+                    'jam_selesai' => $newSelesai->format('H:i:s'),
+                ]);
+
+                $anchor = $newSelesai;
+            }
         }
     }
 
@@ -219,15 +233,29 @@ class JamPelajaranController extends Controller
         // Guard: hanya IT/QA yang dapat menghapus slot jam data testing.
         $this->authorizeTestingMutation($jamPelajaran);
 
-        $hari = $jamPelajaran->kategori_hari;
-        $jamPelajaran->delete();
+        $targetDays = in_array($jamPelajaran->hari, ['Senin', 'Selasa', 'Rabu', 'Kamis'])
+            ? ['Senin', 'Selasa', 'Rabu', 'Kamis']
+            : [$jamPelajaran->hari];
 
-        $this->syncJamKe($hari);
+        $tab = in_array($jamPelajaran->hari, ['Senin', 'Selasa', 'Rabu', 'Kamis']) ? 'Senin-Kamis' : 'Jumat';
+
+        foreach ($targetDays as $d) {
+            $slotsToDelete = JamPelajaran::where('hari', $d)
+                ->when($jamPelajaran->jenis === 'kbm' && $jamPelajaran->jam_ke !== null, fn ($q) => $q->where('jam_ke', $jamPelajaran->jam_ke))
+                ->when($jamPelajaran->jenis === 'istirahat', fn ($q) => $q->where('jam_mulai', $jamPelajaran->jam_mulai)->where('jenis', 'istirahat'))
+                ->get();
+
+            foreach ($slotsToDelete as $s) {
+                $s->delete();
+            }
+            $this->syncJamKe($d);
+        }
+
         $this->normalizeJamPulang();
 
         return redirect()
-            ->route('admin.jam-pelajaran.index', ['tab' => $hari])
-            ->with('success', "Jam Pelajaran ({$hari}) berhasil dihapus.");
+            ->route('admin.jam-pelajaran.index', ['tab' => $tab])
+            ->with('success', "Jam Pelajaran ({$tab}) berhasil dihapus.");
     }
 
     /**
@@ -241,10 +269,14 @@ class JamPelajaranController extends Controller
                 ->with('error', 'Kategori hari tidak valid.');
         }
 
-        // Guard: hapus massal tidak boleh menyentuh data testing (kecuali IT/QA).
-        $this->authorizeTestingBatch(JamPelajaran::where('kategori_hari', $kategori_hari)->where('is_testing_data', true));
+        $targetDays = ($kategori_hari === 'Senin-Kamis')
+            ? ['Senin', 'Selasa', 'Rabu', 'Kamis']
+            : ['Jumat'];
 
-        JamPelajaran::where('kategori_hari', $kategori_hari)->delete();
+        // Guard: hapus massal tidak boleh menyentuh data testing (kecuali IT/QA).
+        $this->authorizeTestingBatch(JamPelajaran::whereIn('hari', $targetDays)->where('is_testing_data', true));
+
+        JamPelajaran::whereIn('hari', $targetDays)->delete();
         $this->normalizeJamPulang();
 
         return redirect()
@@ -254,13 +286,6 @@ class JamPelajaranController extends Controller
 
     /**
      * Bulk update durasi jam pelajaran (Edit Masal).
-     *
-     * Menerima array per-slot: updates[{id, durasi}] — payload ini dibangun di
-     * frontend dari input durasi per KELOMPOK slot (run KBM / istirahat) pada
-     * modal "Edit Terpilih". Setiap slot di-set jam_selesai = jam_mulai + durasi,
-     * lalu seluruh timeline kategori dihitung ulang SEKUENSIAL agar rapat
-     * berurutan (jam mulai & jam selesai ikut digeser). Nilai jam_ke / label
-     * slot TIDAK diubah. Diproses dalam satu transaksi DB.
      */
     public function bulkUpdate(Request $request)
     {
@@ -276,7 +301,6 @@ class JamPelajaranController extends Controller
         ]);
 
         try {
-            // Guard: edit masal tidak boleh menyentuh data testing (kecuali IT/QA).
             $this->authorizeTestingBatch(
                 JamPelajaran::whereIn('id', collect($validated['updates'])->pluck('id'))
                     ->where('is_testing_data', true)
@@ -289,14 +313,24 @@ class JamPelajaranController extends Controller
                         continue;
                     }
 
-                    $mulai = Carbon::createFromFormat('H:i:s', $jam->jam_mulai);
-                    $selesai = $mulai->copy()->addMinutes((int) $item['durasi']);
+                    $targetDays = in_array($jam->hari, ['Senin', 'Selasa', 'Rabu', 'Kamis'])
+                        ? ['Senin', 'Selasa', 'Rabu', 'Kamis']
+                        : [$jam->hari];
 
-                    // Hanya ganti jam_selesai agar durasi slot menjadi durasi baru.
-                    // jam_ke & label slot dipertahankan.
-                    $jam->update([
-                        'jam_selesai' => $selesai->format('H:i:s'),
-                    ]);
+                    foreach ($targetDays as $d) {
+                        $targetSlot = JamPelajaran::where('hari', $d)
+                            ->when($jam->jenis === 'kbm' && $jam->jam_ke !== null, fn ($q) => $q->where('jam_ke', $jam->jam_ke))
+                            ->when($jam->jenis === 'istirahat', fn ($q) => $q->where('jam_mulai', $jam->jam_mulai)->where('jenis', 'istirahat'))
+                            ->first();
+
+                        if ($targetSlot) {
+                            $mulai = Carbon::createFromFormat('H:i:s', $targetSlot->jam_mulai);
+                            $selesai = $mulai->copy()->addMinutes((int) $item['durasi']);
+                            $targetSlot->update([
+                                'jam_selesai' => $selesai->format('H:i:s'),
+                            ]);
+                        }
+                    }
                 }
             });
         } catch (\Throwable $e) {
@@ -305,11 +339,9 @@ class JamPelajaranController extends Controller
                 ->with('error', 'Gagal memperbarui durasi: '.$e->getMessage());
         }
 
-        // Tentukan kategori hari dari record pertama yang diupdate
         $firstRecord = JamPelajaran::find($validated['updates'][0]['id']);
-        $hariGroup = $firstRecord ? $firstRecord->kategori_hari : 'Senin-Kamis';
+        $hariGroup = $firstRecord ? (in_array($firstRecord->hari, ['Senin', 'Selasa', 'Rabu', 'Kamis']) ? 'Senin-Kamis' : 'Jumat') : 'Senin-Kamis';
 
-        // Hitung ulang seluruh timeline agar rapat berurutan (auto-shift menyeluruh)
         $this->recalculateSchedule($hariGroup);
         $this->syncJamKe($hariGroup);
         $this->normalizeJamPulang();
@@ -322,8 +354,7 @@ class JamPelajaranController extends Controller
     }
 
     /**
-     * Cek dampak generate preset: slot KBM mana saja yang akan berkurang & apakah
-     * slot tersebut masih memuat jadwal pelajaran pada semester/tahun ajaran aktif.
+     * Cek dampak generate preset.
      */
     public function checkGeneratePreset(Request $request)
     {
@@ -332,11 +363,11 @@ class JamPelajaranController extends Controller
             return response()->json(['error' => 'Kategori hari tidak valid.'], 422);
         }
 
+        $targetDays = ($kategori === 'Senin-Kamis') ? ['Senin', 'Selasa', 'Rabu', 'Kamis'] : ['Jumat'];
         $jumlahJp = max(1, min(20, (int) $request->input('jumlah_jp', 0)));
         $tahunAktif = TahunAjaran::where('is_active', true)->first();
 
-        // Slot KBM yang akan hilang karena jam_ke-nya melebihi jumlah JP baru
-        $affectedKbm = JamPelajaran::where('kategori_hari', $kategori)
+        $affectedKbm = JamPelajaran::whereIn('hari', $targetDays)
             ->where('jenis', 'kbm')
             ->where('jam_ke', '>', $jumlahJp)
             ->orderBy('jam_ke')
@@ -346,14 +377,13 @@ class JamPelajaranController extends Controller
                 'rentang' => $slot->rentang_waktu,
             ]);
 
-        $affectedJamKe = $affectedKbm->pluck('jam_ke')->all();
+        $affectedJamKe = $affectedKbm->pluck('jam_ke')->unique()->values()->all();
 
-        // Jumlah jadwal ter-plot pada slot yang terdampak (semester aktif)
         $plottedCount = 0;
         if ($tahunAktif && count($affectedJamKe) > 0) {
             $plottedCount = JadwalPelajaran::where('id_tahun_ajaran', $tahunAktif->id)
-                ->whereHas('jamPelajaran', function ($q) use ($kategori, $affectedJamKe) {
-                    $q->where('kategori_hari', $kategori)
+                ->whereHas('jamPelajaran', function ($q) use ($targetDays, $affectedJamKe) {
+                    $q->whereIn('hari', $targetDays)
                         ->whereIn('jam_ke', $affectedJamKe);
                 })
                 ->count();
@@ -361,19 +391,14 @@ class JamPelajaranController extends Controller
 
         return response()->json([
             'affected_jam_ke' => $affectedJamKe,
-            'slots' => $affectedKbm->values(),
+            'slots' => $affectedKbm->unique('jam_ke')->values(),
             'plotted_count' => $plottedCount,
             'semester' => $tahunAktif ? "{$tahunAktif->tahun_ajaran} - {$tahunAktif->semester}" : null,
         ]);
     }
 
     /**
-     * Generate preset jam pelajaran secara dinamis (jumlah JP, durasi, dan istirahat bebas).
-     *
-     * Slot KBM diperbarui IN-PLACE berdasarkan urutan jam_ke (UPSERT), sehingga nilai
-     * id pada tabel jam_pelajaran TETAP dan relasi id_jam pada jadwal_pelajaran (plotting
-     * jadwal semester) tidak rusak. Hanya slot istirahat yang dihapus & dibuat ulang
-     * (istirahat tidak pernah direferensikan oleh jadwal_pelajaran).
+     * Generate preset jam pelajaran secara dinamis.
      */
     public function generatePreset(Request $request)
     {
@@ -382,8 +407,9 @@ class JamPelajaranController extends Controller
             $kategori = 'Senin-Kamis';
         }
 
-        // Proteksi: preset hanya boleh dijalankan jika tabel masih kosong untuk kategori ini.
-        $existingCount = JamPelajaran::where('kategori_hari', $kategori)->count();
+        $targetDays = ($kategori === 'Senin-Kamis') ? ['Senin', 'Selasa', 'Rabu', 'Kamis'] : ['Jumat'];
+
+        $existingCount = JamPelajaran::whereIn('hari', $targetDays)->count();
 
         if ($existingCount > 0) {
             $wantsJson = $request->expectsJson() || $request->ajax();
@@ -404,7 +430,6 @@ class JamPelajaranController extends Controller
         $jumlahJp = max(1, min(20, (int) $request->input('jumlah_jp', $kategori === 'Jumat' ? 9 : 13)));
         $jamMulai = $request->input('jam_mulai', '07:00');
 
-        // Normalisasi data istirahat: [{ after_jam, duration }]
         $rawBreaks = is_array($request->input('breaks')) ? $request->input('breaks') : [];
         $breaks = collect($rawBreaks)
             ->map(fn ($b) => [
@@ -416,74 +441,70 @@ class JamPelajaranController extends Controller
             ->values()
             ->all();
 
-        // Slot istirahat tidak pernah di-plot ke jadwal_pelajaran, aman dibuang & dibuat ulang.
-        JamPelajaran::where('kategori_hari', $kategori)
-            ->where('jenis', 'istirahat')
-            ->delete();
+        foreach ($targetDays as $d) {
+            JamPelajaran::where('hari', $d)
+                ->where('jenis', 'istirahat')
+                ->delete();
 
-        // Ambil slot KBM existing berindex jam_ke agar di-update in-place (ID tetap).
-        $existingKbm = JamPelajaran::where('kategori_hari', $kategori)
-            ->where('jenis', 'kbm')
-            ->get()
-            ->keyBy('jam_ke');
+            $existingKbm = JamPelajaran::where('hari', $d)
+                ->where('jenis', 'kbm')
+                ->get()
+                ->keyBy('jam_ke');
 
-        $start = Carbon::createFromFormat('H:i', $jamMulai);
-        $istirahatCount = 0;
-        $totalSlots = 0;
+            $start = Carbon::createFromFormat('H:i', $jamMulai);
 
-        for ($j = 1; $j <= $jumlahJp; $j++) {
-            // Slot KBM
-            $end = $start->copy()->addMinutes($durasiJp);
+            for ($j = 1; $j <= $jumlahJp; $j++) {
+                $end = $start->copy()->addMinutes($durasiJp);
 
-            if ($existingKbm->has($j)) {
-                // Update in-place: pertahankan id agar relasi jadwal_pelajaran.id_jam tetap utuh
-                $existingKbm[$j]->update([
-                    'jam_ke' => $j,
-                    'jam_mulai' => $start->format('H:i:s'),
-                    'jam_selesai' => $end->format('H:i:s'),
-                    'jenis' => 'kbm',
-                ]);
-            } else {
-                JamPelajaran::create([
-                    'kategori_hari' => $kategori,
-                    'jam_ke' => $j,
-                    'jam_mulai' => $start->format('H:i:s'),
-                    'jam_selesai' => $end->format('H:i:s'),
-                    'jenis' => 'kbm',
-                ]);
+                if ($existingKbm->has($j)) {
+                    $existingKbm[$j]->update([
+                        'hari' => $d,
+                        'kategori_hari' => $kategori,
+                        'jam_ke' => $j,
+                        'jam_mulai' => $start->format('H:i:s'),
+                        'jam_selesai' => $end->format('H:i:s'),
+                        'jenis' => 'kbm',
+                    ]);
+                } else {
+                    JamPelajaran::create([
+                        'hari' => $d,
+                        'kategori_hari' => $kategori,
+                        'jam_ke' => $j,
+                        'jam_mulai' => $start->format('H:i:s'),
+                        'jam_selesai' => $end->format('H:i:s'),
+                        'jenis' => 'kbm',
+                    ]);
+                }
+                $start = $end;
+
+                $break = collect($breaks)->firstWhere('after_jam', $j);
+                if ($break) {
+                    $bEnd = $start->copy()->addMinutes($break['duration']);
+                    JamPelajaran::create([
+                        'hari' => $d,
+                        'kategori_hari' => $kategori,
+                        'jam_ke' => null,
+                        'jam_mulai' => $start->format('H:i:s'),
+                        'jam_selesai' => $bEnd->format('H:i:s'),
+                        'jenis' => 'istirahat',
+                    ]);
+                    $start = $bEnd;
+                }
             }
-            $start = $end;
-            $totalSlots++;
 
-            // Sisipkan istirahat jika ada break setelah jam KBM ini
-            $break = collect($breaks)->firstWhere('after_jam', $j);
-            if ($break) {
-                $istirahatCount++;
-                $bEnd = $start->copy()->addMinutes($break['duration']);
-                JamPelajaran::create([
-                    'kategori_hari' => $kategori,
-                    'jam_ke' => null,
-                    'jam_mulai' => $start->format('H:i:s'),
-                    'jam_selesai' => $bEnd->format('H:i:s'),
-                    'jenis' => 'istirahat',
-                ]);
-                $start = $bEnd;
-                $totalSlots++;
-            }
+            JamPelajaran::where('hari', $d)
+                ->where('jenis', 'kbm')
+                ->where('jam_ke', '>', $jumlahJp)
+                ->delete();
+
+            $this->syncJamKe($d);
         }
 
-        // Hapus slot KBM sisa yang melebihi jumlah JP baru (sudah ada konfirmasi peringatan di UI)
-        JamPelajaran::where('kategori_hari', $kategori)
-            ->where('jenis', 'kbm')
-            ->where('jam_ke', '>', $jumlahJp)
-            ->delete();
-
-        $this->syncJamKe($kategori);
         $this->normalizeJamPulang();
 
         return redirect()
             ->route('admin.jam-pelajaran.index', ['tab' => $kategori])
-            ->with('success', "Preset jam pelajaran {$kategori} berhasil digenerate ({$jumlahJp} JP + {$istirahatCount} istirahat, total {$totalSlots} slot).");
+            ->with('success', "Preset jam pelajaran {$kategori} berhasil digenerate.");
     }
 
     /**
@@ -491,12 +512,12 @@ class JamPelajaranController extends Controller
      */
     private function normalizeJamPulang(): void
     {
-        $maxSeninKamis = JamPelajaran::where('kategori_hari', 'Senin-Kamis')
+        $maxSeninKamis = JamPelajaran::whereIn('hari', ['Senin', 'Selasa', 'Rabu', 'Kamis'])
             ->where('jenis', 'kbm')
             ->whereNotNull('jam_ke')
             ->max('jam_ke') ?? 0;
 
-        $maxJumat = JamPelajaran::where('kategori_hari', 'Jumat')
+        $maxJumat = JamPelajaran::where('hari', 'Jumat')
             ->where('jenis', 'kbm')
             ->whereNotNull('jam_ke')
             ->max('jam_ke') ?? 0;
@@ -510,75 +531,76 @@ class JamPelajaranController extends Controller
     /**
      * Sinkronisasi penomoran jam_ke secara otomatis berurutan berdasarkan jam_mulai.
      */
-    private function syncJamKe(string $kategoriHari): void
+    private function syncJamKe(string $hariOrGroup): void
     {
-        $items = JamPelajaran::where('kategori_hari', $kategoriHari)
-            ->orderBy('jam_mulai')
-            ->get();
+        $days = ($hariOrGroup === 'Senin-Kamis')
+            ? ['Senin', 'Selasa', 'Rabu', 'Kamis']
+            : [$hariOrGroup];
 
-        $jamKeCounter = 1;
-        foreach ($items as $item) {
-            if ($item->jenis === 'istirahat') {
-                if ($item->jam_ke !== null) {
-                    $item->update(['jam_ke' => null]);
+        foreach ($days as $h) {
+            $items = JamPelajaran::where('hari', $h)
+                ->orderBy('jam_mulai')
+                ->get();
+
+            $jamKeCounter = 1;
+            foreach ($items as $item) {
+                if ($item->jenis === 'istirahat') {
+                    if ($item->jam_ke !== null) {
+                        $item->update(['jam_ke' => null]);
+                    }
+                } else {
+                    if ($item->jam_ke !== $jamKeCounter) {
+                        $item->update(['jam_ke' => $jamKeCounter]);
+                    }
+                    $jamKeCounter++;
                 }
-            } else {
-                if ($item->jam_ke !== $jamKeCounter) {
-                    $item->update(['jam_ke' => $jamKeCounter]);
-                }
-                $jamKeCounter++;
             }
         }
     }
 
     /**
-     * Hitung ulang timeline (jam_mulai & jam_selesai) secara sekuensial untuk satu kategori hari.
-     *
-     * - Slot pertama mempertahankan jam_mulai asli.
-     * - Setiap slot berikutnya: jam_mulai = jam_selesai slot sebelumnya.
-     * - Durasi tiap slot dipertahankan dari nilai saat ini (jam_selesai - jam_mulai).
-     *
-     * Efeknya: gap antar slot hilang, timeline mengalir rapat berurutan — mirip auto-shift
-     * tetapi dijalankan menyeluruh ke seluruh slot dalam satu kategori.
+     * Hitung ulang timeline (jam_mulai & jam_selesai) secara sekuensial.
      */
-    private function recalculateSchedule(string $kategoriHari): void
+    private function recalculateSchedule(string $hariOrGroup): void
     {
-        $slots = JamPelajaran::where('kategori_hari', $kategoriHari)
-            ->orderBy('jam_mulai')
-            ->orderBy('id')
-            ->get();
+        $days = ($hariOrGroup === 'Senin-Kamis')
+            ? ['Senin', 'Selasa', 'Rabu', 'Kamis']
+            : [$hariOrGroup];
 
-        if ($slots->isEmpty()) {
-            return;
-        }
+        foreach ($days as $h) {
+            $slots = JamPelajaran::where('hari', $h)
+                ->orderBy('jam_mulai')
+                ->orderBy('id')
+                ->get();
 
-        // Anchor awal: jam_mulai dari slot pertama dipertahankan apa adanya.
-        $anchor = Carbon::createFromFormat('H:i:s', $slots->first()->jam_mulai);
-
-        foreach ($slots as $slot) {
-            // Durasi slot ini diambil dari waktu saat ini (sebelum perubahan jam_mulai).
-            $currentMulai = Carbon::createFromFormat('H:i:s', $slot->jam_mulai);
-            $currentSelesai = Carbon::createFromFormat('H:i:s', $slot->jam_selesai);
-            $durasi = max(1, $currentMulai->diffInMinutes($currentSelesai));
-
-            $newMulai = $anchor;
-            $newSelesai = $anchor->copy()->addMinutes($durasi);
-
-            // Update hanya jika ada perubahan agar tidak ada query redundant.
-            $mulaiDb = $slot->jam_mulai;
-            $selesaiDb = $slot->jam_selesai;
-            $newMulaiFmt = $newMulai->format('H:i:s');
-            $newSelesaiFmt = $newSelesai->format('H:i:s');
-
-            if ($mulaiDb !== $newMulaiFmt || $selesaiDb !== $newSelesaiFmt) {
-                $slot->update([
-                    'jam_mulai' => $newMulaiFmt,
-                    'jam_selesai' => $newSelesaiFmt,
-                ]);
+            if ($slots->isEmpty()) {
+                continue;
             }
 
-            // Anchor berikutnya = jam_selesai slot ini.
-            $anchor = $newSelesai->copy();
+            $anchor = Carbon::createFromFormat('H:i:s', $slots->first()->jam_mulai);
+
+            foreach ($slots as $slot) {
+                $currentMulai = Carbon::createFromFormat('H:i:s', $slot->jam_mulai);
+                $currentSelesai = Carbon::createFromFormat('H:i:s', $slot->jam_selesai);
+                $durasi = max(1, $currentMulai->diffInMinutes($currentSelesai));
+
+                $newMulai = $anchor;
+                $newSelesai = $anchor->copy()->addMinutes($durasi);
+
+                $mulaiDb = $slot->jam_mulai;
+                $selesaiDb = $slot->jam_selesai;
+                $newMulaiFmt = $newMulai->format('H:i:s');
+                $newSelesaiFmt = $newSelesai->format('H:i:s');
+
+                if ($mulaiDb !== $newMulaiFmt || $selesaiDb !== $newSelesaiFmt) {
+                    $slot->update([
+                        'jam_mulai' => $newMulaiFmt,
+                        'jam_selesai' => $newSelesaiFmt,
+                    ]);
+                }
+
+                $anchor = $newSelesai->copy();
+            }
         }
     }
 }

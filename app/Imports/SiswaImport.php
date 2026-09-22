@@ -2,6 +2,7 @@
 
 namespace App\Imports;
 
+use App\Imports\Exceptions\KelasNotFoundDuringImport;
 use App\Models\Kelas;
 use App\Models\Scopes\TestingDataScope;
 use App\Models\Siswa;
@@ -236,6 +237,15 @@ class SiswaImport implements ToCollection, WithEvents
                     $this->parsedNamaKelasRaw = $matchedKelas->nama_lengkap;
 
                     continue;
+                }
+
+                // ── STRICT VALIDATION ──────────────────────────────────────────────
+                // Header kelas yang tertulis pada file (mis. "KELAS: XI DKV 9",
+                // "Kelas XI RPL 7", atau nama kelas polos "X TKJ 8") TIDAK ditemukan
+                // di Data Master Kelas → batalkan SELURUH import. Transaksi DB di
+                // controller di-rollback sehingga tidak ada data siswa parsial.
+                if ($this->isPlausibleKelasHeader($flatText)) {
+                    $this->abortKelasNotRegistered($this->extractKelasLabel($flatText));
                 }
             }
 
@@ -582,6 +592,106 @@ class SiswaImport implements ToCollection, WithEvents
         }
 
         return $matched;
+    }
+
+    // ─── Strict Validation: Kelas Wajib Terdaftar ─────────────────────────────
+
+    /**
+     * TRUE bila baris non-data memiliki bentuk header kelas yang JELAS:
+     *   1) baris menyebut kata kunci "KELAS" (mis. "KELAS: XI AK 1") —
+     *      kecuali "Wali Kelas" yang bukan deklarasi kelas; atau
+     *   2) pola tingkat + nama kelas polos (format CSV), mis. "X TKJ 1".
+     *
+     * Baris yang tidak memenuhi pola ini tetap mengalir ke penanganan baris
+     * data biasa (di-skip / dianggap siswa) — TIDAK memicu pembatalan import.
+     */
+    protected function isPlausibleKelasHeader(string $flatText): bool
+    {
+        if ($flatText === '') {
+            return false;
+        }
+
+        // "WALI KELAS : BUDI SANTOSO" or "KOP SURAT TANPA KELAS" bukan deklarasi kelas — jangan batalkan.
+        if (preg_match('/(WALI\s*KELAS|KOP\s*SURAT|TANPA\s*KELAS|DAFTAR\s*HADIR|REKAP\s*PRESENSI)/i', $flatText)) {
+            return false;
+        }
+
+        // 1) Baris mengandung kata kunci "KELAS" DAN masih ada konten lain
+        //    setelahnya (bukan kolom label "KELAS" yang berdiri sendiri).
+        if (preg_match('/\bKELAS\b/i', $flatText)) {
+            $rest = (string) preg_replace('/\bKELAS\b/i', '', $flatText);
+
+            if (trim($rest) !== '') {
+                return true;
+            }
+        }
+
+        // 2) Pola tingkat + jurusan/nama kelas polos (format CSV/teks),
+        //    mis. "X TKJ 1", "XI DKV 2", "XII AKL 3".
+        if (preg_match('/^(X|XI|XII)\s+[A-Z][A-Z0-9 .\/-]+$/i', trim($flatText))) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Ambil label kelas dari teks rata baris untuk pesan error: bagian setelah
+     * kata kunci "KELAS" bila ada, selain itu teks polosnya (mis. "X TKJ 9").
+     */
+    protected function extractKelasLabel(string $flatText): string
+    {
+        if (preg_match('/\bKELAS\b\s*[.:]?\s*(.+)$/i', $flatText, $m)) {
+            return strtoupper(trim((string) preg_replace('/\s+/', ' ', $m[1])));
+        }
+
+        return strtoupper(trim((string) preg_replace('/\s+/', ' ', $flatText)));
+    }
+
+    /**
+     * Deteksi tingkat ("X" / "XI" / "XII") pada teks label kelas.
+     */
+    protected function extractTingkat(string $text): string
+    {
+        foreach (self::TINGKAT_LIST as $t) {
+            if (preg_match('/\b'.preg_quote($t, '/').'\b/i', $text)) {
+                return $t;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Nama kelas tanpa tingkat dari label kelas (mis. "XI DKV 9" → "DKV 9").
+     */
+    protected function extractKelasName(string $text): string
+    {
+        $text = strtoupper(trim($text));
+
+        foreach (self::TINGKAT_LIST as $t) {
+            $text = (string) preg_replace('/\b'.preg_quote($t, '/').'\b/i', '', $text, 1);
+        }
+
+        return trim((string) preg_replace('/\s+/', ' ', str_replace([':', '.', ';'], ' ', $text)));
+    }
+
+    /**
+     * Lempar exception pembatalan import dengan pesan informatif berformat:
+     * "Import Gagal! Kelas 'X' (Tingkat XI) belum terdaftar di Data Master Kelas. …"
+     */
+    protected function abortKelasNotRegistered(string $rawClassText): void
+    {
+        $nama    = $this->extractKelasName($rawClassText);
+        $tingkat = $this->extractTingkat($rawClassText);
+
+        $label   = $nama !== '' ? $nama : $rawClassText;
+        $tingkat = $tingkat !== '' ? $tingkat : 'tidak terdeteksi';
+
+        throw new KelasNotFoundDuringImport(
+            "Import Gagal! Kelas '{$label}' (Tingkat {$tingkat}) belum terdaftar di Data Master Kelas. ".
+            'Silakan tambahkan kelas tersebut terlebih dahulu di menu Data Master -> Data Kelas sebelum mengunggah file ini.'
+        );
     }
 
     // ─── Kelas Resolution (STRICT — DB-only, TIDAK auto-create) ────────────────

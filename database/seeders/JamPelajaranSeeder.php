@@ -42,11 +42,27 @@ class JamPelajaranSeeder extends Seeder
         ];
 
         $dibuat = 0;
-        foreach ([['Senin-Kamis', $jamSeninKamis], ['Jumat', $jamJumat]] as [$kategori, $slots]) {
+        $dayGroups = [
+            ['Senin', $jamSeninKamis],
+            ['Selasa', $jamSeninKamis],
+            ['Rabu', $jamSeninKamis],
+            ['Kamis', $jamSeninKamis],
+            ['Jumat', $jamJumat],
+        ];
+
+        foreach ($dayGroups as [$hari, $slots]) {
             foreach ($slots as $slot) {
+                $queryKey = ['hari' => $hari, 'jam_ke' => $slot['jam_ke']];
+                if ($slot['jenis'] === 'istirahat') {
+                    $queryKey = ['hari' => $hari, 'jam_mulai' => $slot['jam_mulai'], 'jenis' => 'istirahat'];
+                }
+
                 JamPelajaran::updateOrCreate(
-                    ['kategori_hari' => $kategori, 'jam_ke' => $slot['jam_ke']],
+                    $queryKey,
                     [
+                        'hari' => $hari,
+                        'kategori_hari' => in_array($hari, ['Senin', 'Selasa', 'Rabu', 'Kamis']) ? 'Senin-Kamis' : 'Jumat',
+                        'jam_ke' => $slot['jam_ke'],
                         'jam_mulai' => $slot['jam_mulai'],
                         'jam_selesai' => $slot['jam_selesai'],
                         'jenis' => $slot['jenis'],

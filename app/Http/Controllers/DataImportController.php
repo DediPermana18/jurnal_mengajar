@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Imports\Exceptions\KelasNotFoundDuringImport;
 use App\Imports\GuruImport;
+use App\Imports\JadwalImport;
 use App\Imports\KelasImport;
 use App\Imports\RuanganImport;
 use App\Imports\SiswaImport;
 use App\Models\Guru;
+use App\Models\JadwalPelajaran;
 use App\Models\Kelas;
 use App\Models\Scopes\TestingDataScope;
 use App\Models\Siswa;
@@ -46,7 +49,34 @@ class DataImportController extends Controller
             ->where('is_testing_data', $testing ? 1 : 0)
             ->count();
 
-        return view('admin.import.index', compact('dataKelas', 'totalSiswa', 'totalGuru'));
+        $totalJadwal = JadwalPelajaran::query()
+            ->withoutGlobalScope(TestingDataScope::class)
+            ->where('is_testing_data', $testing ? 1 : 0)
+            ->count();
+
+        return view('admin.import.index', compact('dataKelas', 'totalSiswa', 'totalGuru', 'totalJadwal'));
+    }
+
+    /**
+     * Perpanjang batas waktu eksekusi untuk proses import data besar.
+     *
+     * Batas default PHP (fpm/php.ini) umumnya 30 detik — jauh di bawah kebutuhan
+     * import ribuan baris + hashing bcrypt password default (≈0,5 dtk per akun
+     * baru pada bcrypt cost 12). Dipanggil di awal tiap method import.
+     */
+    private function extendExecutionTime(int $seconds = 300): void
+    {
+        // set_time_limit() sekaligus me-reset penghitung waktu berjalan (tidak
+        // hanya menaikkan nilai max); aman dipanggil per-request.
+        if (function_exists('set_time_limit')) {
+            @set_time_limit($seconds);
+        }
+
+        // Fallback bila set_time_limit diblokir hosting (disable_functions).
+        $current = (int) ini_get('max_execution_time');
+        if ($current > 0 && $current < $seconds) {
+            @ini_set('max_execution_time', (string) $seconds);
+        }
     }
 
     /**
@@ -70,6 +100,8 @@ class DataImportController extends Controller
      */
     public function importSiswa(Request $request)
     {
+        $this->extendExecutionTime();
+
         $request->validate([
             'file_excel' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
             'id_kelas' => [
@@ -115,7 +147,14 @@ class DataImportController extends Controller
             $extension = strtolower((string) $request->file('file_excel')->getClientOriginalExtension());
             $readerType = in_array($extension, ['csv', 'txt'], true) ? ExcelFormat::CSV : null;
 
-            Excel::import($importer, $request->file('file_excel'), null, $readerType);
+            // ── STRICT VALIDATION ─────────────────────────────────────────────
+            // Seluruh import dibungkus dalam SATU transaksi DB. Bila ada header
+            // kelas pada file yang TIDAK terdaftar di Data Master Kelas, exception
+            // KelasNotFoundDuringImport dilempar → transaksi di-rollback otomatis
+            // → TIDAK ADA baris siswa yang tersimpan parsial (no partial import).
+            DB::transaction(function () use ($importer, $request, $readerType) {
+                Excel::import($importer, $request->file('file_excel'), null, $readerType);
+            });
 
             $imported = $importer->importedCount;
             $skipped = $importer->skippedCount;
@@ -142,6 +181,12 @@ class DataImportController extends Controller
 
             return $session;
 
+        } catch (KelasNotFoundDuringImport $e) {
+            // Pembatalan penuh: ada kelas pada file yang belum terdaftar di Data
+            // Master Kelas. Transaksi sudah di-rollback — tampilkan pesan merah
+            // informatif di paling atas halaman Import Data.
+            return redirect()->route('import.index')
+                ->with('error', $e->getMessage());
         } catch (\Throwable $e) {
             return redirect()->route('import.index')
                 ->with('error', 'Import gagal: '.$e->getMessage());
@@ -150,11 +195,15 @@ class DataImportController extends Controller
 
     /**
      * Menangani upload & import file data GURU (xlsx / csv).
-     * Format mengikuti template ekspor: NO, NIP, NAMA GURU, STATUS.
-     * Duplikat NIP di-update (updateOrCreate berbasis nip).
+     * Format mengikuti template ekspor: NO, NIP, NAMA GURU, STATUS + opsional
+     * PERAN, WALI KELAS, NO HP. Duplikat NIP di-update (updateOrCreate berbasis
+     * nip & username); password default akun baru: USERNAME123; peran "Kepsek"
+     * dilewati; peran "Wali Kelas" otomatis memetakan kelas.id_wali_kelas.
      */
     public function importGuru(Request $request)
     {
+        $this->extendExecutionTime();
+
         $request->validate([
             'file_guru' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
         ], [
@@ -169,11 +218,20 @@ class DataImportController extends Controller
             $extension = strtolower((string) $request->file('file_guru')->getClientOriginalExtension());
             $readerType = in_array($extension, ['csv', 'txt'], true) ? ExcelFormat::CSV : null;
 
-            Excel::import($importer, $request->file('file_guru'), null, $readerType);
+            // ── TRANSACTION ──────────────────────────────────────────────────
+            // Import ribuan baris (plus hashing bcrypt per akun baru) dibungkus
+            // SATU transaksi: commit hanya sekali di akhir → overhead query turun
+            // drastis; bila ada error di tengah → rollback penuh (no partial).
+            DB::transaction(function () use ($importer, $request, $readerType) {
+                Excel::import($importer, $request->file('file_guru'), null, $readerType);
+            });
 
             $successMsg = "Import guru berhasil! {$importer->importedCount} guru baru dibuat";
             if ($importer->updatedCount > 0) {
                 $successMsg .= ", {$importer->updatedCount} guru diperbarui";
+            }
+            if ($importer->waliMappedCount > 0) {
+                $successMsg .= ", {$importer->waliMappedCount} guru dipetakan sebagai wali kelas";
             }
             if ($importer->skippedCount > 0) {
                 $successMsg .= ", {$importer->skippedCount} baris dilewati";
@@ -201,6 +259,8 @@ class DataImportController extends Controller
      */
     public function importKelas(Request $request)
     {
+        $this->extendExecutionTime();
+
         $request->validate([
             'file_kelas' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
         ], [
@@ -215,7 +275,9 @@ class DataImportController extends Controller
             $extension = strtolower((string) $request->file('file_kelas')->getClientOriginalExtension());
             $readerType = in_array($extension, ['csv', 'txt'], true) ? ExcelFormat::CSV : null;
 
-            Excel::import($importer, $request->file('file_kelas'), null, $readerType);
+            DB::transaction(function () use ($importer, $request, $readerType) {
+                Excel::import($importer, $request->file('file_kelas'), null, $readerType);
+            });
 
             $successMsg = "Import kelas berhasil! {$importer->importedCount} kelas baru dibuat";
             if ($importer->updatedCount > 0) {
@@ -247,6 +309,8 @@ class DataImportController extends Controller
      */
     public function importRuangan(Request $request)
     {
+        $this->extendExecutionTime();
+
         $request->validate([
             'file_ruangan' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
         ], [
@@ -256,12 +320,14 @@ class DataImportController extends Controller
         ]);
 
         try {
-            $importer = new RuanganImport;
+            $importer = RuanganImport::createWithAutoDelimiter($request->file('file_ruangan')->getRealPath());
 
             $extension = strtolower((string) $request->file('file_ruangan')->getClientOriginalExtension());
             $readerType = in_array($extension, ['csv', 'txt'], true) ? ExcelFormat::CSV : null;
 
-            Excel::import($importer, $request->file('file_ruangan'), null, $readerType);
+            DB::transaction(function () use ($importer, $request, $readerType) {
+                Excel::import($importer, $request->file('file_ruangan'), null, $readerType);
+            });
 
             $successMsg = "Import ruangan berhasil! {$importer->importedCount} ruangan baru dibuat";
             if ($importer->updatedCount > 0) {
@@ -284,6 +350,71 @@ class DataImportController extends Controller
         } catch (\Throwable $e) {
             return redirect()->route('import.index')
                 ->with('error', 'Import ruangan gagal: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * Menangani upload & import file JADWAL PELAJARAN (xlsx / csv).
+     * Format: Kelas, Hari, WaktuMulai, WaktuSelesai, MataPelajaran, Guru, Ruang.
+     * Kelas wajib ada di master; Mapel & Ruangan di-auto-create jika belum ada;
+     * Guru wajib ada — baris dilewati bila tidak ditemukan.
+     */
+    public function importJadwal(Request $request)
+    {
+        $this->extendExecutionTime();
+
+        $request->validate([
+            'file_jadwal' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
+        ], [
+            'file_jadwal.required' => 'File Excel / CSV wajib dipilih.',
+            'file_jadwal.mimes'   => 'Format file harus .xlsx, .xls, atau .csv.',
+            'file_jadwal.max'     => 'Ukuran file maksimal 10 MB.',
+        ]);
+
+        try {
+            $importer = JadwalImport::createWithAutoDelimiter(
+                $request->file('file_jadwal')->getRealPath()
+            );
+
+            $extension = strtolower(
+                (string) $request->file('file_jadwal')->getClientOriginalExtension()
+            );
+            $readerType = in_array($extension, ['csv', 'txt'], true)
+                ? ExcelFormat::CSV
+                : null;
+
+            DB::transaction(function () use ($importer, $request, $readerType) {
+                Excel::import($importer, $request->file('file_jadwal'), null, $readerType);
+            });
+
+            $successMsg = "Import jadwal berhasil! {$importer->importedCount} slot baru dibuat";
+            if ($importer->updatedCount > 0) {
+                $successMsg .= ", {$importer->updatedCount} slot diperbarui";
+            }
+            if ($importer->skippedCount > 0) {
+                $successMsg .= ", {$importer->skippedCount} baris dilewati";
+            }
+            $successMsg .= '.';
+
+            $session = redirect()->route('import.index')
+                ->with('success', $successMsg)
+                ->with('active_tab', 'jadwal');
+
+            if (! empty($importer->rowErrors)) {
+                $session = $session->with('import_warnings', $importer->rowErrors);
+            }
+
+            return $session;
+
+        } catch (\RuntimeException $e) {
+            // Kelas tidak ditemukan → rollback otomatis (dalam DB::transaction)
+            return redirect()->route('import.index')
+                ->with('error', $e->getMessage())
+                ->with('active_tab', 'jadwal');
+        } catch (\Throwable $e) {
+            return redirect()->route('import.index')
+                ->with('error', 'Import jadwal gagal: '.$e->getMessage())
+                ->with('active_tab', 'jadwal');
         }
     }
 
@@ -441,5 +572,24 @@ class DataImportController extends Controller
 
         return redirect()->route('import.index')
             ->with('success', 'Seluruh Data Ruangan Berhasil Dihapus ('.number_format($deleted).' ruangan).');
+    }
+
+    /**
+     * Reset semua Jadwal Pelajaran sesuai partisi aktif.
+     */
+    public function resetJadwal(Request $request)
+    {
+        $this->validateResetConfirmation($request, 'HAPUS DATA JADWAL');
+        $scope = $this->resetScope($request);
+
+        $deleted = DB::transaction(function () use ($scope) {
+            return DB::table('jadwal_pelajaran')
+                ->where('is_testing_data', $scope)
+                ->delete();
+        });
+
+        return redirect()->route('import.index')
+            ->with('success', 'Seluruh Data Jadwal Pelajaran Berhasil Dihapus ('.number_format($deleted).' slot).')
+            ->with('active_tab', 'jadwal');
     }
 }

@@ -443,8 +443,7 @@ class JurnalController extends Controller
         $isJumatShiftHariIni = ($hari === 'Jumat') && PengaturanJadwal::isJumatTanpaPembiasaanAktifForDate($today);
         $isModeKhususHariIni = $isSeninShiftHariIni || $isJumatShiftHariIni;
 
-        $kategoriHariShift = ($hari === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
-        $jamListShift = $isModeKhususHariIni ? JamPelajaran::where('kategori_hari', $kategoriHariShift)->get()->keyBy('jam_ke') : collect();
+        $jamListShift = $isModeKhususHariIni ? JamPelajaran::where('hari', $hari)->get()->keyBy('jam_ke') : collect();
 
         $rawItems = $query
             ->get()

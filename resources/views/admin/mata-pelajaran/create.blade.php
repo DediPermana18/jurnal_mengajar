@@ -98,15 +98,16 @@
                             Jurusan <span class="text-danger" id="jurusanRequiredStar" style="display: none;">*</span>
                         </label>
                         <select name="jurusan_id" class="form-select rounded-3 py-2" id="jurusanSelect" disabled>
-                            <option value="">Semua Jurusan (Umum)</option>
+                            <option value="" id="optSemuaJurusan">Semua Jurusan (Umum)</option>
+                            <option value="" id="optPilihJurusan" style="display: none;" disabled {{ old('jurusan_id') ? '' : 'selected' }}>-- Pilih Jurusan Spesifik --</option>
                             @foreach($dataJurusan as $jurusan)
                                 <option value="{{ $jurusan->id }}" {{ old('jurusan_id') == $jurusan->id ? 'selected' : '' }}>
                                     {{ $jurusan->nama_jurusan }}
                                 </option>
                             @endforeach
                         </select>
-                        <div class="form-text text-muted" style="font-size: 0.78rem;">
-                            Wajib diisi untuk Mata Pelajaran Kejuruan.
+                        <div class="form-text text-muted" id="jurusanHelpText" style="font-size: 0.78rem;">
+                            Wajib dipilih untuk Mata Pelajaran Kejuruan.
                         </div>
                     </div>
                 </div>
@@ -120,7 +121,7 @@
                 <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold shadow-sm" style="font-size: 0.9rem;">
                     <i class="bi bi-check-lg me-1"></i> Simpan Mapel
                 </button>
-</div>
+            </div>
 
         </form>
     </div>
@@ -131,16 +132,52 @@
 @push('scripts')
 <script>
     function toggleJurusan() {
-        var kelompok = document.getElementById('kelompokSelect').value;
-        var jurusan = document.getElementById('jurusanSelect');
-        var isKejuruan = kelompok === 'Kejuruan';
+        var kelompokEl = document.getElementById('kelompokSelect');
+        var jurusanEl = document.getElementById('jurusanSelect');
+        var optSemua = document.getElementById('optSemuaJurusan');
+        var optPilih = document.getElementById('optPilihJurusan');
+        var starEl = document.getElementById('jurusanRequiredStar');
+        var helpEl = document.getElementById('jurusanHelpText');
 
-        jurusan.disabled = !isKejuruan;
-        jurusan.required = isKejuruan;
-        document.getElementById('jurusanRequiredStar').style.display = isKejuruan ? 'inline' : 'none';
+        if (!kelompokEl || !jurusanEl) return;
 
-        if (!isKejuruan) {
-            jurusan.value = '';
+        var isKejuruan = kelompokEl.value === 'Kejuruan';
+
+        if (isKejuruan) {
+            jurusanEl.disabled = false;
+            jurusanEl.required = true;
+            if (starEl) starEl.style.display = 'inline';
+            if (optSemua) {
+                optSemua.disabled = true;
+                optSemua.hidden = true;
+            }
+            if (optPilih) {
+                optPilih.style.display = '';
+                optPilih.hidden = false;
+            }
+            if (helpEl) {
+                helpEl.textContent = 'Pilih jurusan spesifik untuk mata pelajaran kejuruan ini.';
+            }
+            if (!jurusanEl.value && optPilih) {
+                optPilih.selected = true;
+            }
+        } else {
+            jurusanEl.disabled = true;
+            jurusanEl.required = false;
+            if (starEl) starEl.style.display = 'none';
+            if (optSemua) {
+                optSemua.disabled = false;
+                optSemua.hidden = false;
+                optSemua.selected = true;
+            }
+            if (optPilih) {
+                optPilih.style.display = 'none';
+                optPilih.hidden = true;
+            }
+            if (helpEl) {
+                helpEl.textContent = 'Otomatis berlaku untuk semua jurusan.';
+            }
+            jurusanEl.value = '';
         }
     }
 

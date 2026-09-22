@@ -200,9 +200,9 @@
                             </div>
                         </div>
 
-                        <div class="mb-4">
-                            <div class="text-muted text-uppercase small fw-bold mb-2" style="font-size: 0.68rem; letter-spacing: 0.06em;">Jam Operasional</div>
-                            @if(!empty($jamOperasional) && is_iterable($jamOperasional))
+                        @if(!empty($jamOperasional) && is_iterable($jamOperasional))
+                            <div class="mb-4">
+                                <div class="text-muted text-uppercase small fw-bold mb-2" style="font-size: 0.68rem; letter-spacing: 0.06em;">Jam Operasional</div>
                                 <ul class="list-unstyled mb-0">
                                     @foreach($jamOperasional as $hari => $jam)
                                         <li class="d-flex justify-content-between align-items-center py-1 border-bottom" style="border-color: #eef2f7 !important;">
@@ -211,10 +211,8 @@
                                         </li>
                                     @endforeach
                                 </ul>
-                            @else
-                                <p class="text-secondary small mb-0">Sesuai jam kerja sekolah (atau hubungi Tim IT saat online).</p>
-                            @endif
-                        </div>
+                            </div>
+                        @endif
 
                         @if($noWaKontak)
                             <a href="{{ 'https://wa.me/' . $noWaKontak . '?text=' . urlencode('Halo, saya butuh bantuan teknis penggunaan WebJournal.') }}"

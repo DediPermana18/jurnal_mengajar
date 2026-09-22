@@ -148,7 +148,43 @@
                 Kelola daftar mata pelajaran dan kode mapel sekolah.
             </p>
         </div>
-        <div>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            {{-- Tombol Export Mapel (Dropdown) --}}
+            <div class="dropdown">
+                <button class="btn btn-outline-primary rounded-3 px-3 py-2 fw-semibold shadow-sm dropdown-toggle d-flex align-items-center gap-1.5" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.875rem;">
+                    <i class="bi bi-download"></i>
+                    <span>Export</span>
+                </button>
+                <ul class="dropdown-menu shadow-sm border-0 rounded-3" style="z-index: 1050;">
+                    <li>
+                        <a href="{{ route('mapel.export', ['format' => 'xlsx']) }}" class="dropdown-item py-2 d-flex align-items-center gap-2">
+                            <i class="bi bi-file-earmark-excel text-success fs-6"></i>
+                            <span>Export Excel (.xlsx)</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('mapel.export', ['format' => 'csv']) }}" class="dropdown-item py-2 d-flex align-items-center gap-2">
+                            <i class="bi bi-filetype-csv text-info fs-6"></i>
+                            <span>Export CSV (.csv)</span>
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li>
+                        <a href="{{ route('mapel.template') }}" class="dropdown-item py-2 d-flex align-items-center gap-2">
+                            <i class="bi bi-file-earmark-arrow-down text-primary fs-6"></i>
+                            <span>Download Template Import</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            {{-- Tombol Import Mapel (Membuka Modal) --}}
+            <button type="button" class="btn btn-outline-secondary rounded-3 px-3 py-2 fw-semibold shadow-sm d-flex align-items-center gap-1.5" data-bs-toggle="modal" data-bs-target="#modalImportMapel" style="font-size: 0.875rem;">
+                <i class="bi bi-file-earmark-arrow-up"></i>
+                <span>Import Mapel</span>
+            </button>
+
+            {{-- Tombol Tambah Mapel --}}
             <a href="{{ route('mapel.create') }}"
                class="btn btn-primary rounded-3 fw-semibold px-3 py-2 d-flex align-items-center gap-2"
                style="font-size: 0.875rem;">
@@ -168,6 +204,17 @@
     @if(session('error'))
         <div class="alert alert-danger alert-dismissible fade show rounded-3 border-0 shadow-sm mb-4" role="alert" style="font-size: 0.9rem;">
             <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+    @if(session('import_warnings') && count(session('import_warnings')) > 0)
+        <div class="alert alert-warning alert-dismissible fade show rounded-3 border-0 shadow-sm mb-4" role="alert" style="font-size: 0.9rem;">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Peringatan Import:</strong>
+            <ul class="mb-0 mt-1 ps-3">
+                @foreach (session('import_warnings') as $warn)
+                    <li>{{ $warn }}</li>
+                @endforeach
+            </ul>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif
@@ -389,5 +436,56 @@
         @endif
     </div>
 
+</div>
+
+{{-- MODAL IMPORT MATA PELAJARAN --}}
+<div class="modal fade" id="modalImportMapel" tabindex="-1" aria-labelledby="modalImportMapelLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-0 pb-0 pt-4 px-4">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-2 d-flex align-items-center justify-content-center bg-primary-subtle text-primary" style="width: 36px; height: 36px;">
+                        <i class="bi bi-file-earmark-arrow-up-fill fs-5"></i>
+                    </div>
+                    <h5 class="modal-title fw-bold text-dark" id="modalImportMapelLabel">Import Data Mata Pelajaran</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('mapel.import') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-body p-4">
+                    <div class="alert alert-info border-0 rounded-3 small mb-3">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-info-circle-fill fs-6 mt-0.5"></i>
+                            <div>
+                                Pastikan format file sesuai template. Kolom wajib: <strong>KODE MAPEL</strong>, <strong>NAMA MAPEL</strong>, <strong>KELOMPOK</strong>, dan <strong>JURUSAN</strong> (wajib diisi kode/nama jurusan jika kelompok Kejuruan).
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-dark">Pilih File Excel / CSV <span class="text-danger">*</span></label>
+                        <input type="file" name="file_mapel" class="form-control rounded-3" accept=".xlsx,.xls,.csv" required>
+                        <div class="form-text text-muted small">Format didukung: .xlsx, .xls, .csv (Maks. 10 MB)</div>
+                    </div>
+
+                    <div class="d-flex align-items-center justify-content-between p-3 bg-light rounded-3 border">
+                        <div class="small text-muted">
+                            <i class="bi bi-file-earmark-arrow-down text-primary me-1"></i> Belum punya format template?
+                        </div>
+                        <a href="{{ route('mapel.template') }}" class="btn btn-sm btn-outline-primary rounded-2 fw-semibold">
+                            Unduh Template
+                        </a>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0 d-flex justify-content-between">
+                    <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold shadow-sm">
+                        <i class="bi bi-upload me-1"></i> Unggah & Import
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 @endsection

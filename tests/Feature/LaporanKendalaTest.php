@@ -173,9 +173,9 @@ class LaporanKendalaTest extends TestCase
             ->assertOk()
             ->assertSee('Dashboard IT &amp; Helpdesk', false)
             ->assertSee('Tiket Kendala Pending')
-            ->assertSee('Bug Teratasi')
+            ->assertSee('Laporan Kendala Masuk')
             ->assertSee('Status Server')
-            ->assertSee('Laporan Kendala Terbaru')
+            ->assertSee('Rekap Laporan Kendala Sistem')
             ->assertSee('Dashboard ingin melihat ini');
     }
 
@@ -209,7 +209,7 @@ class LaporanKendalaTest extends TestCase
         $this->actingAs($it)->get(route('it.dashboard'))
             ->assertOk()
             ->assertSee('Tiket Kendala Pending')
-            ->assertSee('Bug Teratasi');
+            ->assertSee('Laporan Kendala Masuk');
     }
 
     public function test_petugas_it_dapat_mengubah_status_kendala(): void

@@ -502,7 +502,7 @@ class DispensasiController extends Controller
                 'tanggal' => 'required|date',
                 'jam_masuk_jp' => 'required|integer|min:1|max:20',
                 'alasan_kategori' => 'required|string|max:100',
-                'alasan_detail' => 'required|string|max:500',
+                'alasan_detail' => 'nullable|string|max:500',
                 'ttd_guru' => 'sometimes|string|max:150000',
                 'ttd_piket' => 'sometimes|string|max:150000',
             ], [
@@ -635,7 +635,7 @@ class DispensasiController extends Controller
                 'tanggal' => 'required|date',
                 'jam_masuk_jp' => 'required|integer|min:1|max:20',
                 'alasan_kategori' => 'required|string|max:100',
-                'alasan_detail' => 'required|string|max:500',
+                'alasan_detail' => 'nullable|string|max:500',
                 'ttd_guru' => 'sometimes|string|max:150000',
                 'ttd_piket' => 'sometimes|string|max:150000',
                 'ttd_siswa' => 'required|array|min:1',

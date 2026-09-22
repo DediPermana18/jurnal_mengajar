@@ -14,12 +14,41 @@ class JamPelajaran extends Model
     protected $table = 'jam_pelajaran';
 
     protected $fillable = [
+        'hari',
         'kategori_hari',
         'jam_ke',
         'jam_mulai',
         'jam_selesai',
         'jenis',
     ];
+
+    protected static function booted(): void
+    {
+        parent::booted();
+
+        static::saving(function ($jam) {
+            if (empty($jam->hari)) {
+                $kat = $jam->kategori_hari ?? 'Senin-Kamis';
+                $jam->hari = ($kat === 'Jumat') ? 'Jumat' : 'Senin';
+            }
+            if (empty($jam->kategori_hari)) {
+                $jam->kategori_hari = in_array($jam->hari, ['Senin', 'Selasa', 'Rabu', 'Kamis'], true) ? 'Senin-Kamis' : 'Jumat';
+            }
+        });
+    }
+
+    /**
+     * Backward compatibility accessor for kategori_hari
+     */
+    public function getKategoriHariAttribute(): string
+    {
+        $h = $this->attributes['hari'] ?? null;
+        if ($h && in_array($h, ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'], true)) {
+            return in_array($h, ['Senin', 'Selasa', 'Rabu', 'Kamis'], true) ? 'Senin-Kamis' : 'Jumat';
+        }
+        $kat = $this->attributes['kategori_hari'] ?? 'Senin-Kamis';
+        return ($kat === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
+    }
 
     protected $casts = [
         'jam_ke' => 'integer',

@@ -79,6 +79,8 @@ Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
     Route::post('admin/import/reset-guru', [DataImportController::class, 'resetGuru'])->name('import.reset-guru');
     Route::post('admin/import/reset-kelas-jurusan', [DataImportController::class, 'resetKelasJurusan'])->name('import.reset-kelas-jurusan');
     Route::post('admin/import/reset-ruangan', [DataImportController::class, 'resetRuangan'])->name('import.reset-ruangan');
+    Route::post('admin/import/jadwal', [DataImportController::class, 'importJadwal'])->name('import.jadwal');
+    Route::post('admin/import/reset-jadwal', [DataImportController::class, 'resetJadwal'])->name('import.reset-jadwal');
     Route::get('admin/siswa/export', [SiswaController::class, 'export'])->name('siswa.export');
     Route::delete('admin/siswa/delete-all', [SiswaController::class, 'deleteAll'])->name('siswa.delete-all');
     Route::resource('admin/siswa', SiswaController::class);
@@ -98,6 +100,7 @@ Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
     Route::resource('admin/jurusan', JurusanController::class);
 
     Route::get('admin/ruangan/export', [RuanganController::class, 'export'])->name('ruangan.export');
+    Route::post('admin/ruangan/import', [RuanganController::class, 'import'])->name('ruangan.import');
     Route::resource('admin/ruangan', RuanganController::class)->only(['index', 'store', 'update', 'destroy']);
 
     Route::resource('admin/tahun-ajaran', TahunAjaranController::class)
@@ -110,6 +113,9 @@ Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
 // Route Data Master Mata Pelajaran — diakses Admin/Petugas TU DAN Waka Kurikulum.
 // Authorization ditangani di dalam MataPelajaranController (bukan AdminScheduleAccess)
 // agar Waka Kurikulum bisa membuka halaman ini tanpa 403.
+Route::get('admin/mata-pelajaran/export', [MataPelajaranController::class, 'export'])->name('mapel.export')->middleware(['auth']);
+Route::get('admin/mata-pelajaran/template', [MataPelajaranController::class, 'downloadTemplate'])->name('mapel.template')->middleware(['auth']);
+Route::post('admin/mata-pelajaran/import', [MataPelajaranController::class, 'import'])->name('mapel.import')->middleware(['auth']);
 Route::resource('admin/mata-pelajaran', MataPelajaranController::class)
     ->names('mapel')
     ->middleware(['auth']);
@@ -298,6 +304,7 @@ Route::prefix('admin')->middleware(['auth', AdminScheduleAccess::class])->group(
     Route::post('/toggle-mode-khusus', [PengaturanJadwalController::class, 'toggleModeKhusus'])->name('admin.toggle-mode-khusus');
 
     Route::get('/jadwal', [JadwalPelajaranController::class, 'index'])->name('admin.jadwal.index');
+    Route::get('/jadwal/debug/{id_kelas}', [JadwalPelajaranController::class, 'debugJadwalKelas'])->name('admin.jadwal.debug');
     Route::get('/jadwal/slot-kosong', [JadwalPelajaranController::class, 'monitoringSlotKosong'])->name('admin.jadwal.monitoring');
     Route::post('/jadwal', [JadwalPelajaranController::class, 'store'])->name('admin.jadwal.store');
     Route::put('/jadwal/{jadwalPelajaran}', [JadwalPelajaranController::class, 'update'])->name('admin.jadwal.update');

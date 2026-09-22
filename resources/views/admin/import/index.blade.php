@@ -341,6 +341,15 @@
             <i class="bi bi-building-fill"></i>
             Import Data Ruangan
         </button>
+        <button type="button"
+                class="import-tab"
+                id="tab-btn-jadwal"
+                data-tab-target="tab-jadwal"
+                role="tab"
+                aria-selected="false">
+            <i class="bi bi-calendar-week-fill"></i>
+            Import Jadwal Pelajaran
+        </button>
     </div>
 
     {{-- ====================================================== --}}
@@ -532,6 +541,8 @@
                             <div class="guide-text">
                                 Kelas hanya dikenali jika valid di sistem. Bila baris header kelas tidak terdeteksi,
                                 gunakan dropdown <strong>Kelas Tujuan</strong> sebagai fallback.
+                                Jika ada kelas pada file yang <strong class="text-danger">belum terdaftar</strong> di
+                                Data Master Kelas, <strong>seluruh import dibatalkan</strong> — tidak ada data yang tersimpan sebagian.
                             </div>
                         </div>
                         <div class="guide-item">
@@ -682,28 +693,31 @@
                             <div class="guide-num">1</div>
                             <div class="guide-text">
                                 File berkolom: <strong>NO</strong> • <strong>NIP</strong> • <strong>NAMA GURU</strong> • <strong>STATUS</strong>.
-                                Kolom <strong>NO</strong> diabaikan.
+                                Opsional: <strong>PERAN</strong> • <strong>WALI KELAS</strong> • <strong>NO HP</strong>. Kolom <strong>NO</strong> diabaikan.
                             </div>
                         </div>
                         <div class="guide-item">
                             <div class="guide-num">2</div>
                             <div class="guide-text">
                                 <strong>NIP</strong> adalah kunci utama: NIP yang <strong>sudah ada</strong> akan di-<strong>update</strong>,
-                                NIP baru akan dibuat sebagai akun guru.
+                                NIP baru dibuat sebagai akun guru. Username akun = <strong>NIP tanpa spasi</strong>,
+                                password default = <strong>USERNAME123</strong> (hanya untuk akun baru).
                             </div>
                         </div>
                         <div class="guide-item">
                             <div class="guide-num">3</div>
                             <div class="guide-text">
-                                Kolom <strong>STATUS</strong> opsional: isi <strong>Aktif</strong> / <strong>Nonaktif</strong>
-                                (default <strong>Aktif</strong> bila dikosongkan).
+                                Kolom <strong>PERAN</strong> opsional: <strong>Guru</strong> / <strong>Wali Kelas</strong> → akun role guru;
+                                <strong>Kepsek</strong> → baris <strong>dilewati</strong> (tidak diproses).
+                                Kolom <strong>STATUS</strong>: <strong>Aktif</strong> / <strong>Nonaktif</strong> (default <strong>Aktif</strong>).
                             </div>
                         </div>
                         <div class="guide-item">
                             <div class="guide-num">4</div>
                             <div class="guide-text">
-                                Penugasan <strong>Wali Kelas</strong> &amp; <strong>Mata Pelajaran</strong>
-                                <strong>tidak</strong> diimpor di sini — keduanya dibaca dinamis dari Data Kelas &amp; Jadwal Pelajaran.
+                                Wali Kelas: isi <strong>PERAN = "Wali Kelas"</strong> + kolom <strong>WALI KELAS</strong> berisi nama kelas
+                                (mis. <strong>X TKJ 1</strong>) → relasi wali kelas otomatis dipetakan ke Data Kelas.
+                                Mapel diampu tetap dibaca dinamis dari Jadwal Pelajaran.
                             </div>
                         </div>
                     </div>
@@ -1105,6 +1119,202 @@
         </div>
     </div>
 
+    {{-- ====================================================== --}}
+    {{-- PANEL: IMPORT JADWAL PELAJARAN                        --}}
+    {{-- ====================================================== --}}
+    <div class="tab-pane-item" id="tab-jadwal" role="tabpanel">
+        <div class="row g-4">
+            {{-- Kolom Kiri: Form Upload --}}
+            <div class="col-lg-7">
+                <div class="card-import">
+                    <div class="card-import-header d-flex align-items-center gap-3">
+                        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#06b6d4,#0891b2);display:flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-calendar-week-fill text-white" style="font-size:1.1rem;"></i>
+                        </div>
+                        <div>
+                            <h5 class="card-import-title mb-0">Import Jadwal Pelajaran</h5>
+                            <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Format: Kelas • Hari • WaktuMulai • WaktuSelesai • MataPelajaran • Guru • Ruang (.xlsx / .csv)</p>
+                        </div>
+                    </div>
+
+                    <div class="card-import-body">
+                        <form action="{{ route('import.jadwal') }}" method="POST" enctype="multipart/form-data" id="formImportJadwal">
+                            @csrf
+
+                            <div class="mb-4">
+                                <label for="fileJadwalImport" class="form-label fw-semibold" style="font-size:0.875rem;color:#374151;">File Jadwal <span class="text-danger">*</span></label>
+                                <div class="dropzone-import" id="dropzoneJadwal">
+                                    <i class="bi bi-cloud-arrow-up dz-icon"></i>
+                                    <div class="dz-title">Klik untuk memilih file, atau seret ke sini</div>
+                                    <div class="dz-sub">Format: .xlsx, .xls, .csv (maks. 10 MB)</div>
+                                    <input type="file"
+                                           class="d-none @error('file_jadwal') is-invalid @enderror"
+                                           id="fileJadwalImport"
+                                           name="file_jadwal"
+                                           accept=".xlsx,.xls,.csv,.txt"
+                                           required>
+                                </div>
+
+                                <div class="file-selected d-none mt-3" id="fileJadwalSelectedInfo">
+                                    <i class="bi bi-file-earmark-check-fill"></i>
+                                    <div>
+                                        <div class="file-selected-name" id="fileJadwalSelectedName"></div>
+                                        <div class="file-selected-size" id="fileJadwalSelectedSize"></div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-light border ms-auto" id="btnRemoveJadwalFile" title="Ganti file">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+
+                                @error('file_jadwal')
+                                    <div class="text-danger mt-2" style="font-size:0.8rem;">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="submit" id="btnSubmitImportJadwal"
+                                        class="btn rounded-3 px-4 py-2 fw-semibold d-flex align-items-center gap-2"
+                                        style="font-size:0.875rem;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;"
+                                        disabled>
+                                    <i class="bi bi-upload"></i>
+                                    <span>Unggah &amp; Import</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                {{-- Info jumlah jadwal saat ini --}}
+                <div class="card-import mt-4">
+                    <div class="card-import-body d-flex align-items-center gap-3">
+                        <div style="width:44px;height:44px;border-radius:12px;background:#ecfeff;display:flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-calendar-week-fill" style="font-size:1.2rem;color:#06b6d4;"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold text-dark" style="font-size:1rem;">{{ number_format($totalJadwal ?? 0) }} slot jadwal terdaftar</div>
+                            <div style="font-size:0.8rem;color:#64748b;">Slot yang sama (Kelas + Hari + Jam) akan di-update, bukan digandakan.</div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Zona Berbahaya: Reset Data Jadwal --}}
+                <div class="card-import mt-4" style="border-color:#fecaca;background:#fff7f7;">
+                    <div class="card-import-header d-flex align-items-center gap-3" style="border-color:#fee2e2;">
+                        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#ef4444,#b91c1c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i class="bi bi-trash3-fill text-white"></i>
+                        </div>
+                        <div>
+                            <h5 class="card-import-title mb-0">Zona Berbahaya — Reset Data</h5>
+                            <p class="mb-0" style="font-size:0.78rem;color:#b91c1c;">Hapus MASAL &amp; permanen. Tidak dapat dikembalikan.</p>
+                        </div>
+                    </div>
+                    <div class="card-import-body">
+                        <p class="mb-3" style="font-size:0.85rem;color:#7f1d1d;">
+                            Menghapus <strong>seluruh slot jadwal pelajaran</strong> pada konteks data ini.
+                            <strong>Jurnal mengajar yang sudah dibuat tidak ikut terhapus</strong>, namun kehilangan referensi jadwalnya.
+                            Gunakan hanya saat akan import ulang plotting jadwal dari awal.
+                        </p>
+                        <button type="button"
+                                class="btn btn-danger rounded-3 px-4 py-2 fw-semibold d-inline-flex align-items-center gap-2"
+                                style="font-size:0.875rem;"
+                                data-reset-route="{{ route('import.reset-jadwal') }}"
+                                data-reset-label="seluruh Jadwal Pelajaran"
+                                data-reset-phrase="HAPUS DATA JADWAL"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalResetData">
+                            <i class="bi bi-trash3"></i>
+                            <span>Reset / Hapus Semua Jadwal Pelajaran</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Kolom Kanan: Panduan Format --}}
+            <div class="col-lg-5">
+                <div class="card-import">
+                    <div class="card-import-header d-flex align-items-center gap-3">
+                        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#1677ff,#0958d9);display:flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-info-circle-fill text-white" style="font-size:1.1rem;"></i>
+                        </div>
+                        <div>
+                            <h5 class="card-import-title mb-0">Panduan Format Jadwal</h5>
+                            <p class="mb-0" style="font-size:0.78rem;color:#64748b;">Ikuti format kolom berikut agar import berjalan sempurna.</p>
+                        </div>
+                    </div>
+
+                    <div class="card-import-body">
+                        {{-- Tabel contoh --}}
+                        <div class="mb-4 rounded-3 overflow-hidden" style="border:1px solid #e2e8f0;">
+                            <table class="table table-sm mb-0" style="font-size:0.78rem;">
+                                <thead style="background:#f8fafc;">
+                                    <tr>
+                                        <th class="fw-bold text-muted px-2 py-2">Kolom</th>
+                                        <th class="fw-bold text-muted px-2 py-2">Contoh Nilai</th>
+                                        <th class="fw-bold text-muted px-2 py-2">Keterangan</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td class="px-2"><code>Kelas</code></td><td class="px-2">X TKI 1</td><td class="px-2 text-danger fw-semibold">Wajib</td></tr>
+                                    <tr><td class="px-2"><code>Hari</code></td><td class="px-2">Senin</td><td class="px-2 text-danger fw-semibold">Wajib</td></tr>
+                                    <tr><td class="px-2"><code>WaktuMulai</code></td><td class="px-2">07:30</td><td class="px-2 text-danger fw-semibold">Wajib</td></tr>
+                                    <tr><td class="px-2"><code>WaktuSelesai</code></td><td class="px-2">08:10</td><td class="px-2 text-danger fw-semibold">Wajib</td></tr>
+                                    <tr><td class="px-2"><code>MataPelajaran</code></td><td class="px-2">Matematika</td><td class="px-2 text-danger fw-semibold">Wajib</td></tr>
+                                    <tr><td class="px-2"><code>Guru</code></td><td class="px-2">Dedi Permana</td><td class="px-2 text-danger fw-semibold">Wajib</td></tr>
+                                    <tr><td class="px-2"><code>Ruang</code></td><td class="px-2">Lab TKI 1</td><td class="px-2 text-muted">Opsional</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="guide-item">
+                            <div class="guide-num">1</div>
+                            <div class="guide-text">
+                                Kolom <strong>Kelas</strong> wajib cocok dengan nama kelas di Data Master
+                                (mis. <strong>X TKI 1</strong> atau <strong>TKI 1</strong>). Jika tidak ditemukan,
+                                <strong class="text-danger">seluruh import dibatalkan</strong> — tidak ada data parsial yang tersimpan.
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">2</div>
+                            <div class="guide-text">
+                                Kolom <strong>WaktuMulai</strong> dan <strong>WaktuSelesai</strong> harus cocok dengan
+                                <strong>Jam Pelajaran</strong> yang sudah terdaftar (format: <code>07:30</code> atau <code>07.30</code>).
+                                Baris yang tidak cocok akan <strong>dilewati + dicatat</strong> sebagai peringatan.
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">3</div>
+                            <div class="guide-text">
+                                Kolom <strong>Guru</strong> harus cocok persis dengan nama guru di Data Master.
+                                Jika tidak ditemukan, baris tersebut <strong>dilewati + dicatat</strong> (baris lain tetap diproses).
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">4</div>
+                            <div class="guide-text">
+                                <strong>Mata Pelajaran</strong> dan <strong>Ruangan</strong> yang belum ada di master akan
+                                <strong>dibuat otomatis</strong> (auto-create).
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">5</div>
+                            <div class="guide-text">
+                                Slot yang <strong>sudah ada</strong> (Kelas + Hari + Jam sama) akan <strong>di-update</strong>,
+                                bukan digandakan. Import ulang aman dilakukan kapan saja.
+                            </div>
+                        </div>
+                        <div class="guide-item">
+                            <div class="guide-num">6</div>
+                            <div class="guide-text">
+                                Simpan file dengan encoding <strong>UTF-8</strong>. Pemisah kolom bisa
+                                <strong>koma</strong> (<code>,</code>) atau <strong>titik koma</strong> (<code>;</code>) — terdeteksi otomatis.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 {{-- ====================================================== --}}
@@ -1162,27 +1372,36 @@
     (function () {
         const tabs = document.querySelectorAll('.import-tab');
 
+        function activateTab(targetId) {
+            const target = document.getElementById(targetId);
+            if (!target) return;
+
+            document.querySelectorAll('.import-tab').forEach(function (t) {
+                t.classList.remove('active');
+                t.setAttribute('aria-selected', 'false');
+            });
+            document.querySelectorAll('.tab-pane-item').forEach(function (p) {
+                p.classList.remove('active');
+            });
+
+            const btn = document.querySelector('[data-tab-target="' + targetId + '"]');
+            if (btn) {
+                btn.classList.add('active');
+                btn.setAttribute('aria-selected', 'true');
+            }
+            target.classList.add('active');
+        }
+
         tabs.forEach(function (tab) {
             tab.addEventListener('click', function () {
-                const targetId = this.dataset.tabTarget;
-                const target   = document.getElementById(targetId);
-                if (!target) return;
-
-                // Non-aktifkan semua tab & panel
-                document.querySelectorAll('.import-tab').forEach(function (t) {
-                    t.classList.remove('active');
-                    t.setAttribute('aria-selected', 'false');
-                });
-                document.querySelectorAll('.tab-pane-item').forEach(function (p) {
-                    p.classList.remove('active');
-                });
-
-                // Aktifkan tab & panel yang diklik
-                this.classList.add('active');
-                this.setAttribute('aria-selected', 'true');
-                target.classList.add('active');
+                activateTab(this.dataset.tabTarget);
             });
         });
+
+        // Restore tab dari session (setelah redirect import/reset)
+        @if(session('active_tab'))
+        activateTab('tab-{{ session('active_tab') }}');
+        @endif
     })();
 
     // ── Dropzone-style file selection ─────────────────────────────
@@ -1494,6 +1713,67 @@
 
         btnRemove.addEventListener('click', clearFile);
         document.getElementById('formImportGuru').addEventListener('reset', clearFile);
+    })();
+
+    // ── Dropzone: Import Jadwal Pelajaran ─────────────────────────
+    (function () {
+        const dropzone  = document.getElementById('dropzoneJadwal');
+        const input     = document.getElementById('fileJadwalImport');
+        const btnSubmit = document.getElementById('btnSubmitImportJadwal');
+        const infoBox   = document.getElementById('fileJadwalSelectedInfo');
+        const nameEl    = document.getElementById('fileJadwalSelectedName');
+        const sizeEl    = document.getElementById('fileJadwalSelectedSize');
+        const btnRemove = document.getElementById('btnRemoveJadwalFile');
+
+        if (!dropzone || !input) return;
+
+        function formatSize(bytes) {
+            if (!bytes) return '';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        function showFile(file) {
+            nameEl.textContent = file.name;
+            sizeEl.textContent = 'Ukuran: ' + formatSize(file.size) + ' • Ekstensi: .' + (file.name.split('.').pop() || 'csv');
+            infoBox.classList.remove('d-none');
+            btnSubmit.disabled = false;
+        }
+
+        function clearFile() {
+            input.value = '';
+            infoBox.classList.add('d-none');
+            btnSubmit.disabled = true;
+        }
+
+        dropzone.addEventListener('click', function () { input.click(); });
+        input.addEventListener('change', function () {
+            if (this.files && this.files[0]) showFile(this.files[0]);
+        });
+
+        ['dragenter', 'dragover'].forEach(evt => {
+            dropzone.addEventListener(evt, e => {
+                e.preventDefault();
+                dropzone.classList.add('dragover');
+            });
+        });
+        ['dragleave', 'drop'].forEach(evt => {
+            dropzone.addEventListener(evt, e => {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+            });
+        });
+        dropzone.addEventListener('drop', e => {
+            const files = e.dataTransfer.files;
+            if (files && files[0]) {
+                input.files = files;
+                showFile(files[0]);
+            }
+        });
+
+        btnRemove.addEventListener('click', clearFile);
+        document.getElementById('formImportJadwal').addEventListener('reset', clearFile);
     })();
 
     // ── Modal Konfirmasi Reset / Hapus Masal Data ────────────────────

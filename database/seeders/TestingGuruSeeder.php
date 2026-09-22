@@ -149,14 +149,19 @@ class TestingGuruSeeder extends Seeder
         $jamSlots = $this->jamPelajaranSandbox();
 
         foreach ($jamSlots as $kategori => $rows) {
-            foreach ($rows as $row) {
-                $jam = JamPelajaran::withoutGlobalScope(TestingDataScope::class)
-                    ->firstOrNew(['kategori_hari' => $kategori, 'jam_ke' => $row['jam_ke']]);
-                $jam->jam_mulai = $row['jam_mulai'];
-                $jam->jam_selesai = $row['jam_selesai'];
-                $jam->jenis = 'kbm';
-                $jam->is_testing_data = true;
-                $jam->save();
+            $days = ($kategori === 'Senin-Kamis') ? ['Senin', 'Selasa', 'Rabu', 'Kamis'] : ['Jumat'];
+            foreach ($days as $day) {
+                foreach ($rows as $row) {
+                    $jam = JamPelajaran::withoutGlobalScope(TestingDataScope::class)
+                        ->firstOrNew(['hari' => $day, 'jam_ke' => $row['jam_ke']]);
+                    $jam->hari = $day;
+                    $jam->kategori_hari = $kategori;
+                    $jam->jam_mulai = $row['jam_mulai'];
+                    $jam->jam_selesai = $row['jam_selesai'];
+                    $jam->jenis = 'kbm';
+                    $jam->is_testing_data = true;
+                    $jam->save();
+                }
             }
         }
 
@@ -207,27 +212,27 @@ class TestingGuruSeeder extends Seeder
         $jamMap = JamPelajaran::withoutGlobalScope(TestingDataScope::class)
             ->where('is_testing_data', true)
             ->get()
-            ->keyBy(fn (JamPelajaran $j) => $j->kategori_hari.'|'.$j->jam_ke);
+            ->keyBy(fn (JamPelajaran $j) => $j->hari.'|'.$j->jam_ke);
 
-        // Blok jadwal per hari: [hari, kategori_jam, [mapel, [jam_ke...]]]
+        // Blok jadwal per hari: [hari, [mapel, [jam_ke...]]]
         $blok = [
-            ['Senin', 'Senin-Kamis', $mapelDasar,    [101, 102]],
-            ['Senin', 'Senin-Kamis', $mapelDatabase, [103, 104]],
-            ['Selasa', 'Senin-Kamis', $mapelDasar,   [105]],
-            ['Selasa', 'Senin-Kamis', $mapelDatabase, [106, 107]],
-            ['Rabu', 'Senin-Kamis', $mapelDasar,     [101, 102, 103]],
-            ['Rabu', 'Senin-Kamis', $mapelDatabase,  [106, 107]],
-            ['Kamis', 'Senin-Kamis', $mapelDasar,    [104, 105]],
-            ['Kamis', 'Senin-Kamis', $mapelDatabase, [108]],
-            ['Jumat', 'Jumat', $mapelDasar,          [201, 202]],
-            ['Jumat', 'Jumat', $mapelDatabase,       [203]],
+            ['Senin', $mapelDasar,    [101, 102]],
+            ['Senin', $mapelDatabase, [103, 104]],
+            ['Selasa', $mapelDasar,   [105]],
+            ['Selasa', $mapelDatabase, [106, 107]],
+            ['Rabu', $mapelDasar,     [101, 102, 103]],
+            ['Rabu', $mapelDatabase,  [106, 107]],
+            ['Kamis', $mapelDasar,    [104, 105]],
+            ['Kamis', $mapelDatabase, [108]],
+            ['Jumat', $mapelDasar,    [201, 202]],
+            ['Jumat', $mapelDatabase, [203]],
         ];
 
-        foreach ($blok as [$hari, $kategori, $mapel, $jamKeList]) {
+        foreach ($blok as [$hari, $mapel, $jamKeList]) {
             $groupId = (string) Str::uuid();
 
             foreach ($jamKeList as $jamKe) {
-                $jam = $jamMap->get($kategori.'|'.$jamKe);
+                $jam = $jamMap->get($hari.'|'.$jamKe);
                 if (! $jam) {
                     continue;
                 }
