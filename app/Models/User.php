@@ -531,4 +531,35 @@ class User extends Authenticatable
 
         return $this->jadwalPiket()->where('hari', $hari)->exists();
     }
+
+    /**
+     * Task dinamis Koordinator Piket: daftar shift ('pagi' / 'siang') yang
+     * dipimpin user ini pada hari berjalan, berdasarkan jadwal piket (bukan
+     * role tetap di database).
+     *
+     * Mengembalikan array kosong bila tidak bertugas sebagai koordinator hari
+     * ini atau di luar hari aktif sekolah. Menghormati TestingDataScope.
+     *
+     * @return array<int, string> contoh: ['pagi'], ['siang'], ['pagi', 'siang']
+     */
+    public function koordinatorShiftHariIni(): array
+    {
+        $hari = $this->hariPiketHariIni();
+
+        if ($hari === null) {
+            return [];
+        }
+
+        $shifts = [];
+
+        if (JadwalPiket::where('hari', $hari)->where('koordinator_pagi_user_id', $this->id)->exists()) {
+            $shifts[] = 'pagi';
+        }
+
+        if (JadwalPiket::where('hari', $hari)->where('koordinator_siang_user_id', $this->id)->exists()) {
+            $shifts[] = 'siang';
+        }
+
+        return $shifts;
+    }
 }

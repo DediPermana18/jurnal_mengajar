@@ -36,6 +36,36 @@
         <label class="form-label fw-semibold text-secondary small">KODE AKTIVASI <span class="text-danger">*</span></label>
         <input type="text" name="kode_aktivasi" value="{{ old('kode_aktivasi', $isEdit ? $user->kode_aktivasi : '') }}" class="form-control rounded-3" maxlength="100" placeholder="Kosongkan untuk dibuat otomatis">
     </div>
+    @if(!$isEdit)
+        <div class="col-md-6">
+            <label class="form-label fw-semibold text-secondary small">PASSWORD <span class="text-danger">*</span></label>
+            <div class="input-group" x-data="{ show: false }">
+                <input type="password" name="password" :type="show ? 'text' : 'password'"
+                       class="form-control rounded-3" required minlength="8" maxlength="255"
+                       autocomplete="new-password" placeholder="Minimal 8 karakter">
+                <button type="button" class="btn btn-outline-secondary rounded-3 ms-2" @click="show = !show"
+                        aria-label="Tampilkan / sembunyikan password">
+                    <i class="bi bi-eye" x-show="!show"></i>
+                    <i class="bi bi-eye-slash" x-show="show"></i>
+                </button>
+            </div>
+            <div class="form-text">Minimal 8 karakter. Simpan baik-baik — password tidak dapat dilihat lagi setelah disimpan.</div>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label fw-semibold text-secondary small">KONFIRMASI PASSWORD <span class="text-danger">*</span></label>
+            <div class="input-group" x-data="{ show: false }">
+                <input type="password" name="password_confirmation" :type="show ? 'text' : 'password'"
+                       class="form-control rounded-3" required minlength="8" maxlength="255"
+                       autocomplete="new-password" placeholder="Ulangi password yang sama">
+                <button type="button" class="btn btn-outline-secondary rounded-3 ms-2" @click="show = !show"
+                        aria-label="Tampilkan / sembunyikan konfirmasi password">
+                    <i class="bi bi-eye" x-show="!show"></i>
+                    <i class="bi bi-eye-slash" x-show="show"></i>
+                </button>
+            </div>
+            <div class="form-text">Harus sama dengan kolom Password. Login ke akun ini memerlukan password + Kode Aktivasi di atas.</div>
+        </div>
+    @endif
     @if($isEdit)
         <div class="col-12">
             <div class="form-check border rounded-3 p-3">

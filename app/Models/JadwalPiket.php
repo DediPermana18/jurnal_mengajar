@@ -111,6 +111,99 @@ class JadwalPiket extends Model
 
         return User::whereIn('id', $ids)->orderBy('nama')->get();
     }
+
+    /**
+     * Shift (Pagi/Siang) yang dipimpin seorang user pada tanggal tertentu,
+     * berdasarkan kolom `koordinator_pagi_user_id` / `koordinator_siang_user_id`.
+     *
+     * Mengembalikan array berisi ['pagi' => bool, 'siang' => bool]. Di luar hari
+     * aktif sekolah (Sabtu/Minggu) kedua flag selalu false. Menghormati
+     * TestingDataScope (data testing/real terisolasi sesuai konteks aktif).
+     *
+     * @return array{pagi: bool, siang: bool}
+     */
+    public static function koordinatorShiftBertugas(Carbon|string|null $tanggal, int $userId): array
+    {
+        $hari = static::namaHariTanggal(static::parseTanggal($tanggal));
+
+        if ($hari === null) {
+            return ['pagi' => false, 'siang' => false];
+        }
+
+        return [
+            'pagi' => static::where('hari', $hari)
+                ->where('koordinator_pagi_user_id', $userId)
+                ->exists(),
+            'siang' => static::where('hari', $hari)
+                ->where('koordinator_siang_user_id', $userId)
+                ->exists(),
+        ];
+    }
+
+    /**
+     * Daftar Petugas Piket (anggota) sebuah shift pada tanggal tertentu.
+     *
+     * Menghimpun dari dua sumber agar kompatibel dengan kedua format jadwal:
+     * 1. Format SK (legacy): kolom `petugas_pagi_user_id` / `petugas_siang_user_id`.
+     * 2. Format shift dinamis: baris ber-`shift_id` yang namanya diawali Pagi/Siang.
+     *
+     * Koordinator itu sendiri dikecualikan (bukan anggota biasa). Menghormati
+     * TestingDataScope.
+     *
+     * @return Collection<int, User>
+     */
+    public static function petugasShiftBertugas(Carbon|string|null $tanggal, string $shift): Collection
+    {
+        $hari = static::namaHariTanggal(static::parseTanggal($tanggal));
+
+        if ($hari === null) {
+            return collect();
+        }
+
+        $kolomPetugas = $shift === 'pagi' ? 'petugas_pagi_user_id' : 'petugas_siang_user_id';
+
+        $ids = static::where('hari', $hari)
+            ->pluck($kolomPetugas)
+            ->filter()
+            ->unique()
+            ->values()
+            ->map(fn ($id) => (int) $id);
+
+        // Format shift dinamis: shift "Pagi"/"Siang" dari master ShiftPiket.
+        $shiftId = ShiftPiket::where('is_active', true)
+            ->whereRaw('LOWER(nama) LIKE ?', [$shift === 'pagi' ? 'pagi%' : 'siang%'])
+            ->orderBy('urutan')
+            ->value('id');
+
+        if ($shiftId) {
+            $ids = $ids->merge(
+                static::where('hari', $hari)
+                    ->where('shift_id', $shiftId)
+                    ->pluck('user_id')
+                    ->filter()
+                    ->map(fn ($id) => (int) $id)
+            );
+        }
+
+        $ids = $ids->unique()->values();
+
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        return User::whereIn('id', $ids)->orderBy('nama')->get();
+    }
+
+    /**
+     * Normalisasi input tanggal ke instance Carbon.
+     */
+    protected static function parseTanggal(Carbon|string|null $tanggal): Carbon
+    {
+        return $tanggal instanceof Carbon
+            ? $tanggal
+            : Carbon::parse($tanggal ?: 'now');
+    }
+
     protected static function namaHariTanggal(Carbon $tanggal): ?string
     {
         $hariMap = [

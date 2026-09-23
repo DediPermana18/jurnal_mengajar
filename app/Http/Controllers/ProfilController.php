@@ -105,6 +105,49 @@ class ProfilController extends Controller
     }
 
     /**
+     * Perbarui kode aktivasi (custom manual) untuk akun non-Guru.
+     */
+    public function updateKodeAktivasi(Request $request)
+    {
+        $user = Auth::user();
+
+        // Form hanya tampil untuk akun non-Guru yang memiliki kode aktivasi.
+        abort_unless($user->role !== User::ROLE_GURU, 403, 'Akses ditolak. Fitur Kode Aktivasi hanya untuk akun non-Guru.');
+
+        // Normalisasi: huruf kapital & tanpa spasi di tepi, sebelum validasi.
+        $request->merge([
+            'kode_aktivasi' => strtoupper(trim((string) $request->input('kode_aktivasi'))),
+        ]);
+
+        $validated = $request->validate([
+            'kode_aktivasi' => [
+                'required',
+                'string',
+                'min:6',
+                'max:8',
+                'alpha_num',
+                Rule::unique('users', 'kode_aktivasi')
+                    ->withoutTrashed()
+                    ->where(fn ($q) => $q->where('is_testing_data', $user->is_testing_data ?? false))
+                    ->ignore($user->id),
+            ],
+        ], [
+            'kode_aktivasi.required' => 'Kode aktivasi wajib diisi.',
+            'kode_aktivasi.min' => 'Kode aktivasi minimal 6 karakter.',
+            'kode_aktivasi.max' => 'Kode aktivasi maksimal 8 karakter.',
+            'kode_aktivasi.alpha_num' => 'Kode aktivasi hanya boleh huruf dan angka, tanpa spasi atau simbol.',
+            'kode_aktivasi.unique' => 'Kode aktivasi sudah digunakan oleh akun lain.',
+        ]);
+
+        $user->kode_aktivasi = $validated['kode_aktivasi'];
+        $user->save();
+
+        return redirect()->route('profil.index')
+            ->with('success_kode', 'Kode aktivasi berhasil diperbarui.')
+            ->with('tab_aktif', 'kode');
+    }
+
+    /**
      * Generate kode aktivasi baru (PIN Token) - Hanya untuk Admin.
      */
     public function generateKodeAktivasi()

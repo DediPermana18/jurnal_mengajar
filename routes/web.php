@@ -30,6 +30,20 @@ Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+// ================= LUPA SANDI / KODE AKTIVASI (publik, tanpa login) =================
+// Pengajuan via formulir publik + tanda tangan digital. Admin TU memverifikasi
+// dan membuat tautan reset unik ber-token (lihat ResetRequestController).
+use App\Http\Controllers\ResetRequestController;
+
+Route::get('/lupa-sandi/cek-akun', [ResetRequestController::class, 'checkAccount'])->name('reset-request.check-account');
+Route::get('/lupa-sandi', [ResetRequestController::class, 'create'])->name('reset-request.create');
+Route::post('/lupa-sandi', [ResetRequestController::class, 'store'])->name('reset-request.store');
+
+// Halaman reset kredensial via tautan unik ber-token (tanpa login/pilih akun).
+// Token otomatis mendeteksi user_id & jenis_pengajuan dari record yang valid.
+Route::get('/reset-credentials/{token}', [ResetRequestController::class, 'showResetForm'])->name('reset-credentials.show');
+Route::post('/reset-credentials/{token}', [ResetRequestController::class, 'submitReset'])->name('reset-credentials.submit');
+
 // Notifikasi navbar
 use App\Http\Controllers\NotificationController;
 
@@ -106,6 +120,16 @@ Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
     Route::post('/admin/users/{id}/toggle-status', [UserController::class, 'toggleStatus'])
         ->name('admin.users.toggle-status');
 
+    // Panel Admin TU: verifikasi pengajuan reset (lupa sandi / kode aktivasi)
+    Route::get('/admin/pengajuan-reset', [ResetRequestController::class, 'index'])
+        ->name('admin.reset-requests.index');
+    Route::get('/admin/pengajuan-reset/count', [ResetRequestController::class, 'pendingCount'])
+        ->name('admin.reset-requests.count');
+    Route::post('/admin/pengajuan-reset/{id}/approve', [ResetRequestController::class, 'approve'])
+        ->name('admin.reset-requests.approve');
+    Route::post('/admin/pengajuan-reset/{id}/reject', [ResetRequestController::class, 'reject'])
+        ->name('admin.reset-requests.reject');
+
     Route::get('admin/jurusan/export', [JurusanController::class, 'export'])->name('jurusan.export');
     Route::post('admin/jurusan/import', [JurusanController::class, 'import'])->name('jurusan.import');
     Route::resource('admin/jurusan', JurusanController::class);
@@ -141,6 +165,7 @@ Route::get('/profil', [ProfilController::class, 'index'])->name('profil.index')-
 Route::post('/profil/update-profil', [ProfilController::class, 'updateProfil'])->name('profil.update-profil')->middleware('auth');
 Route::post('/profil/update-password', [ProfilController::class, 'updatePassword'])->name('profil.update-password')->middleware('auth');
 Route::post('/profil/generate-kode-aktivasi', [ProfilController::class, 'generateKodeAktivasi'])->name('profil.generate-kode-aktivasi')->middleware('auth');
+Route::post('/profil/update-kode-aktivasi', [ProfilController::class, 'updateKodeAktivasi'])->name('profil.update-kode-aktivasi')->middleware('auth');
 // Legacy redirect
 Route::get('/admin/pengaturan', fn () => redirect()->route('profil.index'))->name('pengaturan.index');
 
@@ -232,6 +257,17 @@ Route::prefix('piket')->middleware(['auth'])->group(function () {
     // Status Kehadiran Guru oleh Guru Piket (pantau & override status harian)
     Route::get('/status-guru', [StatusKehadiranGuruController::class, 'index'])->name('piket.status-guru');
     Route::post('/status-guru/update', [StatusKehadiranGuruController::class, 'update'])->name('piket.status-guru.update');
+});
+
+// ================= PORTAL KOORDINATOR PIKET (tugas dinamis dari jadwal) =================
+use App\Http\Controllers\KoordinatorPiketController;
+
+Route::prefix('koordinator')->middleware(['auth', 'koordinator-piket'])->group(function () {
+    // Panel ringkasan shift yang dipimpin: daftar anggota, monitoring kehadiran,
+    // dan penyusunan Rekap Piket Shift (dikirim ke Waka Piket untuk validasi)
+    Route::get('/piket', [KoordinatorPiketController::class, 'panel'])->name('koordinator.piket');
+    Route::post('/piket/kehadiran', [KoordinatorPiketController::class, 'simpanKehadiran'])->name('koordinator.piket.kehadiran');
+    Route::post('/piket/rekap', [KoordinatorPiketController::class, 'simpanRekap'])->name('koordinator.piket.rekap');
 });
 
 // ================= PORTAL SATPAM / KEAMANAN (independen, tanpa cek jadwal piket) =================
@@ -355,4 +391,14 @@ Route::prefix('admin/waka-kesiswaan')->middleware(['auth', 'waka-kesiswaan'])->g
     Route::get('/dashboard', [WakaKesiswaanController::class, 'dashboard'])->name('waka-kesiswaan.dashboard');
     Route::get('/approval-dispensasi', [WakaKesiswaanController::class, 'approvalIndex'])->name('waka-kesiswaan.dispensasi.approval.index');
     Route::post('/approval-dispensasi/{id}', [WakaKesiswaanController::class, 'approvalStore'])->name('waka-kesiswaan.dispensasi.approval.store');
+});
+
+// ================= ROUTE PORTAL WAKA PIKET =================
+use App\Http\Controllers\WakaPiket\WakaPiketController;
+
+Route::prefix('admin/waka-piket')->middleware(['auth', 'waka-piket'])->group(function () {
+    Route::get('/dashboard', [WakaPiketController::class, 'dashboard'])->name('waka-piket.dashboard');
+    Route::get('/rekap-harian', [WakaPiketController::class, 'rekapHarian'])->name('waka-piket.rekap-harian');
+    Route::post('/rekap-harian/validasi', [WakaPiketController::class, 'validasiRekap'])->name('waka-piket.validasi');
+    Route::post('/rekap-harian/klb', [WakaPiketController::class, 'storeCatatanKlb'])->name('waka-piket.klb');
 });

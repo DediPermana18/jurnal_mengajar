@@ -101,6 +101,8 @@ class WakaPiketNotificationTest extends TestCase
                 'nip' => null,
                 'no_hp' => '081234567888',
                 'sub_role' => 'waka_piket',
+                'password' => 'rahasia123',
+                'password_confirmation' => 'rahasia123',
             ])->assertRedirect(route('admin.users.index'));
 
         $wakaPiket = User::where('sub_role', 'waka_piket')->firstOrFail();

@@ -172,6 +172,22 @@
             transform: rotate(180deg);
         }
 
+        /* Badge live (antrean belum diproses) — efek ping, mirip animate-pulse */
+        .nav-reset-badge-live {
+            animation: navBadgePing 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        @keyframes navBadgePing {
+            0% {
+                box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.5);
+            }
+            70% {
+                box-shadow: 0 0 0 7px rgba(220, 53, 69, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+            }
+        }
+
         /* Submenu Styling */
         .submenu-list {
             padding-left: 2.25rem;
@@ -272,14 +288,20 @@
             color: #0f172a;
         }
 
-        .notif-dot {
+        .notif-badge {
             position: absolute;
-            top: 4px;
-            right: 4px;
-            width: 8px;
-            height: 8px;
+            top: -2px;
+            right: -4px;
+            min-width: 17px;
+            height: 17px;
+            padding: 0 4px;
             background-color: #ef4444;
-            border-radius: 50%;
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 17px;
+            text-align: center;
+            border-radius: 999px;
             border: 1.5px solid var(--topbar-bg);
         }
 
@@ -604,6 +626,13 @@
                                      // hanya panggil method asli jika tidak sedang preview
                                      || (!$previewRole && $user && $user->isWakaKesiswaan());
 
+                // 1b3. Role Waka Piket (role=admin & sub_role=waka_piket).
+                //      $userRole/$userSubRole sudah di-resolve dari previewRole,
+                //      sehingga impersonasi 'waka_piket' otomatis terdeteksi.
+                $isWakaPiketRole = ($userRole === 'admin' && $userSubRole === 'waka_piket')
+                                || in_array($userRole, ['waka_piket', 'admin_piket', 'piket'])
+                                || (!$previewRole && $user && $user->isWakaPiket());
+
                 // 1c. Role Kepala Sekolah (role=kepsek / kepala_sekolah / admin & sub_role=kepsek)
                 $isKepsekRole = ($userRole === 'admin' && in_array($userSubRole, ['kepsek', 'kepala_sekolah'])) 
                              || in_array($userRole, ['kepsek', 'kepala_sekolah'])
@@ -619,6 +648,12 @@
                 //    Saat preview 'guru_piket', dipaksa aktif agar menu terlihat.
                 $isGuruPiketRole = ($previewRole === 'guru_piket') 
                                 || ($user && !$previewRole && $user->isPetugasPiketHariIni());
+
+                // 3b. Koordinator Piket — tugas DINAMIS dari jadwal (bukan role tetap):
+                //     menu tampil bila user tercatat sebagai koordinator_pagi/siang
+                //     pada jadwal hari berjalan. Berbasis jadwal, jadi berlaku juga
+                //     untuk akun Petugas IT yang sedang preview/guru berjadwal.
+                $isKoordinatorPiketRole = $user && $user->koordinatorShiftHariIni() !== [];
 
                 // 4. Role Wali Kelas (role=guru & sub_role=wali_kelas, atau terikat sebagai wali kelas).
                 //    Deteksi lewat model (sub_role wali_kelas / terikat kelas), bukan hanya role string.
@@ -640,6 +675,12 @@
 
                 // Preview role sebagai Siswa (belum ada portal khusus)
                 $isPreviewSiswa = ($previewRole === 'siswa');
+
+                // Jumlah pengajuan reset kredensial yang MENUNGGU VERIFIKASI
+                // (badge merah live di menu "Pengajuan Reset"). Mengikuti
+                // TestingDataScope: Petugas TU melihat data real, IT/QA melihat
+                // data testing — konsisten dengan isi panel.
+                $pendingResetCount = \App\Models\ResetRequest::where('status', \App\Models\ResetRequest::STATUS_PENDING)->count();
             @endphp
 
             @if($isKurikulumRole)
@@ -653,6 +694,10 @@
             @elseif($isWakaKesiswaanRole)
                 {{-- ================= NAVIGASI WAKA KESISWAAN ================= --}}
                 <x-sidebar-waka-kesiswaan :pendingTtdCount="\App\Models\DispensasiSiswa::whereNull('ttd_waka')->where('tipe_dispen', '!=', \App\Models\DispensasiSiswa::TIPE_MASUK)->whereIn('status', [\App\Models\DispensasiSiswa::STATUS_PENDING, \App\Models\DispensasiSiswa::STATUS_PENDING_WAKA, \App\Models\DispensasiSiswa::STATUS_DISETUJUI])->count()" />
+
+            @elseif($isWakaPiketRole)
+                {{-- ================= NAVIGASI WAKA PIKET ================= --}}
+                <x-sidebar-waka-piket />
 
             @elseif($isKepsekRole)
                 {{-- ================= NAVIGASI KEPALA SEKOLAH ================= --}}
@@ -946,6 +991,25 @@
                     </div>
                 @endif
 
+                {{-- SECTION TUGAS TAMBAHAN: tampil bila guru bertugas sebagai Koordinator Piket hari ini --}}
+                @if($isKoordinatorPiketRole)
+                    <div class="nav-item-container mt-3">
+                        <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                            TUGAS TAMBAHAN
+                        </div>
+                    </div>
+
+                    <!-- Kelola Piket Shift (Koordinator) -->
+                    <div class="nav-item-container">
+                        <a href="{{ route('koordinator.piket') }}" class="nav-btn {{ request()->routeIs('koordinator.piket*') ? 'active' : '' }}">
+                            <span class="btn-left">
+                                <i class="bi bi-clipboard-check"></i>
+                                <span>Kelola Piket Shift (Koordinator)</span>
+                            </span>
+                        </a>
+                    </div>
+                @endif
+
             @elseif($isPetugasItRole)
                 {{-- ================= NAVIGASI PETUGAS IT / QA TESTER ================= --}}
                 <div class="nav-item-container mt-2">
@@ -1171,6 +1235,25 @@
                             <span class="btn-left">
                                 <i class="bi bi-person-gear"></i>
                                 <span>Kelola User</span>
+                            </span>
+                        </a>
+                    </div>
+                @endif
+
+                @if($isPetugasTU || $isSuperAdmin)
+                    <div class="nav-item-container">
+                        <a href="{{ route('admin.reset-requests.index') }}" class="nav-btn {{ request()->routeIs('admin.reset-requests.*') ? 'active' : '' }}">
+                            <span class="btn-left">
+                                <i class="bi bi-key"></i>
+                                <span>Pengajuan Reset</span>
+                            </span>
+                            <span x-data="resetBadge({{ $pendingResetCount }})"
+                                  x-show="count > 0"
+                                  x-cloak
+                                  class="badge bg-danger rounded-pill nav-reset-badge-live"
+                                  style="font-size: 0.69rem; padding: 0.4em 0.65em;"
+                                  title="Jumlah pengajuan menunggu verifikasi">
+                                <span x-text="count > 99 ? '99+' : count">{{ $pendingResetCount > 99 ? '99+' : $pendingResetCount }}</span>
                             </span>
                         </a>
                     </div>
@@ -1429,62 +1512,55 @@
 
                 <!-- Notifications -->
                 @php
-                    $navNotifQuery = auth()->user()?->notifications();
-                    $navUnreadCount = $navNotifQuery?->count() ?? 0;
-                    $navNotifList   = $navNotifQuery?->latest()->limit(8)->get() ?? collect();
+                    $navUnreadNotifs = auth()->user()?->unreadNotifications()->latest()->limit(5)->get() ?? collect();
+                    $navUnreadCount  = $navUnreadNotifs->count();
                 @endphp
                 <div class="dropdown">
                     <button class="notif-bell-btn position-relative" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="position:relative;">
                         <i class="bi bi-bell fs-5"></i>
                         @if($navUnreadCount > 0)
-                            <span class="notif-dot"></span>
+                            <span class="notif-badge">{{ $navUnreadCount > 99 ? '99+' : $navUnreadCount }}</span>
                         @endif
                     </button>
 
                     <div class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-4 mt-2 notif-menu" style="width: 360px; max-height: 480px; overflow: hidden;">
                         <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
                             <span class="fw-bold text-dark">Notifikasi</span>
-                            <span class="small text-muted">{{ $navUnreadCount }} belum dibaca</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="small text-muted">{{ $navUnreadCount }} belum dibaca</span>
+                                @if($navUnreadCount > 0)
+                                    <form action="{{ route('notifications.read-all') }}" method="POST" class="d-inline">
+                                        @csrf
+                                        <button class="btn btn-sm btn-link text-primary p-0 text-decoration-none" type="submit">
+                                            <i class="bi bi-check2-all me-1"></i> Tandai semua dibaca
+                                        </button>
+                                    </form>
+                                @endif
+                            </div>
                         </div>
                         <div style="max-height: 380px; overflow-y: auto;">
-                            @forelse($navNotifList as $n)
+                            @forelse($navUnreadNotifs as $n)
                                 @php
-                                    $nData   = $n->data;
-                                    $nIsRead = $n->read_at !== null;
-                                    $nUrl    = data_get($nData, 'url', '#');
+                                    $nData = $n->data;
+                                    $nUrl  = data_get($nData, 'url', '#');
                                 @endphp
-                                <div class="dropdown-item px-3 py-2 {{ $nIsRead ? '' : 'bg-primary-subtle' }}" style="white-space: normal; border-bottom: 1px solid #eef1f6;">
-                                    <a href="{{ $nUrl }}" class="text-decoration-none text-reset d-block">
+                                <div class="dropdown-item px-3 py-2 bg-primary-subtle" style="white-space: normal; border-bottom: 1px solid #eef1f6;">
+                                    <a href="{{ $nUrl }}" class="text-decoration-none text-reset d-block"
+                                       data-notif-read="{{ route('notifications.read', $n->id) }}">
                                         <div class="d-flex align-items-center justify-content-between">
                                             <strong class="small">{{ data_get($nData, 'title', 'Notifikasi') }}</strong>
                                             <small class="text-muted ms-2 text-nowrap">{{ $n->created_at?->diffForHumans() }}</small>
                                         </div>
                                         <div class="text-muted small mt-1">{{ data_get($nData, 'message', '') }}</div>
                                     </a>
-                                    @if(!$nIsRead)
-                                        <form action="{{ route('notifications.read', $n->id) }}" method="POST" class="mt-1">
-                                            @csrf
-                                            <button class="btn btn-sm btn-light border rounded-3" type="submit">
-                                                <i class="bi bi-check-circle me-1"></i> Tandai Sudah Dibaca
-                                            </button>
-                                        </form>
-                                    @endif
                                 </div>
                             @empty
                                 <div class="text-center text-muted py-5">
                                     <i class="bi bi-bell-slash fs-2 d-block mb-2"></i>
-                                    Tidak ada notifikasi.
+                                    Tidak ada notifikasi baru.
                                 </div>
                             @endforelse
                         </div>
-                        @if($navUnreadCount > 0)
-                            <form action="{{ route('notifications.read-all') }}" method="POST" class="p-2 border-top">
-                                @csrf
-                                <button class="btn btn-sm btn-primary w-100 rounded-3">
-                                    <i class="bi bi-check2-all me-1"></i> Tandai Semua Dibaca
-                                </button>
-                            </form>
-                        @endif
                     </div>
                 </div>
 
@@ -1538,6 +1614,74 @@
 
 <!-- Bootstrap 5.3 JS Bundle -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // Klik item notifikasi lonceng: tandai terbaca (async) lalu lanjut ke URL
+    // tujuan (panel pengajuan reset). Data-notif-read memuat endpoint read-nya.
+    document.addEventListener('click', function (e) {
+        const el = e.target.closest('[data-notif-read]');
+        if (!el) return;
+        e.preventDefault();
+        const readUrl = el.getAttribute('data-notif-read');
+        if (readUrl) {
+            fetch(readUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                },
+                keepalive: true, // tetap terkirim walau halaman berpindah
+            }).catch(function () { /* navigasi tetap dilanjutkan */ });
+        }
+        window.location.href = el.getAttribute('href');
+    });
+</script>
+
+@if($isPetugasTU || $isSuperAdmin)
+    <script>
+        // Badge live "Pengajuan Reset": jumlah pending diperbarui otomatis via
+        // polling ringan (30 dtk, dijeda saat tab tidak aktif) — tanpa perlu
+        // hard-refresh ketika Admin TU mengeklik Setujui/Tolak atau ada
+        // pengajuan baru dari tab lain.
+        function resetBadge(initialCount) {
+            return {
+                count: initialCount,
+                timer: null,
+                async poll() {
+                    try {
+                        const res = await fetch('{{ route('admin.reset-requests.count') }}', {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Accept': 'application/json',
+                            },
+                            cache: 'no-store',
+                        });
+                        if (!res.ok) return;
+                        const data = await res.json();
+                        if (typeof data.count === 'number' && data.count >= 0) {
+                            this.count = data.count;
+                        }
+                    } catch (e) {
+                        // Abaikan — polling berikutnya akan mencoba lagi.
+                    }
+                },
+                init() {
+                    this.timer = setInterval(() => {
+                        if (document.hidden) return; // hemat resource saat tab tak aktif
+                        this.poll();
+                    }, 30000);
+                },
+                destroy() {
+                    if (this.timer) {
+                        clearInterval(this.timer);
+                        this.timer = null;
+                    }
+                },
+            };
+        }
+    </script>
+@endif
+
 @stack('scripts')
 </body>
 </html>

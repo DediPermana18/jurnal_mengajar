@@ -205,7 +205,7 @@
                    onclick="switchTab(this,'section-password')">
                     <i class="bi bi-shield-lock"></i> Ganti Password
                 </a>
-                @if((auth()->user()?->role ?? '') === 'admin')
+                @if((auth()->user()?->role ?? '') !== 'guru' && !is_null(auth()->user()?->kode_aktivasi))
                 <a href="#section-kode" class="nav-link d-flex align-items-center gap-2"
                    onclick="switchTab(this,'section-kode')">
                     <i class="bi bi-key-fill"></i> Kode Aktivasi
@@ -424,7 +424,7 @@
             </div>
 
             {{-- ========== SECTION 3: KODE AKTIVASI ========== --}}
-            @if((auth()->user()?->role ?? '') === 'admin')
+            @if((auth()->user()?->role ?? '') !== 'guru' && !is_null(auth()->user()?->kode_aktivasi))
             <div id="section-kode" class="profil-section d-none">
                 <div class="profil-card">
                     <div class="card-header-custom">
@@ -488,18 +488,44 @@
                             </ul>
                         </div>
 
-                        {{-- Generate Kode Baru --}}
-                        <form method="POST" action="{{ route('profil.generate-kode-aktivasi') }}"
-                              onsubmit="return confirm('Generate kode aktivasi baru? Kode lama akan langsung diganti.')">
+                        {{-- Ubah / Custom Kode Aktivasi --}}
+                        <form method="POST" action="{{ route('profil.update-kode-aktivasi') }}" id="formKodeAktivasi">
                             @csrf
-                            <div class="d-flex align-items-center gap-3 flex-wrap pt-3 border-top">
-                                <div class="text-muted" style="font-size:0.82rem;">
-                                    <i class="bi bi-info-circle text-primary me-1"></i>
-                                    Generate kode baru jika kode lama sudah bocor atau perlu direset.
+                            <div class="pt-3 border-top">
+                                <label for="inputKodeAktivasi" class="form-label fw-semibold text-dark mb-2" style="font-size:0.85rem;">
+                                    Kode Aktivasi Baru <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0 rounded-start-3" style="font-size:0.85rem;"><i class="bi bi-key-fill text-warning"></i></span>
+                                    <input type="text"
+                                           name="kode_aktivasi"
+                                           id="inputKodeAktivasi"
+                                           class="form-control rounded-0 @error('kode_aktivasi') is-invalid @enderror"
+                                           value="{{ old('kode_aktivasi', $user?->kode_aktivasi ?? '') }}"
+                                           maxlength="8"
+                                           autocomplete="off"
+                                           placeholder="6-8 karakter huruf/angka, tanpa spasi"
+                                           style="font-family:'Courier New',monospace;letter-spacing:.15em;text-transform:uppercase;font-size:0.875rem;">
+                                    <button type="button" class="btn btn-outline-secondary rounded-end-3"
+                                            onclick="generateRandomKode()" title="Buat kode acak otomatis" style="font-size:0.85rem;">
+                                        <i class="bi bi-dice-6 me-1"></i> Generate Random
+                                    </button>
                                 </div>
-                                <button type="submit" class="btn btn-warning fw-bold px-4 rounded-3 d-flex align-items-center gap-2 ms-md-auto" style="font-size:0.875rem;">
-                                    <i class="bi bi-arrow-repeat"></i> Generate Kode Aktivasi Baru
-                                </button>
+                                @error('kode_aktivasi')
+                                    <div class="invalid-feedback d-block mt-1">{{ $message }}</div>
+                                @enderror
+                                <div class="text-muted mt-2" style="font-size:0.75rem;">
+                                    <i class="bi bi-info-circle me-1"></i>Kode minimal 6 dan maksimal 8 karakter, hanya huruf dan/atau angka, tanpa spasi atau simbol.
+                                </div>
+                                <div class="d-flex justify-content-end align-items-center gap-2 mt-3">
+                                    <button type="button" class="btn btn-light border rounded-3" style="font-size:0.85rem;"
+                                            onclick="resetKodeAktivasi()" title="Kembalikan ke kode saat ini">
+                                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                                    </button>
+                                    <button type="submit" class="btn btn-warning fw-bold px-4 rounded-3 d-flex align-items-center gap-2" style="font-size:0.875rem;">
+                                        <i class="bi bi-floppy-fill"></i> Simpan Kode Aktivasi
+                                    </button>
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -599,11 +625,34 @@
         });
     }
 
-    // ===== Auto-open tab jika ada error password =====
+    // ===== Generate Random Kode Aktivasi =====
+    function generateRandomKode() {
+        const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // hindari O/0 & I/1 agar mudah dibaca
+        const input = document.getElementById('inputKodeAktivasi');
+        if (!input) return;
+        let kode = '';
+        for (let i = 0; i < 8; i++) {
+            kode += charset[Math.floor(Math.random() * charset.length)];
+        }
+        input.value = kode;
+    }
+
+    // ===== Reset Input Kode Aktivasi ke kode saat ini =====
+    function resetKodeAktivasi() {
+        const kode = document.getElementById('kodeAktivasiDisplay');
+        const input = document.getElementById('inputKodeAktivasi');
+        if (kode && input) input.value = kode.innerText.trim();
+    }
+
+    // ===== Auto-open tab jika ada error password / kode aktivasi =====
     document.addEventListener('DOMContentLoaded', function () {
         @if(session('tab_aktif') === 'password' || $errors->has('current_password') || $errors->has('password'))
             const pwTab = document.querySelector('[onclick*="section-password"]');
             if (pwTab) switchTab(pwTab, 'section-password');
+        @endif
+        @if(session('tab_aktif') === 'kode' || $errors->has('kode_aktivasi'))
+            const kodeTab = document.querySelector('[onclick*="section-kode"]');
+            if (kodeTab) switchTab(kodeTab, 'section-kode');
         @endif
     });
 </script>

@@ -159,6 +159,13 @@
                     </div>
                 @endif
 
+                @if (session('error'))
+                    <div class="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold shadow-sm flex items-center gap-2">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span>{{ session('error') }}</span>
+                    </div>
+                @endif
+
                 <!-- LOGIN FORM -->
                 <form action="{{ route('login.post') }}" method="POST" class="space-y-5">
                     @csrf
@@ -203,7 +210,7 @@
 
                     <!-- LUPA SANDI LINK -->
                     <div class="text-right pt-1 pb-2">
-                        <a href="#" 
+                        <a href="{{ route('reset-request.create') }}"
                            class="text-xs font-extrabold text-brand-600 hover:text-brand-700 hover:underline transition-colors"
                            x-text="mode === 'guru' ? 'lupa sandi?' : 'lupa sandi/kode aktivasi?'">
                         </a>

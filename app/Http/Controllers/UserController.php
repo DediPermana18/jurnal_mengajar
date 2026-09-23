@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -100,7 +101,7 @@ class UserController extends Controller
     {
         $this->authorizePetugasTU();
 
-        $validated = $this->validateUser($request);
+        $validated = $this->validateUser($request, null, true);
         $kodeAktivasi = ($validated['kode_aktivasi'] ?? null) ?: $this->generateActivationCode();
 
         // Bersihkan data soft delete yang bentrok (username, nip, kode_aktivasi)
@@ -114,11 +115,12 @@ class UserController extends Controller
             'sub_role' => $validated['sub_role'],
             'role' => $this->roleForSubRole($validated['sub_role']),
             'kode_aktivasi' => $kodeAktivasi,
-            'password' => $validated['username'],
+            // Hash eksplisit (cast 'hashed' menjaga agar tidak ter-hash ganda).
+            'password' => Hash::make($validated['password']),
             'is_active' => true,
         ]);
 
-        return redirect()->route('admin.users.index')->with('success', 'User berhasil ditambahkan. Password awal menggunakan username.');
+        return redirect()->route('admin.users.index')->with('success', 'User berhasil ditambahkan. Password awal sesuai yang diisikan.');
     }
 
     public function update(Request $request, $id)
@@ -169,9 +171,9 @@ class UserController extends Controller
         return redirect()->route('admin.users.index')->with('success', 'Password di-reset ke username user.');
     }
 
-    protected function validateUser(Request $request, ?int $ignoreId = null): array
+    protected function validateUser(Request $request, ?int $ignoreId = null, bool $isCreate = false): array
     {
-        return $request->validate([
+        $rules = [
             'name' => 'required|string|max:255',
             'username' => [
                 'required',
@@ -193,7 +195,14 @@ class UserController extends Controller
                 'max:100',
                 Rule::unique('users', 'kode_aktivasi')->withoutTrashed()->ignore($ignoreId),
             ],
-        ], [
+        ];
+
+        // Password hanya dipersyaratkan saat membuat user baru (bukan edit).
+        if ($isCreate) {
+            $rules['password'] = ['required', 'string', 'min:8', 'confirmed', 'max:255'];
+        }
+
+        return $request->validate($rules, [
             'name.required' => 'Nama lengkap wajib diisi.',
             'username.required' => 'Username wajib diisi.',
             'username.unique' => 'Username sudah digunakan.',
@@ -201,6 +210,9 @@ class UserController extends Controller
             'sub_role.required' => 'Sub-role wajib dipilih.',
             'sub_role.in' => 'Sub-role tidak valid.',
             'kode_aktivasi.unique' => 'Kode aktivasi sudah digunakan.',
+            'password.required' => 'Password wajib diisi.',
+            'password.min' => 'Password minimal harus 8 karakter.',
+            'password.confirmed' => 'Konfirmasi password tidak sama.',
         ]);
     }
 

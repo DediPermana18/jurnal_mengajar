@@ -39,6 +39,17 @@
     </a>
 </div>
 
+<!-- 2b. Portal Waka Piket (akses tambahan Waka Kurikulum) -->
+<div class="nav-item-container">
+    <a href="{{ Route::has('waka-piket.dashboard') ? route('waka-piket.dashboard') : '#' }}"
+       class="nav-btn {{ request()->routeIs('waka-piket.*') ? 'active' : '' }}">
+        <span class="btn-left">
+            <i class="bi bi-clipboard-check"></i>
+            <span>Portal Waka Piket</span>
+        </span>
+    </a>
+</div>
+
 <!-- 3. Data Mata Pelajaran -->
 <div class="nav-item-container">
     <a href="{{ Route::has('mapel.index') ? route('mapel.index') : '#' }}"
