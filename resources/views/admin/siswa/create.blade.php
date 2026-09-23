@@ -45,18 +45,31 @@
                 <input type="text" name="nama" class="form-control rounded-3 py-2" value="{{ old('nama') }}" required placeholder="Masukkan Nama Lengkap Siswa">
             </div>
 
-            <div class="mb-3">
-                <label class="form-label fw-semibold text-dark">Kelas <span class="text-danger">*</span></label>
-                <select name="id_kelas" id="id_kelas" class="form-select rounded-3 py-2" required>
-                    <option value="">-- Pilih Kelas --</option>
-                    @foreach ($dataKelas as $kelas)
-                        <option value="{{ $kelas->id }}" {{ old('id_kelas') == $kelas->id ? 'selected' : '' }}>
-                            {{ $kelas->nama_lengkap }}
-                        </option>
-                    @endforeach
-                </select>
-                <div class="form-text text-muted">
-                    <i class="bi bi-info-circle me-1"></i>Jurusan siswa otomatis mengikuti jurusan kelas yang dipilih.
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold text-dark" for="filter_tingkat">
+                        Tingkatan Kelas <span class="text-muted fw-normal">(Opsional)</span>
+                    </label>
+                    <select id="filter_tingkat" class="form-select rounded-3 py-2" autocomplete="off">
+                        <option value="">-- Semua Tingkatan --</option>
+                        @foreach ($dataKelas->pluck('tingkat')->filter()->unique()->sort()->values() as $tingkatan)
+                            <option value="{{ $tingkatan }}">{{ $tingkatan }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label fw-semibold text-dark">Kelas <span class="text-danger">*</span></label>
+                    <select name="id_kelas" id="id_kelas" class="form-select rounded-3 py-2" required>
+                        <option value="">-- Pilih Kelas --</option>
+                        @foreach ($dataKelas as $kelas)
+                            <option value="{{ $kelas->id }}" data-tingkatan="{{ $kelas->tingkat }}" {{ old('id_kelas') == $kelas->id ? 'selected' : '' }}>
+                                {{ $kelas->nama_lengkap }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <div class="form-text text-muted">
+                        <i class="bi bi-info-circle me-1"></i>Jurusan dan Tingkatan siswa otomatis menyesuaikan berdasarkan kelas yang dipilih.
+                    </div>
                 </div>
             </div>
 
@@ -83,4 +96,45 @@
 </fieldset>
 
 </div>
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const filterTingkat = document.getElementById('filter_tingkat');
+        const selectKelas   = document.getElementById('id_kelas');
+        if (!filterTingkat || !selectKelas) return;
+
+        /**
+         * Terapkan visibilitas opsi kelas sesuai filter tingkatan.
+         * @param {boolean} resetKelas - true = reset pilihan kelas (saat filter berubah).
+         */
+        function syncKelasOptions(resetKelas) {
+            const chosen = filterTingkat.value; // '' = semua tingkatan
+            if (resetKelas) selectKelas.value = '';
+
+            Array.from(selectKelas.options).forEach(function (opt) {
+                if (opt.value === '') return; // opsi placeholder "-- Pilih Kelas --"
+                const tingkat = opt.getAttribute('data-tingkatan') || '';
+                opt.hidden = (chosen !== '' && tingkat !== chosen);
+            });
+        }
+
+        // Arah 1 (Filter): pilih Tingkatan -> filter opsi Kelas (+ reset pilihan Kelas).
+        filterTingkat.addEventListener('change', function () {
+            syncKelasOptions(true);
+        });
+
+        // Arah 2 (Auto-Select): pilih Kelas langsung -> sinkronkan nilai Tingkatan.
+        selectKelas.addEventListener('change', function () {
+            const selected = selectKelas.options[selectKelas.selectedIndex];
+            if (!selected || selected.value === '') return;
+
+            const tingkat = selected.getAttribute('data-tingkatan') || '';
+            if (tingkat !== '') {
+                filterTingkat.value = tingkat;   // ikuti tingkatan kelas yang dipilih
+                syncKelasOptions(false);         // sembunyikan kelas di luar tingkatan tsb, tanpa reset pilihan
+            }
+        });
+    });
+</script>
+@endpush
 @endsection

@@ -39,14 +39,53 @@ class RuanganController extends Controller
         }
 
         $dataRuangan = $query
-            ->orderBy('kode_ruangan')
+            ->orderBy('id', 'asc')
             ->get();
 
         $guruList = User::whereIn('role', ['admin', 'guru'])
             ->orderBy('nama')
             ->get();
 
+        // Request AJAX (live filter) → kirim hanya HTML partial hasil filter
+        // agar daftar bisa di-update tanpa me-refresh seluruh halaman.
+        if ($request->ajax()) {
+            return response()->json([
+                'html' => view('admin.ruangan._results', compact('dataRuangan'))->render(),
+            ]);
+        }
+
         return view('admin.ruangan.index', compact('dataRuangan', 'guruList'));
+    }
+
+    public function create()
+    {
+        $this->authorizePetugasTU();
+
+        $guruList = User::whereIn('role', ['admin', 'guru'])
+            ->orderBy('nama')
+            ->get();
+
+        return view('admin.ruangan.create', [
+            'guruList' => $guruList,
+            'pengurusSelected' => old('pengurus', []),
+        ]);
+    }
+
+    public function edit($id)
+    {
+        $this->authorizePetugasTU();
+
+        $ruangan = Ruangan::with('pengurus')->findOrFail($id);
+
+        $guruList = User::whereIn('role', ['admin', 'guru'])
+            ->orderBy('nama')
+            ->get();
+
+        return view('admin.ruangan.edit', [
+            'ruangan' => $ruangan,
+            'guruList' => $guruList,
+            'pengurusSelected' => old('pengurus', $ruangan->pengurus->pluck('id')->all()),
+        ]);
     }
 
     public function store(Request $request)

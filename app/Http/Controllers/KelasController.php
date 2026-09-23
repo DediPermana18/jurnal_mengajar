@@ -99,6 +99,14 @@ class KelasController extends Controller
             ->mapWithKeys(fn ($row) => [$row->tingkat.'|'.$row->id_jurusan => (int) $row->total])
             ->all();
 
+        // Request AJAX (live filter) → kirim hanya HTML partial hasil filter
+        // agar daftar bisa di-update tanpa me-refresh seluruh halaman.
+        if ($request->ajax()) {
+            return response()->json([
+                'html' => view('admin.kelas._results', compact('dataKelas', 'daftarJurusan', 'daftarWaliKelas'))->render(),
+            ]);
+        }
+
         return view('admin.kelas.index', compact('dataKelas', 'daftarJurusan', 'daftarWaliKelas', 'countsByKombinasi'));
     }
 

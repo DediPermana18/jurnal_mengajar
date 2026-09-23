@@ -86,21 +86,24 @@
 
     <!-- FILTER BAR (CARD PUTIH) -->
     <div class="card border-0 shadow-sm rounded-4 p-3.5 bg-white mb-4">
-        <form action="{{ route('kelas.index') }}" method="GET" class="d-flex flex-wrap align-items-center gap-3">
-            
+        {{-- Filter bekerja live via AJAX (debounce pada search, fetch partial hasil) --}}
+        <form id="filterKelasForm" action="{{ route('kelas.index') }}" method="GET" class="d-flex flex-wrap align-items-center gap-3">
+
             <!-- Cari Kelas -->
-            <div class="flex-grow-1 position-relative" style="min-width: 240px; max-width: 450px;">
+            <div class="flex-grow-1 position-relative w-full sm:w-auto" style="min-width: 240px; max-width: 450px;">
                 <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.9rem;"></i>
-                <input type="text" 
-                       name="search" 
-                       value="{{ request('search') }}" 
-                       class="form-control bg-light rounded-3 ps-5" 
-                       placeholder="Cari nama kelas atau wali kelas...">
+                <input type="text"
+                       id="searchKelas"
+                       name="search"
+                       value="{{ request('search') }}"
+                       class="form-control bg-light rounded-lg ps-5"
+                       placeholder="Cari nama kelas atau wali kelas..."
+                       autocomplete="off">
             </div>
 
-            <!-- Dropdown Filter Tingkat -->
-            <div style="width: 180px;">
-                <select name="tingkat" class="form-select bg-light rounded-3" onchange="this.form.submit()">
+            <!-- Dropdown Filter Tingkat (full-width di mobile, 180px di ≥sm) -->
+            <div class="w-full sm:w-[180px]">
+                <select name="tingkat" id="tingkatKelas" class="form-select bg-light rounded-lg w-full">
                     <option value="Semua Tingkat" {{ request('tingkat') == 'Semua Tingkat' ? 'selected' : '' }}>Semua Tingkat</option>
                     <option value="X" {{ request('tingkat') == 'X' ? 'selected' : '' }}>Kelas X</option>
                     <option value="XI" {{ request('tingkat') == 'XI' ? 'selected' : '' }}>Kelas XI</option>
@@ -108,9 +111,9 @@
                 </select>
             </div>
 
-            <!-- Dropdown Filter Jurusan -->
-            <div style="width: 220px;">
-                <select name="jurusan" class="form-select bg-light rounded-3" onchange="this.form.submit()">
+            <!-- Dropdown Filter Jurusan (full-width di mobile, 220px di ≥sm) -->
+            <div class="w-full sm:w-[220px]">
+                <select name="jurusan" id="jurusanKelas" class="form-select bg-light rounded-lg w-full">
                     <option value="Semua Jurusan" {{ request('jurusan') == 'Semua Jurusan' ? 'selected' : '' }}>Semua Jurusan</option>
                     @foreach($daftarJurusan as $jur)
                         <option value="{{ $jur->id }}" {{ request('jurusan') == $jur->id ? 'selected' : '' }}>
@@ -123,172 +126,24 @@
         </form>
     </div>
 
-    <!-- TABEL DATA MASTER KELAS -->
-    <div class="table-card-custom mb-4" style="overflow: visible;">
-        <div class="table-responsive w-full overflow-x-auto" style="min-height: 280px; padding-bottom: 2rem;">
-            <table class="table table-custom align-middle min-w-full">
-                <thead>
-                    <tr>
-                        <th class="whitespace-nowrap" style="width: 25%;">NAMA KELAS</th>
-                        <th class="whitespace-nowrap" style="width: 15%;">TINGKAT</th>
-                        <th class="whitespace-nowrap" style="width: 25%;">JURUSAN</th>
-                        <th style="width: 25%;">WALI KELAS</th>
-                        <th class="whitespace-nowrap" style="width: 10%;">TOTAL SISWA</th>
-                        @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
-                            <th class="text-end whitespace-nowrap" style="width: 10%;">AKSI</th>
-                        @endif
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($dataKelas as $kelas)
-                        @php
-                            // Warna badge tingkat
-                            $tingkatColor = match($kelas->tingkat) {
-                                'X'   => ['bg' => '#dcfce7', 'color' => '#166534', 'border' => '#bbf7d0'],
-                                'XI'  => ['bg' => '#fef9c3', 'color' => '#854d0e', 'border' => '#fef08a'],
-                                'XII' => ['bg' => '#dbeafe', 'color' => '#1d4ed8', 'border' => '#bfdbfe'],
-                                default => ['bg' => '#f1f5f9', 'color' => '#475569', 'border' => '#e2e8f0']
-                            };
+    <!-- ====================================================== -->
+    <!-- HASIL FILTER (DI-UPDATE VIA AJAX)                      -->
+    <!-- Wrapper stabil utk delegasi event + overlay loading.   -->
+    <!-- ====================================================== -->
+    <div id="kelasResultsWrapper" style="position: relative;">
+        <div id="kelasResults">
+    @include('admin.kelas._results')
 
-                            // Inisial Wali Kelas jika ada
-                            $waliInitial = '-';
-                            if ($kelas->waliKelas) {
-                                $words = explode(' ', trim($kelas->waliKelas->nama));
-                                $waliInitial = strtoupper(substr($words[0], 0, 1));
-                                if (count($words) > 1) {
-                                    $waliInitial .= strtoupper(substr(end($words), 0, 1));
-                                }
-                            }
-                        @endphp
-                        <tr>
-                            <!-- Kolom NAMA KELAS -->
-                            <td>
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="badge fw-bold px-3 py-2 rounded-3 shadow-none" 
-                                          style="background-color: {{ $tingkatColor['bg'] }}; color: {{ $tingkatColor['color'] }}; border: 1px solid {{ $tingkatColor['border'] }}; font-size: 0.9rem; letter-spacing: 0.01em;">
-                                        {{ $kelas->nama_kelas }}
-                                    </span>
-                                </div>
-                            </td>
-
-                            <!-- Kolom TINGKAT -->
-                            <td>
-                                <span class="badge bg-light text-dark border px-2 py-1 rounded-2 font-monospace" style="font-size: 0.8rem;">
-                                    {{ $kelas->tingkat }}
-                                </span>
-                            </td>
-
-                            <!-- Kolom JURUSAN -->
-                            <td>
-                                @if($kelas->jurusan)
-                                    <div>
-                                        <span class="badge bg-light text-secondary border px-2 py-1 font-monospace mb-1" style="font-size: 0.75rem;">
-                                            {{ $kelas->jurusan->kode_jurusan }}
-                                        </span>
-                                        <div class="fw-semibold text-dark" style="font-size: 0.875rem;">
-                                            {{ $kelas->jurusan->nama_jurusan }}
-                                        </div>
-                                    </div>
-                                @else
-                                    <span class="text-muted" style="font-size: 0.85rem;">-</span>
-                                @endif
-                            </td>
-
-                            <!-- Kolom WALI KELAS -->
-                            <td>
-                                @if($kelas->waliKelas)
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="rounded-circle bg-secondary-subtle text-secondary fw-bold d-flex align-items-center justify-content-center shrink-0" 
-                                             style="width: 36px; height: 36px; font-size: 0.8rem;">
-                                            {{ $waliInitial }}
-                                        </div>
-                                        <div>
-                                            <div class="fw-bold text-dark" style="font-size: 0.9rem;">
-                                                {{ $kelas->waliKelas->nama }}
-                                            </div>
-                                            <div class="text-muted" style="font-size: 0.78rem;">
-                                                NIP: {{ $kelas->waliKelas->nip ?? '-' }}
-                                            </div>
-                                        </div>
-                                    </div>
-                                @else
-                                    <span class="badge bg-light text-muted border px-2 py-1 rounded-pill" style="font-size: 0.78rem;">
-                                        <i class="bi bi-person-x me-1"></i> Belum ada wali
-                                    </span>
-                                @endif
-                            </td>
-
-                            <!-- Kolom TOTAL SISWA -->
-                            <td>
-                                <a href="{{ route('kelas.show', $kelas->id) }}" class="text-decoration-none">
-                                    <span class="badge bg-light text-primary border border-primary-subtle px-3 py-2 rounded-3 fw-bold" style="font-size: 0.85rem;">
-                                        {{ $kelas->siswa_count ?? 0 }}
-                                    </span>
-                                </a>
-                            </td>
-
-                            <!-- Kolom AKSI -->
-                            @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
-                                <td class="text-end whitespace-nowrap">
-                                    <div class="dropdown">
-                                        <button class="btn btn-sm btn-light border rounded-3 dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-boundary="window" aria-expanded="false">
-                                            <i class="bi bi-three-dots-vertical"></i>
-                                        </button>
-                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3 z-50" style="z-index: 1050;">
-                                            <!-- Detail Kelas & Siswa -->
-                                            <li>
-                                                <a href="{{ route('kelas.show', $kelas->id) }}" class="dropdown-item py-2">
-                                                    <i class="bi bi-eye me-2 text-info"></i> Detail Kelas & Siswa
-                                                </a>
-                                            </li>
-
-                                            <!-- Edit Kelas -->
-                                            <li>
-                                                <button type="button" class="dropdown-item py-2" data-bs-toggle="modal" data-bs-target="#modalEditKelas{{ $kelas->id }}">
-                                                    <i class="bi bi-pencil-square me-2 text-warning"></i> Edit Kelas
-                                                </button>
-                                            </li>
-
-                                            <li><hr class="dropdown-divider"></li>
-
-                                            <!-- Hapus Kelas -->
-                                            <li>
-                                                <form action="{{ route('kelas.destroy', $kelas->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus data kelas {{ $kelas->nama_kelas }}?')">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="dropdown-item py-2 text-danger">
-                                                        <i class="bi bi-trash me-2"></i> Hapus Kelas
-                                                    </button>
-                                                </form>
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </td>
-                            @endif
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="{{ in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()) ? 6 : 5 }}" class="text-center py-5 text-muted">
-                                <i class="bi bi-door-closed fs-1 d-block mb-2 text-secondary"></i>
-                                Belum ada data kelas yang sesuai dengan kriteria pencarian/filter.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
         </div>
 
-        <!-- FOOTER TABEL & PAGINATION -->
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-4 pt-3 border-top">
-            <div class="text-muted small mb-3 mb-md-0">
-                Menampilkan <strong>{{ $dataKelas->firstItem() ?? 0 }}</strong>-<strong>{{ $dataKelas->lastItem() ?? 0 }}</strong> dari <strong>{{ $dataKelas->total() }}</strong> Kelas
-            </div>
-            <div>
-                {{ $dataKelas->links() }}
+        {{-- Loading indicator (spinner tipis saat fetch berlangsung) --}}
+        <div id="kelasLoading" class="master-list-loading" style="display: none; position: absolute; inset: 0; z-index: 20; align-items: center; justify-content: center; background: rgba(255,255,255,0.65); border-radius: 16px;">
+            <div class="d-flex align-items-center gap-2 px-3 py-2 bg-white rounded-3 shadow-sm">
+                <div class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></div>
+                <span class="small fw-semibold text-muted">Memuat data...</span>
             </div>
         </div>
     </div>
-
 </div>
 
 <!-- ================= MODALS KHUSUS ROLE ADMIN ================= -->
@@ -373,88 +228,117 @@
     </div>
 </div>
 
-<!-- MODALS EDIT KELAS -->
-@foreach($dataKelas as $kelas)
-<div class="modal fade" id="modalEditKelas{{ $kelas->id }}" tabindex="-1" aria-labelledby="modalEditKelasLabel{{ $kelas->id }}" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow rounded-4">
-            <div class="modal-header border-0 pb-0">
-                <h5 class="modal-title fw-bold text-dark" id="modalEditKelasLabel{{ $kelas->id }}">Edit Data Kelas</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form action="{{ route('kelas.update', $kelas->id) }}" method="POST">
-                @csrf
-                @method('PUT')
-                <div class="modal-body py-4">
-                    <!-- NAMA KELAS -->
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-secondary small">NAMA KELAS <span class="text-danger">*</span></label>
-                        <input type="text" name="nama_kelas" value="{{ old('nama_kelas', $kelas->nama_kelas) }}" required class="form-control rounded-3" placeholder="misal: RPL 1, TKJ 2">
-                    </div>
-
-                    <!-- TINGKAT -->
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-secondary small">TINGKAT KELAS <span class="text-danger">*</span></label>
-                        <select name="tingkat" class="form-select rounded-3" required>
-                            <option value="X" {{ old('tingkat', $kelas->tingkat) == 'X' ? 'selected' : '' }}>Kelas X (Sepuluh)</option>
-                            <option value="XI" {{ old('tingkat', $kelas->tingkat) == 'XI' ? 'selected' : '' }}>Kelas XI (Sebelas)</option>
-                            <option value="XII" {{ old('tingkat', $kelas->tingkat) == 'XII' ? 'selected' : '' }}>Kelas XII (Dua Belas)</option>
-                        </select>
-                    </div>
-
-                    <!-- JURUSAN -->
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-secondary small">KOMPETENSI KEAHLIAN / JURUSAN <span class="text-danger">*</span></label>
-                        <select name="id_jurusan" class="form-select rounded-3" required>
-                            <option value="">-- Pilih Jurusan --</option>
-                            @foreach($daftarJurusan as $jurusan)
-                                <option value="{{ $jurusan->id }}" {{ old('id_jurusan', $kelas->id_jurusan) == $jurusan->id ? 'selected' : '' }}>
-                                    {{ $jurusan->kode_jurusan }} - {{ $jurusan->nama_jurusan }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <!-- WALI KELAS -->
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-secondary small">WALI KELAS (OPSIONAL)</label>
-                        <select name="id_wali_kelas" class="form-select rounded-3">
-                            <option value="">-- Belum Ditentukan / Kosongkan --</option>
-                            @foreach($daftarWaliKelas as $wali)
-                                @php
-                                    $isCurrentWali = ($kelas->id_wali_kelas == $wali->id);
-                                    $hasOtherKelas = $wali->kelasWali->isNotEmpty() && !$isCurrentWali;
-                                    $namaKelasDipegang = $hasOtherKelas ? $wali->kelasWali->pluck('nama_kelas')->join(', ') : '';
-                                @endphp
-                                <option value="{{ $wali->id }}" 
-                                        {{ old('id_wali_kelas', $kelas->id_wali_kelas) == $wali->id ? 'selected' : '' }} 
-                                        {{ $hasOtherKelas ? 'disabled' : '' }}>
-                                    {{ $wali->nama }} @if($wali->nip) (NIP: {{ $wali->nip }}) @endif
-                                    @if($isCurrentWali)
-                                        - [Wali Saat Ini]
-                                    @elseif($hasOtherKelas)
-                                        - [Sudah menjadi wali di {{ $namaKelasDipegang }}]
-                                    @endif
-                                </option>
-                            @endforeach
-                        </select>
-                        <div class="form-text text-muted small">1 Guru hanya dapat ditugaskan menjadi Wali Kelas untuk 1 kelas.</div>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 pt-0">
-                    <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold">Simpan Perubahan</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-@endforeach
+<!-- MODALS EDIT KELAS per baris dipindah ke admin.kelas._results (partial AJAX) -->
+<!-- agar selalu sinkron dengan baris data hasil filter terbaru.              -->
 
 @endif
 
 @push('scripts')
 <script>
+    // ── Live AJAX Filter Data Master Kelas ──────────────────────────────
+    // Search & dropdown memicu fetch partial hasil tanpa me-refresh halaman.
+    // Debounce 300ms pada input search. Partial DOM update + spinner loading.
+    (function () {
+        const wrapperEl = document.getElementById('kelasResultsWrapper');
+        const resultsEl = document.getElementById('kelasResults');
+        const loadingEl = document.getElementById('kelasLoading');
+        const form      = document.getElementById('filterKelasForm');
+        if (!wrapperEl || !resultsEl || !form) return;
+
+        const searchInput    = document.getElementById('searchKelas');
+        const tingkatSelect  = document.getElementById('tingkatKelas');
+        const jurusanSelect  = document.getElementById('jurusanKelas');
+        const BASE_URL       = '{{ route("kelas.index") }}';
+
+        let currentPage = {{ (int) $dataKelas->currentPage() }};
+        let requestSeq  = 0;
+
+        function debounce(fn, ms) {
+            let timer;
+            return function (...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), ms);
+            };
+        }
+
+        function buildQuery() {
+            const params = new URLSearchParams();
+            const search = searchInput ? searchInput.value.trim() : '';
+            if (search) params.set('search', search);
+            if (tingkatSelect && tingkatSelect.value && tingkatSelect.value !== 'Semua Tingkat') {
+                params.set('tingkat', tingkatSelect.value);
+            }
+            if (jurusanSelect && jurusanSelect.value && jurusanSelect.value !== 'Semua Jurusan') {
+                params.set('jurusan', jurusanSelect.value);
+            }
+            if (currentPage > 1) params.set('page', currentPage);
+            return params;
+        }
+
+        function refresh() {
+            const seq = ++requestSeq;
+            loadingEl.style.display = 'flex';
+
+            const params = buildQuery();
+            const qs    = params.toString();
+            const targetUrl = BASE_URL + (qs ? '?' + qs : '');
+
+            // Sinkronkan URL tanpa me-refresh halaman (bisa di-share / di-bookmark)
+            window.history.replaceState(null, '', targetUrl);
+
+            fetch(targetUrl, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            })
+            .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(data => {
+                if (seq !== requestSeq) return; // respon basi diabaikan
+                resultsEl.innerHTML = data.html;
+            })
+            .catch(() => {
+                if (seq !== requestSeq) return;
+                // Fallback: muat ulang halaman agar data tetap tampil
+                window.location.href = targetUrl;
+            })
+            .finally(() => {
+                if (seq === requestSeq) loadingEl.style.display = 'none';
+            });
+        }
+
+        // 1) Search input → debounce ±300ms
+        if (searchInput) {
+            searchInput.addEventListener('input', debounce(() => { currentPage = 1; refresh(); }, 300));
+        }
+
+        // 2) Dropdown berubah → filter langsung
+        [tingkatSelect, jurusanSelect].forEach(sel => {
+            if (sel) sel.addEventListener('change', () => { currentPage = 1; refresh(); });
+        });
+
+        // 3) Cegah submit GET biasa (Enter di input search)
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            currentPage = 1;
+            refresh();
+        });
+
+        // 4) Pagination tanpa reload (delegasi pada wrapper; Bootstrap page-link)
+        wrapperEl.addEventListener('click', (e) => {
+            const pageLink = e.target.closest('a.page-link, a.pagination-btn');
+            if (!pageLink) return;
+            const u = new URL(pageLink.href);
+            if (!u.searchParams.has('page')) return;
+            e.preventDefault();
+            const p = parseInt(u.searchParams.get('page') || '1', 10);
+            if (!Number.isNaN(p) && p >= 1) {
+                currentPage = p;
+                refresh();
+            }
+        });
+    })();
+
     (function () {
         const counts = @json($countsByKombinasi ?? []);
 

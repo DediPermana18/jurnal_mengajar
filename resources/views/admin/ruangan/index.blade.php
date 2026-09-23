@@ -32,10 +32,10 @@
                     </ul>
                 </div>
 
-                <!-- Tombol Tambah Ruangan -->
-                <button type="button" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm w-full sm:w-auto text-center" data-bs-toggle="modal" data-bs-target="#modalTambahRuangan">
+                <!-- Tombol Tambah Ruangan (halaman dedicated) -->
+                <a href="{{ route('ruangan.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm w-full sm:w-auto text-center">
                     <i class="bi bi-plus-lg me-1"></i> Tambah Ruangan
-                </button>
+                </a>
             </div>
         @endif
     </div>
@@ -81,233 +81,41 @@
 
     {{-- Search Bar --}}
     <div class="card border-0 shadow-sm rounded-4 p-3.5 bg-white mb-4">
-        <form action="{{ route('ruangan.index') }}" method="GET">
+        {{-- Filter bekerja live via AJAX (debounce pada search) --}}
+        <form id="filterRuanganForm" action="{{ route('ruangan.index') }}" method="GET">
         <div class="position-relative" style="max-width: 450px;">
             <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.9rem;"></i>
                 <input type="text"
+                       id="searchRuangan"
                        name="search"
                        value="{{ request('search') }}"
                        class="form-control bg-light rounded-3 ps-5"
-                       placeholder="Cari kode, nama ruangan, lokasi, atau pengurus...">
+                       placeholder="Cari kode, nama ruangan, lokasi, atau pengurus..."
+                       autocomplete="off">
             </div>
         </form>
     </div>
 
-    {{-- Table --}}
-    <div class="table-card-custom mb-4">
-        <div class="table-responsive w-full overflow-x-auto">
-            <table class="table table-custom align-middle min-w-full">
-                <thead>
-                    <tr>
-                        <th class="whitespace-nowrap" style="width: 5%;">NO</th>
-                        <th class="whitespace-nowrap" style="width: 12%;">KODE</th>
-                        <th class="whitespace-nowrap" style="width: 20%;">NAMA RUANGAN</th>
-                        <th style="width: 20%;">LOKASI / GEDUNG</th>
-                        <th style="width: 18%;">KELAS / JADWAL</th>
-                        <th style="width: 18%;">PENGURUS</th>
-                        <th class="text-center whitespace-nowrap" style="width: 10%;">AKSI</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($dataRuangan as $ruangan)
-                        <tr>
-                            <td class="whitespace-nowrap">{{ $loop->iteration }}</td>
-                            <td class="whitespace-nowrap">
-                                <span class="badge bg-light text-dark border px-3 py-2 rounded-3 font-monospace">{{ $ruangan->kode_ruangan }}</span>
-                            </td>
-                            <td class="fw-semibold text-dark">{{ $ruangan->nama_ruangan }}</td>
-                            <td class="text-muted">{{ $ruangan->lokasi ?? '-' }}</td>
-                            <td>
-                                @php
-                                    $kelasDipakai = $ruangan->jadwalPelajaran
-                                        ->map(fn($jp) => $jp->kelas)
-                                        ->filter()
-                                        ->unique('id');
-                                @endphp
-                                @if($kelasDipakai->isEmpty())
-                                    <span class="text-muted small">-</span>
-                                @else
-                                    <div class="d-flex flex-wrap gap-1">
-                                        @foreach($kelasDipakai as $kelas)
-                                            @php
-                                                $namaLengkapKelas = ($kelas->tingkat && !str_starts_with($kelas->nama_kelas, $kelas->tingkat . ' '))
-                                                    ? $kelas->tingkat . ' ' . $kelas->nama_kelas
-                                                    : $kelas->nama_kelas;
-                                            @endphp
-                                            <span class="badge bg-light text-dark border rounded-pill px-2 py-1" style="font-size: 0.75rem;">
-                                                {{ $namaLengkapKelas }}
-                                            </span>
-                                        @endforeach
-                                    </div>
-                                @endif
-                            </td>
-                            <td>
-                                @if($ruangan->pengurus->isEmpty())
-                                    <span class="text-muted small">-</span>
-                                @else
-                                    <div class="d-flex flex-wrap gap-1">
-                                        @foreach($ruangan->pengurus as $pengurus)
-                                            <span class="badge bg-primary-subtle text-primary border rounded-pill px-2 py-1" style="font-size: 0.75rem;">
-                                                {{ $pengurus->nama }}
-                                            </span>
-                                        @endforeach
-                                    </div>
-                                @endif
-                            </td>
-                            <td class="whitespace-nowrap">
-                                @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
-                                    <div class="flex items-center justify-center gap-2 whitespace-nowrap">
-                                        <button type="button" class="btn btn-sm btn-warning text-white rounded-3 px-2 py-1" title="Edit ruangan"
-                                                data-bs-toggle="modal" data-bs-target="#modalEditRuangan"
-                                                onclick="openEditModal({{ $ruangan->id }}, '{{ addslashes($ruangan->kode_ruangan) }}', '{{ addslashes($ruangan->nama_ruangan) }}', '{{ addslashes($ruangan->lokasi) }}', {{ $ruangan->pengurus->pluck('id') }})">
-                                            <i class="bi bi-pencil-square"></i>
-                                        </button>
-                                        <form action="{{ route('ruangan.destroy', $ruangan->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus data ruangan ini? Data yang sudah dihapus tidak dapat dipulihkan.')">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-3 px-2 py-1" title="Hapus ruangan">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                @endif
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="7" class="text-center py-5 text-muted">
-                                <i class="bi bi-building fs-1 d-block mb-2"></i>
-                                Belum ada data ruangan.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
+    {{-- ====================================================== --}}
+    {{-- HASIL FILTER (DI-UPDATE VIA AJAX)                       --}}
+    {{-- ====================================================== --}}
+    <div id="ruanganResultsWrapper" style="position: relative;">
+        <div id="ruanganResults">
+            @include('admin.ruangan._results')
+        </div>
+
+        {{-- Loading indicator (spinner tipis saat fetch berlangsung) --}}
+        <div id="ruanganLoading" class="master-list-loading" style="display: none; position: absolute; inset: 0; z-index: 20; align-items: center; justify-content: center; background: rgba(255,255,255,0.65); border-radius: 16px;">
+            <div class="d-flex align-items-center gap-2 px-3 py-2 bg-white rounded-3 shadow-sm">
+                <div class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></div>
+                <span class="small fw-semibold text-muted">Memuat data...</span>
+            </div>
         </div>
     </div>
 </div>
 
-{{-- ==================== MODAL TAMBAH RUANGAN ==================== --}}
-@if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
-<div class="modal fade" id="modalTambahRuangan" tabindex="-1" aria-labelledby="modalTambahRuanganLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow rounded-4">
-            <form action="{{ route('ruangan.store') }}" method="POST">
-                @csrf
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold" id="modalTambahRuanganLabel">
-                        <i class="bi bi-building-add text-primary me-2"></i>Tambah Ruangan Baru
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <label for="kode_ruangan" class="form-label fw-semibold">Kode Ruangan <span class="text-danger">*</span></label>
-                            <input type="text" name="kode_ruangan" id="kode_ruangan"
-                                   class="form-control rounded-3 @error('kode_ruangan') is-invalid @enderror"
-                                   value="{{ old('kode_ruangan') }}" placeholder="contoh: R-101" required>
-                            @error('kode_ruangan') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        </div>
-                        <div class="col-md-8">
-                            <label for="nama_ruangan_tambah" class="form-label fw-semibold">Nama Ruangan <span class="text-danger">*</span></label>
-                            <input type="text" name="nama_ruangan" id="nama_ruangan_tambah"
-                                   class="form-control rounded-3 @error('nama_ruangan') is-invalid @enderror"
-                                   value="{{ old('nama_ruangan') }}" placeholder="contoh: Kelas 101" required>
-                            @error('nama_ruangan') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        </div>
-                        <div class="col-12">
-                            <label for="lokasi_tambah" class="form-label fw-semibold">Lokasi / Gedung</label>
-                            <input type="text" name="lokasi" id="lokasi_tambah"
-                                   class="form-control rounded-3 @error('lokasi') is-invalid @enderror"
-                                   value="{{ old('lokasi') }}" placeholder="contoh: Gedung A Lantai 1">
-                            @error('lokasi') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        </div>
-                        <div class="col-12">
-                            <label for="pengurus_tambah" class="form-label fw-semibold">Pengurus Ruangan</label>
-                            <select name="pengurus[]" id="pengurus_tambah"
-                                    class="form-select rounded-3 @error('pengurus') is-invalid @enderror"
-                                    multiple size="5">
-                                @foreach($guruList as $guru)
-                                    <option value="{{ $guru->id }}" {{ in_array($guru->id, old('pengurus', [])) ? 'selected' : '' }}>
-                                        {{ $guru->nama }} — {{ $guru->role_label }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <div class="form-text">Tahan <kbd>Ctrl</kbd> (Windows) / <kbd>Cmd</kbd> (Mac) untuk memilih lebih dari satu.</div>
-                            @error('pengurus') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 pt-0">
-                    <button type="button" class="btn btn-light rounded-3 fw-semibold" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-primary rounded-3 fw-semibold px-4">
-                        <i class="bi bi-check-lg me-1"></i> Simpan
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-{{-- ==================== MODAL EDIT RUANGAN ==================== --}}
-<div class="modal fade" id="modalEditRuangan" tabindex="-1" aria-labelledby="modalEditRuanganLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow rounded-4">
-            <form action="" method="POST" id="formEditRuangan">
-                @csrf
-                @method('PUT')
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold" id="modalEditRuanganLabel">
-                        <i class="bi bi-pencil-square text-warning me-2"></i>Edit Ruangan
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <label for="kode_ruangan_edit" class="form-label fw-semibold">Kode Ruangan <span class="text-danger">*</span></label>
-                            <input type="text" name="kode_ruangan" id="kode_ruangan_edit"
-                                   class="form-control rounded-3 @error('kode_ruangan') is-invalid @enderror"
-                                   required>
-                            @error('kode_ruangan') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        </div>
-                        <div class="col-md-8">
-                            <label for="nama_ruangan_edit" class="form-label fw-semibold">Nama Ruangan <span class="text-danger">*</span></label>
-                            <input type="text" name="nama_ruangan" id="nama_ruangan_edit"
-                                   class="form-control rounded-3 @error('nama_ruangan') is-invalid @enderror"
-                                   required>
-                            @error('nama_ruangan') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        </div>
-                        <div class="col-12">
-                            <label for="lokasi_edit" class="form-label fw-semibold">Lokasi / Gedung</label>
-                            <input type="text" name="lokasi" id="lokasi_edit"
-                                   class="form-control rounded-3 @error('lokasi') is-invalid @enderror">
-                            @error('lokasi') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        </div>
-                        <div class="col-12">
-                            <label for="pengurus_edit" class="form-label fw-semibold">Pengurus Ruangan</label>
-                            <select name="pengurus[]" id="pengurus_edit"
-                                    class="form-select rounded-3 @error('pengurus') is-invalid @enderror"
-                                    multiple size="5">
-                                @foreach($guruList as $guru)
-                                    <option value="{{ $guru->id }}">
-                                        {{ $guru->nama }} — {{ $guru->role_label }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <div class="form-text">Tahan <kbd>Ctrl</kbd> (Windows) / <kbd>Cmd</kbd> (Mac) untuk memilih lebih dari satu.</div>
-                            @error('pengurus') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 pt-0">
-                    <button type="button" class="btn btn-light rounded-3 fw-semibold" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-warning rounded-3 fw-semibold px-4">
-                        <i class="bi bi-check-lg me-1"></i> Simpan Perubahan
-                    </button>
-                </div>
 {{-- ==================== MODAL IMPORT RUANGAN ==================== --}}
+@if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
 <div class="modal fade" id="modalImportRuangan" tabindex="-1" aria-labelledby="modalImportRuanganLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow rounded-4">
@@ -363,18 +171,68 @@
 
 @push('scripts')
 <script>
-    function openEditModal(id, kode, nama, lokasi, pengurusIds) {
-        const form = document.getElementById('formEditRuangan');
-        form.action = '/admin/ruangan/' + id;
+    // ── Live AJAX Filter Data Master Ruangan ───────────────────────────
+    (function () {
+        const wrapperEl = document.getElementById('ruanganResultsWrapper');
+        const resultsEl = document.getElementById('ruanganResults');
+        const loadingEl = document.getElementById('ruanganLoading');
+        const form      = document.getElementById('filterRuanganForm');
+        if (!wrapperEl || !resultsEl || !form) return;
 
-        document.getElementById('kode_ruangan_edit').value = kode;
-        document.getElementById('nama_ruangan_edit').value = nama;
-        document.getElementById('lokasi_edit').value = lokasi;
+        const searchInput = document.getElementById('searchRuangan');
+        const BASE_URL    = '{{ route("ruangan.index") }}';
+        let requestSeq    = 0;
 
-        const select = document.getElementById('pengurus_edit');
-        for (let i = 0; i < select.options.length; i++) {
-            select.options[i].selected = pengurusIds.includes(select.options[i].value);
+        function debounce(fn, ms) {
+            let timer;
+            return function (...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), ms);
+            };
         }
-    }
+
+        function refresh() {
+            const seq = ++requestSeq;
+            loadingEl.style.display = 'flex';
+
+            const params = new URLSearchParams();
+            const search = searchInput ? searchInput.value.trim() : '';
+            if (search) params.set('search', search);
+            const qs = params.toString();
+            const targetUrl = BASE_URL + (qs ? '?' + qs : '');
+
+            window.history.replaceState(null, '', targetUrl);
+
+            fetch(targetUrl, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            })
+            .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(data => {
+                if (seq !== requestSeq) return; // respon basi diabaikan
+                resultsEl.innerHTML = data.html;
+            })
+            .catch(() => {
+                if (seq !== requestSeq) return;
+                window.location.href = targetUrl;
+            })
+            .finally(() => {
+                if (seq === requestSeq) loadingEl.style.display = 'none';
+            });
+        }
+
+        // 1) Search input → debounce ±300ms
+        if (searchInput) {
+            searchInput.addEventListener('input', debounce(refresh, 300));
+        }
+
+        // 2) Cegah submit GET biasa (Enter di input search)
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            refresh();
+        });
+    })();
 </script>
 @endpush

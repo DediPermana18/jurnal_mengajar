@@ -16,12 +16,7 @@
         box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.55);
     }
 
-    /* Chip guru per kategori */
-    .guru-chip {
-        max-width: 100%;
-    }
-
-    /* Style untuk badge kategori (format SK) */
+    /* Style dasar badge kategori / grup shift */
     .shift-badge {
         font-size: 0.7rem;
         padding: 0.3rem 0.65rem;
@@ -30,12 +25,6 @@
         letter-spacing: 0.02em;
         white-space: nowrap;
     }
-    .shift-pagi { background: #dbeafe; color: #1e40af; }
-    .shift-koord-pagi { background: #ddd6fe; color: #5b21b6; }
-    .shift-siang { background: #f3f4f6; color: #374151; }
-    .shift-koord-siang { background: #e0e7ff; color: #3730a3; }
-    .shift-waka { background: #fef3c7; color: #92400e; }
-    .shift-lain { background: #f1f5f9; color: #475569; }
 </style>
 @endpush
 
@@ -143,52 +132,70 @@
                         || str_starts_with(strtolower((string) optional($r->shift)->nama), 'siang'))
                     ->groupBy(fn ($r) => optional($r->shift)->nama ?? 'Lainnya');
 
-                $sections = collect([
+                // ===== Pengelompokan visual: Grup Pagi (cerah/hangat) vs Grup Siang (redup/gelap) =====
+                // Kontras warna sengaja dibuat berbeda: Pagi memakai aksen terang/hangat
+                // (amber/sky), Siang memakai aksen lebih gelap/redup (indigo/slate).
+                $groups = collect([
                     [
-                        'label'  => 'Waka Piket',
-                        'icon'   => 'bi-person-badge-fill',
-                        'class'  => 'shift-waka',
-                        'rows'   => $wakaHariIni,
-                        'person' => fn ($row) => $row->waka,
+                        'title'    => 'SHIFT PAGI',
+                        'icon'     => 'bi-sun-fill',
+                        'header'   => 'bg-amber-500 text-white',
+                        'wrapper'  => 'bg-amber-50/50 border-amber-300',
+                        'sections' => collect([
+                            [
+                                'label'  => 'Koordinator Pagi',
+                                'icon'   => 'bi-flag-fill',
+                                'badge'  => 'bg-sky-600 text-white',
+                                'rows'   => $koorPagiHariIni,
+                                'person' => fn ($row) => $row->koordinatorPagi,
+                            ],
+                            [
+                                'label'  => 'Petugas Pagi',
+                                'icon'   => 'bi-sun-fill',
+                                'badge'  => 'bg-sky-500 text-white',
+                                'rows'   => $petugasPagiSk->merge($petugasPagiShift),
+                                'person' => fn ($row) => $row->petugas_pagi_user_id ? $row->petugasPagi : $row->user,
+                            ],
+                        ]),
                     ],
                     [
-                        'label'  => 'Koordinator Pagi',
-                        'icon'   => 'bi-flag-fill',
-                        'class'  => 'shift-koord-pagi',
-                        'rows'   => $koorPagiHariIni,
-                        'person' => fn ($row) => $row->koordinatorPagi,
-                    ],
-                    [
-                        'label'  => 'Petugas Pagi',
-                        'icon'   => 'bi-sun-fill',
-                        'class'  => 'shift-pagi',
-                        'rows'   => $petugasPagiSk->merge($petugasPagiShift),
-                        'person' => fn ($row) => $row->petugas_pagi_user_id ? $row->petugasPagi : $row->user,
-                    ],
-                    [
-                        'label'  => 'Koordinator Siang',
-                        'icon'   => 'bi-moon-stars-fill',
-                        'class'  => 'shift-koord-siang',
-                        'rows'   => $koorSiangHariIni,
-                        'person' => fn ($row) => $row->koordinatorSiang,
-                    ],
-                    [
-                        'label'  => 'Petugas Siang',
-                        'icon'   => 'bi-moon-fill',
-                        'class'  => 'shift-siang',
-                        'rows'   => $petugasSiangSk->merge($petugasSiangShift),
-                        'person' => fn ($row) => $row->petugas_siang_user_id ? $row->petugasSiang : $row->user,
+                        'title'    => 'SHIFT SIANG',
+                        'icon'     => 'bi-moon-stars-fill',
+                        'header'   => 'bg-slate-700 text-slate-200',
+                        'wrapper'  => 'bg-slate-50 border-slate-300',
+                        'sections' => collect([
+                            [
+                                'label'  => 'Koordinator Siang',
+                                'icon'   => 'bi-moon-stars-fill',
+                                'badge'  => 'bg-indigo-900 text-slate-200',
+                                'rows'   => $koorSiangHariIni,
+                                'person' => fn ($row) => $row->koordinatorSiang,
+                            ],
+                            [
+                                'label'  => 'Petugas Siang',
+                                'icon'   => 'bi-moon-fill',
+                                'badge'  => 'bg-slate-700 text-slate-200',
+                                'rows'   => $petugasSiangSk->merge($petugasSiangShift),
+                                'person' => fn ($row) => $row->petugas_siang_user_id ? $row->petugasSiang : $row->user,
+                            ],
+                        ]),
                     ],
                 ]);
 
-                // Shift tambahan di luar Pagi/Siang (jika ada)
-                foreach ($rowsShiftLain as $namaShift => $groupRows) {
-                    $sections->push([
-                        'label'  => 'Petugas '.$namaShift,
-                        'icon'   => 'bi-people-fill',
-                        'class'  => 'shift-lain',
-                        'rows'   => $groupRows,
-                        'person' => fn ($row) => $row->user,
+                // Shift tambahan di luar Pagi/Siang (jika ada) — grup netral terpisah
+                if ($rowsShiftLain->isNotEmpty()) {
+                    $groups->push([
+                        'title'    => 'SHIFT LAINNYA',
+                        'icon'     => 'bi-people-fill',
+                        'header'   => 'bg-slate-500 text-white',
+                        'wrapper'  => 'bg-gray-50 border-gray-200',
+                        'sections' => collect($rowsShiftLain->map(fn ($groupRows, $namaShift) => [
+                            'label'  => 'Petugas '.$namaShift,
+                            'icon'   => 'bi-people-fill',
+                            'badge'  => 'bg-slate-400 text-white',
+                            'rows'   => $groupRows,
+                            'person' => fn ($row) => $row->user,
+                        ])->values()),
                     ]);
                 }
             @endphp
@@ -256,34 +263,44 @@
                             </div>
                         </div>
                     @else
-                        {{-- Kolom info: Waka / Koordinator / Petugas Pagi & Siang --}}
+                        {{-- Kolom info: Waka Piket (global/harian) + Grup Pagi & Siang (kontras visual) --}}
                         <div class="d-flex flex-column gap-3">
-                            @foreach($sections as $sec)
-                                @php
-                                    $secRows = $sec['rows']->values();
-                                    $person = $sec['person'];
-                                @endphp
-                                <div class="row g-2 align-items-start">
-                                    <div class="col-12 col-md-3 col-xl-2">
-                                        <span class="shift-badge {{ $sec['class'] }} d-inline-flex align-items-center gap-1">
-                                            <i class="bi {{ $sec['icon'] }}"></i>{{ $sec['label'] }}
-                                        </span>
-                                    </div>
-                                    <div class="col-12 col-md-9 col-xl-10 d-flex flex-wrap align-items-start gap-2">
-                                        @forelse($secRows as $row)
-                                            @php($u = $person($row))
-                                            <div class="guru-chip d-inline-flex align-items-center gap-2 bg-light-subtle border rounded-3 py-1 ps-1 pe-2">
-                                                <span class="rounded-circle bg-white border d-flex align-items-center justify-content-center flex-shrink-0"
-                                                      style="width: 34px; height: 34px; font-size: 0.72rem; font-weight: 700; color: #334155;">
+                            {{-- Waka Piket: penanggung jawab harian (global), DI LUAR container shift --}}
+                            @php
+                                $wakaRows    = $wakaHariIni->values();
+                                $wakaPerson  = fn ($row) => $row->waka;
+                            @endphp
+                            <div class="rounded-3 border p-3 bg-gray-100 border-gray-200">
+                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                    <span class="shift-badge bg-amber-500 text-white d-inline-flex align-items-center gap-1">
+                                        <i class="bi bi-person-badge-fill"></i>Waka Piket
+                                    </span>
+                                    <span class="text-muted" style="font-size: 0.75rem;">
+                                        Penanggung jawab harian piket
+                                    </span>
+                                    @if($wakaRows->isNotEmpty())
+                                        <span class="text-muted ms-auto" style="font-size: 0.75rem;">{{ $wakaRows->count() }} orang</span>
+                                    @endif
+                                </div>
+
+                                @if($wakaRows->isNotEmpty())
+                                    <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2">
+                                        @foreach($wakaRows as $row)
+                                            @php
+                                                $u = $wakaPerson($row);
+                                            @endphp
+                                            <div class="d-flex align-items-center gap-2 bg-white border rounded-3 p-1.5 pe-2 min-w-0">
+                                                <span class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                                      style="width: 32px; height: 32px; font-size: 0.68rem; font-weight: 700; color: #334155; background: #f1f5f9; border: 1px solid #e2e8f0;">
                                                     {{ $u ? strtoupper(substr($u->nama, 0, 2)) : '?' }}
                                                 </span>
-                                                <span class="overflow-hidden">
-                                                    <span class="d-block fw-semibold text-dark text-truncate" style="font-size: 0.8rem; max-width: 240px;"
+                                                <span class="overflow-hidden flex-grow-1 min-w-0">
+                                                    <span class="d-block fw-semibold text-dark text-truncate" style="font-size: 0.78rem;"
                                                           title="{{ $u->nama ?? '-' }}">
                                                         {{ $u->nama ?? 'Data guru tidak ditemukan' }}
                                                     </span>
                                                     @if($u)
-                                                        <span class="d-block text-muted text-truncate" style="font-size: 0.7rem; max-width: 240px;">
+                                                        <span class="d-block text-muted text-truncate" style="font-size: 0.68rem;">
                                                             NIP: {{ $u->nip ?? '-' }}
                                                         </span>
                                                     @endif
@@ -294,17 +311,90 @@
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit"
-                                                            class="btn btn-sm btn-outline-danger border-0 rounded-circle p-0 d-flex align-items-center justify-content-center"
+                                                            class="btn btn-sm btn-outline-danger border-0 rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0"
                                                             style="width: 24px; height: 24px;" title="Hapus Penugasan">
                                                         <i class="bi bi-x-lg" style="font-size: 0.7rem;"></i>
                                                     </button>
                                                 </form>
                                                 @endif
                                             </div>
-                                        @empty
-                                            <span class="text-muted small" style="padding: 0.4rem 0;">Belum diisi</span>
-                                        @endforelse
+                                        @endforeach
                                     </div>
+                                @else
+                                    <span class="text-muted small" style="padding: 0.4rem 0;">Belum diisi</span>
+                                @endif
+                            </div>
+
+                            @foreach($groups as $group)
+                                @php
+                                    $groupSections = $group['sections']->values();
+                                @endphp
+                                <div class="rounded-3 border p-3 {{ $group['wrapper'] }}">
+                                    <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+                                        <span class="shift-badge {{ $group['header'] }} d-inline-flex align-items-center gap-1">
+                                            <i class="bi {{ $group['icon'] }}"></i>{{ $group['title'] }}
+                                        </span>
+                                        <span class="text-muted" style="font-size: 0.75rem;">
+                                            {{ $group['sections']->sum(fn ($s) => $s['rows']->count()) }} guru bertugas
+                                        </span>
+                                    </div>
+
+                                    @foreach($groupSections as $sec)
+                                        @php
+                                            $secRows = $sec['rows']->values();
+                                            $person = $sec['person'];
+                                        @endphp
+                                        <div class="{{ $loop->last ? '' : 'mb-3' }}">
+                                            <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                                <span class="shift-badge {{ $sec['badge'] }} d-inline-flex align-items-center gap-1">
+                                                    <i class="bi {{ $sec['icon'] }}"></i>{{ $sec['label'] }}
+                                                </span>
+                                                @if($secRows->isNotEmpty())
+                                                    <span class="text-muted" style="font-size: 0.75rem;">{{ $secRows->count() }} orang</span>
+                                                @endif
+                                            </div>
+
+                                            @if($secRows->isNotEmpty())
+                                                {{-- Grid kartu guru: 2 kolom di mobile agar tidak memanjang ke bawah --}}
+                                                <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2">
+                                                    @foreach($secRows as $row)
+                                                        @php($u = $person($row))
+                                                        <div class="d-flex align-items-center gap-2 bg-white border rounded-3 p-1.5 pe-2 min-w-0">
+                                                            <span class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                                                  style="width: 32px; height: 32px; font-size: 0.68rem; font-weight: 700; color: #334155; background: #f1f5f9; border: 1px solid #e2e8f0;">
+                                                                {{ $u ? strtoupper(substr($u->nama, 0, 2)) : '?' }}
+                                                            </span>
+                                                            <span class="overflow-hidden flex-grow-1 min-w-0">
+                                                                <span class="d-block fw-semibold text-dark text-truncate" style="font-size: 0.78rem;"
+                                                                      title="{{ $u->nama ?? '-' }}">
+                                                                    {{ $u->nama ?? 'Data guru tidak ditemukan' }}
+                                                                </span>
+                                                                @if($u)
+                                                                    <span class="d-block text-muted text-truncate" style="font-size: 0.68rem;">
+                                                                        NIP: {{ $u->nip ?? '-' }}
+                                                                    </span>
+                                                                @endif
+                                                            </span>
+                                                            @if($canManage)
+                                                            <form action="{{ route('kurikulum.jadwal-piket.destroy', $row->id) }}" method="POST"
+                                                                  onsubmit="return confirm('Hapus penugasan {{ $u->nama ?? 'guru ini' }} pada hari {{ $hari }}?')">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                                <button type="submit"
+                                                                        class="btn btn-sm btn-outline-danger border-0 rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0"
+                                                                        style="width: 24px; height: 24px;" title="Hapus Penugasan">
+                                                                    <i class="bi bi-x-lg" style="font-size: 0.7rem;"></i>
+                                                                </button>
+                                                            </form>
+                                                            @endif
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            @else
+                                                <span class="text-muted small" style="padding: 0.4rem 0;">Belum diisi</span>
+                                            @endif
+                                        </div>
+                                    @endforeach
                                 </div>
                             @endforeach
                         </div>

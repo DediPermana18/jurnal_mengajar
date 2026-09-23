@@ -148,49 +148,98 @@
                 Kelola daftar mata pelajaran dan kode mapel sekolah.
             </p>
         </div>
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-            {{-- Tombol Export Mapel (Dropdown) --}}
-            <div class="dropdown">
-                <button class="btn btn-outline-primary rounded-3 px-3 py-2 fw-semibold shadow-sm dropdown-toggle d-flex align-items-center gap-1.5" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.875rem;">
-                    <i class="bi bi-download"></i>
-                    <span>Export</span>
+        <div class="w-full sm:w-auto flex-shrink-0">
+            {{-- MOBILE (< sm): grid 2 kolom — Baris 1: '+ Tambah Mapel' full-width; Baris 2: Export & Import 50%-50% --}}
+            <div class="grid grid-cols-2 gap-2 sm:hidden">
+                {{-- Baris 1: Tambah Mapel (full width) --}}
+                <a href="{{ route('mapel.create') }}"
+                   class="btn btn-primary rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 col-span-2"
+                   style="font-size: 0.875rem;">
+                    <i class="bi bi-plus-lg"></i>
+                    <span>Tambah Mapel</span>
+                </a>
+
+                {{-- Baris 2: Export (kiri) --}}
+                <div class="dropdown w-100">
+                    <button class="btn btn-outline-primary rounded-3 px-3 py-2 fw-semibold shadow-sm dropdown-toggle w-100 d-flex align-items-center justify-content-center gap-1.5" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.875rem;">
+                        <i class="bi bi-download"></i>
+                        <span>Export</span>
+                    </button>
+                    <ul class="dropdown-menu shadow-sm border-0 rounded-3 w-100" style="z-index: 1050;">
+                        <li>
+                            <a href="{{ route('mapel.export', ['format' => 'xlsx']) }}" class="dropdown-item py-2 d-flex align-items-center gap-2">
+                                <i class="bi bi-file-earmark-excel text-success fs-6"></i>
+                                <span>Export Excel (.xlsx)</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('mapel.export', ['format' => 'csv']) }}" class="dropdown-item py-2 d-flex align-items-center gap-2">
+                                <i class="bi bi-filetype-csv text-info fs-6"></i>
+                                <span>Export CSV (.csv)</span>
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider my-1"></li>
+                        <li>
+                            <a href="{{ route('mapel.template') }}" class="dropdown-item py-2 d-flex align-items-center gap-2">
+                                <i class="bi bi-file-earmark-arrow-down text-primary fs-6"></i>
+                                <span>Download Template Import</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                {{-- Baris 2: Import Mapel (kanan) --}}
+                <button type="button" class="btn btn-outline-secondary rounded-3 px-3 py-2 fw-semibold shadow-sm w-100 d-flex align-items-center justify-content-center gap-1.5" data-bs-toggle="modal" data-bs-target="#modalImportMapel" style="font-size: 0.875rem;">
+                    <i class="bi bi-file-earmark-arrow-up"></i>
+                    <span>Import Mapel</span>
                 </button>
-                <ul class="dropdown-menu shadow-sm border-0 rounded-3" style="z-index: 1050;">
-                    <li>
-                        <a href="{{ route('mapel.export', ['format' => 'xlsx']) }}" class="dropdown-item py-2 d-flex align-items-center gap-2">
-                            <i class="bi bi-file-earmark-excel text-success fs-6"></i>
-                            <span>Export Excel (.xlsx)</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('mapel.export', ['format' => 'csv']) }}" class="dropdown-item py-2 d-flex align-items-center gap-2">
-                            <i class="bi bi-filetype-csv text-info fs-6"></i>
-                            <span>Export CSV (.csv)</span>
-                        </a>
-                    </li>
-                    <li><hr class="dropdown-divider my-1"></li>
-                    <li>
-                        <a href="{{ route('mapel.template') }}" class="dropdown-item py-2 d-flex align-items-center gap-2">
-                            <i class="bi bi-file-earmark-arrow-down text-primary fs-6"></i>
-                            <span>Download Template Import</span>
-                        </a>
-                    </li>
-                </ul>
             </div>
 
-            {{-- Tombol Import Mapel (Membuka Modal) --}}
-            <button type="button" class="btn btn-outline-secondary rounded-3 px-3 py-2 fw-semibold shadow-sm d-flex align-items-center gap-1.5" data-bs-toggle="modal" data-bs-target="#modalImportMapel" style="font-size: 0.875rem;">
-                <i class="bi bi-file-earmark-arrow-up"></i>
-                <span>Import Mapel</span>
-            </button>
+            {{-- DESKTOP (≥ sm): grup tombol horizontal seperti semula --}}
+            <div class="hidden sm:flex flex-wrap align-items-center gap-2">
+                {{-- Tombol Export Mapel (Dropdown) --}}
+                <div class="dropdown">
+                    <button class="btn btn-outline-primary rounded-3 px-3 py-2 fw-semibold shadow-sm dropdown-toggle d-flex align-items-center gap-1.5" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.875rem;">
+                        <i class="bi bi-download"></i>
+                        <span>Export</span>
+                    </button>
+                    <ul class="dropdown-menu shadow-sm border-0 rounded-3" style="z-index: 1050;">
+                        <li>
+                            <a href="{{ route('mapel.export', ['format' => 'xlsx']) }}" class="dropdown-item py-2 d-flex align-items-center gap-2">
+                                <i class="bi bi-file-earmark-excel text-success fs-6"></i>
+                                <span>Export Excel (.xlsx)</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('mapel.export', ['format' => 'csv']) }}" class="dropdown-item py-2 d-flex align-items-center gap-2">
+                                <i class="bi bi-filetype-csv text-info fs-6"></i>
+                                <span>Export CSV (.csv)</span>
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider my-1"></li>
+                        <li>
+                            <a href="{{ route('mapel.template') }}" class="dropdown-item py-2 d-flex align-items-center gap-2">
+                                <i class="bi bi-file-earmark-arrow-down text-primary fs-6"></i>
+                                <span>Download Template Import</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
 
-            {{-- Tombol Tambah Mapel --}}
-            <a href="{{ route('mapel.create') }}"
-               class="btn btn-primary rounded-3 fw-semibold px-3 py-2 d-flex align-items-center gap-2"
-               style="font-size: 0.875rem;">
-                <i class="bi bi-plus-lg"></i>
-                <span>Tambah Mapel</span>
-            </a>
+                {{-- Tombol Import Mapel (Membuka Modal) --}}
+                <button type="button" class="btn btn-outline-secondary rounded-3 px-3 py-2 fw-semibold shadow-sm d-flex align-items-center gap-1.5" data-bs-toggle="modal" data-bs-target="#modalImportMapel" style="font-size: 0.875rem;">
+                    <i class="bi bi-file-earmark-arrow-up"></i>
+                    <span>Import Mapel</span>
+                </button>
+
+                {{-- Tombol Tambah Mapel --}}
+                <a href="{{ route('mapel.create') }}"
+                   class="btn btn-primary rounded-3 fw-semibold px-3 py-2 d-flex align-items-center gap-2"
+                   style="font-size: 0.875rem;">
+                    <i class="bi bi-plus-lg"></i>
+                    <span>Tambah Mapel</span>
+                </a>
+            </div>
         </div>
     </div>
 
@@ -280,9 +329,9 @@
             </form>
         </div>
 
-        {{-- Table Content --}}
+        {{-- Table Content (tabel disembunyikan di < sm, diganti daftar kartu di bawah) --}}
         <div class="card-body p-0">
-            <div class="table-responsive w-full overflow-x-auto">
+            <div class="hidden sm:block table-responsive w-full overflow-x-auto">
                 <table class="table table-hover align-middle mb-0 min-w-full" style="font-size: 0.9rem;">
                     <thead style="background: #f8fafc;">
                         <tr>
@@ -309,7 +358,7 @@
                                 </td>
 
                                 {{-- 3. Nama Mata Pelajaran --}}
-                                <td>
+                                <td class="whitespace-nowrap">
                                     <div class="d-flex align-items-center gap-2">
                                         <div class="rounded-2 d-flex align-items-center justify-content-center bg-primary-subtle text-primary fw-bold" style="width: 32px; height: 32px; font-size: 0.85rem;">
                                             <i class="bi bi-journal-bookmark-fill"></i>
@@ -374,6 +423,71 @@
                         @endforelse
                     </tbody>
                 </table>
+            </div>
+
+            {{-- ==================== CARD VIEW (layar < sm, menggantikan tabel di mobile) ==================== --}}
+            <div class="block sm:hidden px-3 py-3">
+                @forelse($dataMapel as $mapel)
+                    @php
+                        $badgeStyleCard = match($mapel->kelompok) {
+                            'Muatan Umum' => 'background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;',
+                            'Kejuruan'    => 'background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;',
+                            'Muatan Lokal'=> 'background-color: #fef9c3; color: #a16207; border: 1px solid #fef08a;',
+                            default       => 'background-color: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;'
+                        };
+                    @endphp
+                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-3">
+                        <div class="p-3">
+                            {{-- Baris 1: Kode Mapel + Kelompok (kiri) & Tombol Aksi (kanan) --}}
+                            <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                                <div class="d-flex flex-wrap align-items-center gap-2 min-w-0">
+                                    <span class="badge-kode-mapel">{{ $mapel->kode_mapel ?? '-' }}</span>
+                                    <span class="badge px-2 py-1 rounded-2 fw-semibold" style="font-size: 0.78rem; {{ $badgeStyleCard }}">
+                                        {{ $mapel->kelompok ?? '-' }}
+                                    </span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                                    {{-- Dedicated Edit Page Button --}}
+                                    <a href="{{ route('mapel.edit', $mapel->id) }}" class="btn-aksi" title="Edit Mapel">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+
+                                    {{-- Delete Form --}}
+                                    <form action="{{ route('mapel.destroy', $mapel->id) }}" method="POST" class="d-inline-flex"
+                                          onsubmit="return confirm('Yakin ingin menghapus mata pelajaran {{ addslashes($mapel->nama_mapel) }}?')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn-aksi btn-aksi-danger" title="Hapus Mapel">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            {{-- Baris 2: Nama Mapel --}}
+                            <div class="d-flex align-items-center gap-2 pt-2 border-top" style="border-color: #f1f5f9 !important;">
+                                <div class="rounded-2 d-flex align-items-center justify-content-center bg-primary-subtle text-primary fw-bold flex-shrink-0" style="width: 32px; height: 32px; font-size: 0.85rem;">
+                                    <i class="bi bi-journal-bookmark-fill"></i>
+                                </div>
+                                <span class="fw-bold text-dark" style="font-size: 0.92rem;">{{ $mapel->nama_mapel }}</span>
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <div class="text-center py-5">
+                        <div style="color: #cbd5e1;">
+                            <i class="bi bi-journal-x" style="font-size: 2.75rem; display: block; margin-bottom: 0.75rem;"></i>
+                        </div>
+                        <div class="fw-semibold text-dark mb-1" style="font-size: 1rem;">Tidak ada data mata pelajaran</div>
+                        <div class="text-muted" style="font-size: 0.85rem;">
+                            @if(request()->hasAny(['search', 'kelompok']))
+                                Tidak ada mapel yang sesuai dengan filter pencarian. <a href="{{ route('mapel.index') }}">Reset filter</a>
+                            @else
+                                Belum ada mata pelajaran yang terdaftar. Klik tombol <strong>+ Tambah Mapel</strong> di atas.
+                            @endif
+                        </div>
+                    </div>
+                @endforelse
             </div>
         </div>
 

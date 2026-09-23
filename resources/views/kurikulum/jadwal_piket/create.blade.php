@@ -44,41 +44,14 @@
         box-shadow: none;
     }
 
-    /* Styling untuk field select Waka */
-    .select-waka-card {
-        border: 1px solid #e2e8f0;
-        border-radius: 0.75rem;
-        background-color: #ffffff;
-        padding: 0.85rem 1rem;
-        margin-bottom: 1rem;
-        cursor: pointer;
-    }
-
-    .select-waka-card:hover {
-        border-color: #93c5fd;
-        background-color: #f8fafc;
-    }
-
-    .select-waka-card.selected {
-        border-color: #2563eb;
-        background-color: #eff6ff;
-    }
-
-    .piket-form-card {
-        padding: 0;
-    }
-
-    .form-section {
-        margin-bottom: 1.5rem;
-    }
-
+    /* ==== Card shift minimalis: bg-white rounded-xl shadow-sm border border-gray-200 p-6 ==== */
     .shift-panel {
-        border: 1px solid #e2e8f0;
-        border-radius: 1rem;
-        padding: 1rem 1rem 1.1rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
         height: 100%;
         background: #ffffff;
-        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     }
 
     /* Styling untuk header shift */
@@ -86,7 +59,6 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 0.75rem;
     }
 
     .shift-title {
@@ -98,6 +70,25 @@
     .shift-count {
         font-size: 0.7rem;
         color: #6b7280;
+    }
+
+    /* ===== Tombol Pilih Hari Piket: grid 5 kolom proporsional ===== */
+    /* Lebar terbagi rata (20% per tombol) di semua layar; padding & font
+       diperkecil di mobile agar nama hari ("Selasa", "Jumat", dst.) tidak
+       terpotong ke kanan atau patah dua baris. CSS halaman menimpa .btn
+       Bootstrap (loaded lebih awal & unlayered), jadi nilai ini dipakai. */
+    .day-pill {
+        width: 100%;
+        padding: 0.5rem 0.25rem;
+        font-size: 0.73rem;
+        white-space: nowrap;
+    }
+
+    @media (min-width: 576px) {
+        .day-pill {
+            padding: 0.625rem 0.5rem;
+            font-size: 0.875rem;
+        }
     }
 </style>
 @endpush
@@ -142,48 +133,35 @@
         </div>
     @endif
 
-    {{-- Card Utama Form Dedicated Page --}}
-    <div class="card border-0 rounded-4 shadow-sm bg-white overflow-hidden piket-form-card">
-        <form action="{{ route('kurikulum.jadwal-piket.store') }}" method="POST">
-            @csrf
-        <div class="card-header bg-white border-0 pt-4 pb-3 px-4 px-lg-5">
-            <div class="d-flex align-items-center gap-2">
-                <div class="rounded-2 d-flex align-items-center justify-content-center bg-primary-subtle text-primary"
-                     style="width: 36px; height: 36px;">
-                    <i class="bi bi-person-plus-fill fs-5"></i>
-                </div>
-                <h5 class="fw-bold mb-0 text-dark">Form Penugasan Petugas Piket</h5>
-            </div>
-        </div>
-
-        {{-- Hidden form method check -->
-        @method('POST')
+    <form action="{{ route('kurikulum.jadwal-piket.store') }}" method="POST">
+        @csrf
 
         <input type="hidden" name="form_submitted" value="1">
         <input type="hidden" name="minggu_ke" value="{{ $mingguKe }}">
 
-        <div class="card-body p-4 p-md-5">
+        {{-- ===== Pengaturan Utama: Pilih Hari & Waka Piket (langsung di background halaman) ===== --}}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
             {{-- 1. Pilihan Hari Piket --}}
-            <div class="form-section mb-4">
+            <div>
                 <label class="form-label fw-bold text-dark mb-2" style="font-size: 0.9rem;">
                     <i class="bi bi-calendar-event text-primary me-1"></i> Pilih Hari Piket <span class="text-danger">*</span>
                 </label>
-                <div class="d-flex gap-2 flex-wrap">
+                <div class="grid grid-cols-5 gap-1.5 sm:gap-2">
                     @foreach($hariList as $h)
                         <input type="radio" class="btn-check" name="hari" id="hari_{{ $h }}"
                                value="{{ $h }}" {{ old('hari', $selectedHari) === $h ? 'checked' : '' }}
                                onchange="window.location.href = '{{ route('kurikulum.jadwal-piket.create') }}?hari=' + this.value + '&minggu_ke={{ $mingguKe }}'">
-                        <label class="btn btn-outline-primary rounded-3 px-3 py-2 fw-semibold" for="hari_{{ $h }}" style="font-size: 0.875rem;">
+                        <label class="btn btn-outline-primary rounded-3 day-pill w-full text-center px-1 py-2 text-xs sm:text-sm font-medium text-truncate"
+                               for="hari_{{ $h }}">
                             {{ $h }}
                         </label>
                     @endforeach
                 </div>
             </div>
 
-            <hr class="my-4" style="border-color: #f1f5f9;">
-
             {{-- 2. Waka Piket: Single dropdown --}}
-            <div class="form-section mb-4">
+            <div>
                 <label class="form-label fw-bold text-dark mb-2" style="font-size: 0.9rem;">
                     <i class="bi bi-person-badge text-primary me-1"></i> Waka Piket <span class="text-danger">*</span>
                 </label>
@@ -194,19 +172,22 @@
                            {{ old('waka_user_id', $assignedWakaId ?? null) == $waka->id ? 'selected' : '' }}>{{ $waka->nama }}</option>
                     @endforeach
                 </select>
-                <small class="text-muted">Guru dengan jabatan Waka/Kakurikulum/Waka Piket</small>
+                <small class="text-muted d-block mt-2">Guru dengan jabatan Waka/Kakurikulum/Waka Piket</small>
             </div>
 
-            <div class="d-flex flex-column gap-4 shift-panels-stack">
-            @if($shiftList->isEmpty())
-            {{-- 3. Sesi Pagi (07.00 - 11.00) --}}
-            <div class="border rounded-4 p-4 w-100">
+        </div>
+
+        {{-- ===== Penugasan Shift: Card PAGI & SIANG terpisah ===== --}}
+        <div class="space-y-6 shift-panels-stack">
+        @if($shiftList->isEmpty())
+            {{-- Card 1: SHIFT PAGI --}}
+            <div class="shift-panel w-100 bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
                 <div class="shift-header">
                     <span class="shift-title">SESI PAGI (07.00 - 11.00)</span>
                 </div>
 
                 {{-- Koordinator Pagi: Single dropdown --}}
-                <div class="mb-2">
+                <div>
                     <label class="form-label fw-bold text-dark small">Koordinator Piket Pagi</label>
                     <select name="koordinator_pagi_user_id" class="form-select rounded-3" style="font-size: 0.875rem;">
                         <option value="">-- Pilih Koordinator Piket Pagi --</option>
@@ -220,17 +201,24 @@
                 {{-- Petugas Piket Pagi: Multiple select (3-4 orang) --}}
                 <div>
                     <label class="form-label fw-bold text-dark small">Petugas Piket Pagi (3-4 orang)</label>
-                    <div class="d-flex align-items-center gap-2 mb-2">
-                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fw-semibold" style="font-size: 0.8rem;" id="badgeCounterPagi">
-                            0 Guru Dipilih
-                        </span>
+                    <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 mb-2">
+                        <input type="search" class="form-control form-control-sm rounded-3 guru-search-input" data-panel="#guruGridListPagi"
+                               placeholder="Cari Nama / NIP Guru..." style="min-width: 0;" autocomplete="off">
+                        <div class="d-flex align-items-center gap-2 ms-sm-auto flex-shrink-0">
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fw-semibold" style="font-size: 0.8rem;" id="badgeCounterPagi">
+                                0 Guru Dipilih
+                            </span>
+                            <a href="#" class="small fw-semibold text-primary text-decoration-none guru-select-all" data-panel="#guruGridListPagi">Pilih Semua</a>
+                            <span class="text-muted small">·</span>
+                            <a href="#" class="small fw-semibold text-muted text-decoration-none guru-clear" data-panel="#guruGridListPagi">Bersihkan</a>
+                        </div>
                     </div>
-                    <div class="row g-3" id="guruGridListPagi" style="max-height: 480px; overflow-y: auto; scrollbar-width: thin;">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="guruGridListPagi" style="max-height: 480px; overflow-y: auto; scrollbar-width: thin;">
                         @foreach($guruList as $guru)
                             @php
                                 $isChecked = in_array($guru->id, old('petugas_pagi_user_id', $assignedPetugasPagiIds ?? []));
                             @endphp
-                            <div class="col-6 col-md-3 guru-item-col"
+                            <div class="guru-item-col"
                                  data-name="{{ strtolower($guru->nama) }}"
                                  data-nip="{{ strtolower($guru->nip ?? '') }}">
                                 <div class="guru-checkbox-card d-flex align-items-center gap-3 {{ $isChecked ? 'selected' : '' }}"
@@ -260,17 +248,16 @@
                         @endforeach
                     </div>
                 </div>
-                </div>
             </div>
 
-            {{-- 4. Sesi Siang (11.00 - 15.00) --}}
-            <div class="shift-panel w-100">
+            {{-- Card 2: SHIFT SIANG --}}
+            <div class="shift-panel w-100 bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
                 <div class="shift-header">
                     <span class="shift-title">SESI SIANG (11.00 - 15.00)</span>
                 </div>
 
                 {{-- Koordinator Siang: Single dropdown --}}
-                <div class="mb-2">
+                <div>
                     <label class="form-label fw-bold text-dark small">Koordinator Piket Siang</label>
                     <select name="koordinator_siang_user_id" class="form-select rounded-3" style="font-size: 0.875rem;">
                         <option value="">-- Pilih Koordinator Piket Siang --</option>
@@ -284,17 +271,24 @@
                 {{-- Petugas Piket Siang: Multiple select (3-4 orang) --}}
                 <div>
                     <label class="form-label fw-bold text-dark small">Petugas Piket Siang (3-4 orang)</label>
-                    <div class="d-flex align-items-center gap-2 mb-2">
-                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fw-semibold" style="font-size: 0.8rem;" id="badgeCounterSiang">
-                            0 Guru Dipilih
-                        </span>
+                    <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 mb-2">
+                        <input type="search" class="form-control form-control-sm rounded-3 guru-search-input" data-panel="#guruGridListSiang"
+                               placeholder="Cari Nama / NIP Guru..." style="min-width: 0;" autocomplete="off">
+                        <div class="d-flex align-items-center gap-2 ms-sm-auto flex-shrink-0">
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fw-semibold" style="font-size: 0.8rem;" id="badgeCounterSiang">
+                                0 Guru Dipilih
+                            </span>
+                            <a href="#" class="small fw-semibold text-primary text-decoration-none guru-select-all" data-panel="#guruGridListSiang">Pilih Semua</a>
+                            <span class="text-muted small">·</span>
+                            <a href="#" class="small fw-semibold text-muted text-decoration-none guru-clear" data-panel="#guruGridListSiang">Bersihkan</a>
+                        </div>
                     </div>
-                    <div class="row g-3" id="guruGridListSiang" style="max-height: 480px; overflow-y: auto; scrollbar-width: thin;">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="guruGridListSiang" style="max-height: 480px; overflow-y: auto; scrollbar-width: thin;">
                         @foreach($guruList as $guru)
                             @php
                                 $isChecked = in_array($guru->id, old('petugas_siang_user_id', $assignedPetugasSiangIds ?? []));
                             @endphp
-                            <div class="col-6 col-md-3 guru-item-col"
+                            <div class="guru-item-col"
                                  data-name="{{ strtolower($guru->nama) }}"
                                  data-nip="{{ strtolower($guru->nip ?? '') }}">
                                 <div class="guru-checkbox-card d-flex align-items-center gap-3 {{ $isChecked ? 'selected' : '' }}"
@@ -324,70 +318,78 @@
                         @endforeach
                     </div>
                 </div>
-                </div>
+            </div>
 
-            @else
-                @foreach($shiftList as $shift)
-                    @php
-                        $sesiNama = strtolower($shift->nama);
-                        $sesi = str_starts_with($sesiNama, 'pagi') ? 'pagi' : (str_starts_with($sesiNama, 'siang') ? 'siang' : null);
-                        $kolomKoordinator = $sesi === 'pagi' ? 'koordinator_pagi_user_id' : ($sesi === 'siang' ? 'koordinator_siang_user_id' : null);
-                        $assignedKoordinator = $kolomKoordinator === 'koordinator_pagi_user_id'
-                            ? ($assignedKoordinatorPagiIds[0] ?? null)
-                            : ($kolomKoordinator === 'koordinator_siang_user_id' ? ($assignedKoordinatorSiangIds[0] ?? null) : null);
-                        $selectedUsers = old('shift_users.' . $shift->id, $assignedByShift[$shift->id] ?? []);
-                    @endphp
-                    <div class="shift-panel w-100">
-                            <div class="shift-header">
-                                <span class="shift-title">{{ strtoupper($shift->nama) }} ({{ $shift->jam_label }})</span>
-                                <span class="shift-count" data-quota="{{ $shift->maksimal_petugas }}">Maks. {{ $shift->maksimal_petugas }} petugas</span>
-                            </div>
-                            @if($kolomKoordinator)
-                            <div class="mb-3">
-                                <label class="form-label fw-bold text-dark small">Koordinator Piket {{ ucfirst($shift->nama) }}</label>
-                                <select name="{{ $kolomKoordinator }}" class="form-select rounded-3" style="font-size: 0.875rem;">
-                                    <option value="">-- Pilih Koordinator Piket {{ ucfirst($shift->nama) }} --</option>
-                                    @foreach($guruList as $guru)
-                                        <option value="{{ $guru->id }}" {{ old($kolomKoordinator, $assignedKoordinator) == $guru->id ? 'selected' : '' }}>{{ $guru->nama }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            @endif
-                            <div class="mb-3">
-                                <label class="form-label fw-bold text-dark small">Petugas {{ $shift->nama }}</label>
-                                <div class="d-flex align-items-center gap-2 mb-2">
-                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2" id="badgeCounterShift{{ $shift->id }}">{{ count($selectedUsers) }} dipilih</span>
-                                    <span class="text-muted small">Tambahkan lebih dari kuota jika diperlukan.</span>
-                                </div>
-                                <div class="row g-3" style="max-height: 480px; overflow-y: auto; scrollbar-width: thin;">
-                                    @foreach($guruList as $guru)
-                                        @php $isChecked = in_array($guru->id, $selectedUsers); @endphp
-                                        <div class="col-6 col-md-3">
-                                            <label class="guru-checkbox-card d-flex align-items-center gap-3 {{ $isChecked ? 'selected' : '' }}">
-                                                <input class="form-check-input shift-checkbox" type="checkbox" name="shift_users[{{ $shift->id }}][]" value="{{ $guru->id }}" data-shift-id="{{ $shift->id }}" data-quota="{{ $shift->maksimal_petugas }}" data-sesi="{{ $sesi }}" {{ $isChecked ? 'checked' : '' }}>
-                                                <span class="rounded-circle bg-primary-subtle text-primary fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 0.85rem;">{{ strtoupper(substr($guru->nama, 0, 2)) }}</span>
-                                                <span class="overflow-hidden"><span class="d-block fw-bold text-dark text-truncate" style="font-size: 0.88rem;">{{ $guru->nama }}</span><span class="d-block text-muted text-truncate" style="font-size: 0.75rem;">NIP: {{ $guru->nip ?? '-' }}</span></span>
-                                            </label>
-                                        </div>
-                                    @endforeach
-                                </div>
+        @else
+            @foreach($shiftList as $shift)
+                @php
+                    $sesiNama = strtolower($shift->nama);
+                    $sesi = str_starts_with($sesiNama, 'pagi') ? 'pagi' : (str_starts_with($sesiNama, 'siang') ? 'siang' : null);
+                    $kolomKoordinator = $sesi === 'pagi' ? 'koordinator_pagi_user_id' : ($sesi === 'siang' ? 'koordinator_siang_user_id' : null);
+                    $assignedKoordinator = $kolomKoordinator === 'koordinator_pagi_user_id'
+                        ? ($assignedKoordinatorPagiIds[0] ?? null)
+                        : ($kolomKoordinator === 'koordinator_siang_user_id' ? ($assignedKoordinatorSiangIds[0] ?? null) : null);
+                    $selectedUsers = old('shift_users.' . $shift->id, $assignedByShift[$shift->id] ?? []);
+                @endphp
+                <div class="shift-panel w-100 bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+                    <div class="shift-header">
+                        <span class="shift-title">{{ strtoupper($shift->nama) }} ({{ $shift->jam_label }})</span>
+                        <span class="shift-count" data-quota="{{ $shift->maksimal_petugas }}">Maks. {{ $shift->maksimal_petugas }} petugas</span>
+                    </div>
+                    @if($kolomKoordinator)
+                    <div>
+                        <label class="form-label fw-bold text-dark small">Koordinator Piket {{ ucfirst($shift->nama) }}</label>
+                        <select name="{{ $kolomKoordinator }}" class="form-select rounded-3" style="font-size: 0.875rem;">
+                            <option value="">-- Pilih Koordinator Piket {{ ucfirst($shift->nama) }} --</option>
+                            @foreach($guruList as $guru)
+                                <option value="{{ $guru->id }}" {{ old($kolomKoordinator, $assignedKoordinator) == $guru->id ? 'selected' : '' }}>{{ $guru->nama }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
+                    <div>
+                        <label class="form-label fw-bold text-dark small">Petugas {{ $shift->nama }}</label>
+                        <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 mb-2">
+                            <input type="search" class="form-control form-control-sm rounded-3 guru-search-input" data-panel="#guruGridListShift{{ $shift->id }}"
+                                   placeholder="Cari Nama / NIP Guru..." style="min-width: 0;" autocomplete="off">
+                            <div class="d-flex align-items-center gap-2 ms-sm-auto flex-shrink-0">
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2" id="badgeCounterShift{{ $shift->id }}">{{ count($selectedUsers) }} dipilih</span>
+                                <a href="#" class="small fw-semibold text-primary text-decoration-none guru-select-all" data-panel="#guruGridListShift{{ $shift->id }}">Pilih Semua</a>
+                                <span class="text-muted small">·</span>
+                                <a href="#" class="small fw-semibold text-muted text-decoration-none guru-clear" data-panel="#guruGridListShift{{ $shift->id }}">Bersihkan</a>
                             </div>
                         </div>
-                @endforeach
-            @endif
-
-            {{-- Card Footer Actions --}}
-            <div class="card-footer bg-white border-0 p-4 p-lg-5 pt-3 d-flex align-items-center justify-content-between flex-wrap gap-3">
-                <a href="{{ route('kurikulum.jadwal-piket.index') }}" class="btn btn-light rounded-3 px-4">
-                    Batal
-                </a>
-                <button type="submit" class="btn btn-primary rounded-3 px-4 fw-shadow-sm" style="font-size: 0.9rem;">
-                    <i class="bi bi-check-lg me-1"></i> Simpan Penugasan Piket
-                </button>
-            </div>
+                        <div class="text-muted small mb-2">Tambahkan lebih dari kuota jika diperlukan.</div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="guruGridListShift{{ $shift->id }}" style="max-height: 480px; overflow-y: auto; scrollbar-width: thin;">
+                            @foreach($guruList as $guru)
+                                @php
+                                    $isChecked = in_array($guru->id, $selectedUsers);
+                                @endphp
+                                <div class="guru-item-col" data-name="{{ strtolower($guru->nama) }}" data-nip="{{ strtolower($guru->nip ?? '') }}">
+                                    <label class="guru-checkbox-card d-flex align-items-center gap-3 {{ $isChecked ? 'selected' : '' }}">
+                                        <input class="form-check-input shift-checkbox" type="checkbox" name="shift_users[{{ $shift->id }}][]" value="{{ $guru->id }}" data-shift-id="{{ $shift->id }}" data-quota="{{ $shift->maksimal_petugas }}" data-sesi="{{ $sesi }}" {{ $isChecked ? 'checked' : '' }}>
+                                        <span class="rounded-circle bg-primary-subtle text-primary fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 0.85rem;">{{ strtoupper(substr($guru->nama, 0, 2)) }}</span>
+                                        <span class="overflow-hidden"><span class="d-block fw-bold text-dark text-truncate" style="font-size: 0.88rem;">{{ $guru->nama }}</span><span class="d-block text-muted text-truncate" style="font-size: 0.75rem;">NIP: {{ $guru->nip ?? '-' }}</span></span>
+                                    </label>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            @endforeach
+        @endif
         </div>
-        </form>
-    </div>
+
+        {{-- Footer Actions --}}
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pb-2">
+            <a href="{{ route('kurikulum.jadwal-piket.index') }}" class="btn btn-light rounded-3 px-4">
+                Batal
+            </a>
+            <button type="submit" class="btn btn-primary rounded-3 px-4 fw-shadow-sm" style="font-size: 0.9rem;">
+                <i class="bi bi-check-lg me-1"></i> Simpan Penugasan Piket
+            </button>
+        </div>
+    </form>
 
 </div>
 @endsection
@@ -560,32 +562,57 @@
         if (badge) badge.textContent = checked + ' Guru Dipilih';
     }
 
-    // Fungsi toggle check all
-    function toggleSelectAllPagi(selectAll) {
-        if (selectAll) {
-            document.querySelectorAll('#guruGridListPagi .guru-checkbox').forEach(function (checkbox) {
-                checkbox.checked = true;
-            });
-        } else {
-            document.querySelectorAll('#guruGridListPagi .guru-checkbox').forEach(function (checkbox) {
-                checkbox.checked = false;
-            });
-        }
-        updateCounterPagi();
+    // ===== Search & Quick Selection Guru (berlaku untuk semua panel: Pagi/Siang legacy & shift dinamis) =====
+    // Cari kartu guru berdasarkan Nama atau NIP secara real-time (menyembunyikan kartu
+    // yang tidak cocok), plus tombol "Pilih Semua" / "Bersihkan Pilihan" di samping badge.
+    // Hanya kartu yang terlihat (hasil filter) yang ikut "Pilih Semua"; kartu terkunci
+    // (koordinator / sudah dipilih di shift lain) selalu dilewati.
+    function setPanelChecks(panel, check) {
+        panel.querySelectorAll('.guru-item-col').forEach(function (col) {
+            // "Pilih Semua" hanya menyentuh kartu yang terlihat oleh filter aktif;
+            // "Bersihkan Pilihan" selalu membersihkan seluruh panel sekalipun ada filter.
+            if (check && col.style.display === 'none') return;
+            var cb = col.querySelector('input[type="checkbox"]');
+            if (!cb || cb.disabled) return;
+            if (cb.checked !== check) {
+                cb.checked = check;
+                cb.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            var card = cb.closest('.guru-checkbox-card');
+            if (card) card.classList.toggle('selected', check);
+        });
     }
 
-    function toggleSelectAllSiang(selectAll) {
-        if (selectAll) {
-            document.querySelectorAll('#guruGridListSiang .guru-checkbox').forEach(function (checkbox) {
-                checkbox.checked = true;
+    function bindGuruPanelSearch(input) {
+        var panel = document.querySelector(input.dataset.panel);
+        if (!panel) return;
+        input.addEventListener('input', function () {
+            var q = input.value.trim().toLowerCase();
+            panel.querySelectorAll('.guru-item-col').forEach(function (col) {
+                var name = (col.dataset.name || '').toLowerCase();
+                var nip = (col.dataset.nip || '').toLowerCase();
+                col.style.display = (!q || name.indexOf(q) !== -1 || nip.indexOf(q) !== -1) ? '' : 'none';
             });
-        } else {
-            document.querySelectorAll('#guruGridListSiang .guru-checkbox').forEach(function (checkbox) {
-                checkbox.checked = false;
-            });
-        }
-        updateCounterSiang();
+        });
     }
+
+    document.querySelectorAll('.guru-search-input').forEach(bindGuruPanelSearch);
+
+    document.querySelectorAll('.guru-select-all').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            var panel = document.querySelector(link.dataset.panel);
+            if (panel) setPanelChecks(panel, true);
+        });
+    });
+
+    document.querySelectorAll('.guru-clear').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            var panel = document.querySelector(link.dataset.panel);
+            if (panel) setPanelChecks(panel, false);
+        });
+    });
 
     // Inisialisasi counter saat load
     document.addEventListener('DOMContentLoaded', function() {

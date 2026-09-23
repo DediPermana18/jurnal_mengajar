@@ -38,6 +38,14 @@ class JurusanController extends Controller
             ->orderBy('kode_jurusan')
             ->get();
 
+        // Request AJAX (live filter) → kirim hanya HTML partial hasil filter
+        // agar daftar bisa di-update tanpa me-refresh seluruh halaman.
+        if ($request->ajax()) {
+            return response()->json([
+                'html' => view('admin.jurusan._results', compact('dataJurusan'))->render(),
+            ]);
+        }
+
         return view('admin.jurusan.index', compact('dataJurusan'));
     }
 

@@ -19,20 +19,6 @@ export function initModals() {
         });
     }
 
-    // Global helper for opening Edit Ruangan Modal
-    window.openEditRuanganModal = function(id, kode, nama, lokasi, pengurusIds) {
-        const form = document.getElementById('formEditRuangan');
-        if (form) {
-            form.action = '/admin/ruangan/' + id;
-        }
-        const kodeInput = document.getElementById('editKodeRuangan');
-        if (kodeInput) kodeInput.value = kode;
-        const namaInput = document.getElementById('editNamaRuangan');
-        if (namaInput) namaInput.value = nama;
-        const lokasiInput = document.getElementById('editLokasiRuangan');
-        if (lokasiInput) lokasiInput.value = lokasi;
-    };
-
     // Global helper for opening Edit Tahun Ajaran Modal
     window.openEditTahunAjaranModal = function(id, tahunAjaran, semester) {
         const form = document.getElementById('formEditTahunAjaran');

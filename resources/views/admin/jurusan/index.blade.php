@@ -58,58 +58,104 @@
     @endif
 
     <div class="card border-0 shadow-sm rounded-4 p-3.5 bg-white mb-4">
-        <form action="{{ route('jurusan.index') }}" method="GET">
+        {{-- Filter bekerja live via AJAX (debounce pada search) --}}
+        <form id="filterJurusanForm" action="{{ route('jurusan.index') }}" method="GET">
         <div class="position-relative" style="max-width: 450px;">
             <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.9rem;"></i>
                 <input type="text"
+                       id="searchJurusan"
                        name="search"
                        value="{{ request('search') }}"
                        class="form-control bg-light rounded-3 ps-5"
-                       placeholder="Cari kode atau nama jurusan...">
+                       placeholder="Cari kode atau nama jurusan..."
+                       autocomplete="off">
             </div>
         </form>
     </div>
 
-    <div class="table-card-custom mb-4">
-        <div class="table-responsive w-full overflow-x-auto">
-            <table class="table table-custom align-middle min-w-full">
-                <thead>
-                    <tr>
-                        <th class="whitespace-nowrap" style="width: 10%;">NO</th>
-                        <th class="whitespace-nowrap" style="width: 25%;">KODE JURUSAN</th>
-                        <th class="whitespace-nowrap">NAMA JURUSAN</th>
-                        <th class="text-end whitespace-nowrap" style="width: 20%;">AKSI</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($dataJurusan as $jurusan)
-                        <tr>
-                            <td class="whitespace-nowrap">{{ $loop->iteration }}</td>
-                            <td class="whitespace-nowrap"><span class="badge bg-light text-dark border px-3 py-2 rounded-3 font-monospace">{{ $jurusan->kode_jurusan }}</span></td>
-                            <td class="fw-semibold text-dark">{{ $jurusan->nama_jurusan }}</td>
-                            <td class="text-end whitespace-nowrap">
-                                @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
-                                    <div class="flex items-center justify-center gap-2 whitespace-nowrap">
-                                    <a href="{{ route('jurusan.edit', $jurusan->id) }}" class="btn btn-sm btn-outline-warning rounded-3" title="Edit jurusan">
-                                        <i class="bi bi-pencil-square"></i>
-                                    </a>
-                                    <form action="{{ route('jurusan.destroy', $jurusan->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus data jurusan ini? Data yang sudah dihapus tidak dapat dipulihkan.')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-3" title="Hapus jurusan">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </form>
-                                    </div>
-                                @endif
-                            </td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="4" class="text-center py-5 text-muted"><i class="bi bi-diagram-3 fs-1 d-block mb-2"></i>Belum ada data jurusan.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+    {{-- ====================================================== --}}
+    {{-- HASIL FILTER (DI-UPDATE VIA AJAX)                       --}}
+    {{-- ====================================================== --}}
+    <div id="jurusanResultsWrapper" style="position: relative;">
+        <div id="jurusanResults">
+            @include('admin.jurusan._results')
+        </div>
+
+        {{-- Loading indicator (spinner tipis saat fetch berlangsung) --}}
+        <div id="jurusanLoading" class="master-list-loading" style="display: none; position: absolute; inset: 0; z-index: 20; align-items: center; justify-content: center; background: rgba(255,255,255,0.65); border-radius: 16px;">
+            <div class="d-flex align-items-center gap-2 px-3 py-2 bg-white rounded-3 shadow-sm">
+                <div class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></div>
+                <span class="small fw-semibold text-muted">Memuat data...</span>
+            </div>
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+    // ── Live AJAX Filter Data Master Jurusan ───────────────────────────
+    (function () {
+        const wrapperEl = document.getElementById('jurusanResultsWrapper');
+        const resultsEl = document.getElementById('jurusanResults');
+        const loadingEl = document.getElementById('jurusanLoading');
+        const form      = document.getElementById('filterJurusanForm');
+        if (!wrapperEl || !resultsEl || !form) return;
+
+        const searchInput = document.getElementById('searchJurusan');
+        const BASE_URL    = '{{ route("jurusan.index") }}';
+        let requestSeq    = 0;
+
+        function debounce(fn, ms) {
+            let timer;
+            return function (...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), ms);
+            };
+        }
+
+        function refresh() {
+            const seq = ++requestSeq;
+            loadingEl.style.display = 'flex';
+
+            const params = new URLSearchParams();
+            const search = searchInput ? searchInput.value.trim() : '';
+            if (search) params.set('search', search);
+            const qs = params.toString();
+            const targetUrl = BASE_URL + (qs ? '?' + qs : '');
+
+            window.history.replaceState(null, '', targetUrl);
+
+            fetch(targetUrl, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            })
+            .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(data => {
+                if (seq !== requestSeq) return; // respon basi diabaikan
+                resultsEl.innerHTML = data.html;
+            })
+            .catch(() => {
+                if (seq !== requestSeq) return;
+                window.location.href = targetUrl;
+            })
+            .finally(() => {
+                if (seq === requestSeq) loadingEl.style.display = 'none';
+            });
+        }
+
+        // 1) Search input → debounce ±300ms
+        if (searchInput) {
+            searchInput.addEventListener('input', debounce(refresh, 300));
+        }
+
+        // 2) Cegah submit GET biasa (Enter di input search)
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            refresh();
+        });
+    })();
+</script>
+@endpush
 @endsection

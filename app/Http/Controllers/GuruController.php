@@ -93,6 +93,14 @@ class GuruController extends Controller
 
         $daftarKelas = Kelas::with('jurusan')->orderBy('tingkat')->orderBy('nama_kelas')->get();
 
+        // Request AJAX (live filter) → kirim hanya HTML partial hasil filter
+        // agar daftar bisa di-update tanpa me-refresh seluruh halaman.
+        if ($request->ajax()) {
+            return response()->json([
+                'html' => view('admin.guru._results', compact('dataGuru', 'daftarKelas'))->render(),
+            ]);
+        }
+
         return view('admin.guru.index', compact('dataGuru', 'daftarKelas'));
     }
 

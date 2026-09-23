@@ -15,22 +15,22 @@
                 Kelola struktur jam pelajaran KBM dan istirahat berlaku global (Senin – Jumat). Penomoran jam otomatis berurutan.
             </p>
         </div>
-        <div class="d-flex gap-2 flex-wrap align-items-center">
+        <div class="d-flex align-items-center gap-2 w-full sm:w-auto">
             {{-- Tombol Generate Preset --}}
-            <button type="button" class="btn btn-outline-warning rounded-3 fw-semibold px-3 d-flex align-items-center gap-2"
+            <button type="button" class="btn btn-outline-warning rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 flex-grow-1 text-nowrap"
                     style="font-size: 0.875rem;" data-bs-toggle="modal" data-bs-target="#modalGeneratePreset">
                 <i class="bi bi-lightning-charge-fill"></i>
-                ⚡ Generate Preset Jam
+                ⚡ Generate Preset <span class="d-none d-sm-inline">Jam</span>
             </button>
 
             {{-- Tombol Tambah Jam --}}
             <button type="button" id="btnTambahJam"
-                    class="btn btn-primary rounded-3 fw-semibold px-3 d-flex align-items-center gap-2"
+                    class="btn btn-primary rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 flex-grow-1 text-nowrap"
                     style="font-size: 0.875rem;" data-bs-toggle="modal" data-bs-target="#modalTambahJam"
                     data-mulai-senin="{{ $autoMulai['Senin-Kamis'] }}"
                     data-mulai-jumat="{{ $autoMulai['Jumat'] }}">
                 <i class="bi bi-plus-lg"></i>
-                Tambah Jam Pelajaran
+                Tambah <span class="d-none d-sm-inline">Jam Pelajaran</span>
             </button>
         </div>
     </div>
@@ -156,14 +156,14 @@
                     </div>
                 </div>
 
-                <div class="table-responsive w-full overflow-x-auto">
-                    <table class="table table-hover align-middle mb-0 min-w-full" style="font-size: 0.9rem;">
+                <div class="table-responsive overflow-x-auto w-full px-2">
+                    <table class="table table-hover align-middle mb-0 min-w-full" style="font-size: 0.9rem; min-width: 720px;">
                         <thead style="background: #f8fafc;">
                             <tr>
-                                <th class="ps-4 py-3 align-middle" style="width: 46px;">
+                                <th class="ps-4 pe-2 py-3 align-middle" style="width: 56px;">
                                     <input type="checkbox" id="select-all" class="form-check-input" title="Pilih semua jam pelajaran" style="cursor: pointer;">
                                 </th>
-                                <th class="ps-4 py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; white-space: nowrap; width: 130px;">Jam Ke-</th>
+                                <th class="ps-4 py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #ffffff; white-space: nowrap; width: 130px;">Jam Ke-</th>
                                 <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 180px;">Rentang Waktu</th>
                                 <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 120px;">Durasi</th>
                                 <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b;">Jenis / Keterangan</th>
@@ -200,7 +200,7 @@
                                     };
                                 @endphp
                                 <tr>
-                                    <td class="ps-4">
+                                    <td class="ps-4 pe-2 align-middle">
                                         <input type="checkbox" class="form-check-input jp-checkbox" value="{{ $jam->id }}"
                                                        data-jenis="{{ $jam->jenis }}"
                                                        data-jam-ke="{{ $jam->jam_ke ?? '' }}"
@@ -208,7 +208,7 @@
                                                        data-durasi="{{ $durasi }}"
                                                        style="cursor: pointer;">
                                     </td>
-                                    <td class="ps-4 whitespace-nowrap">
+                                    <td class="ps-4 whitespace-nowrap align-middle">
                                         <div class="d-flex align-items-center gap-2">
                                             @if($jam->jenis !== 'istirahat' && $jam->jam_ke)
                                                 <div class="rounded-circle d-flex align-items-center justify-content-center fw-black text-white"
@@ -225,15 +225,15 @@
                                             @endif
                                         </div>
                                     </td>
-                                    <td>
-                                        <span class="fw-semibold text-dark" style="font-variant-numeric: tabular-nums; font-family: 'Courier New', monospace; font-size: 0.92rem;">
+                                    <td class="align-middle">
+                                        <span class="fw-semibold text-dark whitespace-nowrap" style="font-variant-numeric: tabular-nums; font-family: 'Courier New', monospace; font-size: 0.92rem;">
                                             {{ substr(str_replace(':', '.', $jam->jam_mulai), 0, 5) }} – {{ substr(str_replace(':', '.', $jam->jam_selesai), 0, 5) }}
                                         </span>
                                     </td>
-                                    <td>
-                                        <span class="text-muted fw-semibold" style="font-size: 0.85rem;">{{ $durasi }} menit</span>
+                                    <td class="align-middle">
+                                        <span class="text-muted fw-semibold whitespace-nowrap" style="font-size: 0.85rem;">{{ $durasi }} menit</span>
                                     </td>
-                                    <td>
+                                    <td class="align-middle">
                                         <span class="badge d-inline-flex align-items-center gap-1 px-3 py-2 rounded-pill fw-semibold"
                                               style="font-size: 0.78rem; background-color: {{ $jenisBadge['bg'] }}; color: {{ $jenisBadge['color'] }}; border: 1px solid {{ $jenisBadge['border'] }};">
                                             <i class="bi {{ $jenisBadge['icon'] }}" style="font-size: 0.72rem;"></i>
@@ -282,7 +282,7 @@
 
 {{-- ===================== CARD PENGATURAN JAM PULANG PER TINGKAT ===================== --}}
 <div class="container-fluid px-0 mt-4">
-    <div class="card border-0 rounded-4 shadow-sm">
+    <div class="card border-0 rounded-4 shadow-sm mb-4">
         <div class="card-header bg-white border-0 pt-4 pb-3 px-4">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2">
@@ -336,18 +336,30 @@
                                             $key       = "{$kHari}|{$tingkat}";
                                             $savedMax  = $jamPulangSettings->get($key)?->max_jam_ke;
                                         @endphp
-                                        <div class="d-flex align-items-center gap-3 p-2 rounded-3 bg-white border">
-                                            <div class="d-flex align-items-center justify-content-center rounded-2 fw-black text-white flex-shrink-0"
-                                                 style="width: 36px; height: 36px; font-size: 0.8rem; background: {{ $tingkat === 'X' ? '#1677ff' : ($tingkat === 'XI' ? '#7c3aed' : '#059669') }};">
-                                                {{ $tingkat }}
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <div class="fw-semibold text-dark mb-1" style="font-size: 0.82rem;">
+                                        <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 gap-sm-3 p-2 rounded-3 bg-white border">
+                                            <div class="d-flex align-items-center gap-2 w-full">
+                                                <div class="d-flex align-items-center justify-content-center rounded-2 fw-black text-white flex-shrink-0"
+                                                     style="width: 36px; height: 36px; font-size: 0.8rem; background: {{ $tingkat === 'X' ? '#1677ff' : ($tingkat === 'XI' ? '#7c3aed' : '#059669') }};">
+                                                    {{ $tingkat }}
+                                                </div>
+                                                <div class="fw-semibold text-dark" style="font-size: 0.82rem;">
                                                     Kelas {{ $tingkat }} — Pulang Setelah:
                                                 </div>
+                                                <span class="badge jam-pulang-badge rounded-pill px-2 py-1 ms-auto flex-shrink-0"
+                                                      data-kategori="{{ $kHari }}"
+                                                      data-tingkat="{{ $tingkat }}"
+                                                      style="font-size: 0.72rem;">
+                                                    @if($savedMax)
+                                                        <span class="badge text-bg-danger rounded-pill">Batas: Jam {{ $savedMax }}</span>
+                                                    @else
+                                                        <span class="badge text-bg-info rounded-pill">Semua Slot</span>
+                                                    @endif
+                                                </span>
+                                            </div>
+                                            <div class="w-full flex-sm-grow-1">
                                                 <select name="jam_pulang[{{ $kHari }}][{{ $tingkat }}]"
                                                         id="jp-{{ \Illuminate\Support\Str::slug($kHari) }}-{{ $tingkat }}"
-                                                        class="form-select form-select-sm rounded-3 jam-pulang-select"
+                                                        class="form-select form-select-sm rounded-3 jam-pulang-select w-full"
                                                         data-kategori="{{ $kHari }}"
                                                         data-tingkat="{{ $tingkat }}"
                                                         data-initial="{{ $savedMax ?: '' }}"
@@ -361,16 +373,6 @@
                                                     @endfor
                                                 </select>
                                             </div>
-                                            <span class="badge jam-pulang-badge rounded-pill px-2 py-1 flex-shrink-0"
-                                                  data-kategori="{{ $kHari }}"
-                                                  data-tingkat="{{ $tingkat }}"
-                                                  style="font-size: 0.72rem;">
-                                                @if($savedMax)
-                                                    <span class="badge text-bg-danger rounded-pill">Batas: Jam {{ $savedMax }}</span>
-                                                @else
-                                                    <span class="badge text-bg-info rounded-pill">Semua Slot</span>
-                                                @endif
-                                            </span>
                                         </div>
                                     @endforeach
                                 </div>
@@ -494,7 +496,7 @@
                                 </div>
 
                                 <div class="d-flex justify-content-end pt-2 border-top">
-                                    <button type="submit" id="btnSimpanSenin" class="btn btn-primary fw-bold px-4 rounded-3 d-flex align-items-center gap-2 {{ $agendaSeninLocked ? 'opacity-50' : '' }}" style="font-size: 0.85rem;"
+                                    <button type="submit" id="btnSimpanSenin" class="btn btn-primary fw-bold px-4 py-2 rounded-3 d-flex align-items-center justify-content-center gap-2 w-full sm:w-auto mt-3 {{ $agendaSeninLocked ? 'opacity-50' : '' }}" style="font-size: 0.85rem;"
                                             title="{{ $agendaSeninLocked ? 'Data ini adalah data pengujian IT dan tidak dapat diubah.' : 'Simpan pengaturan upacara bendera' }}"
                                             {{ $agendaSeninLocked ? 'disabled' : '' }}>
                                         <i class="bi bi-floppy-fill"></i> Simpan Upacara Senin
@@ -590,7 +592,7 @@
                                 </div>
 
                                 <div class="d-flex justify-content-end pt-2 border-top">
-                                    <button type="submit" id="btnSimpanJumat" class="btn btn-info text-white fw-bold px-4 rounded-3 d-flex align-items-center gap-2 {{ $agendaJumatLocked ? 'opacity-50' : '' }}" style="font-size: 0.85rem;"
+                                    <button type="submit" id="btnSimpanJumat" class="btn btn-info text-white fw-bold px-4 py-2 rounded-3 d-flex align-items-center justify-content-center gap-2 w-full sm:w-auto mt-3 {{ $agendaJumatLocked ? 'opacity-50' : '' }}" style="font-size: 0.85rem;"
                                             title="{{ $agendaJumatLocked ? 'Data ini adalah data pengujian IT dan tidak dapat diubah.' : 'Simpan pengaturan pembiasaan' }}"
                                             {{ $agendaJumatLocked ? 'disabled' : '' }}>
                                         <i class="bi bi-floppy-fill"></i> Simpan Pembiasaan Jumat

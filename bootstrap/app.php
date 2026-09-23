@@ -28,6 +28,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             CheckMaintenanceMode::class,
         ]);
+
+        // Pastikan pengecekan Maintenance Mode jalan SEBELUM middleware 'auth'
+        // (Authenticate berprioritas tinggi di Laravel). Tanpa ini, guest yang
+        // membuka halaman ber-middleware 'auth' saat maintenance akan mendapat
+        // redirect ke login (302) alih-alih halaman maintenance (503).
+        $middleware->prependToPriorityList(
+            \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class,
+            CheckMaintenanceMode::class,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

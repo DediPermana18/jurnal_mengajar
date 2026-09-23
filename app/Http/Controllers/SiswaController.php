@@ -101,6 +101,14 @@ class SiswaController extends Controller
         $jurusans = Jurusan::orderBy('nama_jurusan')->get();
         $totalSiswa = Siswa::count();
 
+        // Request AJAX (live filter) → kirim hanya HTML partial hasil filter
+        // agar daftar bisa di-update tanpa me-refresh seluruh halaman.
+        if ($request->ajax()) {
+            return response()->json([
+                'html' => view('admin.siswa._results', compact('dataSiswa', 'dataKelas', 'jurusans', 'totalSiswa'))->render(),
+            ]);
+        }
+
         return view('admin.siswa.index', compact('dataSiswa', 'dataKelas', 'jurusans', 'totalSiswa'));
     }
 

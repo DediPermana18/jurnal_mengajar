@@ -33,18 +33,27 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 // Notifikasi navbar
 use App\Http\Controllers\NotificationController;
 
-Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
-Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
-Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
-Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
+Route::middleware(['auth'])->group(function () {
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
+});
 
-// Halaman utama mengarah ke Dashboard Admin
-Route::get('/', [DashboardController::class, 'index'])->name('home');
+// Halaman utama (Dashboard Admin) — WAJIB login.
+// Guest yang membuka '/' akan dialihkan otomatis ke halaman login oleh
+// middleware 'auth'. User yang sudah login tetap langsung melihat dashboard.
+Route::middleware(['auth'])->group(function () {
+    Route::get('/', [DashboardController::class, 'index'])->name('home');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+});
 
-// Resource Route untuk Jurnal Mengajar
-Route::get('/jurnal/foto/{filename}', [JurnalMengajarController::class, 'showFoto'])->name('jurnal.foto');
-Route::resource('admin/jurnal', JurnalMengajarController::class);
-Route::put('/admin/jurnal/{id}/update-piket', [JurnalMengajarController::class, 'updateByPiket'])->name('jurnal.updateByPiket');
+// Resource Route untuk Jurnal Mengajar (wajib login)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/jurnal/foto/{filename}', [JurnalMengajarController::class, 'showFoto'])->name('jurnal.foto');
+    Route::resource('admin/jurnal', JurnalMengajarController::class);
+    Route::put('/admin/jurnal/{id}/update-piket', [JurnalMengajarController::class, 'updateByPiket'])->name('jurnal.updateByPiket');
+});
 
 use App\Http\Controllers\DataImportController;
 use App\Http\Controllers\GuruController;
@@ -86,7 +95,8 @@ Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
     Route::delete('admin/siswa/delete-all', [SiswaController::class, 'deleteAll'])->name('siswa.delete-all');
     Route::resource('admin/siswa', SiswaController::class);
     Route::get('admin/kelas/export', [KelasController::class, 'export'])->name('kelas.export');
-    Route::resource('admin/kelas', KelasController::class);
+    // Tambah/Edit kelas memakai modal (store/update), bukan halaman create/edit terpisah.
+    Route::resource('admin/kelas', KelasController::class)->except(['create', 'edit']);
 
     Route::resource('admin/users', UserController::class)
         ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
@@ -102,7 +112,7 @@ Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
 
     Route::get('admin/ruangan/export', [RuanganController::class, 'export'])->name('ruangan.export');
     Route::post('admin/ruangan/import', [RuanganController::class, 'import'])->name('ruangan.import');
-    Route::resource('admin/ruangan', RuanganController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::resource('admin/ruangan', RuanganController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
 
     Route::resource('admin/tahun-ajaran', TahunAjaranController::class)
         ->only(['index', 'store', 'update', 'destroy'])
@@ -141,7 +151,7 @@ Route::post('/bantuan/kendala', [HelpController::class, 'storeKendala'])->name('
 // ================= ROUTE PORTAL GURU (GURU MAPEL) =================
 use App\Http\Controllers\Guru\IzinController as GuruIzinController;
 
-Route::prefix('guru')->group(function () {
+Route::prefix('guru')->middleware(['auth'])->group(function () {
     Route::get('/dashboard', [GuruPortalController::class, 'dashboard'])->name('guru.dashboard');
 
     // Verifikasi Surat Dispensasi Telat (Masuk Kelas) oleh Guru Mapel
@@ -163,7 +173,7 @@ Route::prefix('guru')->group(function () {
 });
 
 // ================= ROUTE PORTAL WALI KELAS =================
-Route::prefix('walikelas')->group(function () {
+Route::prefix('walikelas')->middleware(['auth'])->group(function () {
     Route::get('/dashboard', [WaliKelasController::class, 'dashboard'])->name('walikelas.dashboard');
     Route::get('/rekap-absen', [WaliKelasController::class, 'rekapAbsen'])->name('walikelas.rekap-absen');
     Route::get('/riwayat-jurnal', [WaliKelasController::class, 'riwayatJurnal'])->name('walikelas.riwayat-jurnal');
@@ -193,7 +203,7 @@ Route::post('/approve-piket/{token}', [IzinPiketQuickApproveController::class, '
 Route::get('/dispen/approve/{token}', [DispensasiController::class, 'publicApproveView'])->name('dispen.approval.show');
 Route::post('/dispen/approve/{token}', [DispensasiController::class, 'publicApproveStore'])->name('dispen.approval.store');
 
-Route::prefix('piket')->group(function () {
+Route::prefix('piket')->middleware(['auth'])->group(function () {
     Route::get('/dashboard', [GuruPiketController::class, 'dashboard'])->name('piket.dashboard');
     Route::get('/presensi-guru', [GuruPiketController::class, 'presensiGuru'])->name('piket.presensi-guru');
     Route::get('/presensi-siswa', [GuruPiketController::class, 'presensiSiswa'])->name('piket.presensi-siswa');
@@ -227,7 +237,7 @@ Route::prefix('piket')->group(function () {
 // ================= PORTAL SATPAM / KEAMANAN (independen, tanpa cek jadwal piket) =================
 use App\Http\Controllers\SatpamController;
 
-Route::prefix('satpam')->group(function () {
+Route::prefix('satpam')->middleware(['auth'])->group(function () {
     Route::get('/', fn () => redirect()->route('satpam.dashboard'));
     Route::get('/dashboard', [SatpamController::class, 'dashboard'])->name('satpam.dashboard');
     Route::post('/terlambat', [SatpamController::class, 'terlambatStore'])->name('satpam.terlambat.store');
@@ -263,7 +273,7 @@ Route::prefix('it')->middleware(['auth'])->group(function () {
 use App\Http\Controllers\Kurikulum\JadwalPiketController;
 
 // ================= ROUTE PORTAL WAKA KURIKULUM =================
-Route::prefix('kurikulum')->group(function () {
+Route::prefix('kurikulum')->middleware(['auth'])->group(function () {
     Route::get('/dashboard', [KurikulumDashboardController::class, 'index'])->name('kurikulum.dashboard');
 
     // Jadwal Piket Guru

@@ -387,10 +387,12 @@
                     <div class="search-wrapper">
                         <i class="bi bi-search"></i>
                         <input type="text"
+                               id="searchSiswa"
                                name="search"
                                class="form-control"
                                placeholder="Cari nama siswa atau NISN..."
-                               value="{{ request('search') }}">
+                               value="{{ request('search') }}"
+                               autocomplete="off">
                     </div>
                 </div>
 
@@ -429,245 +431,33 @@
 
                 {{-- Dropdown Jenis Kelamin --}}
                 <div class="w-full sm:flex-[2]">
-                    <select name="jenis_kelamin" class="form-select" onchange="this.form.submit()">
+                    <select name="jenis_kelamin" id="filterJenisKelamin" class="form-select">
                         <option value="">Jenis Kelamin</option>
                         <option value="L" {{ request('jenis_kelamin') == 'L' ? 'selected' : '' }}>Laki-laki</option>
                         <option value="P" {{ request('jenis_kelamin') == 'P' ? 'selected' : '' }}>Perempuan</option>
                     </select>
                 </div>
             </div>
-
-            {{-- Indikator Filter Aktif & Tombol Reset --}}
-            @if(request()->hasAny(['search', 'id_kelas', 'id_jurusan', 'jenis_kelamin']) && (request('search') || request('id_kelas') || request('id_jurusan') || request('jenis_kelamin')))
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2 mt-3 border-top" style="border-color: #f1f5f9 !important;">
-                    <div class="d-flex flex-wrap align-items-center gap-1.5" style="font-size: 0.8rem; color: #64748b;">
-                        <span class="fw-semibold text-dark"><i class="bi bi-funnel-fill text-primary me-1"></i>Filter Aktif:</span>
-                        @if(request('search'))
-                            <span class="badge bg-light text-dark border px-2 py-1">Pencarian: "{{ request('search') }}"</span>
-                        @endif
-                        @if(request('id_kelas'))
-                            @php $selK = $dataKelas->firstWhere('id', request('id_kelas')); @endphp
-                            <span class="badge bg-light text-primary border border-primary-subtle px-2 py-1">Kelas: {{ $selK ? $selK->tingkat . ' ' . $selK->nama_kelas : request('id_kelas') }}</span>
-                        @endif
-                        @if(request('id_jurusan'))
-                            @php $selJ = $jurusans->firstWhere('id', request('id_jurusan')); @endphp
-                            <span class="badge bg-light text-success border border-success-subtle px-2 py-1">Jurusan: {{ $selJ ? $selJ->kode_jurusan : request('id_jurusan') }}</span>
-                        @endif
-                        @if(request('jenis_kelamin'))
-                            <span class="badge bg-light text-dark border px-2 py-1">Gender: {{ request('jenis_kelamin') == 'L' ? 'Laki-laki' : 'Perempuan' }}</span>
-                        @endif
-                    </div>
-                    <a href="{{ route('siswa.index') }}" class="btn btn-sm btn-outline-secondary rounded-2 px-2 py-1 text-decoration-none d-inline-flex align-items-center gap-1" style="font-size: 0.78rem;">
-                        <i class="bi bi-arrow-counterclockwise"></i>
-                        <span>Reset Filter</span>
-                    </a>
-                </div>
-            @endif
         </form>
     </div>
 
     {{-- ====================================================== --}}
-    {{-- TABLE CARD                                              --}}
+    {{-- HASIL FILTER (DI-UPDATE VIA AJAX)                       --}}
+    {{-- Wrapper stabil utk delegasi event + overlay loading.    --}}
     {{-- ====================================================== --}}
-    <div class="table-card-custom">
-
-        {{-- Table --}}
-        <div class="table-responsive w-full overflow-x-auto">
-            <table class="table table-custom align-middle min-w-full" style="min-width: 760px;">
-                <thead>
-                    <tr>
-                        <th style="width: 30%;">NISN & NAMA SISWA</th>
-                        <th class="whitespace-nowrap" style="width: 12%;">NIS</th>
-                        <th style="width: 20%;">KELAS & JURUSAN</th>
-                        <th class="whitespace-nowrap" style="width: 13%;">JENIS KELAMIN</th>
-                        <th class="whitespace-nowrap" style="width: 12%;">STATUS</th>
-                        <th class="whitespace-nowrap" style="width: 13%; text-align: right;">AKSI</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($dataSiswa as $idx => $siswa)
-                        @php
-                            // Generate inisial dari nama
-                            $words   = explode(' ', $siswa->nama ?? '');
-                            $inisial = strtoupper(substr($words[0] ?? 'S', 0, 1) . substr($words[1] ?? '', 0, 1));
-
-                            // Warna avatar stabil berdasarkan ID siswa
-                            $palette = ['#3b82f6','#8b5cf6','#ec4899','#f97316','#10b981','#06b6d4','#f59e0b','#6366f1'];
-                            $bgColor = $palette[$siswa->id % count($palette)];
-
-                            // Status siswa
-                            $status = $siswa->status_siswa ?? 'Aktif';
-                        @endphp
-                        <tr>
-                            {{-- Kolom 1: NISN & Nama --}}
-                            <td>
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="siswa-avatar" style="background-color: {{ $bgColor }};">
-                                        {{ $inisial }}
-                                    </div>
-                                    <div>
-                                        <div class="fw-bold text-dark" style="font-size: 0.9rem; line-height: 1.3;">
-                                            {{ $siswa->nama ?? '-' }}
-                                        </div>
-                                        <span class="text-muted small d-block mt-1">
-                                            {{ $siswa->nisn ?? 'NISN belum diisi' }}
-                                        </span>
-                                    </div>
-                                </div>
-                            </td>
-
-                            {{-- Kolom 2: NIS --}}
-                            <td class="whitespace-nowrap">
-                                @if($siswa->nis)
-                                    <span class="nisn-code">{{ $siswa->nis }}</span>
-                                @else
-                                    <span class="text-muted" style="font-size: 0.82rem;">-</span>
-                                @endif
-                            </td>
-
-                            {{-- Kolom 3: Kelas & Jurusan --}}
-                            <td>
-                                @if($siswa->kelas)
-                                    <span class="badge-kelas">{{ $siswa->kelas->tingkat }} &bull; {{ $siswa->kelas->nama_kelas }}</span>
-                                @else
-                                    <span class="text-muted" style="font-size: 0.82rem;">Belum ditentukan</span>
-                                @endif
-                            </td>
-
-                            {{-- Kolom 4: Jenis Kelamin --}}
-                            <td>
-                                @if($siswa->jenis_kelamin == 'L')
-                                    <span class="badge-gender badge-laki inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium">
-                                        <i class="bi bi-gender-male" style="font-size: 0.8rem;"></i>
-                                        <span>Laki-laki</span>
-                                    </span>
-                                @elseif($siswa->jenis_kelamin == 'P')
-                                    <span class="badge-gender badge-perempuan inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium">
-                                        <i class="bi bi-gender-female" style="font-size: 0.8rem;"></i>
-                                        <span>Perempuan</span>
-                                    </span>
-                                @else
-                                    <span class="text-muted" style="font-size: 0.82rem;">-</span>
-                                @endif
-                            </td>
-
-                            {{-- Kolom 5: Status Siswa --}}
-                            <td>
-                                @if(strtolower($status) == 'aktif')
-                                    <span class="badge-aktif">
-                                        <i class="bi bi-circle-fill" style="font-size: 0.42rem;"></i> Aktif
-                                    </span>
-                                @else
-                                    <span class="badge-tidak-aktif">
-                                        <i class="bi bi-circle-fill" style="font-size: 0.42rem;"></i> {{ $status }}
-                                    </span>
-                                @endif
-                            </td>
-
-                            {{-- Kolom 6: Aksi --}}
-                            <td class="whitespace-nowrap">
-                                <div class="flex items-center justify-end gap-2 whitespace-nowrap">
-                                    {{-- Edit --}}
-                                    <a href="{{ route('siswa.edit', $siswa->id) }}"
-                                       class="btn-aksi"
-                                       title="Edit Data">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-
-                                    {{-- Hapus --}}
-                                    <form action="{{ route('siswa.destroy', $siswa->id) }}" method="POST" class="d-inline-flex"
-                                          onsubmit="return confirm('Yakin ingin menghapus data siswa {{ addslashes($siswa->nama) }}?')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn-aksi btn-aksi-danger" title="Hapus">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="6" class="text-center py-5">
-                                <div style="color: #cbd5e1;">
-                                    <i class="bi bi-people" style="font-size: 2.5rem; display: block; margin-bottom: 0.75rem;"></i>
-                                </div>
-                                <div class="fw-semibold text-dark mb-1">Tidak ada data siswa</div>
-                                <div class="text-muted" style="font-size: 0.85rem;">
-                                    @if(request()->hasAny(['search','id_kelas','id_jurusan','jenis_kelamin']))
-                                        Tidak ada siswa yang sesuai dengan filter. <a href="{{ route('siswa.index') }}">Reset filter</a>
-                                    @else
-                                        Belum ada siswa yang terdaftar. <a href="{{ route('siswa.create') }}">Tambah siswa baru</a>.
-                                    @endif
-                                </div>
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
+    <div id="siswaResultsWrapper" style="position: relative;">
+        <div id="siswaResults">
+            @include('admin.siswa._results')
         </div>
 
-{{-- ====================================================== --}}
-{{-- FOOTER: Info & Pagination                               --}}
-{{-- ====================================================== --}}
-@if($dataSiswa->total() > 0)
-    <div class="custom-pagination-wrapper">
-        {{-- Info jumlah di sebelah KIRI --}}
-        <div class="pagination-info-text">
-            Menampilkan
-            <strong>{{ $dataSiswa->firstItem() }} - {{ $dataSiswa->lastItem() }}</strong>
-            dari
-            <strong>{{ number_format($dataSiswa->total()) }}</strong>
-            siswa
-            @if(request()->hasAny(['search','id_kelas','id_jurusan','jenis_kelamin']))
-                <span class="text-muted ms-1">(difilter dari total <strong>{{ number_format($totalSiswa) }}</strong> siswa)</span>
-            @endif
-        </div>
-
-        {{-- Tombol Navigasi Pagination di sebelah KANAN --}}
-        <div class="pagination-controls">
-            {{-- Tombol Prev --}}
-            @if ($dataSiswa->onFirstPage())
-                <span class="pagination-btn disabled" aria-disabled="true">
-                    <svg class="pagination-svg-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="15 18 9 12 15 6"></polyline>
-                    </svg>
-                    <span>Prev</span>
-                </span>
-            @else
-                <a href="{{ $dataSiswa->appends(request()->query())->previousPageUrl() }}" class="pagination-btn">
-                    <svg class="pagination-svg-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="15 18 9 12 15 6"></polyline>
-                    </svg>
-                    <span>Prev</span>
-                </a>
-            @endif
-
-            {{-- Counter Halaman (Badge) --}}
-            <span class="pagination-badge">
-                {{ $dataSiswa->currentPage() }} / {{ $dataSiswa->lastPage() }}
-            </span>
-
-            {{-- Tombol Next --}}
-            @if ($dataSiswa->hasMorePages())
-                <a href="{{ $dataSiswa->appends(request()->query())->nextPageUrl() }}" class="pagination-btn">
-                    <span>Next</span>
-                    <svg class="pagination-svg-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="9 18 15 12 9 6"></polyline>
-                    </svg>
-                </a>
-            @else
-                <span class="pagination-btn disabled" aria-disabled="true">
-                    <span>Next</span>
-                    <svg class="pagination-svg-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="9 18 15 12 9 6"></polyline>
-                    </svg>
-                </span>
-            @endif
+        {{-- Loading indicator (spinner tipis saat fetch berlangsung) --}}
+        <div id="siswaLoading" class="master-list-loading" style="display: none; position: absolute; inset: 0; z-index: 20; align-items: center; justify-content: center; background: rgba(255,255,255,0.65); border-radius: 16px;">
+            <div class="d-flex align-items-center gap-2 px-3 py-2 bg-white rounded-3 shadow-sm">
+                <div class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></div>
+                <span class="small fw-semibold text-muted">Memuat data...</span>
+            </div>
         </div>
     </div>
-@endif
-
 </div>
 
 {{-- ====================================================== --}}
@@ -865,14 +655,131 @@
 
             _submit() {
                 this.$nextTick(() => {
-                    const form = document.getElementById('filterSiswaForm') || this.$root || (this.$el && this.$el.closest ? this.$el.closest('form') : null);
-                    if (form && typeof form.submit === 'function') {
-                        form.submit();
+                    // Live AJAX filter: panggil refresh tabel tanpa me-refresh halaman.
+                    if (window.siswaTable && typeof window.siswaTable.refresh === 'function') {
+                        window.siswaTable.refresh();
                     }
                 });
             },
         };
     }
+
+    // ── Live AJAX Filter Data Master Siswa ───────────────────────────────
+    // Search & dropdown memicu fetch partial hasil tanpa me-refresh halaman.
+    // Debounce 300ms pada input search. Partial DOM update + spinner loading.
+    window.siswaTable = (function () {
+        const wrapperEl = document.getElementById('siswaResultsWrapper');
+        const resultsEl = document.getElementById('siswaResults');
+        const loadingEl = document.getElementById('siswaLoading');
+        const form      = document.getElementById('filterSiswaForm');
+        if (!wrapperEl || !resultsEl || !form) return { refresh: function () {} };
+
+        const searchInput   = document.getElementById('searchSiswa');
+        const kelasSelect   = document.getElementById('filterKelas');
+        const jurusanSelect = document.getElementById('filterJurusan');
+        const genderSelect  = document.getElementById('filterJenisKelamin');
+        const BASE_URL      = '{{ route("siswa.index") }}';
+
+        let currentPage = {{ (int) $dataSiswa->currentPage() }};
+        let requestSeq  = 0;
+
+        function debounce(fn, ms) {
+            let timer;
+            return function (...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), ms);
+            };
+        }
+
+        function buildQuery() {
+            const params = new URLSearchParams();
+            const search = searchInput ? searchInput.value.trim() : '';
+            if (search) params.set('search', search);
+            if (kelasSelect && kelasSelect.value) params.set('id_kelas', kelasSelect.value);
+            if (jurusanSelect && jurusanSelect.value) params.set('id_jurusan', jurusanSelect.value);
+            if (genderSelect && genderSelect.value) params.set('jenis_kelamin', genderSelect.value);
+            if (currentPage > 1) params.set('page', currentPage);
+            return params;
+        }
+
+        function refresh() {
+            const seq = ++requestSeq;
+            loadingEl.style.display = 'flex';
+
+            const params = buildQuery();
+            const qs    = params.toString();
+            const targetUrl = BASE_URL + (qs ? '?' + qs : '');
+
+            // Sinkronkan URL tanpa me-refresh halaman (bisa di-share / di-bookmark)
+            window.history.replaceState(null, '', targetUrl);
+
+            fetch(targetUrl, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            })
+            .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(data => {
+                if (seq !== requestSeq) return; // respon basi diabaikan
+                resultsEl.innerHTML = data.html;
+            })
+            .catch(() => {
+                if (seq !== requestSeq) return;
+                // Fallback: muat ulang halaman agar data tetap tampil
+                window.location.href = targetUrl;
+            })
+            .finally(() => {
+                if (seq === requestSeq) loadingEl.style.display = 'none';
+            });
+        }
+
+        // 1) Search input → debounce ±300ms
+        if (searchInput) {
+            searchInput.addEventListener('input', debounce(() => { currentPage = 1; refresh(); }, 300));
+        }
+
+        // 2) Dropdown berubah → filter langsung (Kelas/Jurusan ditangani Alpine onKelasChange/onJurusanChange)
+        if (genderSelect) {
+            genderSelect.addEventListener('change', () => { currentPage = 1; refresh(); });
+        }
+
+        // 3) Cegah submit GET biasa (Enter di input search)
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                currentPage = 1;
+                refresh();
+            });
+        }
+
+        // 4) Pagination + Reset Filter tanpa reload (event delegation pada wrapper)
+        wrapperEl.addEventListener('click', (e) => {
+            const resetLink = e.target.closest('[data-reset-filter]');
+            if (resetLink) {
+                e.preventDefault();
+                if (searchInput)   searchInput.value = '';
+                if (kelasSelect)   kelasSelect.value = '';
+                if (jurusanSelect) jurusanSelect.value = '';
+                if (genderSelect)  genderSelect.value = '';
+                currentPage = 1;
+                refresh();
+                return;
+            }
+
+            const pageLink = e.target.closest('a.pagination-btn');
+            if (!pageLink) return;
+            e.preventDefault();
+            const u  = new URL(pageLink.href);
+            const p  = parseInt(u.searchParams.get('page') || '1', 10);
+            if (!Number.isNaN(p) && p >= 1) {
+                currentPage = p;
+                refresh();
+            }
+        });
+
+        return { refresh: refresh };
+    })();
 
     // ── Konfirmasi "HAPUS" untuk modal hapus semua ────────────────────────
     (function () {

@@ -82,10 +82,10 @@
                 Kelola pemetaan Mata Pelajaran dan Guru Pengajar per kelas berdasarkan slot Master Jam Pelajaran.
             </p>
         </div>
-        <div class="d-flex gap-2 flex-wrap align-items-center">
+        <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             @if($tahunAktif)
                 <button type="button"
-                        class="btn btn-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fw-semibold d-inline-flex align-items-center gap-2"
+                        class="btn btn-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fw-semibold d-inline-flex align-items-center justify-content-center gap-2 w-full sm:w-auto text-nowrap"
                         style="background-color: #e7f1ff; border-color: #b8d9ff !important; font-size: 0.82rem;"
                         data-bs-toggle="modal" data-bs-target="#modalPilihTahunAjaran"
                         title="Ganti Tahun Ajaran & Semester">
@@ -95,26 +95,23 @@
                 </button>
             @else
                 <button type="button"
-                        class="btn btn-outline-secondary rounded-pill px-3 py-2 fw-semibold d-inline-flex align-items-center gap-2"
+                        class="btn btn-outline-secondary rounded-pill px-3 py-2 fw-semibold d-inline-flex align-items-center justify-content-center gap-2 w-full sm:w-auto text-nowrap"
                         style="font-size: 0.82rem;"
                         data-bs-toggle="modal" data-bs-target="#modalPilihTahunAjaran">
                     <i class="bi bi-calendar-plus"></i> Pilih Tahun Ajaran & Semester
                     <i class="bi bi-chevron-down" style="font-size: 0.7rem;"></i>
                 </button>
             @endif
-            <a href="{{ route('import.template-jadwal') }}" class="btn btn-outline-info rounded-3 fw-semibold px-3 d-flex align-items-center gap-2" style="font-size: 0.875rem;" title="Unduh Contoh Template CSV">
-                <i class="bi bi-filetype-csv"></i> Template CSV
-            </a>
-            <div class="dropdown">
-                <button class="btn btn-outline-success rounded-3 fw-semibold px-3 d-flex align-items-center gap-2 dropdown-toggle" type="button" data-bs-toggle="dropdown" style="font-size: 0.875rem;">
+            <div class="dropdown w-full sm:w-auto">
+                <button class="btn btn-outline-success rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 dropdown-toggle w-full sm:w-auto text-nowrap" type="button" data-bs-toggle="dropdown" style="font-size: 0.875rem;">
                     <i class="bi bi-download"></i> Export Jadwal
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm w-full sm:w-auto">
                     <li><a class="dropdown-menu-item dropdown-item d-flex align-items-center gap-2" href="{{ route('admin.jadwal.export', ['format' => 'xlsx']) }}"><i class="bi bi-file-earmark-excel text-success"></i> Export Excel (.xlsx)</a></li>
                     <li><a class="dropdown-menu-item dropdown-item d-flex align-items-center gap-2" href="{{ route('admin.jadwal.export', ['format' => 'csv']) }}"><i class="bi bi-filetype-csv text-info"></i> Export CSV (.csv)</a></li>
                 </ul>
             </div>
-            <a href="{{ route('admin.jam-pelajaran.index') }}" class="btn btn-outline-secondary rounded-3 fw-semibold px-3 d-flex align-items-center gap-2" style="font-size: 0.875rem;">
+            <a href="{{ route('admin.jam-pelajaran.index') }}" class="btn btn-outline-secondary rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 w-full sm:w-auto text-nowrap" style="font-size: 0.875rem;">
                 <i class="bi bi-clock-history"></i> Master Jam
             </a>
         </div>
@@ -144,7 +141,7 @@
                         <label class="form-label fw-bold text-dark mb-2" style="font-size: 0.9rem;">
                             <i class="bi bi-door-open-fill text-primary me-1"></i> Pilih Kelas
                         </label>
-                        <select name="id_kelas" id="selectKelas" class="form-select rounded-3 w-100" onchange="this.form.submit()">
+                        <select name="id_kelas" id="selectKelas" class="form-select rounded-lg w-full" onchange="this.form.submit()">
                             <option value="">-- Pilih Kelas --</option>
                             @foreach($kelasList as $kelas)
                                 <option value="{{ $kelas->id }}" {{ $selectedKelas && $selectedKelas->id == $kelas->id ? 'selected' : '' }}>
@@ -159,16 +156,16 @@
                         <label class="form-label fw-bold text-dark mb-2" style="font-size: 0.9rem;">
                             <i class="bi bi-calendar-week-fill text-primary me-1"></i> Pilih Hari
                         </label>
-                        <div class="d-flex gap-2 flex-wrap">
+                        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
                             @foreach($hariList as $hari)
                                 @php
                                     $isActive = ($selectedHari === $hari);
                                 @endphp
                                 <button type="submit" name="hari" value="{{ $hari }}"
                                         @click="activeHari = '{{ $hari }}'"
-                                        class="btn rounded-3 fw-semibold px-3 py-2 d-flex align-items-center gap-2 {{ $isActive ? 'btn-primary shadow-sm text-white' : 'btn-light border text-dark' }}"
-                                        style="font-size: 0.9rem; white-space: nowrap;">
-                                    <i class="bi {{ $hari === 'Jumat' ? 'bi-calendar2-day' : 'bi-calendar-day' }} fs-5"></i>
+                                        class="btn rounded-lg fw-semibold px-2 py-1.5 text-sm d-flex align-items-center justify-content-center gap-1 {{ $isActive ? 'btn-primary shadow-sm text-white' : 'btn-light border text-dark' }}{{ $loop->last ? ' col-span-2 sm:col-span-1' : '' }}"
+                                        style="white-space: nowrap;">
+                                    <i class="bi {{ $hari === 'Jumat' ? 'bi-calendar2-day' : 'bi-calendar-day' }}"></i>
                                     <span>{{ $hari }}</span>
                                 </button>
                             @endforeach
@@ -257,12 +254,12 @@
                         </a>
                     </div>
                 @else
-                    <div class="table-responsive w-full overflow-x-auto">
+                    <div class="table-responsive overflow-x-auto w-full -mx-3 px-3 sm:mx-0 sm:px-0">
                             <fieldset>
-                            <table class="table table-hover align-middle mb-0 min-w-full" style="font-size: 0.9rem;">
+                            <table class="table table-hover align-middle mb-0 min-w-full" style="font-size: 0.9rem; min-width: 900px;">
                             <thead style="background: #0775e3;">
                                 <tr>
-                                    <th class="py-3 text-center whitespace-nowrap" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 100px;">Jam Ke-</th>
+                                    <th class="py-3 text-center whitespace-nowrap sticky left-0 z-20 border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-white font-semibold tracking-wider" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; width: 100px; min-width: 100px; background-color: #0775e3;">Jam Ke-</th>
                                     <th class="py-3 whitespace-nowrap" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 160px;">Rentang Waktu</th>
                                     <th class="py-3 whitespace-nowrap" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 120px;">Jenis Slot</th>
                                     <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b;">Mata Pelajaran</th>
@@ -311,7 +308,7 @@
                                     @if($agendaItem)
                                     {{-- BARIS AGENDA RUTIN / UPACARA SEKOLAH — slot terkunci global --}}
                                     <tr style="background-color: #eff6ff;">
-                                        <td class="text-center">
+                                        <td class="text-center sticky left-0 z-10 bg-white border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                             <div class="d-inline-flex align-items-center justify-content-center">
                                                 <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
                                                      style="width: 30px; height: 30px; font-size: 0.78rem; background: linear-gradient(135deg, #2563eb, #1d4ed8);">
@@ -320,7 +317,7 @@
                                             </div>
                                         </td>
                                         <td>
-                                            <span class="fw-semibold text-dark" style="font-variant-numeric: tabular-nums; font-family: 'Courier New', monospace; font-size: 0.9rem;">
+                                            <span class="fw-semibold text-dark whitespace-nowrap" style="font-variant-numeric: tabular-nums; font-family: 'Courier New', monospace; font-size: 0.9rem;">
                                                 {{ $waktuFormatted }}
                                             </span>
                                         </td>
@@ -351,7 +348,7 @@
                                     @elseif($isPulang)
                                     {{-- BARIS PULANG SEKOLAH — slot melewati batas jam pulang --}}
                                     <tr style="background-color: #fff5f5; opacity: 0.82;">
-                                        <td class="text-center">
+                                        <td class="text-center sticky left-0 z-10 bg-white border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                             <div class="d-inline-flex align-items-center justify-content-center">
                                                 <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold"
                                                      style="width: 30px; height: 30px; font-size: 0.78rem; background-color: #fee2e2; color: #dc2626; border: 1.5px solid #fca5a5;">
@@ -360,7 +357,7 @@
                                             </div>
                                         </td>
                                         <td>
-                                            <span class="text-muted" style="font-variant-numeric: tabular-nums; font-family: 'Courier New', monospace; font-size: 0.9rem;">
+                                            <span class="text-muted whitespace-nowrap" style="font-variant-numeric: tabular-nums; font-family: 'Courier New', monospace; font-size: 0.9rem;">
                                                 {{ $waktuFormatted }}
                                             </span>
                                         </td>
@@ -393,7 +390,7 @@
 
 
                                         {{-- 1. Jam Ke- --}}
-                                        <td class="text-center">
+                                        <td class="text-center sticky left-0 z-10 bg-white border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                             <div class="d-inline-flex align-items-center justify-content-center">
                                                 @if(!$isIstirahat && $jam->jam_ke)
                                                     <div class="rounded-circle d-flex align-items-center justify-content-center fw-black text-white"
@@ -412,7 +409,7 @@
                                         {{-- 2. Rentang Waktu --}}
                                         <td>
                                             <div class="d-flex flex-column">
-                                                <span class="fw-semibold text-dark" style="font-variant-numeric: tabular-nums; font-family: 'Courier New', monospace; font-size: 0.9rem;">
+                                                <span class="fw-semibold text-dark whitespace-nowrap" style="font-variant-numeric: tabular-nums; font-family: 'Courier New', monospace; font-size: 0.9rem;">
                                                     {{ $waktuFormatted }}
                                                 </span>
                                                 <span class="text-muted" style="font-size: 0.75rem;">{{ $durasi }} menit</span>
@@ -446,7 +443,7 @@
                                         </td>
 
                                         {{-- 4. Mata Pelajaran --}}
-                                        <td style="max-width: 240px;">
+                                        <td class="max-w-[140px] sm:max-w-[240px]">
                                             @if($isIstirahat)
                                                 <div class="d-inline-flex align-items-center gap-1 text-muted px-2 py-1 bg-light rounded-2 border border-dashed" style="font-size: 0.82rem;">
                                                     <i class="bi bi-lock-fill text-muted"></i>
@@ -476,7 +473,7 @@
                                         </td>
 
                                         {{-- 5. Guru Pengajar --}}
-                                        <td style="max-width: 220px;">
+                                        <td class="max-w-[140px] sm:max-w-[220px]">
                                             @if($isIstirahat)
                                                 <span class="text-muted" style="font-size: 0.85rem;">-</span>
                                             @elseif($jadwal)

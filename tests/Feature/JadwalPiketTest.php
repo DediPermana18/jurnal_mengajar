@@ -515,8 +515,14 @@ class JadwalPiketTest extends TestCase
             // Layout vertikal: container shift 1 kolom (Pagi di atas, Siang di bawah).
             ->assertSee('shift-panels-stack')
             ->assertSee('shift-panel w-100', false)
-            // Grid card guru 2/4 kolom agar nama & NIP lebih lega.
-            ->assertSee('col-6 col-md-3', false)
+            // Grid card guru responsif 1/2 kolom agar nama & NIP tidak terpotong pendek
+            // (grid-cols-1 di mobile, sm:grid-cols-2 mulai layar sm).
+            ->assertSee('sm:grid-cols-2', false)
+            ->assertSee('guru-item-col', false)
+            // Search box & quick selection guru dirender.
+            ->assertSee('Cari Nama / NIP Guru', false)
+            ->assertSee('guru-select-all', false)
+            ->assertSee('guru-clear', false)
             // JS/CSS mutual exclusion juga dirender.
             ->assertSee('syncExclusive')
             ->assertSee('is-locked')
