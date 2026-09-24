@@ -3,6 +3,10 @@
 @section('title', 'Master Jam Pelajaran Sekolah - WebJournal Management System')
 
 @section('content')
+@php
+    // Param 'mode' hanya disertakan pada link ketika Mode Shift aktif (URL bersih di Mode Global).
+    $modeParam = $mode === 'shift' ? ['mode' => 'shift'] : [];
+@endphp
 <div class="container-fluid px-0">
 
     {{-- Page Header --}}
@@ -12,26 +16,54 @@
                 Master Jam Pelajaran Sekolah
             </h2>
             <p class="text-muted mb-0" style="font-size: 0.9rem;">
-                Kelola struktur jam pelajaran KBM dan istirahat berlaku global (Senin – Jumat). Penomoran jam otomatis berurutan.
+                @if($mode === 'shift')
+                    Mode Shift — kelola slot jam KBM &amp; istirahat (Senin – Jumat) per shift.
+                    Slot pada tiap sub-tab shift <strong>terisolasi</strong> dari shift lain; penomoran Jam Ke- dihitung terpisah.
+                @else
+                    Kelola struktur jam pelajaran KBM &amp; istirahat (Senin – Jumat) untuk seluruh kelas
+                    (sekolah tanpa sistem shift). Sekolah multi-sesi dapat mengelola jadwal per shift melalui
+                    tombol <strong>Mode Shift</strong>.
+                @endif
             </p>
         </div>
-        <div class="d-flex align-items-center gap-2 w-full sm:w-auto">
-            {{-- Tombol Generate Preset --}}
-            <button type="button" class="btn btn-outline-warning rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 flex-grow-1 text-nowrap"
-                    style="font-size: 0.875rem;" data-bs-toggle="modal" data-bs-target="#modalGeneratePreset">
-                <i class="bi bi-lightning-charge-fill"></i>
-                ⚡ Generate Preset <span class="d-none d-sm-inline">Jam</span>
-            </button>
+        <div class="d-flex align-items-center gap-2 w-full sm:w-auto flex-wrap">
+            @if(!$shiftModeEmpty)
+                {{-- Tombol Generate Preset --}}
+                <button type="button" class="btn btn-outline-warning rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 flex-grow-1 text-nowrap"
+                        style="font-size: 0.875rem;" data-bs-toggle="modal" data-bs-target="#modalGeneratePreset">
+                    <i class="bi bi-lightning-charge-fill"></i>
+                    ⚡ Generate Preset <span class="d-none d-sm-inline">Jam</span>
+                </button>
+            @endif
 
-            {{-- Tombol Tambah Jam --}}
-            <button type="button" id="btnTambahJam"
-                    class="btn btn-primary rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 flex-grow-1 text-nowrap"
-                    style="font-size: 0.875rem;" data-bs-toggle="modal" data-bs-target="#modalTambahJam"
-                    data-mulai-senin="{{ $autoMulai['Senin-Kamis'] }}"
-                    data-mulai-jumat="{{ $autoMulai['Jumat'] }}">
-                <i class="bi bi-plus-lg"></i>
-                Tambah <span class="d-none d-sm-inline">Jam Pelajaran</span>
-            </button>
+            {{-- Tombol pindah mode: Global ⇄ Shift --}}
+            @if($mode === 'shift')
+                <a href="{{ route('admin.jam-pelajaran.index', ['tab' => $tab]) }}"
+                   class="btn btn-outline-secondary rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 flex-grow-1 text-nowrap"
+                   style="font-size: 0.875rem;">
+                    <i class="bi bi-globe2"></i>
+                    Kembali ke Mode <span class="d-none d-sm-inline">Global</span>
+                </a>
+            @else
+                <a href="{{ route('admin.jam-pelajaran.index', ['tab' => $tab, 'mode' => 'shift']) }}"
+                   class="btn btn-outline-primary rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 flex-grow-1 text-nowrap"
+                   style="font-size: 0.875rem;">
+                    <i class="bi bi-arrow-left-right"></i>
+                    Mode Shift
+                </a>
+            @endif
+
+            @if(!$shiftModeEmpty)
+                {{-- Tombol Tambah Jam --}}
+                <button type="button" id="btnTambahJam"
+                        class="btn btn-primary rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 flex-grow-1 text-nowrap"
+                        style="font-size: 0.875rem;" data-bs-toggle="modal" data-bs-target="#modalTambahJam"
+                        data-mulai-senin="{{ $autoMulai['Senin-Kamis'] }}"
+                        data-mulai-jumat="{{ $autoMulai['Jumat'] }}">
+                    <i class="bi bi-plus-lg"></i>
+                    Tambah <span class="d-none d-sm-inline">Jam Pelajaran</span>
+                </button>
+            @endif
         </div>
     </div>
 
@@ -58,16 +90,83 @@
         </div>
     @endif
 
+    @if($mode === 'shift')
+        {{-- ====== TAMPILAN KHUSUS MODE SHIFT ====== --}}
+        <div class="mb-3">
+            {{-- Banner Mode Shift + tombol aksi kelola shift --}}
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 px-3 py-2 rounded-3 mb-2"
+                 style="background: linear-gradient(90deg, #1e293b, #334155);">
+                <div class="d-flex align-items-center gap-2 text-white">
+                    <i class="bi bi-arrow-left-right"></i>
+                    <span class="fw-bold" style="font-size: 0.85rem;">Mode Shift</span>
+                    <span class="text-white-50 d-none d-md-inline" style="font-size: 0.75rem;">
+                        Kelola slot jam per shift — terisolasi antar shift
+                    </span>
+                </div>
+                <button type="button" class="btn btn-sm btn-warning rounded-3 fw-semibold px-3"
+                        style="font-size: 0.8rem;" data-bs-toggle="modal" data-bs-target="#modalShift">
+                    <i class="bi bi-plus-lg me-1"></i>+ Tambah Shift
+                </button>
+            </div>
+
+            {{-- Sub-tab daftar shift --}}
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="text-muted fw-semibold d-inline-flex align-items-center gap-1 me-1" style="font-size: 0.82rem;">
+                    <i class="bi bi-layers"></i> Pilih Shift:
+                </span>
+                @forelse($shifts as $shift)
+                    <a href="{{ route('admin.jam-pelajaran.index', ['tab' => $tab, 'shift' => $shift->id] + $modeParam) }}"
+                       class="btn btn-sm rounded-3 fw-semibold px-3 py-1 d-inline-flex align-items-center gap-1 {{ $selectedShiftId == $shift->id ? 'btn-dark text-white shadow-sm' : 'btn-light border text-dark' }}"
+                       style="font-size: 0.8rem;">
+                        <i class="bi bi-clock"></i> {{ $shift->nama_shift }}
+                        @if(!$shift->is_active)
+                            <span class="badge bg-warning-subtle text-warning rounded-pill" style="font-size: 0.62rem;">Non-Aktif</span>
+                        @endif
+                    </a>
+                @empty
+                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-3 py-2" style="font-size: 0.78rem;">
+                        Belum ada shift — klik "+ Tambah Shift" untuk membuat Shift 1, Shift 2, dst.
+                    </span>
+                @endforelse
+            </div>
+
+            {{-- Penjelasan shift aktif --}}
+            @if($selectedShift)
+                <div class="d-inline-flex align-items-start gap-2 mt-2 px-3 py-2 rounded-3 border border-warning-subtle"
+                     style="background-color: #fff8e1; font-size: 0.78rem; max-width: 840px;">
+                    <i class="bi bi-clock-history text-warning-emphasis mt-1"></i>
+                    <span class="text-dark">
+                        <strong>Mode Shift: {{ $selectedShift->nama_shift }}</strong> — Slot KBM/Istirahat yang dibuat
+                        di sini khusus untuk shift {{ $selectedShift->nama_shift }} dan <strong>terisolasi</strong>
+                        dari shift lain (penomoran Jam Ke- pun terpisah). Kelas yang terikat shift ini memakai slot
+                        <strong>Global + slot {{ $selectedShift->nama_shift }}</strong>.
+                    </span>
+                </div>
+            @endif
+        </div>
+    @else
+        {{-- ====== TAMPILAN MODE GLOBAL (default, tanpa UI shift) ====== --}}
+        <div class="d-inline-flex align-items-start gap-2 mb-3 px-3 py-2 rounded-3 border border-info-subtle"
+             style="background-color: #eff6ff; font-size: 0.78rem; max-width: 840px;">
+            <i class="bi bi-globe2 text-primary mt-1"></i>
+            <span class="text-dark">
+                <strong>Mode Global</strong> — Slot jam di bawah berlaku untuk semua kelas (sekolah tanpa sistem shift).
+                Sekolah multi-sesi dapat beralih ke
+                <a href="{{ route('admin.jam-pelajaran.index', ['tab' => $tab, 'mode' => 'shift']) }}" class="fw-semibold text-primary">Mode Shift</a>.
+            </span>
+        </div>
+    @endif
+
     {{-- Tab Kelompok Hari (Senin–Kamis vs Jumat) --}}
     <div class="mb-4">
         <div class="d-flex gap-2 flex-wrap">
-            <a href="{{ route('admin.jam-pelajaran.index', ['tab' => 'Senin-Kamis']) }}"
+            <a href="{{ route('admin.jam-pelajaran.index', ['tab' => 'Senin-Kamis', 'shift' => $selectedShiftId] + $modeParam) }}"
                class="btn rounded-3 fw-semibold px-4 py-2 {{ $tab === 'Senin-Kamis' ? 'btn-primary shadow-sm text-white' : 'btn-light border text-dark' }}"
                style="font-size: 0.875rem;">
                 <i class="bi bi-calendar-week me-1"></i>
                 Senin – Kamis
             </a>
-            <a href="{{ route('admin.jam-pelajaran.index', ['tab' => 'Jumat']) }}"
+            <a href="{{ route('admin.jam-pelajaran.index', ['tab' => 'Jumat', 'shift' => $selectedShiftId] + $modeParam) }}"
                class="btn rounded-3 fw-semibold px-4 py-2 {{ $tab === 'Jumat' ? 'btn-primary shadow-sm text-white' : 'btn-light border text-dark' }}"
                style="font-size: 0.875rem;">
                 <i class="bi bi-calendar2-day me-1"></i>
@@ -90,9 +189,18 @@
                     <div>
                         <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.95rem;">
                             Master Jam Sekolah &mdash; {{ $tab === 'Senin-Kamis' ? 'Senin – Kamis' : 'Jumat' }}
+                            @if($selectedShift)
+                                <span class="badge bg-dark-subtle text-dark rounded-pill px-2 py-1 align-middle ms-1" style="font-size: 0.68rem;">
+                                    <i class="bi bi-clock"></i> {{ $selectedShift->nama_shift }}
+                                </span>
+                            @else
+                                <span class="badge bg-info-subtle text-primary rounded-pill px-2 py-1 align-middle ms-1" style="font-size: 0.68rem;">
+                                    <i class="bi bi-globe2"></i> Global
+                                </span>
+                            @endif
                         </h6>
                         <div class="text-muted" style="font-size: 0.75rem;">
-                            {{ $rows->count() }} slot terdaftar (Berlaku Global)
+                            {{ $rows->count() }} slot terdaftar — Mode: {{ $selectedShift?->nama_shift ?? 'Global' }}
                         </div>
                     </div>
                 </div>
@@ -108,7 +216,22 @@
         </div>
 
         <div class="card-body p-0">
-            @if($rows->isEmpty())
+            @if($shiftModeEmpty)
+                <div class="text-center py-5">
+                    <div class="d-inline-flex align-items-center justify-content-center bg-light rounded-circle mb-3" style="width: 70px; height: 70px;">
+                        <i class="bi bi-layers text-muted" style="font-size: 2.2rem;"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark mb-1">Belum Ada Shift Pelajaran</h6>
+                    <p class="text-muted mx-auto mb-3" style="max-width: 440px; font-size: 0.85rem;">
+                        Buat jenis shift terlebih dahulu (Shift 1, Shift 2, dst.) melalui tombol
+                        <strong>+ Tambah Shift</strong> di bagian atas, lalu kelola slot jam per shift di sini.
+                    </p>
+                    <button type="button" class="btn btn-warning rounded-3 px-3 py-2 fw-semibold text-dark"
+                            style="font-size: 0.85rem;" data-bs-toggle="modal" data-bs-target="#modalShift">
+                        <i class="bi bi-plus-lg me-1"></i> + Tambah Shift
+                    </button>
+                </div>
+            @elseif($rows->isEmpty())
                 <div class="text-center py-5">
                     <div class="d-inline-flex align-items-center justify-content-center bg-light rounded-circle mb-3" style="width: 70px; height: 70px;">
                         <i class="bi bi-clock text-muted" style="font-size: 2.2rem;"></i>
@@ -252,7 +375,8 @@
                                                         '{{ substr($jam->jam_mulai, 0, 5) }}',
                                                         '{{ substr($jam->jam_selesai, 0, 5) }}',
                                                         '{{ $jam->jenis }}',
-                                                        {{ $mulai->diffInMinutes($selesai) }}
+                                                        {{ $mulai->diffInMinutes($selesai) }},
+                                                        {{ $jam->shift_id ?? 0 }}
                                                     )">
                                                 <i class="bi bi-pencil-fill text-primary me-1"></i> Edit
                                             </button>
@@ -301,7 +425,7 @@
                 </div>
                 <span class="badge bg-orange-subtle text-warning border border-warning-subtle rounded-pill px-3 py-1"
                       style="font-size: 0.72rem; background-color: #fff7ed; color: #c05500 !important; border-color: #fed7aa !important;">
-                    Berlaku Global per Tingkat
+                    Berlaku per Shift Tingkat
                 </span>
             </div>
         </div>
@@ -310,76 +434,121 @@
             <form method="POST" action="{{ route('admin.jam-pulang.upsert') }}" id="formJamPulang">
                 @csrf
                 <input type="hidden" name="redirect_tab" value="{{ $tab }}">
+                <input type="hidden" name="redirect_shift" value="{{ $selectedShiftId ?? '' }}">
+                <input type="hidden" name="redirect_mode" value="{{ $mode }}">
 
                 @php
                     $tingkatList = ['X', 'XI', 'XII'];
                     $kategoriList = [
-                        'Senin-Kamis' => ['label' => 'Senin – Kamis', 'icon' => 'bi-calendar-week', 'max' => $maxJamKeSeninKamis],
-                        'Jumat'       => ['label' => 'Jumat',         'icon' => 'bi-calendar2-day',  'max' => $maxJamKeJumat],
+                        'Senin-Kamis' => ['label' => 'Senin – Kamis', 'icon' => 'bi-calendar-week'],
+                        'Jumat'       => ['label' => 'Jumat',         'icon' => 'bi-calendar2-day'],
                     ];
+
+                    // Pengaturan jam pulang menyesuaikan tab shift yang sedang aktif (single context).
+                    $jpCtxId      = (string) ($selectedShiftId ?? 0);
+                    $jpCtxNama    = $selectedShift?->nama_shift ?? 'Global';
+                    $jpCtxDesc    = $selectedShift ? ($selectedShift->rentang_utama ?: 'Kelas terikat shift ini') : 'Semua kelas tanpa shift';
+                    $jpCtxIsShift = (bool) $selectedShift;
+
+                    // Panel hanya memuat konteks aktif (Global / shift terpilih).
+                    $jamPulangContexts = collect([
+                        ['id' => $jpCtxId, 'nama' => $jpCtxNama, 'desc' => $jpCtxDesc, 'is_active' => true],
+                    ]);
                 @endphp
 
-                <div class="row g-4">
-                    @foreach($kategoriList as $kHari => $kMeta)
-                        <div class="col-md-6">
-                            <div class="p-3 rounded-3 border bg-light-subtle" style="background-color: #fafafa;">
-                                <div class="d-flex align-items-center gap-2 mb-3">
-                                    <i class="bi {{ $kMeta['icon'] }} text-primary"></i>
-                                    <span class="fw-bold text-dark" style="font-size: 0.9rem;">{{ $kMeta['label'] }}</span>
-                                    <span class="badge bg-secondary-subtle text-secondary rounded-pill ms-auto px-2 py-1" style="font-size: 0.72rem;">
-                                        Max Jam KBM Tersedia: {{ $kMeta['max'] }}
-                                    </span>
-                                </div>
-                                <div class="d-flex flex-column gap-2">
-                                    @foreach($tingkatList as $tingkat)
-                                        @php
-                                            $key       = "{$kHari}|{$tingkat}";
-                                            $savedMax  = $jamPulangSettings->get($key)?->max_jam_ke;
-                                        @endphp
-                                        <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 gap-sm-3 p-2 rounded-3 bg-white border">
-                                            <div class="d-flex align-items-center gap-2 w-full">
-                                                <div class="d-flex align-items-center justify-content-center rounded-2 fw-black text-white flex-shrink-0"
-                                                     style="width: 36px; height: 36px; font-size: 0.8rem; background: {{ $tingkat === 'X' ? '#1677ff' : ($tingkat === 'XI' ? '#7c3aed' : '#059669') }};">
-                                                    {{ $tingkat }}
-                                                </div>
-                                                <div class="fw-semibold text-dark" style="font-size: 0.82rem;">
-                                                    Kelas {{ $tingkat }} — Pulang Setelah:
-                                                </div>
-                                                <span class="badge jam-pulang-badge rounded-pill px-2 py-1 ms-auto flex-shrink-0"
-                                                      data-kategori="{{ $kHari }}"
-                                                      data-tingkat="{{ $tingkat }}"
-                                                      style="font-size: 0.72rem;">
-                                                    @if($savedMax)
-                                                        <span class="badge text-bg-danger rounded-pill">Batas: Jam {{ $savedMax }}</span>
-                                                    @else
-                                                        <span class="badge text-bg-info rounded-pill">Semua Slot</span>
-                                                    @endif
+                {{-- Indikator: pengaturan jam pulang mengikuti tab shift aktif --}}
+                <div class="d-inline-flex align-items-center gap-2 flex-wrap px-3 py-2 mb-3 rounded-3 border {{ $jpCtxIsShift ? 'bg-warning-subtle border-warning-subtle' : 'bg-info-subtle border-info-subtle' }}"
+                     style="font-size: 0.8rem; max-width: 100%;">
+                    <i class="bi {{ $jpCtxIsShift ? 'bi-clock text-warning-emphasis' : 'bi-globe2 text-primary' }}"></i>
+                    <span class="fw-semibold text-dark">
+                        Berlaku untuk: <strong>{{ $jpCtxNama }}</strong>
+                        <span class="text-muted fw-normal">({{ $jpCtxDesc }})</span>
+                    </span>
+                    <span class="badge bg-white text-dark border rounded-pill px-2 py-1 ms-auto" style="font-size: 0.68rem;">
+                        Menyesuaikan tab shift aktif
+                    </span>
+                </div>
+
+                @foreach($jamPulangContexts as $ctx)
+                    <div class="shift-jp-panel" data-shift-panel="{{ $ctx['id'] }}">
+                        <div class="row g-4">
+                            @foreach($kategoriList as $kHari => $kMeta)
+                                @php
+                                    $maxAvailable = $maxByShift[$ctx['id']][$kHari] ?? 0;
+                                @endphp
+                                <div class="col-md-6">
+                                    <div class="p-3 rounded-3 border bg-light-subtle" style="background-color: #fafafa;">
+                                        <div class="d-flex align-items-center gap-2 mb-3">
+                                            <i class="bi {{ $kMeta['icon'] }} text-primary"></i>
+                                            <span class="fw-bold text-dark" style="font-size: 0.9rem;">{{ $kMeta['label'] }}</span>
+                                            <span class="badge bg-secondary-subtle text-secondary rounded-pill ms-auto px-2 py-1" style="font-size: 0.72rem;">
+                                                Max Jam KBM Tersedia: {{ $maxAvailable }}
+                                            </span>
+                                        </div>
+                                        @if($maxAvailable === 0)
+                                            <div class="text-muted d-flex align-items-start gap-1 mb-3" style="font-size: 0.74rem;">
+                                                <i class="bi bi-info-circle mt-1"></i>
+                                                <span>
+                                                    Belum ada slot jam untuk <strong>{{ $ctx['nama'] }}</strong> pada
+                                                    {{ $kMeta['label'] }} — buat slotnya terlebih dahulu pada tabel di atas,
+                                                    lalu atur batas jam pulang di sini.
                                                 </span>
                                             </div>
-                                            <div class="w-full flex-sm-grow-1">
-                                                <select name="jam_pulang[{{ $kHari }}][{{ $tingkat }}]"
-                                                        id="jp-{{ \Illuminate\Support\Str::slug($kHari) }}-{{ $tingkat }}"
-                                                        class="form-select form-select-sm rounded-3 jam-pulang-select w-full"
-                                                        data-kategori="{{ $kHari }}"
-                                                        data-tingkat="{{ $tingkat }}"
-                                                        data-initial="{{ $savedMax ?: '' }}"
-                                                        style="font-size: 0.82rem;">
-                                                    <option value="">— Tidak Dibatasi (semua slot aktif) —</option>
-                                                    @for($j = 1; $j <= $kMeta['max']; $j++)
-                                                        <option value="{{ $j }}" {{ $savedMax == $j ? 'selected' : '' }}>
-                                                            Jam Ke-{{ $j }}
-                                                            @if($j == $kMeta['max']) (Jam Terakhir) @endif
-                                                        </option>
-                                                    @endfor
-                                                </select>
-                                            </div>
+                                        @endif
+                                        <div class="d-flex flex-column gap-2">
+                                            @foreach($tingkatList as $tingkat)
+                                                @php
+                                                    $key       = "{$ctx['id']}|{$kHari}|{$tingkat}";
+                                                    $savedMax  = $jamPulangSettings->get($key)?->max_jam_ke;
+                                                @endphp
+                                                <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 gap-sm-3 p-2 rounded-3 bg-white border">
+                                                    <div class="d-flex align-items-center gap-2 w-full">
+                                                        <div class="d-flex align-items-center justify-content-center rounded-2 fw-black text-white flex-shrink-0"
+                                                             style="width: 36px; height: 36px; font-size: 0.8rem; background: {{ $tingkat === 'X' ? '#1677ff' : ($tingkat === 'XI' ? '#7c3aed' : '#059669') }};">
+                                                            {{ $tingkat }}
+                                                        </div>
+                                                        <div class="fw-semibold text-dark" style="font-size: 0.82rem;">
+                                                            Kelas {{ $tingkat }} — Pulang Setelah:
+                                                        </div>
+                                                        <span class="badge jam-pulang-badge rounded-pill px-2 py-1 ms-auto flex-shrink-0"
+                                                              data-shift="{{ $ctx['id'] }}"
+                                                              data-kategori="{{ $kHari }}"
+                                                              data-tingkat="{{ $tingkat }}"
+                                                              style="font-size: 0.72rem;">
+                                                            @if($savedMax)
+                                                                <span class="badge text-bg-danger rounded-pill">Batas: Jam {{ $savedMax }}</span>
+                                                            @else
+                                                                <span class="badge text-bg-info rounded-pill">Semua Slot</span>
+                                                            @endif
+                                                        </span>
+                                                    </div>
+                                                    <div class="w-full flex-sm-grow-1">
+                                                        <select name="jam_pulang[{{ $ctx['id'] }}][{{ $kHari }}][{{ $tingkat }}]"
+                                                                id="jp-{{ $ctx['id'] }}-{{ \Illuminate\Support\Str::slug($kHari) }}-{{ $tingkat }}"
+                                                                class="form-select form-select-sm rounded-3 jam-pulang-select w-full"
+                                                                data-shift="{{ $ctx['id'] }}"
+                                                                data-kategori="{{ $kHari }}"
+                                                                data-tingkat="{{ $tingkat }}"
+                                                                data-initial="{{ $savedMax ?: '' }}"
+                                                                style="font-size: 0.82rem;">
+                                                            <option value="">— Tidak Dibatasi (semua slot aktif) —</option>
+                                                            @for($j = 1; $j <= $maxAvailable; $j++)
+                                                                <option value="{{ $j }}" {{ $savedMax == $j ? 'selected' : '' }}>
+                                                                    Jam Ke-{{ $j }}
+                                                                    @if($j == $maxAvailable) (Jam Terakhir) @endif
+                                                                </option>
+                                                            @endfor
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            @endforeach
                                         </div>
-                                    @endforeach
+                                    </div>
                                 </div>
-                            </div>
+                            @endforeach
                         </div>
-                    @endforeach
-                </div>
+                    </div>
+                @endforeach
 
                 <div class="d-flex align-items-center justify-content-between mt-4 pt-3 border-top flex-wrap gap-3">
                     <div class="text-muted d-flex align-items-center gap-2" style="font-size: 0.8rem;">
@@ -406,6 +575,7 @@
             <form method="POST" action="{{ route('admin.agenda-rutin.upsert') }}" id="formAgendaRutin">
                 @csrf
                 <input type="hidden" name="redirect_tab" value="{{ $tab }}">
+                <input type="hidden" name="redirect_mode" value="{{ $mode }}">
 
                 {{-- Grid Layout: 2 Kolom Berdampingan --}}
                 <div class="row g-4">
@@ -417,6 +587,8 @@
                                 @csrf
                                 <input type="hidden" name="hari" value="Senin">
                                 <input type="hidden" name="redirect_tab" value="Senin-Kamis">
+                                <input type="hidden" name="redirect_shift" value="{{ $selectedShiftId ?? '' }}">
+                                <input type="hidden" name="redirect_mode" value="{{ $mode }}">
 
                                 {{-- Konten Card Kiri: Upacara Bendera --}}
                                 <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
@@ -514,6 +686,8 @@
                                 @csrf
                                 <input type="hidden" name="hari" value="Jumat">
                                 <input type="hidden" name="redirect_tab" value="Jumat">
+                                <input type="hidden" name="redirect_shift" value="{{ $selectedShiftId ?? '' }}">
+                                <input type="hidden" name="redirect_mode" value="{{ $mode }}">
 
                                 {{-- Konten Card Kanan: Pembiasaan --}}
                                 @php
@@ -608,6 +782,100 @@
     </div>
 </div>
 
+{{-- ===================== MODAL TAMBAH JAM ===================== --}}
+<div class="modal fade" id="modalTambahJam" tabindex="-1" aria-labelledby="modalTambahJamTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <form method="POST" action="{{ route('admin.jam-pelajaran.store') }}" id="formTambahJam">
+                @csrf
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold" id="modalTambahJamTitle">
+                        <i class="bi bi-plus-circle-fill text-primary me-2"></i>Tambah Jam Pelajaran
+                        @if($selectedShift)
+                            <span class="badge bg-dark-subtle text-dark rounded-pill px-2 py-1 align-middle ms-1" style="font-size: 0.68rem;">
+                                <i class="bi bi-clock"></i> {{ $selectedShift->nama_shift }}
+                            </span>
+                        @else
+                            <span class="badge bg-secondary-subtle text-secondary rounded-pill px-2 py-1 align-middle ms-1" style="font-size: 0.68rem;">
+                                🌐 Global
+                            </span>
+                        @endif
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body pt-3">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">Kategori Hari</label>
+                        <select name="kategori_hari" id="tambahKategoriHari" class="form-select rounded-3" required>
+                            <option value="Senin-Kamis" {{ $tab === 'Senin-Kamis' ? 'selected' : '' }}>Senin – Kamis</option>
+                            <option value="Jumat" {{ $tab === 'Jumat' ? 'selected' : '' }}>Jumat</option>
+                        </select>
+                    </div>
+                    @if($mode === 'shift' && !$shiftModeEmpty)
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">
+                            Shift
+                            @if($selectedShift)
+                                <span class="badge bg-dark-subtle text-dark rounded-pill px-2 py-1 align-middle ms-1" style="font-size: 0.62rem;">
+                                    <i class="bi bi-clock"></i> default: {{ $selectedShift->nama_shift }} (sub-tab aktif)
+                                </span>
+                            @else
+                                <span class="badge bg-info-subtle text-primary rounded-pill px-2 py-1 align-middle ms-1" style="font-size: 0.62rem;">
+                                    <i class="bi bi-globe2"></i> default: Global
+                                </span>
+                            @endif
+                        </label>
+                        <select name="shift_id" id="tambahShiftId" class="form-select rounded-3">
+                            <option value="">🌐 Global (berlaku semua kelas)</option>
+                            @foreach($shifts as $shift)
+                                <option value="{{ $shift->id }}" {{ $selectedShiftId == $shift->id ? 'selected' : '' }}>
+                                    {{ $shift->nama_shift }} — {{ $shift->rentang_utama }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <div class="form-text text-muted" style="font-size: 0.76rem;">
+                            Secara otomatis mengikuti sub-tab shift yang aktif. Slot dibuat untuk keempat hari
+                            (Senin-Kamis) atau Jumat sesuai kategori, pada shift yang dipilih. Slot pada shift
+                            terisolasi dari shift lain.
+                        </div>
+                    </div>
+                    @endif
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">Jam Mulai</label>
+                            <input type="time" name="jam_mulai" id="tambahJamMulai" class="form-control rounded-3" step="60" autocomplete="off" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">Jam Selesai</label>
+                            <input type="time" name="jam_selesai" id="tambahJamSelesai" class="form-control rounded-3" step="60" autocomplete="off" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">Jenis Slot</label>
+                        <select name="jenis" id="tambahJenis" class="form-select rounded-3" required>
+                            <option value="kbm">KBM (Kegiatan Belajar Mengajar)</option>
+                            <option value="istirahat">Istirahat</option>
+                        </select>
+                    </div>
+                    <div class="alert alert-light border d-flex align-items-start gap-2 rounded-3" style="font-size: 0.78rem;">
+                        <i class="bi bi-info-circle-fill text-primary mt-1"></i>
+                        <div>
+                            Penomoran <strong>Jam Ke-</strong> dihitung otomatis berurutan per hari
+                            <strong>dalam kelompok shift yang sama</strong> (Global &amp; setiap shift terpisah).
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold">
+                        <i class="bi bi-check-lg me-1"></i> Simpan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {{-- ===================== MODAL GENERATE PRESET JAM ===================== --}}
 <div class="modal fade" id="modalGeneratePreset" tabindex="-1" aria-labelledby="modalGeneratePresetTitle" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
@@ -616,9 +884,19 @@
             <form method="POST" action="{{ route('admin.jam-pelajaran.generate') }}" id="formGeneratePreset"
                   style="display: flex; flex-direction: column; min-height: 0;">
                 @csrf
+                <input type="hidden" name="shift" id="presetShift" value="{{ $selectedShiftId ?? '' }}">
                 <div class="modal-header border-0 pb-0" style="flex-shrink: 0;">
                     <h5 class="modal-title fw-bold" id="modalGeneratePresetTitle">
                         <i class="bi bi-lightning-charge-fill text-warning me-2"></i>Generate Preset Jam Pelajaran
+                        @if($selectedShift)
+                            <span class="badge bg-dark-subtle text-dark rounded-pill px-2 py-1 align-middle ms-1" style="font-size: 0.68rem;">
+                                <i class="bi bi-clock"></i> {{ $selectedShift->nama_shift }}
+                            </span>
+                        @else
+                            <span class="badge bg-secondary-subtle text-secondary rounded-pill px-2 py-1 align-middle ms-1" style="font-size: 0.68rem;">
+                                🌐 Global
+                            </span>
+                        @endif
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
@@ -714,6 +992,20 @@
                             <option value="Jumat">Jumat</option>
                         </select>
                     </div>
+                    @if($mode === 'shift' && !$shiftModeEmpty)
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">Shift</label>
+                        <select name="shift_id" id="editShiftId" class="form-select rounded-3">
+                            <option value="">🌐 Global (berlaku semua kelas)</option>
+                            @foreach($shifts as $shift)
+                                <option value="{{ $shift->id }}">{{ $shift->nama_shift }} — {{ $shift->rentang_utama }}</option>
+                            @endforeach
+                        </select>
+                        <div class="form-text text-muted" style="font-size: 0.76rem;">
+                            Pilih shift yang memiliki slot jam ini. "Global" dipakai kelas yang tidak terikat shift.
+                        </div>
+                    </div>
+                    @endif
                     <div class="row g-3 mb-3">
                         <div class="col-4">
                             <label class="form-label fw-semibold text-dark" style="font-size: 0.875rem;">Jam Mulai</label>
@@ -807,16 +1099,27 @@
             <form method="POST" action="{{ route('admin.jam-pelajaran.destroy-all', ['kategori_hari' => $tab]) }}" id="formHapusSemuaJP">
                 @csrf
                 @method('DELETE')
+                <input type="hidden" name="shift" value="{{ $selectedShiftId ?? '' }}">
                 <div class="modal-header border-0 pb-0">
                     <h5 class="modal-title fw-bold text-danger" id="modalHapusSemuaJPTitle">
                         <i class="bi bi-exclamation-triangle-fill me-2"></i>Hapus Semua Slot ({{ $tab }})
+                        @if($selectedShift)
+                            <span class="badge bg-dark-subtle text-dark rounded-pill px-2 py-1 align-middle ms-1" style="font-size: 0.68rem;">
+                                <i class="bi bi-clock"></i> {{ $selectedShift->nama_shift }}
+                            </span>
+                        @else
+                            <span class="badge bg-secondary-subtle text-secondary rounded-pill px-2 py-1 align-middle ms-1" style="font-size: 0.68rem;">
+                                🌐 Global
+                            </span>
+                        @endif
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body pt-3">
                     <p class="mb-0 text-dark" style="font-size: 0.875rem;">
                         Apakah Anda yakin ingin menghapus semua slot jam pelajaran untuk hari ini
-                        (<strong>{{ $tab }}</strong>)? Tindakan ini tidak dapat dibatalkan.
+                        (<strong>{{ $tab }}</strong>) pada shift <strong>{{ $selectedShift?->nama_shift ?? 'Global' }}</strong>?
+                        Tindakan ini tidak dapat dibatalkan.
                     </p>
                 </div>
                 <div class="modal-footer border-0 pt-0">
@@ -826,6 +1129,118 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+{{-- ===================== MODAL PENGATURAN SHIFT ===================== --}}
+<div class="modal fade" id="modalShift" tabindex="-1" aria-labelledby="modalShiftTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow rounded-4" style="max-height: 85vh; overflow: hidden;">
+            <div class="modal-header border-0 pb-0" style="flex-shrink: 0;">
+                <h5 class="modal-title fw-bold" id="modalShiftTitle">
+                    <i class="bi bi-arrow-left-right text-primary me-2"></i>Pengaturan Shift Pelajaran
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-3" style="overflow-y: auto;">
+                {{-- Form Tambah/Edit Shift --}}
+                <form method="POST" action="{{ route('admin.shift-pelajaran.store') }}" id="formShift">
+                    @csrf
+                    <div id="shiftMethodPlaceholder"></div>
+                    <div class="card border-0 shadow-none bg-light-subtle rounded-3">
+                        <div class="card-body p-3">
+                            <h6 class="fw-bold text-dark mb-1" style="font-size: 0.9rem;">
+                                <i class="bi bi-plus-lg me-1"></i><span id="shiftFormTitle">Tambah Shift Baru</span>
+                            </h6>
+                            <p class="text-muted mb-3" style="font-size: 0.76rem;">
+                                Rentang Jam Utama menunjukkan rentang waktu KBM utama shift (informasi/estimasi,
+                                bukan pengunci jam). Status Aktif menandakan shift sedang digunakan.
+                            </p>
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.85rem;">Nama Shift *</label>
+                                    <input type="text" name="nama_shift" id="shiftNama" class="form-control rounded-3"
+                                           maxlength="120" placeholder="cth: Shift 1 (Pagi)" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.85rem;">Jam Mulai Utama</label>
+                                    <input type="time" name="jam_mulai" id="shiftMulai" class="form-control rounded-3" step="60" value="07:00">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.85rem;">Jam Selesai Utama</label>
+                                    <input type="time" name="jam_selesai" id="shiftSelesai" class="form-control rounded-3" step="60" value="15:00">
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="form-check form-switch ps-5">
+                                        <input class="form-check-input" type="checkbox" name="is_active" id="shiftAktif" value="1" checked>
+                                        <label class="form-check-label fw-semibold text-dark" for="shiftAktif" style="font-size: 0.82rem;">Aktif</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2 mt-3">
+                                <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold">
+                                    <i class="bi bi-check-lg me-1"></i> <span id="shiftSubmitText">Simpan Shift</span>
+                                </button>
+                                <button type="button" id="btnResetShiftForm" class="btn btn-light border rounded-3 px-3 fw-semibold d-none">
+                                    Batal Edit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+
+                {{-- Daftar Shift --}}
+                <div class="mt-4">
+                    <h6 class="fw-bold text-dark mb-3" style="font-size: 0.9rem;">Daftar Shift</h6>
+                    @forelse($shifts as $shift)
+                        <div class="d-flex align-items-center gap-2 p-2 rounded-3 bg-white border mb-2 flex-wrap">
+                            <div class="flex-grow-1" style="min-width: 220px;">
+                                <div class="fw-semibold text-dark d-flex align-items-center gap-2 flex-wrap" style="font-size: 0.85rem;">
+                                    <i class="bi bi-clock text-primary"></i>
+                                    {{ $shift->nama_shift }}
+                                    @if($shift->is_active)
+                                        <span class="badge bg-success-subtle text-success rounded-pill" style="font-size: 0.65rem;">Aktif</span>
+                                    @else
+                                        <span class="badge bg-warning-subtle text-warning rounded-pill" style="font-size: 0.65rem;">Non-Aktif</span>
+                                    @endif
+                                </div>
+                                <div class="text-muted" style="font-size: 0.75rem;">
+                                    🕐 {{ substr($shift->jam_mulai ?? '00:00:00', 0, 5) }} – {{ substr($shift->jam_selesai ?? '00:00:00', 0, 5) }}
+                                    @if(!empty($shift->keterangan)) · {{ $shift->keterangan }} @endif
+                                    @if($shift->jamPelajaran()->count() > 0) · {{ $shift->jamPelajaran()->count() }} slot jam @endif
+                                    @if($shift->kelas()->count() > 0) · {{ $shift->kelas()->count() }} kelas @endif
+                                </div>
+                            </div>
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary rounded-3 fw-semibold btn-edit-shift flex-shrink-0"
+                                    data-shift-id="{{ $shift->id }}"
+                                    data-nama="{{ $shift->nama_shift }}"
+                                    data-mulai="{{ substr($shift->jam_mulai ?? '00:00:00', 0, 5) }}"
+                                    data-selesai="{{ substr($shift->jam_selesai ?? '00:00:00', 0, 5) }}"
+                                    data-aktif="{{ $shift->is_active ? 1 : 0 }}">
+                                <i class="bi bi-pencil-square me-1"></i>Edit
+                            </button>
+                            <form method="POST" action="{{ route('admin.shift-pelajaran.destroy', $shift->id) }}" class="d-inline flex-shrink-0">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit"
+                                        class="btn btn-sm btn-outline-danger rounded-3 fw-semibold"
+                                        onclick="return confirm('Hapus shift \'{{ $shift->nama_shift }}\'? Slot jam & kelas yang terikat shift ini akan kembali ke Global.')">
+                                    <i class="bi bi-trash3 me-1"></i>Hapus
+                                </button>
+                            </form>
+                        </div>
+                    @empty
+                        <div class="alert alert-light border text-muted rounded-3 mb-0" style="font-size: 0.82rem;">
+                            Belum ada shift. Tambahkan shift pertama (mis. <em>"Shift 1 (Pagi)"</em>) untuk sekolah
+                            dengan multi-sesi pembelajaran.
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0" style="flex-shrink: 0;">
+                <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Tutup</button>
+            </div>
         </div>
     </div>
 </div>
@@ -1039,7 +1454,8 @@
 
                 fetch("{{ route('admin.jam-pelajaran.generate-check') }}" +
                     '?kategori_hari=' + encodeURIComponent(kategori) +
-                    '&jumlah_jp=' + encodeURIComponent(jumlah))
+                    '&jumlah_jp=' + encodeURIComponent(jumlah) +
+                    '&shift=' + encodeURIComponent(document.getElementById('presetShift')?.value || ''))
                     .then(function (res) { return res.json(); })
                     .then(function (data) {
                         if (data.affected_jam_ke && data.affected_jam_ke.length > 0 && data.plotted_count > 0) {
@@ -1179,9 +1595,10 @@
 
         function renderJamPulangBadges() {
             document.querySelectorAll('.jam-pulang-select').forEach(function (select) {
+                const shift    = select.dataset.shift;
                 const kategori = select.dataset.kategori;
                 const tingkat  = select.dataset.tingkat;
-                const badge = document.querySelector('.jam-pulang-badge[data-kategori="' + kategori + '"][data-tingkat="' + tingkat + '"]');
+                const badge = document.querySelector('.jam-pulang-badge[data-shift="' + shift + '"][data-kategori="' + kategori + '"][data-tingkat="' + tingkat + '"]');
                 if (!badge) return;
 
                 const val = select.value;
@@ -1238,6 +1655,61 @@
             });
 
             renderJamPulangBadges();
+        }
+
+        // ===== Modal Pengaturan Shift: isi form & switch store/update =====
+        const shiftForm      = document.getElementById('formShift');
+        const shiftNama      = document.getElementById('shiftNama');
+        const shiftMulai     = document.getElementById('shiftMulai');
+        const shiftSelesai   = document.getElementById('shiftSelesai');
+        const shiftAktif     = document.getElementById('shiftAktif');
+        const shiftFormTitle = document.getElementById('shiftFormTitle');
+        const shiftSubmitText= document.getElementById('shiftSubmitText');
+        const btnResetShift  = document.getElementById('btnResetShiftForm');
+        const shiftMethodPh  = document.getElementById('shiftMethodPlaceholder');
+
+        const isGlobalShift = {{ $selectedShiftId === null ? 'true' : 'false' }};
+
+        function resetShiftFormToStore() {
+            if (shiftForm) shiftForm.action = "{{ route('admin.shift-pelajaran.store') }}";
+            if (shiftMethodPh) shiftMethodPh.innerHTML = '';
+            if (shiftNama) shiftNama.value = '';
+            if (shiftMulai) shiftMulai.value = '07:00';
+            if (shiftSelesai) shiftSelesai.value = '15:00';
+            if (shiftAktif) shiftAktif.checked = true;
+            if (shiftFormTitle) shiftFormTitle.textContent = 'Tambah Shift Baru';
+            if (shiftSubmitText) shiftSubmitText.textContent = 'Simpan Shift';
+            if (btnResetShift) btnResetShift.classList.add('d-none');
+        }
+
+        if (shiftForm) {
+            document.querySelectorAll('.btn-edit-shift').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    const id      = btn.dataset.shiftId;
+                    const nama    = btn.dataset.nama;
+                    const mulai   = btn.dataset.mulai;
+                    const selesai = btn.dataset.selesai;
+                    const aktif   = btn.dataset.aktif === '1';
+
+                    shiftForm.action = "{{ url('admin/shift-pelajaran') }}/" + id;
+                    if (shiftMethodPh) {
+                        shiftMethodPh.innerHTML = '<input type="hidden" name="_method" value="PUT">';
+                    }
+                    if (shiftNama) shiftNama.value = nama;
+                    if (shiftMulai) shiftMulai.value = mulai;
+                    if (shiftSelesai) shiftSelesai.value = selesai;
+                    if (shiftAktif) shiftAktif.checked = aktif;
+                    if (shiftFormTitle) shiftFormTitle.textContent = 'Edit Shift';
+                    if (shiftSubmitText) shiftSubmitText.textContent = 'Perbarui Shift';
+                    if (btnResetShift) btnResetShift.classList.remove('d-none');
+                });
+            });
+
+            if (btnResetShift) {
+                btnResetShift.addEventListener('click', resetShiftFormToStore);
+            }
+
+            document.getElementById('modalShift').addEventListener('hidden.bs.modal', resetShiftFormToStore);
         }
 
         // ===== Bulk Action: Select All & Mass Action (Edit/Hapus Terpilih) =====
@@ -1496,7 +1968,7 @@
         updateBulkUI();
     });
 
-    function openEditModal(id, kategoriHari, jamMulai, jamSelesai, jenis, durasi) {
+    function openEditModal(id, kategoriHari, jamMulai, jamSelesai, jenis, durasi, shiftId) {
         const routeBase = "{{ url('admin/jam-pelajaran') }}";
         document.getElementById('formEditJam').action = routeBase + '/' + id;
 
@@ -1504,6 +1976,10 @@
         document.getElementById('editJamMulai').value     = jamMulai;
         document.getElementById('editJamSelesai').value   = jamSelesai;
         document.getElementById('editJenis').value        = jenis;
+        const editShift = document.getElementById('editShiftId');
+        if (editShift) {
+            editShift.value = (shiftId !== undefined && shiftId !== null && shiftId !== 0) ? String(shiftId) : '';
+        }
         if (document.getElementById('editDurasi')) {
             document.getElementById('editDurasi').value = durasi !== undefined && durasi !== '' ? durasi : '40';
         }

@@ -12,6 +12,7 @@ use App\Http\Controllers\Kurikulum\AgendaRutinController;
 use App\Http\Controllers\Kurikulum\JadwalPelajaranController;
 use App\Http\Controllers\Kurikulum\JamPelajaranController;
 use App\Http\Controllers\Kurikulum\JamPulangController;
+use App\Http\Controllers\Kurikulum\ShiftPelajaranController;
 use App\Http\Controllers\Kurikulum\KurikulumDashboardController;
 use App\Http\Controllers\Kurikulum\KurikulumLaporanController;
 use App\Http\Controllers\Kurikulum\PengaturanJadwalController;
@@ -347,6 +348,11 @@ Route::prefix('admin')->middleware(['auth', AdminScheduleAccess::class])->group(
     Route::get('/jam-pelajaran/generate-check', [JamPelajaranController::class, 'checkGeneratePreset'])->name('admin.jam-pelajaran.generate-check');
     Route::post('/jam-pelajaran/bulk-update', [JamPelajaranController::class, 'bulkUpdate'])->name('admin.jam-pelajaran.bulk-update');
     Route::post('/jam-pulang/upsert', [JamPulangController::class, 'upsert'])->name('admin.jam-pulang.upsert');
+
+    // CRUD Master Shift (Shift 1 Pagi, Shift 2 Siang, dst.) dari Master Jam Pelajaran
+    Route::post('/shift-pelajaran', [ShiftPelajaranController::class, 'store'])->name('admin.shift-pelajaran.store');
+    Route::put('/shift-pelajaran/{shiftPelajaran}', [ShiftPelajaranController::class, 'update'])->name('admin.shift-pelajaran.update');
+    Route::delete('/shift-pelajaran/{shiftPelajaran}', [ShiftPelajaranController::class, 'destroy'])->name('admin.shift-pelajaran.destroy');
     Route::post('/agenda-rutin/upsert', [AgendaRutinController::class, 'upsert'])->name('admin.agenda-rutin.upsert');
     Route::post('/toggle-senin-tanpa-upacara', [PengaturanJadwalController::class, 'toggleSeninTanpaUpacara'])->name('admin.toggle-senin-tanpa-upacara');
     Route::post('/toggle-mode-khusus', [PengaturanJadwalController::class, 'toggleModeKhusus'])->name('admin.toggle-mode-khusus');

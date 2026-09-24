@@ -18,6 +18,8 @@ class AgendaRutinController extends Controller
             'jam_ke' => 'required|integer|min:1|max:20',
             'is_active' => 'nullable|boolean',
             'redirect_tab' => 'nullable|string|in:Senin-Kamis,Jumat',
+            'redirect_shift' => 'nullable|integer',
+            'redirect_mode' => 'nullable|string|in:global,shift',
         ]);
 
         $hari = $validated['hari'];
@@ -57,10 +59,18 @@ class AgendaRutinController extends Controller
         );
 
         $redirectTab = $request->input('redirect_tab', ($hari === 'Jumat' ? 'Jumat' : 'Senin-Kamis'));
+        $redirectShift = $request->input('redirect_shift');
+        $redirectParams = ['tab' => $redirectTab];
+        if ($redirectShift !== null && $redirectShift !== '' && (int) $redirectShift > 0) {
+            $redirectParams['shift'] = (int) $redirectShift;
+        }
+        if ($request->input('redirect_mode') === 'shift') {
+            $redirectParams['mode'] = 'shift';
+        }
         $statusText = $isActive ? 'diaktifkan & dikunci' : 'dinonaktifkan';
 
         return redirect()
-            ->route('admin.jam-pelajaran.index', ['tab' => $redirectTab])
+            ->route('admin.jam-pelajaran.index', $redirectParams)
             ->with('success', "Agenda Rutin \"{$namaAgenda}\" (Hari {$hari} Jam ke-{$validated['jam_ke']}) berhasil {$statusText}.");
     }
 }

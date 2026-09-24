@@ -19,6 +19,7 @@ class Kelas extends Model
         'nama_kelas',
         'tingkat',
         'id_jurusan',
+        'shift_id',
         'id_wali_kelas',
         'is_testing_data',
     ];
@@ -67,6 +68,22 @@ class Kelas extends Model
     public function siswa(): HasMany
     {
         return $this->hasMany(Siswa::class, 'id_kelas', 'id');
+    }
+
+    /**
+     * Relasi ke Shift (NULL = kelas global / legacy).
+     */
+    public function shift(): BelongsTo
+    {
+        return $this->belongsTo(ShiftPelajaran::class, 'shift_id', 'id');
+    }
+
+    /**
+     * Shift efektif kelas: kembalikan 0 bila kelas tidak terikat shift (global).
+     */
+    public function getShiftEffectiveAttribute(): int
+    {
+        return $this->shift_id ? (int) $this->shift_id : 0;
     }
 
     /**

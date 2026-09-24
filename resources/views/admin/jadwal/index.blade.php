@@ -206,6 +206,15 @@
                         <div>
                             <h5 class="fw-black mb-0 text-dark" style="font-weight: 800;">
                                 {{ $selectedKelas->nama_kelas }} &mdash; Jadwal Hari {{ $selectedHari }}
+                                @if($selectedKelas->shift)
+                                    <span class="badge bg-dark-subtle text-dark rounded-pill px-2 py-1 align-middle ms-1" style="font-size: 0.68rem;">
+                                        <i class="bi bi-clock"></i> {{ $selectedKelas->shift->nama_shift }}
+                                    </span>
+                                @else
+                                    <span class="badge bg-secondary-subtle text-secondary rounded-pill px-2 py-1 align-middle ms-1" style="font-size: 0.68rem;">
+                                        🌐 Global
+                                    </span>
+                                @endif
                             </h5>
                             <span class="text-muted" style="font-size: 0.85rem;">
                                 Wali Kelas: <strong>{{ $selectedKelas->waliKelas->nama ?? '-' }}</strong> &bull; Jurusan: <strong>{{ $selectedKelas->jurusan->nama_jurusan ?? '-' }}</strong>

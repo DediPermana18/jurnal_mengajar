@@ -145,6 +145,11 @@
             </h2>
             <p class="text-muted mb-0" style="font-size: 0.9rem; font-weight: 500;">
                 {{ $kelas->jurusan->nama_jurusan ?? '-' }} · Tingkat: <strong>Kelas {{ $kelas->tingkat }}</strong> · Wali Kelas: <strong>{{ $kelas->waliKelas->nama ?? 'Belum Ditentukan' }}</strong>
+                @if($kelas->shift)
+                    · <i class="bi bi-clock"></i> Shift: <strong>{{ $kelas->shift->nama_shift }}</strong>
+                @else
+                    · <i class="bi bi-globe2"></i> Shift: <strong>Global</strong>
+                @endif
             </p>
         </div>
         <a href="{{ route('kelas.index') }}" class="btn btn-light border rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-2">

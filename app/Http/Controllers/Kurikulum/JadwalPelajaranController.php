@@ -74,8 +74,9 @@ class JadwalPelajaranController extends Controller
             'X' => '10', 'XI' => '11', 'XII' => '12', default => $selectedKelas->tingkat
         } : '10';
 
-        // 4. Ambil master jam pelajaran global sekolah
+        // 4. Ambil master jam pelajaran sekolah: slot Global + slot milik shift kelas terpilih
         $jamPelajaranList = JamPelajaran::where('hari', $selectedHari)
+            ->forShift($selectedKelas?->shift_id)
             ->orderBy('jam_mulai')
             ->get();
 
@@ -119,10 +120,14 @@ class JadwalPelajaranController extends Controller
         // Total slot jam (kategori hari terpilih) untuk badge ringkasan di header matriks.
         $totalSlot = $jamPelajaranList->count();
 
-        // 7. Ambil batas jam pulang untuk kelas & hari yang dipilih
+        // 7. Ambil batas jam pulang untuk kelas & hari yang dipilih (per shift kelas)
         $maxJamKe = null;
         if ($selectedKelas) {
-            $maxJamKe = JamPulang::getMaxJamKe($kategoriHari, strtoupper(trim($selectedKelas->tingkat)));
+            $maxJamKe = JamPulang::getMaxJamKe(
+                $kategoriHari,
+                strtoupper(trim($selectedKelas->tingkat)),
+                $selectedKelas->shift_effective
+            );
         }
 
         // 8. Ambil agenda rutin / upacara aktif untuk hari terpilih
@@ -257,20 +262,22 @@ class JadwalPelajaranController extends Controller
                 }
 
                 $kategori = ($hari === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
-                $slots = $slotsPerHari->get($hari);
-                if (! $slots || $slots->isEmpty()) {
+                $slots = $slotsPerHari->get($hari) ?? collect();
+                if ($slots->isEmpty() && in_array($hari, ['Senin', 'Selasa', 'Rabu', 'Kamis'], true)) {
                     // Fallback untuk hari Senin-Kamis jika slot disimpan dengan hari='Senin'
-                    if (in_array($hari, ['Senin', 'Selasa', 'Rabu', 'Kamis'], true)) {
-                        $slots = $slotsPerHari->get('Senin', collect());
-                    } else {
-                        $slots = collect();
-                    }
+                    $slots = $slotsPerHari->get('Senin', collect());
                 }
+
+                // Hanya slot yang terlihat oleh shift kelas ini (Global + shift kelas).
+                $slots = $slots
+                    ->filter(fn ($slot) => $slot->shift_id === null || (int) $slot->shift_id === (int) $kelas->shift_id)
+                    ->values();
+
                 $agendaHari = $agendaAktif->get($hari, collect());
                 // Batas Jam Pulang per tingkat kelas (format tingkat sama dengan master:
                 // huruf Romawi, mis. 'X', 'XI', 'XII' — lihat PengaturanJadwalSeeder).
                 // Slot dengan jam_ke > max_jam_ke (mis. jam ke-13 saat max 12) tidak dihitung kosong.
-                $maxJamKe = JamPulang::getMaxJamKe($kategori, strtoupper(trim($kelas->tingkat)));
+                $maxJamKe = JamPulang::getMaxJamKe($kategori, strtoupper(trim($kelas->tingkat)), $kelas->shift_effective);
 
                 $kosong = [];
                 foreach ($slots as $slot) {
@@ -350,7 +357,9 @@ class JadwalPelajaranController extends Controller
             } : '10';
 
             // 1. Ambil semua slot KBM dalam rentang jam_ke_mulai s/d jam_ke_selesai (abaikan jenis istirahat)
+            //    — hanya slot yang terlihat oleh shift kelas (Global + shift kelas).
             $targetSlots = JamPelajaran::where('hari', $validated['hari'])
+                ->forShift($kelas?->shift_id)
                 ->whereNotNull('jam_ke')
                 ->where('jenis', '!=', 'istirahat')
                 ->whereBetween('jam_ke', [$validated['jam_ke_mulai'], $validated['jam_ke_selesai']])
@@ -388,7 +397,8 @@ class JadwalPelajaranController extends Controller
                 (int) $validated['id_kelas'],
                 $tahunAktif,
                 $tingkatKelas,
-                $isEditMode ? $groupId : null
+                $isEditMode ? $groupId : null,
+                $kelas?->shift_effective
             );
 
             if (! empty($blockedSlots)) {
@@ -609,7 +619,7 @@ class JadwalPelajaranController extends Controller
 
             if ($slot) {
                 $agendaUpdate = AgendaRutin::where('hari', $validated['hari'])->where('jam_ke', $slot->jam_ke)->where('is_active', true)->first();
-                $maxJamKeUpdate = JamPulang::getMaxJamKe($kategoriHari, $tingkatUpdate);
+                $maxJamKeUpdate = JamPulang::getMaxJamKe($kategoriHari, $tingkatUpdate, $kelasUpdate?->shift_effective ?? 0);
                 $terkunci = ($slot->jenis !== 'kbm')
                     || ($agendaUpdate !== null)
                     || ($maxJamKeUpdate !== null && $slot->jam_ke !== null && $slot->jam_ke > $maxJamKeUpdate);
@@ -814,7 +824,8 @@ class JadwalPelajaranController extends Controller
         int $idKelas,
         ?TahunAjaran $tahunAktif,
         string $tingkatKelas,
-        ?string $exemptGroupId = null
+        ?string $exemptGroupId = null,
+        int $shiftId = 0
     ): array {
         if ($targetSlots->isEmpty()) {
             return [];
@@ -825,7 +836,7 @@ class JadwalPelajaranController extends Controller
             ->get()
             ->keyBy('jam_ke');
 
-        $maxJamKe = JamPulang::getMaxJamKe($kategoriHari, $tingkatKelas);
+        $maxJamKe = JamPulang::getMaxJamKe($kategoriHari, $tingkatKelas, $shiftId);
 
         $blocked = [];
 

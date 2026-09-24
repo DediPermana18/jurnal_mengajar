@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasTestingData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class JamPelajaran extends Model
@@ -16,6 +17,7 @@ class JamPelajaran extends Model
     protected $fillable = [
         'hari',
         'kategori_hari',
+        'shift_id',
         'jam_ke',
         'jam_mulai',
         'jam_selesai',
@@ -35,6 +37,30 @@ class JamPelajaran extends Model
                 $jam->kategori_hari = in_array($jam->hari, ['Senin', 'Selasa', 'Rabu', 'Kamis'], true) ? 'Senin-Kamis' : 'Jumat';
             }
         });
+    }
+
+    /**
+     * Scope: slot yang terlihat oleh kelas dengan shift $shiftId.
+     * Kelas selalu melihat slot Global (shift_id NULL) + slot shift-nya sendiri.
+     */
+    public function scopeForShift($query, ?int $shiftId)
+    {
+        return $query->where(function ($q) use ($shiftId) {
+            $q->whereNull('shift_id')
+                ->orWhere('shift_id', $shiftId);
+        });
+    }
+
+    /**
+     * Scope: slot milik satu shift tertentu (termasuk Global = NULL).
+     */
+    public function scopeOfShift($query, ?int $shiftId)
+    {
+        if ($shiftId === null || $shiftId === 0) {
+            return $query->whereNull('shift_id');
+        }
+
+        return $query->where('shift_id', $shiftId);
     }
 
     /**
@@ -84,5 +110,13 @@ class JamPelajaran extends Model
     public function jadwalPelajaran(): HasMany
     {
         return $this->hasMany(JadwalPelajaran::class, 'id_jam', 'id');
+    }
+
+    /**
+     * Relasi ke Shift (NULL = slot global / legacy).
+     */
+    public function shift(): BelongsTo
+    {
+        return $this->belongsTo(ShiftPelajaran::class, 'shift_id', 'id');
     }
 }

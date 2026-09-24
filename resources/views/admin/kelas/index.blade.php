@@ -184,6 +184,21 @@
                         </select>
                     </div>
 
+                    <!-- SHIFT -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary small">SHIFT (OPSIONAL)</label>
+                        <select name="shift_id" class="form-select rounded-3">
+                            <option value="">-- Global (Tanpa Shift) --</option>
+                            @foreach($daftarShift as $shift)
+                                <option value="{{ $shift->id }}" {{ old('shift_id') == $shift->id ? 'selected' : '' }}>
+                                    {{ $shift->nama_shift }} @if($shift->jam_mulai) ({{ substr($shift->jam_mulai, 0, 5) }} - {{ substr($shift->jam_selesai ?: '00:00', 0, 5) }}) @endif
+                                    @if(!$shift->is_active) — Non-Aktif @endif
+                                </option>
+                            @endforeach
+                        </select>
+                        <div class="form-text text-muted small">Menentukan jam pelajaran &amp; jam pulang yang berlaku untuk kelas ini.</div>
+                    </div>
+
                     <!-- NOMOR ROMBEL (Auto-detected) -->
                     <div class="mb-3">
                         <label class="form-label fw-semibold text-secondary small">NOMOR ROMBEL (Otomatis) <span class="text-danger">*</span></label>

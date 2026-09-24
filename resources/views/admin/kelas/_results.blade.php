@@ -52,6 +52,20 @@
                                     {{ $kelas->nama_kelas }}
                                 </span>
                             </div>
+                            @if($kelas->shift)
+                                <div class="mt-1">
+                                    <span class="badge bg-dark-subtle text-dark border px-2 py-1 rounded-pill" style="font-size: 0.7rem;">
+                                        <i class="bi bi-clock me-1"></i>{{ $kelas->shift->nama_shift }}
+                                        @if(!$kelas->shift->is_active) <span class="text-warning">(Non-Aktif)</span> @endif
+                                    </span>
+                                </div>
+                            @else
+                                <div class="mt-1">
+                                    <span class="badge bg-secondary-subtle text-secondary border px-2 py-1 rounded-pill" style="font-size: 0.7rem;">
+                                        <i class="bi bi-globe2 me-1"></i>Global
+                                    </span>
+                                </div>
+                            @endif
                         </td>
 
                         <!-- Kolom TINGKAT -->
@@ -191,8 +205,19 @@
                           style="background-color: #fff; color: {{ $tingkatColor['color'] }}; border: 1px solid {{ $tingkatColor['border'] }}; font-size: 0.9rem; letter-spacing: 0.01em;">
                         {{ $kelas->nama_kelas }}
                     </span>
-                    <span class="badge bg-white text-dark border px-2 py-1 rounded-2 font-monospace flex-shrink-0" style="font-size: 0.8rem;">
-                        {{ $kelas->tingkat }}
+                    <span class="d-flex align-items-center gap-2 flex-shrink-0">
+                        @if($kelas->shift)
+                            <span class="badge bg-dark-subtle text-dark border px-2 py-1 rounded-pill" style="font-size: 0.7rem;">
+                                <i class="bi bi-clock me-1"></i>{{ $kelas->shift->nama_shift }}
+                            </span>
+                        @else
+                            <span class="badge bg-secondary-subtle text-secondary border px-2 py-1 rounded-pill" style="font-size: 0.7rem;">
+                                <i class="bi bi-globe2 me-1"></i>Global
+                            </span>
+                        @endif
+                        <span class="badge bg-white text-dark border px-2 py-1 rounded-2 font-monospace flex-shrink-0" style="font-size: 0.8rem;">
+                            {{ $kelas->tingkat }}
+                        </span>
                     </span>
                 </div>
 
@@ -342,6 +367,21 @@
                                 </option>
                             @endforeach
                         </select>
+                    </div>
+
+                    <!-- SHIFT -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary small">SHIFT (OPSIONAL)</label>
+                        <select name="shift_id" class="form-select rounded-3">
+                            <option value="">-- Global (Tanpa Shift) --</option>
+                            @foreach($daftarShift as $shift)
+                                <option value="{{ $shift->id }}" {{ old('shift_id', $kelas->shift_id) == $shift->id ? 'selected' : '' }}>
+                                    {{ $shift->nama_shift }} @if($shift->jam_mulai) ({{ substr($shift->jam_mulai, 0, 5) }} - {{ substr($shift->jam_selesai ?: '00:00', 0, 5) }}) @endif
+                                    @if(!$shift->is_active) — Non-Aktif @endif
+                                </option>
+                            @endforeach
+                        </select>
+                        <div class="form-text text-muted small">Menentukan jam pelajaran &amp; jam pulang yang berlaku untuk kelas ini.</div>
                     </div>
 
                     <!-- WALI KELAS -->

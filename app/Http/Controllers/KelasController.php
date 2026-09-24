@@ -6,6 +6,7 @@ use App\Exports\KelasExport;
 use App\Models\JadwalPelajaran;
 use App\Models\Jurusan;
 use App\Models\Kelas;
+use App\Models\ShiftPelajaran;
 use App\Models\Siswa;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -45,7 +46,7 @@ class KelasController extends Controller
     {
         $this->authorizeAdmin();
 
-        $query = Kelas::with(['jurusan', 'waliKelas'])->withCount('siswa');
+        $query = Kelas::with(['jurusan', 'waliKelas', 'shift'])->withCount('siswa');
 
         // Pencarian Nama Kelas, Tingkat, Jurusan, atau Wali Kelas
         if ($request->filled('search')) {
@@ -92,6 +93,9 @@ class KelasController extends Controller
             ->orderBy('nama')
             ->get();
 
+        // Master shift (untuk dropdown shift pada modal tambah/edit kelas)
+        $daftarShift = ShiftPelajaran::orderBy('jam_mulai')->orderBy('id')->get();
+
         // Jumlah rombel per kombinasi tingkat + jurusan untuk auto-increment nomor rombel
         $countsByKombinasi = Kelas::selectRaw('tingkat, id_jurusan, count(*) as total')
             ->groupBy('tingkat', 'id_jurusan')
@@ -103,11 +107,11 @@ class KelasController extends Controller
         // agar daftar bisa di-update tanpa me-refresh seluruh halaman.
         if ($request->ajax()) {
             return response()->json([
-                'html' => view('admin.kelas._results', compact('dataKelas', 'daftarJurusan', 'daftarWaliKelas'))->render(),
+                'html' => view('admin.kelas._results', compact('dataKelas', 'daftarJurusan', 'daftarWaliKelas', 'daftarShift'))->render(),
             ]);
         }
 
-        return view('admin.kelas.index', compact('dataKelas', 'daftarJurusan', 'daftarWaliKelas', 'countsByKombinasi'));
+        return view('admin.kelas.index', compact('dataKelas', 'daftarJurusan', 'daftarWaliKelas', 'daftarShift', 'countsByKombinasi'));
     }
 
     /**
@@ -154,13 +158,17 @@ class KelasController extends Controller
             'tingkat' => 'required|in:X,XI,XII',
             'id_jurusan' => 'required|exists:jurusan,id',
             'id_wali_kelas' => 'nullable|exists:users,id',
+            'shift_id' => 'nullable|integer|exists:shift_pelajaran,id',
         ], [
             'tingkat.required' => 'Tingkat kelas wajib dipilih.',
             'tingkat.in' => 'Pilihan tingkat tidak valid (harus X, XI, atau XII).',
             'id_jurusan.required' => 'Jurusan wajib dipilih.',
             'id_jurusan.exists' => 'Jurusan yang dipilih tidak ditemukan.',
             'id_wali_kelas.exists' => 'Wali kelas yang dipilih tidak ditemukan.',
+            'shift_id.exists' => 'Shift yang dipilih tidak ditemukan.',
         ]);
+
+        $shiftId = ! empty($request->shift_id) ? (int) $request->shift_id : null;
 
         // Validasi: 1 Guru hanya boleh menjadi Wali Kelas pada 1 kelas
         if (! empty($idWaliKelas)) {
@@ -188,6 +196,7 @@ class KelasController extends Controller
             'nama_kelas' => $namaKelas,
             'tingkat' => $request->tingkat,
             'id_jurusan' => $idJurusan,
+            'shift_id' => $shiftId,
             'id_wali_kelas' => $idWaliKelas ?: null,
         ]);
 
@@ -236,6 +245,7 @@ class KelasController extends Controller
             'tingkat' => 'required|in:X,XI,XII',
             'id_jurusan' => 'required|exists:jurusan,id',
             'id_wali_kelas' => 'nullable|exists:users,id',
+            'shift_id' => 'nullable|integer|exists:shift_pelajaran,id',
         ], [
             'nama_kelas.required' => 'Nama kelas wajib diisi.',
             'tingkat.required' => 'Tingkat kelas wajib dipilih.',
@@ -243,10 +253,12 @@ class KelasController extends Controller
             'id_jurusan.required' => 'Jurusan wajib dipilih.',
             'id_jurusan.exists' => 'Jurusan yang dipilih tidak valid.',
             'id_wali_kelas.exists' => 'Wali kelas yang dipilih tidak valid.',
+            'shift_id.exists' => 'Shift yang dipilih tidak ditemukan.',
         ]);
 
         $idJurusan = $request->id_jurusan;
         $idWaliKelas = $request->id_wali_kelas;
+        $shiftId = ! empty($request->shift_id) ? (int) $request->shift_id : null;
         $oldWaliKelasId = $kelas->id_wali_kelas;
 
         // Validasi: Cegah guru yang sudah menjadi wali kelas lain dipilih lagi
@@ -264,6 +276,7 @@ class KelasController extends Controller
             'nama_kelas' => $request->nama_kelas,
             'tingkat' => $request->tingkat,
             'id_jurusan' => $idJurusan,
+            'shift_id' => $shiftId,
             'id_wali_kelas' => $idWaliKelas ?: null,
         ]);
 
