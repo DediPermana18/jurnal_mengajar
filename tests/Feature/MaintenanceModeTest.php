@@ -137,7 +137,7 @@ class MaintenanceModeTest extends TestCase
                 'mode' => 'guru',
             ])
             ->assertRedirect(route('login'))
-            ->assertSessionHasErrors(['login_id' => 'Login Gagal: Sistem sedang dalam pemeliharaan.']);
+            ->assertSessionHasErrors(['login_id' => 'Kredensial yang Anda masukkan salah.']);
 
         $this->assertGuest();
     }

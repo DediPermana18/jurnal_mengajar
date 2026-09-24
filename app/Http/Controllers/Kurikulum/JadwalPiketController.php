@@ -64,6 +64,9 @@ class JadwalPiketController extends Controller
         $user = auth()->user();
         $canManage = $user && in_array($user->effectiveRole(), ['admin', 'admin_kurikulum', 'waka_kurikulum', 'admin_tu']);
 
+        // Modal "Pengaturan Shift & Kuota" di halaman utama membutuhkan daftar shift.
+        $shifts = ShiftPiket::orderBy('urutan')->orderBy('id')->get();
+
         // ID guru yang sudah terpilih per hari (untuk pre-check checkbox)
         $selectedByHari = [];
         foreach ($hariList as $hari) {
@@ -72,7 +75,7 @@ class JadwalPiketController extends Controller
 
         return view('kurikulum.jadwal_piket.index', compact(
             'hariList', 'jadwalByHari', 'guruList', 'allJadwal', 'selectedByHari', 'canManage',
-            'mingguKe'
+            'mingguKe', 'shifts'
         ));
     }
 
@@ -482,6 +485,11 @@ class JadwalPiketController extends Controller
         $data['is_active'] = $request->boolean('is_active');
         ShiftPiket::create($data);
 
+        // Kalau form dikirim dari modal di halaman utama, buka kembali modalnya.
+        if ($request->boolean('from_shift_modal')) {
+            return back()->with(['success' => 'Shift piket berhasil ditambahkan.', 'open_shift_modal' => true]);
+        }
+
         return back()->with('success', 'Shift piket berhasil ditambahkan.');
     }
 
@@ -498,13 +506,21 @@ class JadwalPiketController extends Controller
         $data['is_active'] = $request->boolean('is_active');
         $shift->update($data);
 
+        if ($request->boolean('from_shift_modal')) {
+            return back()->with(['success' => 'Shift piket berhasil diperbarui.', 'open_shift_modal' => true]);
+        }
+
         return back()->with('success', 'Shift piket berhasil diperbarui.');
     }
 
-    public function destroyShift(ShiftPiket $shift)
+    public function destroyShift(Request $request, ShiftPiket $shift)
     {
         $this->authorizeManage();
         $shift->delete();
+
+        if ($request->boolean('from_shift_modal')) {
+            return back()->with(['success' => 'Shift piket berhasil dihapus.', 'open_shift_modal' => true]);
+        }
 
         return back()->with('success', 'Shift piket berhasil dihapus.');
     }

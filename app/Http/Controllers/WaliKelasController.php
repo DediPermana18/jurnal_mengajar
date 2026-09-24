@@ -231,14 +231,18 @@ class WaliKelasController extends Controller
                     ->values();
                 $jamLabel = $this->formatRentangJam($jamKeList);
 
-                // Absensi digabung per siswa UNIK agar hadir/total tidak terduplikasi antar-jam.
-                $absensiUnik = $kelompok
-                    ->flatMap(fn (Jurnal $j) => $j->absensiJurnal)
-                    ->unique('id_siswa');
+                // Absensi digabung per siswa UNIK (prefer status non-Hadir antar-jam)
+                // agar jumlah HADIR tidak terduplikasi / tidak salah hitung.
+                // Relasi presensi di model ini bernama 'absensiJurnal' (setara 'presensiSiswa'),
+                // di-load eager via with() sehingga selalu berupa Collection (bukan null).
+                $absensiUnik = $this->gabungkanAbsensiSesi($kelompok);
 
-                $hadir = $absensiUnik->where('status', 'Hadir')->count();
-                $totalKehadiran = $absensiUnik->whereIn('status', ['Hadir', 'Izin', 'Sakit', 'Alpa', 'Alpha', 'Dispen'])->count();
-                $totalSiswa = $absensiUnik->count();
+                // Badge kehadiran: jumlah siswa yang BENAR-BENAR HADIR / total siswa tercatat.
+                // Siswa berstatus Izin/Sakit/Alpa/Dispen/Terlambat TIDAK dihitung sebagai hadir.
+                // Fallback aman: bila hasil hitungan null/kosong, jatuh ke 0 agar badge
+                // tidak pernah kehilangan elemen/angka-nya.
+                $jumlahHadir = $absensiUnik ? $absensiUnik->where('status', 'Hadir')->count() : 0;
+                $totalSiswa = $absensiUnik ? $absensiUnik->count() : 0;
 
                 $guruPengajar = $utama->guruPengganti ?: $utama->guru;
 
@@ -249,14 +253,196 @@ class WaliKelasController extends Controller
                     'mapel' => $utama->jadwalPelajaran?->mapel?->nama_mapel ?? '-',
                     'guru_pengajar' => $guruPengajar?->nama ?? '-',
                     'materi' => $utama->materi ?: '-',
-                    'hadir' => $hadir,
+                    'hadir' => $jumlahHadir,
                     'total_siswa' => $totalSiswa,
-                    'ratio_label' => $totalKehadiran > 0 ? "{$totalKehadiran}/{$totalSiswa} Siswa" : '0/0 Siswa',
+                    'ratio_label' => $totalSiswa > 0 ? "{$jumlahHadir}/{$totalSiswa} Siswa" : '0/0 Siswa',
                 ];
             })
             ->values();
 
         return view('walikelas.riwayat_jurnal', compact('daftarJurnal', 'namaKelasSaya'));
+    }
+
+    /**
+     * Tampilkan detail jurnal mengajar (layout bersama 'guru.jurnal.show')
+     * untuk Wali Kelas — view yang sama dipakai di /guru/jurnal/{id}.
+     *
+     * Menampilkan seluruh bagian lengkap: badge 'Read-Only', informasi jurnal
+     * utama (kelas, mapel, status kehadiran guru, guru pengganti, materi),
+     * catatan kejadian penting & foto kegiatan KBM, serta rekap presensi siswa
+     * (No, NIS, Nama, Status, Keterangan / Foto Surat).
+     *
+     * Keamanan: hanya jurnal yang mengajar di kelas bimbingan wali kelas yang
+     * sedang login (atau target impersonasi Petugas IT) yang diizinkan dilihat.
+     * Jurnal tidak menyimpan id_kelas langsung — kelas didapat melalui relasi
+     * jadwalPelajaran (jadwal_pelajaran.id_kelas).
+     */
+    public function showJurnal(Request $request, Jurnal $jurnal)
+    {
+        $user = auth()->user();
+        abort_unless($user && ($user->isPetugasIt() || $user->isWaliKelas()), 403, 'Akses ditolak. Halaman ini khusus untuk Wali Kelas.');
+        abort_if($this->isEmptyTargetContext(), 403, 'Pilih target Wali Kelas terlebih dahulu.');
+
+        $guruId = $this->effectiveGuruId();
+        $kelasSaya = Kelas::where('id_wali_kelas', $guruId)->get();
+        if ($user->isPetugasIt() && $kelasSaya->isEmpty()) {
+            $kelasSaya = Kelas::all();
+        }
+        $kelasIds = $kelasSaya->pluck('id');
+
+        $jurnal->load([
+            'jadwalPelajaran.jamPelajaran',
+            'jadwalPelajaran.kelas',
+            'jadwalPelajaran.mapel',
+            'guru',
+            'guruPengganti',
+            'absensiJurnal.siswa',
+        ]);
+
+        // ==== VALIDASI KEPEMILIKAN KELAS BIMBINGAN ====
+        // jurnal->kelas_id tidak disimpan langsung; kelas didapat lewat relasi
+        // jadwalPelajaran->id_kelas dan harus milik wali kelas yang login.
+        abort_unless(
+            $jurnal->jadwalPelajaran !== null && $kelasIds->contains($jurnal->jadwalPelajaran->id_kelas),
+            403,
+            'Anda hanya dapat melihat jurnal dari kelas bimbingan Anda.'
+        );
+
+        // Seluruh record jurnal dalam SATU sesi mengajar (jurnal multi-jam di-group),
+        // agar detailnya selaras dengan baris pada halaman riwayat.
+        $kelompok = $this->kelompokSesiJurnal($jurnal);
+        $utama = $kelompok->first(fn (Jurnal $j) => $j->id === $jurnal->id) ?? $jurnal;
+
+        // Konteks sesi mengajar + tab Jam Pelajaran — pola sama dengan guru.jurnal.show.
+        $jpOptions = $kelompok->map(function (Jurnal $item) {
+            $jam = $item->jadwalPelajaran?->jamPelajaran;
+
+            return [
+                'jam_ke' => $jam?->jam_ke,
+                'waktu' => $jam ? $this->formatWaktuSesi(collect([$item])) : '-',
+                'jurnal_id' => $item->id,
+            ];
+        })->filter(fn ($option) => $option['jam_ke'] !== null)->values()->all();
+
+        $selectedJamKe = $request->filled('jp') ? (int) $request->input('jp') : null;
+        $jurnalTampil = $selectedJamKe === null
+            ? $utama
+            : ($kelompok->first(fn (Jurnal $item) => (int) $item->jadwalPelajaran?->jamPelajaran?->jam_ke === $selectedJamKe) ?? $utama);
+
+        $absensiMap = $selectedJamKe === null
+            ? $this->gabungkanAbsensiSesi($kelompok)
+            : $jurnalTampil->absensiJurnal->keyBy('id_siswa');
+
+        $waktu = $selectedJamKe === null && $kelompok->count() > 1
+            ? $this->formatWaktuSesi($kelompok)
+            : $this->formatWaktuSesi(collect([$jurnalTampil]));
+
+        $jadwal = $jurnalTampil->jadwalPelajaran;
+        $jurnal = $jurnalTampil;
+
+        $siswas = Siswa::where('id_kelas', $jadwal->id_kelas)
+            ->where('status_siswa', 'Aktif')
+            ->orderBy('nama')
+            ->get();
+
+        $today = $jurnal->tanggal ? $jurnal->tanggal->format('Y-m-d') : Carbon::today()->toDateString();
+
+        // Navigasi kembali ke portal Wali Kelas (view dipakai bersama dengan guru).
+        $jurnalShowUrl = route('walikelas.riwayat-jurnal.show', $jurnal->id);
+        $backUrl = route('walikelas.riwayat-jurnal');
+        $backLabel = 'Kembali ke Riwayat Jurnal';
+
+        return view('guru.jurnal.show', compact(
+            'jurnal',
+            'jadwal',
+            'siswas',
+            'today',
+            'waktu',
+            'absensiMap',
+            'jpOptions',
+            'selectedJamKe',
+            'jurnalShowUrl',
+            'backUrl',
+            'backLabel'
+        ));
+    }
+
+    /**
+     * Kunci "sesi mengajar" untuk pengelompokan: tanggal + guru pengajar +
+     * mata pelajaran + materi. Dua jurnal dengan kunci sama dianggap satu sesi
+     * (mis. multi-jam beruntun) — selaras dengan pengelompokan di daftar riwayat.
+     */
+    protected function sesiKey(Jurnal $jurnal): string
+    {
+        $guruPengajarId = $jurnal->guruPengganti?->id ?? $jurnal->guru?->id ?? 'tanpa-guru';
+
+        return implode('|', [
+            $jurnal->tanggal ? $jurnal->tanggal->toDateString() : 'tanpa-tanggal',
+            $guruPengajarId,
+            $jurnal->jadwalPelajaran?->mapel?->id ?? 'tanpa-mapel',
+            trim((string) $jurnal->materi),
+        ]);
+    }
+
+    /**
+     * Kumpulan record jurnal dari sesi mengajar yang sama dengan $jurnal,
+     * dibatasi ke kelas & tanggal yang sama lalu difilter via sesiKey().
+     */
+    protected function kelompokSesiJurnal(Jurnal $jurnal): Collection
+    {
+        $kelasId = $jurnal->jadwalPelajaran?->id_kelas;
+
+        return Jurnal::with([
+            'jadwalPelajaran.mapel',
+            'jadwalPelajaran.jamPelajaran',
+            'jadwalPelajaran.kelas',
+            'guru',
+            'guruPengganti',
+            'absensiJurnal.siswa',
+        ])
+            ->when($kelasId, fn ($q) => $q->whereHas('jadwalPelajaran', fn ($sq) => $sq->where('id_kelas', $kelasId)))
+            ->when($jurnal->tanggal, fn ($q) => $q->whereDate('tanggal', $jurnal->tanggal->toDateString()))
+            ->get()
+            ->filter(fn (Jurnal $j) => $this->sesiKey($j) === $this->sesiKey($jurnal))
+            ->sortBy(fn (Jurnal $j) => (int) ($j->jadwalPelajaran?->jamPelajaran?->jam_ke ?? 999))
+            ->values();
+    }
+
+    /**
+     * Gabungkan absensi beberapa record jurnal (multi-jam) per siswa unik.
+     * Preferensi status: non-Hadir lebih bermakna (Sakit/Izin/Alpa dst.);
+     * keterangan antar-jam digabung.
+     */
+    protected function gabungkanAbsensiSesi(Collection $kelompok): Collection
+    {
+        return $kelompok
+            ->flatMap(fn (Jurnal $j) => $j->absensiJurnal)
+            ->groupBy('id_siswa')
+            ->map(function ($items) {
+                $utama = $items->first(fn ($item) => (string) $item->status !== 'Hadir') ?? $items->first();
+                $keterangan = $items->pluck('keterangan')->filter()->unique()->implode(' | ');
+                if ($utama && $keterangan !== '') {
+                    $utama->keterangan = $keterangan;
+                }
+
+                return $utama;
+            })
+            ->keyBy('id_siswa');
+    }
+
+    /**
+     * Rentang waktu sesi mengajar: jam mulai (JP pertama) — jam selesai (JP terakhir).
+     */
+    protected function formatWaktuSesi(Collection $kelompok): string
+    {
+        $mulai = $kelompok->first()?->jadwalPelajaran?->jamPelajaran?->jam_mulai;
+        $selesai = $kelompok->last()?->jadwalPelajaran?->jamPelajaran?->jam_selesai;
+
+        if (! $mulai || ! $selesai) {
+            return '-';
+        }
+
+        return Carbon::parse($mulai)->format('H.i').' - '.Carbon::parse($selesai)->format('H.i');
     }
 
     /**

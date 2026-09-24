@@ -7,9 +7,19 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
+    /**
+     * Pesan error generik untuk SEMUA kegagalan autentikasi.
+     *
+     * Disamarkan agar calon penyerang tidak dapat membedakan apakah
+     * username/NIP terdaftar, password salah, kode aktivasi salah, atau akun
+     * sedang non-aktif (anti user-enumeration & credential oracle).
+     */
+    public const GENERIC_LOGIN_FAILED_MESSAGE = 'Kredensial yang Anda masukkan salah.';
+
     /**
      * Tampilkan Halaman Login
      *
@@ -43,14 +53,24 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
-        // Rule Validasi Input Dasar
-        $request->validate([
+        // Rule Validasi Input Dasar. Validasi manual agar nilai field TIDAK
+        // di-flash ulang ke sesi saat login gagal. Satu-satunya input yang
+        // ikut di-flash adalah state tab 'mode' (guru/admin) supaya tab yang
+        // dipilih tetap persist setelah redirect back — kredensial sensitif
+        // (username, password, kode_aktivasi) tetap kosong.
+        $validator = Validator::make($request->all(), [
             'login_id' => 'required|string',
             'password' => 'required|string',
         ], [
             'login_id.required' => 'Username atau NIP wajib diisi.',
             'password.required' => 'Password wajib diisi.',
         ]);
+
+        if ($validator->fails()) {
+            return back()
+                ->withInput($request->only('mode'))
+                ->withErrors($validator);
+        }
 
         $loginId = trim($request->input('login_id'));
         $password = $request->input('password');
@@ -64,27 +84,38 @@ class AuthController extends Controller
             })
             ->first();
 
+        // Semua kegagalan autentikasi memakai SATU pesan generik yang sama agar
+        // tidak membocorkan: apakah akun terdaftar, status aktif, keberlakuan
+        // kode aktivasi, maupun kebenaran password. Hanya state tab 'mode' yang
+        // di-flash — input sensitif tidak ikut tersimpan di sesi.
         if (! $user) {
-            return back()->withErrors(['login_id' => 'Username atau NIP tidak terdaftar dalam sistem.'])->withInput();
+            return back()
+                ->withInput($request->only('mode'))
+                ->withErrors(['login_id' => self::GENERIC_LOGIN_FAILED_MESSAGE]);
         }
 
         // Cek jika akun sedang non-aktif (dinonaktifkan admin)
         if (! $user->is_active) {
-            return back()->withErrors(['login_id' => 'Akun Anda telah dinonaktifkan, silakan hubungi admin.'])->withInput();
+            return back()
+                ->withInput($request->only('mode'))
+                ->withErrors(['login_id' => self::GENERIC_LOGIN_FAILED_MESSAGE]);
         }
 
         // Cek jika akun guru/admin sudah di-soft delete
         if ($user->trashed()) {
-            return back()->withErrors(['login_id' => 'Akun Anda sudah tidak berlaku. Silakan hubungi Admin TU.'])->withInput();
+            return back()
+                ->withInput($request->only('mode'))
+                ->withErrors(['login_id' => self::GENERIC_LOGIN_FAILED_MESSAGE]);
         }
 
         // ================= MAINTENANCE MODE =================
         // Saat Maintenance aktif, hanya Petugas IT / QA Tester yang boleh login.
-        // User biasa ditolak dengan pesan khusus tanpa membocorkan validitas password.
+        // User biasa ditolak dengan pesan generik — tidak membocorkan validitas
+        // password maupun keberadaan akun.
         if (PengaturanJadwal::isMaintenanceModeActive() && ! $user->isTestingUser()) {
             return back()
-                ->withErrors(['login_id' => 'Login Gagal: Sistem sedang dalam pemeliharaan.'])
-                ->withInput();
+                ->withInput($request->only('mode'))
+                ->withErrors(['login_id' => self::GENERIC_LOGIN_FAILED_MESSAGE]);
         }
 
         // ================= VALIDASI KODE AKTIVASI UNTUK AKUN NON-GURU =================
@@ -97,9 +128,11 @@ class AuthController extends Controller
             $dbKode = strtolower(trim((string) $user->kode_aktivasi));
 
             if ($inputKode === '' || $dbKode === '' || $inputKode !== $dbKode) {
-                return back()->withErrors([
-                    'kode_aktivasi' => 'Kode aktivasi tidak valid.',
-                ])->withInput();
+                return back()
+                    ->withInput($request->only('mode'))
+                    ->withErrors([
+                        'kode_aktivasi' => self::GENERIC_LOGIN_FAILED_MESSAGE,
+                    ]);
             }
         }
 
@@ -109,7 +142,9 @@ class AuthController extends Controller
         // Auth::attempt() ulang agar tidak terjadi 'crossover' role bila ada
         // username/nip/email yang kembar antar user.
         if (! Hash::check($password, $user->password)) {
-            return back()->withErrors(['password' => 'Password yang Anda masukkan salah.'])->withInput();
+            return back()
+                ->withInput($request->only('mode'))
+                ->withErrors(['password' => self::GENERIC_LOGIN_FAILED_MESSAGE]);
         }
 
         Auth::login($user);

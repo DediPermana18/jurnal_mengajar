@@ -42,7 +42,16 @@
         </div>
 
         @if($canManage)
-        <div>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <button type="button"
+                    data-bs-toggle="modal"
+                    data-bs-target="#shiftModal"
+                    class="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium px-4 py-2 rounded-lg shadow-sm transition flex items-center gap-2 whitespace-nowrap"
+                    style="font-size: 0.875rem;"
+                    title="Atur shift, jam bertugas, dan kuota petugas piket">
+                <i class="bi bi-gear"></i>
+                <span>Pengaturan Shift & Kuota</span>
+            </button>
             <a href="{{ route('kurikulum.jadwal-piket.create', ['minggu_ke' => $mingguKe]) }}"
                class="btn btn-primary rounded-3 fw-semibold px-3 py-2 d-flex align-items-center gap-2 shadow-sm"
                style="font-size: 0.875rem;">
@@ -405,4 +414,128 @@
     </div>
 
 </div>
+
+{{-- ===== Modal: Pengaturan Shift & Kuota ===== --}}
+@if($canManage)
+<div class="modal fade" id="shiftModal" tabindex="-1" aria-labelledby="shiftModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 rounded-4 overflow-hidden">
+            <div class="modal-header border-0 pt-4 px-4 pb-0">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1" id="shiftModalLabel">
+                        <i class="bi bi-gear me-1 text-secondary"></i>Pengaturan Shift & Kuota
+                    </h5>
+                    <p class="text-muted mb-0 small">Atur nama shift, jam bertugas, dan kuota petugas piket.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+
+            <div class="modal-body px-4 py-3">
+                {{-- Form Tambah Shift --}}
+                <form method="POST" action="{{ route('kurikulum.jadwal-piket.shifts.store') }}" class="row g-3 align-items-end">
+                    @csrf
+                    <input type="hidden" name="from_shift_modal" value="1">
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small fw-semibold mb-1">Nama Shift</label>
+                        <input name="nama" class="form-control" required placeholder="Contoh: Jumat">
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small fw-semibold mb-1">Mulai</label>
+                        <input type="time" name="jam_mulai" class="form-control" required>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small fw-semibold mb-1">Selesai</label>
+                        <input type="time" name="jam_selesai" class="form-control" required>
+                    </div>
+                    <div class="col-5 col-md-2">
+                        <label class="form-label small fw-semibold mb-1">Maks. Petugas</label>
+                        <input type="number" name="maksimal_petugas" class="form-control" min="1" max="100" value="4" required>
+                    </div>
+                    <div class="col-4 col-md-1">
+                        <label class="form-label small fw-semibold mb-1">Urutan</label>
+                        <input type="number" name="urutan" class="form-control" min="0" value="0">
+                    </div>
+                    <div class="col-3 col-md-2">
+                        <button class="btn btn-primary w-100"><i class="bi bi-plus-lg me-1"></i> Tambah</button>
+                    </div>
+                </form>
+
+                <hr class="my-4">
+
+                {{-- Daftar Shift --}}
+                <h6 class="fw-bold text-dark mb-2">
+                    <i class="bi bi-list-check me-1 text-primary"></i>Daftar Shift
+                </h6>
+                <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-1">Shift</th>
+                                <th>Jam</th>
+                                <th>Kuota</th>
+                                <th>Status</th>
+                                <th class="text-end pe-1">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @forelse($shifts as $shift)
+                            <tr>
+                                <form method="POST" action="{{ route('kurikulum.jadwal-piket.shifts.update', $shift) }}">
+                                    @csrf @method('PUT')
+                                    <input type="hidden" name="from_shift_modal" value="1">
+                                    <td class="ps-1"><input name="nama" value="{{ $shift->nama }}" class="form-control" required></td>
+                                    <td>
+                                        <div class="d-flex gap-2">
+                                            <input type="time" name="jam_mulai" value="{{ substr($shift->jam_mulai, 0, 5) }}" class="form-control" required>
+                                            <input type="time" name="jam_selesai" value="{{ substr($shift->jam_selesai, 0, 5) }}" class="form-control" required>
+                                        </div>
+                                    </td>
+                                    <td><input type="number" name="maksimal_petugas" value="{{ $shift->maksimal_petugas }}" class="form-control" min="1" max="100" required></td>
+                                    <td>
+                                        <div class="form-check">
+                                            <input type="checkbox" name="is_active" value="1" class="form-check-input" {{ $shift->is_active ? 'checked' : '' }}>
+                                            <label class="form-check-label small">Aktif</label>
+                                        </div>
+                                    </td>
+                                    <td class="text-end pe-1">
+                                        <input type="hidden" name="urutan" value="{{ $shift->urutan }}">
+                                        <button class="btn btn-sm btn-outline-primary" title="Simpan"><i class="bi bi-save"></i></button>
+                                </form>
+                                <form method="POST" action="{{ route('kurikulum.jadwal-piket.shifts.destroy', $shift) }}" class="d-inline ms-1" onsubmit="return confirm('Hapus shift ini?')">
+                                    @csrf @method('DELETE')
+                                    <input type="hidden" name="from_shift_modal" value="1">
+                                    <button class="btn btn-sm btn-outline-danger" title="Hapus"><i class="bi bi-trash"></i></button>
+                                </form>
+                                    </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="5" class="text-center text-muted py-4">Belum ada shift. Tambahkan shift di atas.</td></tr>
+                        @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="modal-footer border-0 pb-4 px-4">
+                <button type="button" class="btn btn-light border rounded-3 px-4 fw-semibold" data-bs-dismiss="modal">Selesai</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+    // Buka kembali modal Pengaturan Shift & Kuota setelah simpan/hapus shift
+    // dikirim dari dalam modal (flag from_shift_modal), termasuk saat validasi gagal.
+    document.addEventListener('DOMContentLoaded', function () {
+        var shiftModalEl = document.getElementById('shiftModal');
+        var reopen = {{ session('open_shift_modal') ? 'true' : 'false' }}
+            || '{{ old('from_shift_modal') ? '1' : '' }}' === '1';
+        if (shiftModalEl && reopen) {
+            bootstrap.Modal.getOrCreateInstance(shiftModalEl).show();
+        }
+    });
+</script>
+@endpush
+@endif
 @endsection

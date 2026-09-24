@@ -49,7 +49,7 @@ class DynamicActivationCodeAuthTest extends TestCase
             'kode_aktivasi' => 'WRONG-CODE-123',
         ]);
 
-        $response->assertSessionHasErrors(['kode_aktivasi' => 'Kode aktivasi tidak valid.']);
+        $response->assertSessionHasErrors(['kode_aktivasi' => 'Kredensial yang Anda masukkan salah.']);
         $this->assertGuest();
     }
 
@@ -72,7 +72,7 @@ class DynamicActivationCodeAuthTest extends TestCase
             'kode_aktivasi' => 'ADMIN123',
         ]);
 
-        $response->assertSessionHasErrors(['kode_aktivasi' => 'Kode aktivasi tidak valid.']);
+        $response->assertSessionHasErrors(['kode_aktivasi' => 'Kredensial yang Anda masukkan salah.']);
         $this->assertGuest();
     }
 

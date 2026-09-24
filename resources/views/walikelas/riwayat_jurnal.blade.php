@@ -30,6 +30,7 @@
                         <th>Guru Pengajar</th>
                         <th>Materi Pelajaran</th>
                         <th>Kehadiran</th>
+                        <th class="text-end">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -41,14 +42,27 @@
                             <td>{{ $j['guru_pengajar'] }}</td>
                             <td class="text-muted">{{ $j['materi'] }}</td>
                             <td class="whitespace-nowrap">
-                                <span class="badge {{ $j['hadir'] > 0 ? 'bg-success' : 'bg-secondary' }} rounded-pill px-3 py-1">
-                                    {{ $j['ratio_label'] }}
+                                @php
+                                    $jumlahHadir = (int) $j['hadir'];
+                                    $totalSiswa = (int) $j['total_siswa'];
+                                    // Fallback bila presensi kosong: tampilkan "0/0 Siswa" (bukan badge kosong).
+                                    $labelKehadiran = $totalSiswa > 0 ? "{$jumlahHadir}/{$totalSiswa} Siswa" : '0/0 Siswa';
+                                @endphp
+                                <span class="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-block {{ $jumlahHadir === $totalSiswa && $totalSiswa > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800' }}">
+                                    {{ $labelKehadiran }}
                                 </span>
+                            </td>
+                            <td class="text-end whitespace-nowrap">
+                                <a href="{{ route('walikelas.riwayat-jurnal.show', $j['jurnal']->id) }}"
+                                   class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold"
+                                   title="Lihat rincian lengkap jurnal ini">
+                                    <i class="bi bi-eye me-1"></i> Detail
+                                </a>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="text-center py-5 text-muted">
+                            <td colspan="7" class="text-center py-5 text-muted">
                                 <i class="bi bi-journal-x fs-1 d-block mb-2"></i>
                                 Belum ada jurnal mengajar untuk kelas bimbingan Anda.
                             </td>

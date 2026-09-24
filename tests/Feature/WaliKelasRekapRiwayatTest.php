@@ -282,4 +282,105 @@ class WaliKelasRekapRiwayatTest extends TestCase
             ->assertSee('2/2 Siswa')
             ->assertDontSee('6/6 Siswa');
     }
+
+    public function test_riwayat_jurnal_badge_kehadiran_hanya_menghitung_status_hadir(): void
+    {
+        $wali = $this->makeWaliKelas();
+
+        $kelas = Kelas::create([
+            'nama_kelas' => 'X IPA 1',
+            'tingkat' => 'X',
+            'id_wali_kelas' => $wali->id,
+        ]);
+
+        $guru = User::create([
+            'nama' => 'Guru Mapel',
+            'username' => 'gmbadge'.Str::random(4),
+            'password' => bcrypt('password'),
+            'role' => 'guru',
+            'is_active' => true,
+        ]);
+
+        [$jadwal] = $this->makeJadwal($wali, $guru, $kelas);
+
+        $jurnal = Jurnal::create([
+            'id_jadwal' => $jadwal->id,
+            'tanggal' => '2026-08-10',
+            'materi' => 'Matriks',
+            'id_guru' => $guru->id,
+            'status_kehadiran' => 'Hadir',
+        ]);
+
+        // 4 siswa: hanya 1 benar-benar Hadir, sisanya Izin/Sakit/Alpa.
+        $statuses = ['Hadir', 'Izin', 'Sakit', 'Alpa'];
+        foreach ($statuses as $index => $status) {
+            $siswa = Siswa::create([
+                'nisn' => '0000000'.(60 + $index),
+                'nis' => '23'.(110 + $index),
+                'nama' => 'Siswa Kehadiran '.($index + 1),
+                'jenis_kelamin' => 'L',
+                'id_kelas' => $kelas->id,
+            ]);
+            AbsensiJurnal::create(['id_jurnal' => $jurnal->id, 'id_siswa' => $siswa->id, 'status' => $status]);
+        }
+
+        $this->actingAs($wali)
+            ->get(route('walikelas.riwayat-jurnal'))
+            ->assertOk()
+            // Numerator = yang HADIR saja (1), bukan total record presensi (4).
+            ->assertSee('1/4 Siswa')
+            ->assertDontSee('4/4 Siswa')
+            // Ada siswa absen → badge amber (bukan hijau).
+            ->assertSee('bg-amber-100 text-amber-800')
+            ->assertDontSee('bg-emerald-100 text-emerald-800');
+    }
+
+    public function test_riwayat_jurnal_badge_kehadiran_hijau_saat_semua_siswa_hadir(): void
+    {
+        $wali = $this->makeWaliKelas();
+
+        $kelas = Kelas::create([
+            'nama_kelas' => 'X IPA 1',
+            'tingkat' => 'X',
+            'id_wali_kelas' => $wali->id,
+        ]);
+
+        $guru = User::create([
+            'nama' => 'Guru Mapel',
+            'username' => 'gmbadgehijau'.Str::random(4),
+            'password' => bcrypt('password'),
+            'role' => 'guru',
+            'is_active' => true,
+        ]);
+
+        [$jadwal] = $this->makeJadwal($wali, $guru, $kelas);
+
+        $jurnal = Jurnal::create([
+            'id_jadwal' => $jadwal->id,
+            'tanggal' => '2026-08-10',
+            'materi' => 'Matriks',
+            'id_guru' => $guru->id,
+            'status_kehadiran' => 'Hadir',
+        ]);
+
+        // 2 siswa, keduanya Hadir (100%).
+        foreach (['Rina Permata', 'Sari Dewi'] as $index => $nama) {
+            $siswa = Siswa::create([
+                'nisn' => '0000000'.(70 + $index),
+                'nis' => '23'.(120 + $index),
+                'nama' => $nama,
+                'jenis_kelamin' => $index % 2 === 0 ? 'P' : 'L',
+                'id_kelas' => $kelas->id,
+            ]);
+            AbsensiJurnal::create(['id_jurnal' => $jurnal->id, 'id_siswa' => $siswa->id, 'status' => 'Hadir']);
+        }
+
+        $this->actingAs($wali)
+            ->get(route('walikelas.riwayat-jurnal'))
+            ->assertOk()
+            ->assertSee('2/2 Siswa')
+            // 100% hadir → badge hijau emerald, bukan amber.
+            ->assertSee('bg-emerald-100 text-emerald-800')
+            ->assertDontSee('bg-amber-100 text-amber-800');
+    }
 }

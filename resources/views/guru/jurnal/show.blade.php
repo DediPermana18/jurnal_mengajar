@@ -35,6 +35,14 @@
 @endpush
 
 @section('content')
+@php
+    // View ini dipakai bersama oleh portal Guru (guru.jurnal.show) dan portal
+    // Wali Kelas (walikelas.riwayat-jurnal.show). Nilai default menjaga perilaku
+    // lama portal Guru bila variabel konteks tidak dikirim.
+    $jurnalShowUrl = $jurnalShowUrl ?? route('guru.jurnal.show', $jurnal->id);
+    $backUrl = $backUrl ?? route('guru.jurnal');
+    $backLabel = $backLabel ?? 'Kembali ke Daftar Jurnal';
+@endphp
 <div class="container-fluid px-0">
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
         <div>
@@ -46,8 +54,8 @@
                 <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill ms-2">Read-Only</span>
             </p>
         </div>
-        <a href="{{ route('guru.jurnal') }}" class="btn btn-light border rounded-3 px-3 py-2 fw-semibold">
-            <i class="bi bi-arrow-left me-1"></i> Kembali ke Daftar Jurnal
+        <a href="{{ $backUrl }}" class="btn btn-light border rounded-3 px-3 py-2 fw-semibold">
+            <i class="bi bi-arrow-left me-1"></i> {{ $backLabel }}
         </a>
     </div>
 
@@ -159,9 +167,9 @@
     <div class="form-section-card mb-4">
         @if(isset($jpOptions) && count($jpOptions) > 0)
             <div class="d-flex gap-2 flex-wrap mb-3" role="tablist" aria-label="Pilih Jam Pelajaran">
-                <a href="{{ route('guru.jurnal.show', $jurnal->id) }}" class="btn btn-sm {{ $selectedJamKe === null ? 'btn-primary' : 'btn-outline-primary' }} rounded-pill">Semua JP</a>
+                <a href="{{ $jurnalShowUrl }}" class="btn btn-sm {{ $selectedJamKe === null ? 'btn-primary' : 'btn-outline-primary' }} rounded-pill">Semua JP</a>
                 @foreach($jpOptions as $jp)
-                    <a href="{{ route('guru.jurnal.show', $jurnal->id) }}?jp={{ $jp['jam_ke'] }}" class="btn btn-sm {{ $selectedJamKe === (int) $jp['jam_ke'] ? 'btn-primary' : 'btn-outline-primary' }} rounded-pill">
+                    <a href="{{ $jurnalShowUrl }}?jp={{ $jp['jam_ke'] }}" class="btn btn-sm {{ $selectedJamKe === (int) $jp['jam_ke'] ? 'btn-primary' : 'btn-outline-primary' }} rounded-pill">
                         Jam ke-{{ $jp['jam_ke'] }}
                     </a>
                 @endforeach

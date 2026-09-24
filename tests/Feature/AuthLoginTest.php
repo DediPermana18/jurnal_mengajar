@@ -67,4 +67,36 @@ class AuthLoginTest extends TestCase
 
         $this->assertGuest();
     }
+
+    public function test_login_gagal_mempertahankan_tab_mode_tapi_input_sensitif_tetap_kosong(): void
+    {
+        User::create([
+            'nama' => 'Admin TU',
+            'username' => 'admin_tu',
+            'password' => Hash::make('password123'),
+            'role' => 'admin',
+            'sub_role' => 'petugas_tu',
+            'kode_aktivasi' => 'ADM-SECURE-88',
+            'is_active' => true,
+        ]);
+
+        // Gagal login di tab ADMIN (kode aktivasi salah) — kredensial terisi.
+        $this->from(route('login'))
+            ->post(route('login.post'), [
+                'login_id' => 'admin_tu',
+                'password' => 'password123',
+                'kode_aktivasi' => 'SALAH-123',
+                'mode' => 'admin',
+            ])
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors('kode_aktivasi')
+            // State tab 'mode' persist setelah redirect back.
+            ->assertSessionHasInput('mode', 'admin');
+
+        // Hanya 'mode' yang di-flash — username, password, kode aktivasi TIDAK
+        // disimpan di sesi sehingga field form tetap kosong saat halaman refresh.
+        $this->assertSame(['mode' => 'admin'], session()->get('_old_input'));
+
+        $this->assertGuest();
+    }
 }

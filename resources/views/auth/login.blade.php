@@ -47,7 +47,7 @@
         [x-cloak] { display: none !important; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col justify-between" x-data="{ mode: '{{ old('mode', 'guru') }}' }">
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col justify-between" x-data="{ mode: '{{ in_array(old('mode'), ['guru', 'admin'], true) ? old('mode') : 'guru' }}', showError: true }">
 
     <!-- ================= TOP HEADER ================= -->
     <header class="w-full bg-white border-b border-slate-200/80 px-6 lg:px-12 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
@@ -110,7 +110,7 @@
                     <div class="inline-flex items-center bg-slate-200/80 p-1.5 rounded-full border border-slate-300/70 shadow-inner">
                         <!-- GURU TAB -->
                         <button type="button" 
-                                @click="mode = 'guru'" 
+                                @click="mode = 'guru'; showError = false" 
                                 :class="mode === 'guru' ? 'bg-brand-600 text-white shadow-md shadow-brand-600/40 ring-1 ring-brand-500' : 'text-slate-600 hover:text-slate-900'"
                                 class="px-8 py-2 rounded-full font-black text-sm uppercase tracking-wider transition-all duration-200">
                             GURU
@@ -118,7 +118,7 @@
                         
                         <!-- ADMIN TAB -->
                         <button type="button" 
-                                @click="mode = 'admin'" 
+                                @click="mode = 'admin'; showError = false" 
                                 :class="mode === 'admin' ? 'bg-brand-600 text-white shadow-md shadow-brand-600/40 ring-1 ring-brand-500' : 'text-slate-600 hover:text-slate-900'"
                                 class="px-8 py-2 rounded-full font-black text-sm uppercase tracking-wider transition-all duration-200">
                             ADMIN
@@ -137,9 +137,22 @@
                     </div>
                 @endif
 
-                <!-- ALERT NOTIFIKASI ERROR GENERAL / SUCCESS -->
+                <!-- ALERT NOTIFIKASI ERROR GENERAL / SUCCESS (auto-dismiss 4 detik) -->
                 @if ($errors->any())
-                    <div class="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold shadow-sm">
+                    <div x-show="showError"
+                         x-init="setTimeout(() => showError = false, 4000)"
+                         x-transition:leave="transition ease-out duration-300"
+                         x-transition:leave-start="opacity-100"
+                         x-transition:leave-end="opacity-0"
+                         class="relative mb-6 p-4 pr-10 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold shadow-sm">
+                        <!-- Tombol close manual -->
+                        <button type="button"
+                                @click="showError = false"
+                                aria-label="Tutup notifikasi"
+                                title="Tutup"
+                                class="absolute top-3 right-3 w-6 h-6 flex items-center justify-center rounded-full bg-rose-100 hover:bg-rose-200 text-rose-700 transition-colors">
+                            <i class="bi bi-x-lg text-xs"></i>
+                        </button>
                         <div class="flex items-center gap-2 mb-1 text-rose-800 font-bold">
                             <i class="bi bi-exclamation-triangle-fill"></i>
                             <span>Gagal Masuk Ke Sistem</span>
@@ -178,7 +191,7 @@
                         <input type="text" 
                                name="login_id" 
                                required 
-                               value="{{ old('login_id') }}"
+                               @input="showError = false"
                                placeholder="Masukkan Username atau NIP" 
                                class="w-full px-6 py-3.5 bg-white border border-slate-300/80 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 shadow-sm text-slate-900 text-sm font-medium transition-all placeholder:text-slate-400">
                     </div>
@@ -189,6 +202,7 @@
                         <input type="password" 
                                name="password" 
                                required 
+                               @input="showError = false"
                                placeholder="Masukkan Password" 
                                class="w-full px-6 py-3.5 bg-white border border-slate-300/80 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 shadow-sm text-slate-900 text-sm font-medium transition-all placeholder:text-slate-400">
                     </div>
@@ -203,7 +217,7 @@
                         <input type="text" 
                                name="kode_aktivasi" 
                                :disabled="mode !== 'admin'"
-                               value="{{ old('kode_aktivasi') }}"
+                               @input="showError = false"
                                placeholder="Masukkan Kode Aktivasi" 
                                class="w-full px-6 py-3.5 bg-white border border-slate-300/80 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 shadow-sm text-slate-900 text-sm font-medium transition-all placeholder:text-slate-400">
                     </div>

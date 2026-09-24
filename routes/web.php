@@ -202,6 +202,7 @@ Route::prefix('walikelas')->middleware(['auth'])->group(function () {
     Route::get('/dashboard', [WaliKelasController::class, 'dashboard'])->name('walikelas.dashboard');
     Route::get('/rekap-absen', [WaliKelasController::class, 'rekapAbsen'])->name('walikelas.rekap-absen');
     Route::get('/riwayat-jurnal', [WaliKelasController::class, 'riwayatJurnal'])->name('walikelas.riwayat-jurnal');
+    Route::get('/riwayat-jurnal/{jurnal}', [WaliKelasController::class, 'showJurnal'])->name('walikelas.riwayat-jurnal.show');
     Route::get('/siswa-bermasalah', [WaliKelasController::class, 'siswaBermasalah'])->name('walikelas.siswa-bermasalah');
     Route::post('/siswa-bermasalah/tindak-lanjut', [WaliKelasController::class, 'siswaBermasalahStore'])->name('walikelas.siswa-bermasalah.store');
 });

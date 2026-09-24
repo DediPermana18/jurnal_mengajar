@@ -114,8 +114,11 @@
                 </p>
             </div>
         </div>
-        <a href="{{ route('kurikulum.jadwal-piket.shifts') }}" class="btn btn-outline-secondary rounded-3">
-            <i class="bi bi-clock me-1"></i> Atur Shift & Kuota
+        <a href="{{ route('kurikulum.jadwal-piket.shifts') }}"
+           class="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 no-underline font-medium px-4 py-2 rounded-lg shadow-sm transition flex items-center gap-2 whitespace-nowrap"
+           title="Atur shift, jam bertugas, dan kuota petugas piket">
+            <i class="bi bi-gear"></i>
+            <span>Pengaturan Shift & Kuota</span>
         </a>
     </div>
 

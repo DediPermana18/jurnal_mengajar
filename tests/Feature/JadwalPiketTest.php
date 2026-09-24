@@ -641,4 +641,88 @@ class JadwalPiketTest extends TestCase
         // Hari tanpa data -> empty state rapi.
         $response->assertSee('Belum ada penugasan piket hari Rabu');
     }
+
+    public function test_index_menampilkan_tombol_dan_modal_pengaturan_shift_untuk_admin(): void
+    {
+        $admin = User::create([
+            'nama' => 'Admin Kurikulum',
+            'username' => 'admin_idx_modal',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('kurikulum.jadwal-piket.index'))
+            ->assertOk()
+            ->assertSee('Pengaturan Shift & Kuota', false)
+            ->assertSee('Tambah Petugas Piket')
+            ->assertSee('shiftModal')
+            ->assertSee('kurikulum/jadwal-piket/shifts');
+    }
+
+    public function test_store_shift_dari_modal_redirect_balik_dan_buka_kembali_modal(): void
+    {
+        $admin = User::create([
+            'nama' => 'Admin Kurikulum',
+            'username' => 'admin_store_modal',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)->get(route('kurikulum.jadwal-piket.index'));
+
+        $response = $this->actingAs($admin)
+            ->post(route('kurikulum.jadwal-piket.shifts.store'), [
+                'nama' => 'Sore',
+                'jam_mulai' => '13:00',
+                'jam_selesai' => '17:00',
+                'maksimal_petugas' => 3,
+                'urutan' => 9,
+                'from_shift_modal' => 1,
+            ]);
+
+        $response->assertRedirect(route('kurikulum.jadwal-piket.index'))
+            ->assertSessionHas('success')
+            ->assertSessionHas('open_shift_modal', true);
+
+        $this->assertDatabaseHas('shift_piket', ['nama' => 'Sore']);
+
+        // Halaman indeks kembali dirender dengan skrip pembuka modal aktif.
+        $this->actingAs($admin)
+            ->get(route('kurikulum.jadwal-piket.index'))
+            ->assertOk()
+            ->assertSee('var reopen = true');
+    }
+
+    public function test_store_shift_tanpa_dari_modal_tidak_membuka_modal(): void
+    {
+        $admin = User::create([
+            'nama' => 'Admin Kurikulum',
+            'username' => 'admin_store_polos',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)->get(route('kurikulum.jadwal-piket.index'));
+
+        $response = $this->actingAs($admin)
+            ->post(route('kurikulum.jadwal-piket.shifts.store'), [
+                'nama' => 'Pagi',
+                'jam_mulai' => '06:30',
+                'jam_selesai' => '12:00',
+                'maksimal_petugas' => 4,
+            ]);
+
+        $response->assertRedirect(route('kurikulum.jadwal-piket.index'))
+            ->assertSessionHas('success')
+            ->assertSessionMissing('open_shift_modal');
+
+        $this->actingAs($admin)
+            ->get(route('kurikulum.jadwal-piket.index'))
+            ->assertOk()
+            ->assertDontSee('var reopen = true');
+    }
 }
