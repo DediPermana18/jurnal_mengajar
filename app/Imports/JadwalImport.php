@@ -49,7 +49,7 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
      * Nilai MataPelajaran yang dianggap "acara khusus" — bukan mata pelajaran
      * reguler. Baris ini dilewati secara diam-diam (tidak masuk rowErrors).
      */
-    private const SKIP_MAPEL = [
+    public const SKIP_MAPEL = [
         'upacara',
         'upacara/apel',
         'apel',

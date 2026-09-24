@@ -17,7 +17,7 @@ use Maatwebsite\Excel\Events\BeforeSheet;
 class SiswaImport implements ToCollection, WithEvents
 {
     // ─── State ────────────────────────────────────────────────────────────────
-    protected const TINGKAT_LIST = ['X', 'XI', 'XII'];
+    public const TINGKAT_LIST = ['X', 'XI', 'XII'];
 
     /** ID kelas fallback dari dropdown UI (opsional). */
     protected ?int $fallbackIdKelas;

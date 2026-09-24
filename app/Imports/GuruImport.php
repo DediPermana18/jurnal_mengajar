@@ -35,10 +35,10 @@ class GuruImport implements ToModel, WithHeadingRow
     public array $rowErrors = [];
 
     /** Peran yang TIDAK diproses pada import master guru. */
-    protected const SKIP_PERAN = ['kepsek', 'kepala sekolah', 'kepala_sekolah'];
+    public const SKIP_PERAN = ['kepsek', 'kepala sekolah', 'kepala_sekolah'];
 
     /** Peran yang artinya akun guru + pemetaan wali kelas. */
-    protected const WALI_PERAN = ['wali kelas', 'walikelas', 'wali_kelas', 'wali'];
+    public const WALI_PERAN = ['wali kelas', 'walikelas', 'wali_kelas', 'wali'];
 
     public function model(array $row): Model|array|null
     {
