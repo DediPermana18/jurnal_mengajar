@@ -19,6 +19,13 @@
     <!-- Alpine.js CDN -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
+    <!-- Unpoly — SPA ringan untuk navigasi sidebar tanpa full page reload.
+         Hanya fragmen <main id="page-content"> yang di-swap; sidebar & header
+         tetap utuh (posisi scroll sidebar & dropdown yang terbuka tidak ter-reset).
+         Dimuat sebelum bundle aplikasi (app.js dari Vite) agar global window.up tersedia. -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/unpoly@3.14.3/unpoly.css">
+    <script src="https://cdn.jsdelivr.net/npm/unpoly@3.14.3/unpoly.js" defer></script>
+
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     <style>
@@ -190,10 +197,23 @@
 
         /* Submenu Styling */
         .submenu-list {
+            position: relative;
             padding-left: 2.25rem;
             margin-top: 0.25rem;
             margin-bottom: 0.5rem;
             list-style: none;
+        }
+
+        /* Garis vertikal tipis penunjuk hierarki submenu */
+        .submenu-list::before {
+            content: '';
+            position: absolute;
+            left: 25px;
+            top: 6px;
+            bottom: 6px;
+            width: 2px;
+            border-radius: 2px;
+            background-color: #c6d5e4;
         }
 
         .submenu-item-link {
@@ -571,7 +591,6 @@
         }
 
     </style>
-    @stack('styles')
 </head>
 <body>
 
@@ -1126,229 +1145,291 @@
                     </div>
                 </div>
 
-            @else
+@else
                 {{-- ================= NAVIGASI ADMIN / PETUGAS TU / SUPER ADMIN ================= --}}
-                <div class="nav-item-container mt-2">
-                    <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
-                        {{ ($userSubRole === 'petugas_tu' || $userRole === 'admin_tu') ? 'TATA USAHA (TU)' : 'ADMINISTRATOR' }}
-                    </div>
-                </div>
 
-                <!-- Dashboard Link -->
-                <div class="nav-item-container">
-                    <a href="{{ route('home') }}" class="nav-btn {{ request()->routeIs('home') || request()->routeIs('jurnal.index') ? 'active' : '' }}">
-                        <span class="btn-left">
-                            <i class="bi bi-grid-fill"></i>
-                            <span>Dashboard</span>
-                        </span>
-                    </a>
-                </div>
-
-                <!-- Dropdown Data Master (Petugas TU: Guru/Pengguna, Siswa, Kelas, Jurusan) -->
                 @php
-                    $isDataMasterActive = request()->is('*master*') 
-                                       || request()->is('*guru*') 
-                                       || request()->is('*siswa*') 
-                                       || request()->is('*kelas*') 
-                                       || request()->is('*jurusan*') 
-                                       || request()->is('*ruangan*') 
-                                       || request()->is('*tahun-ajaran*') 
-                                       || request()->routeIs('guru.*') 
-                                       || request()->routeIs('admin.guru.*') 
-                                       || request()->routeIs('siswa.*') 
-                                       || request()->routeIs('kelas.*') 
-                                       || request()->routeIs('jurusan.*') 
-                                       || request()->routeIs('ruangan.*')
-                                       || request()->routeIs('tahun-ajaran.*')
-                                       || request()->routeIs('import.*');
+                    // State aktif untuk accordion dropdown sidebar: hanya SATU dropdown
+                    // yang boleh terbuka dalam satu waktu (Behavior Accordion).
+                    // Grup "Data Akademik" (Siswa, Kelas, Jurusan, Tahun Ajaran).
+                    // Khusus routeIs(*.*) agar predikat tiap menu UNIK dan tidak ada dua
+                    // tombol aktif bersamaan (pola is('*kelas*',..) dapat menabrak menu lain).
+                    $isDataAkademikActive = request()->routeIs('siswa.*')
+                                         || request()->routeIs('kelas.*')
+                                         || request()->routeIs('jurusan.*')
+                                         || request()->routeIs('tahun-ajaran.*');
+
+                    // Dropdown "Jadwal Pelajaran" hanya aktif pada submenu pelajaran.
+                    // TIDAK memakai pola '*jadwal*' (terlalu luas & menabrak
+                    // "Jadwal Piket Guru" di /kurikulum/jadwal-piket*).
+                    // Plotting Jadwal Kelas berada di URL /admin/jadwal*.
+                    $isJadwalAdminActive = request()->is('admin/jam-pelajaran*')
+                                        || request()->is('admin/jadwal*')
+                                        || request()->is('kurikulum/jam-pelajaran*')
+                                        || request()->routeIs('admin.jam-pelajaran.*')
+                                        || request()->routeIs('admin.jam-pulang.*')
+                                        || request()->routeIs('admin.agenda-rutin.*')
+                                        || request()->routeIs('admin.jadwal.*');
+
+                    // Dropdown yang terbuka saat halaman pertama dimuat (accordion).
+                    $defaultOpenMenu = $isDataAkademikActive
+                        ? 'dataAkademik'
+                        : ($isJadwalAdminActive ? 'jadwalPelajaran' : '');
                 @endphp
-                <div class="nav-item-container" x-data="{ open: {{ $isDataMasterActive ? 'true' : 'false' }} }">
-                    <button class="nav-btn {{ $isDataMasterActive ? 'active' : '' }}" 
-                            type="button"
-                            :aria-expanded="open"
-                            @click.prevent="open = !open">
-                        <span class="btn-left">
-                            <i class="bi bi-database-fill"></i>
-                            <span>Data Master</span>
-                        </span>
-                        <i class="bi bi-chevron-down chevron-icon transition-transform duration-200" :class="open ? 'rotate-180' : ''"></i>
-                    </button>
-                    
-                    <div x-show="open" 
-                         x-transition:enter="transition ease-out duration-200"
-                         x-transition:enter-start="opacity-0 transform -translate-y-2"
-                         x-transition:enter-end="opacity-100 transform translate-y-0"
-                         x-transition:leave="transition ease-in duration-150"
-                         x-transition:leave-start="opacity-100 transform translate-y-0"
-                         x-transition:leave-end="opacity-0 transform -translate-y-2"
-                         id="dropdownDataMaster">
-                        <ul class="submenu-list">
-                            <li>
-                                <a href="{{ route('guru.index') }}" class="submenu-item-link {{ request()->routeIs('guru.*') || request()->routeIs('admin.guru.*') ? 'active' : '' }}">
-                                    <i class="bi bi-person-badge"></i>
-                                    <span>Data Pengguna / Guru</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('siswa.index') }}" class="submenu-item-link {{ request()->routeIs('siswa.index') ? 'active' : '' }}">
-                                    <i class="bi bi-people"></i>
-                                    <span>Data Siswa</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('import.index') }}" class="submenu-item-link {{ request()->routeIs('import.*') ? 'active' : '' }}">
-                                    <i class="bi bi-file-earmark-arrow-up"></i>
-                                    <span>Import Data</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('kelas.index') }}" class="submenu-item-link {{ request()->routeIs('kelas.*') ? 'active' : '' }}">
-                                    <i class="bi bi-door-open"></i>
-                                    <span>Data Kelas</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('jurusan.index') }}" class="submenu-item-link {{ request()->routeIs('jurusan.*') ? 'active' : '' }}">
-                                    <i class="bi bi-diagram-3"></i>
-                                    <span>Data Jurusan</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('ruangan.index') }}" class="submenu-item-link {{ request()->routeIs('ruangan.*') ? 'active' : '' }}">
-                                    <i class="bi bi-building"></i>
-                                    <span>Data Ruangan</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('tahun-ajaran.index') }}" class="submenu-item-link {{ request()->routeIs('tahun-ajaran.*') ? 'active' : '' }}">
-                                    <i class="bi bi-calendar3"></i>
-                                    <span>Tahun Ajaran</span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
 
-                @if($isPetugasTU || $isSuperAdmin)
+                {{-- Wrapper accordion: seluruh dropdown berbagi state "openMenu" --}}
+                <div x-data="{ openMenu: '{{ $defaultOpenMenu }}' }">
+                    {{-- Penanda area kerja (Tata Usaha / Administrator) --}}
+                    <div class="nav-item-container mt-2">
+                        <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                            {{ ($userSubRole === 'petugas_tu' || $userRole === 'admin_tu') ? 'TATA USAHA (TU)' : 'ADMINISTRATOR' }}
+                        </div>
+                    </div>
+
+                    {{-- ================= SECTION UTAMA ================= --}}
+                    <div class="nav-item-container mt-3">
+                        <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                            UTAMA
+                        </div>
+                    </div>
+
+                    <!-- Dashboard -->
                     <div class="nav-item-container">
-                        <a href="{{ route('admin.users.index') }}" class="nav-btn {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+                        <a href="{{ route('home') }}" class="nav-btn {{ request()->routeIs('home') || request()->routeIs('dashboard') ? 'active' : '' }}" title="Beranda / dashboard utama">
                             <span class="btn-left">
-                                <i class="bi bi-person-gear"></i>
-                                <span>Kelola User</span>
+                                <i class="bi bi-grid-fill"></i>
+                                <span>Dashboard</span>
                             </span>
                         </a>
                     </div>
-                @endif
 
-                @if($isPetugasTU || $isSuperAdmin)
+                    {{-- ================= SECTION KELOLA AKUN ================= --}}
+                    @if($isPetugasTU || $isSuperAdmin)
+                        <div class="nav-item-container mt-3">
+                            <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                                KELOLA AKUN
+                            </div>
+                        </div>
+
+                        <!-- Akun Admin -->
+                        <div class="nav-item-container">
+                            <a href="{{ route('admin.users.index') }}" class="nav-btn {{ request()->routeIs('admin.users.*') ? 'active' : '' }}" title="Manajemen akun, sub-role, & hak akses admin/staf TU">
+                                <span class="btn-left">
+                                    <i class="bi bi-person-gear"></i>
+                                    <span>Akun Admin</span>
+                                </span>
+                            </a>
+                        </div>
+
+                        <!-- Pengajuan Reset Password -->
+                        <div class="nav-item-container">
+                            <a href="{{ route('admin.reset-requests.index') }}" class="nav-btn {{ request()->routeIs('admin.reset-requests.*') ? 'active' : '' }}" title="Pengajuan reset kredensial dari guru / karyawan">
+                                <span class="btn-left">
+                                    <i class="bi bi-key"></i>
+                                    <span>Pengajuan Reset Password</span>
+                                </span>
+                                <span x-data="resetBadge({{ $pendingResetCount }})"
+                                      x-show="count > 0"
+                                      x-cloak
+                                      class="badge bg-danger rounded-pill nav-reset-badge-live"
+                                      style="font-size: 0.69rem; padding: 0.4em 0.65em;"
+                                      title="Jumlah pengajuan menunggu verifikasi">
+                                    <span x-text="count > 99 ? '99+' : count">{{ $pendingResetCount > 99 ? '99+' : $pendingResetCount }}</span>
+                                </span>
+                            </a>
+                        </div>
+                    @endif
+
+                    {{-- ================= SECTION DATA MASTER (AKADEMIK) ================= --}}
+                    <div class="nav-item-container mt-3">
+                        <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                            DATA MASTER (AKADEMIK)
+                        </div>
+                    </div>
+
+                    <!-- Data Guru -->
                     <div class="nav-item-container">
-                        <a href="{{ route('admin.reset-requests.index') }}" class="nav-btn {{ request()->routeIs('admin.reset-requests.*') ? 'active' : '' }}">
+                        <a href="{{ route('guru.index') }}" class="nav-btn {{ request()->routeIs('guru.*') || request()->routeIs('admin.guru.*') ? 'active' : '' }}" title="Master data profil guru, NIP, mapel, dsb.">
                             <span class="btn-left">
-                                <i class="bi bi-key"></i>
-                                <span>Pengajuan Reset</span>
-                            </span>
-                            <span x-data="resetBadge({{ $pendingResetCount }})"
-                                  x-show="count > 0"
-                                  x-cloak
-                                  class="badge bg-danger rounded-pill nav-reset-badge-live"
-                                  style="font-size: 0.69rem; padding: 0.4em 0.65em;"
-                                  title="Jumlah pengajuan menunggu verifikasi">
-                                <span x-text="count > 99 ? '99+' : count">{{ $pendingResetCount > 99 ? '99+' : $pendingResetCount }}</span>
+                                <i class="bi bi-person-vcard"></i>
+                                <span>Data Guru</span>
                             </span>
                         </a>
                     </div>
-                @endif
 
-                @if($isPetugasTU || $isSuperAdmin)
-                    @php
-                        // Dropdown "Jadwal Pelajaran" hanya aktif pada submenu pelajaran.
-                        // TIDAK memakai pola '*jadwal*' (terlalu luas & menabrak
-                        // "Jadwal Piket Guru" di /kurikulum/jadwal-piket*).
-                        // Plotting Jadwal Kelas berada di URL /admin/jadwal*.
-                        $isJadwalAdminActive = request()->is('admin/jam-pelajaran*')
-                                            || request()->is('admin/jadwal*')
-                                            || request()->is('kurikulum/jam-pelajaran*')
-                                            || request()->routeIs('admin.jam-pelajaran.*')
-                                            || request()->routeIs('admin.jam-pulang.*')
-                                            || request()->routeIs('admin.agenda-rutin.*')
-                                            || request()->routeIs('admin.jadwal.*');
-                    @endphp
-                    <div class="nav-item-container" x-data="{ open: {{ $isJadwalAdminActive ? 'true' : 'false' }} }">
-                        <button class="nav-btn {{ $isJadwalAdminActive ? 'active' : '' }}"
+                    <!-- Data Akademik (dropdown accordion) -->
+                    <div class="nav-item-container">
+                        <button class="nav-btn {{ $isDataAkademikActive ? 'active' : '' }}" 
                                 type="button"
-                                :aria-expanded="open"
-                                @click.prevent="open = !open">
+                                :aria-expanded="openMenu === 'dataAkademik'"
+                                @click.prevent="openMenu = openMenu === 'dataAkademik' ? null : 'dataAkademik'">
                             <span class="btn-left">
-                                <i class="bi bi-calendar3"></i>
-                                <span>Jadwal Pelajaran</span>
+                                <i class="bi bi-journal-bookmark-fill"></i>
+                                <span>Data Akademik</span>
                             </span>
-                            <i class="bi bi-chevron-down chevron-icon transition-transform duration-200" :class="open ? 'rotate-180' : ''"></i>
+                            <i class="bi bi-chevron-down chevron-icon transition-transform duration-200" :class="openMenu === 'dataAkademik' ? 'rotate-180' : ''"></i>
                         </button>
-                        <div x-show="open" 
+                        <div x-show="openMenu === 'dataAkademik'" 
                              x-transition:enter="transition ease-out duration-200"
                              x-transition:enter-start="opacity-0 transform -translate-y-2"
                              x-transition:enter-end="opacity-100 transform translate-y-0"
                              x-transition:leave="transition ease-in duration-150"
                              x-transition:leave-start="opacity-100 transform translate-y-0"
                              x-transition:leave-end="opacity-0 transform -translate-y-2"
-                             id="dropdownJadwalAdmin">
+                             id="dropdownDataAkademik">
                             <ul class="submenu-list">
-                                <li><a href="{{ route('admin.jam-pelajaran.index') }}" class="submenu-item-link {{ request()->routeIs('admin.jam-pelajaran.*') ? 'active' : '' }}"><i class="bi bi-clock-history"></i><span>Master Jam Pelajaran</span></a></li>
-                                <li><a href="{{ route('admin.jadwal.index') }}" class="submenu-item-link {{ request()->routeIs('admin.jadwal.*') ? 'active' : '' }}"><i class="bi bi-calendar-range"></i><span>Plotting Jadwal Kelas</span></a></li>
+                                <li>
+                                    <a href="{{ route('siswa.index') }}" class="submenu-item-link {{ request()->routeIs('siswa.*') ? 'active' : '' }}">
+                                        <i class="bi bi-people"></i>
+                                        <span>Data Siswa</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ route('kelas.index') }}" class="submenu-item-link {{ request()->routeIs('kelas.*') ? 'active' : '' }}">
+                                        <i class="bi bi-door-open"></i>
+                                        <span>Data Kelas</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ route('jurusan.index') }}" class="submenu-item-link {{ request()->routeIs('jurusan.*') ? 'active' : '' }}">
+                                        <i class="bi bi-diagram-3"></i>
+                                        <span>Data Jurusan</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ route('tahun-ajaran.index') }}" class="submenu-item-link {{ request()->routeIs('tahun-ajaran.*') ? 'active' : '' }}">
+                                        <i class="bi bi-calendar3"></i>
+                                        <span>Tahun Ajaran</span>
+                                    </a>
+                                </li>
                             </ul>
                         </div>
                     </div>
-                @endif
 
-                {{-- Menu Tambahan untuk Super Admin --}}
-                @if($isSuperAdmin)
+                    <!-- Data Ruangan -->
+                    <div class="nav-item-container">
+                        <a href="{{ route('ruangan.index') }}" class="nav-btn {{ request()->routeIs('ruangan.*') ? 'active' : '' }}" title="Master data ruangan & kapasitas">
+                            <span class="btn-left">
+                                <i class="bi bi-building"></i>
+                                <span>Data Ruangan</span>
+                            </span>
+                        </a>
+                    </div>
+
+                    <!-- Import Data -->
+                    <div class="nav-item-container">
+                        <a href="{{ route('import.index') }}" class="nav-btn {{ request()->routeIs('import.*') ? 'active' : '' }}" title="Impor data siswa & jadwal dari berkas Excel">
+                            <span class="btn-left">
+                                <i class="bi bi-file-earmark-arrow-up"></i>
+                                <span>Import Data</span>
+                            </span>
+                        </a>
+                    </div>
+
+                    @if($isSuperAdmin)
+                        <!-- Data Mata Pelajaran (khusus Super Admin) -->
+                        <div class="nav-item-container">
+                            <a href="{{ route('mapel.index') }}" class="nav-btn {{ request()->routeIs('mapel.*') ? 'active' : '' }}" title="Master data mata pelajaran">
+                                <span class="btn-left">
+                                    <i class="bi bi-book"></i>
+                                    <span>Data Mata Pelajaran</span>
+                                </span>
+                            </a>
+                        </div>
+                    @endif
+
+                    {{-- ================= SECTION JADWAL & PIKET ================= --}}
                     <div class="nav-item-container mt-3">
                         <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
-                            KURIKULUM & LAPORAN
+                            JADWAL & PIKET
                         </div>
                     </div>
-                    <div class="nav-item-container">
-                        <a href="{{ route('mapel.index') }}" class="nav-btn {{ request()->routeIs('mapel.*') ? 'active' : '' }}">
-                            <span class="btn-left">
-                                <i class="bi bi-book"></i>
-                                <span>Data Mata Pelajaran</span>
-                            </span>
-                        </a>
-                    </div>
-                    <div class="nav-item-container">
-                        <a href="{{ route('laporan.index') }}" class="nav-btn {{ request()->routeIs('laporan.*', 'kurikulum.laporan.*') ? 'active' : '' }}">
-                            <span class="btn-left">
-                                <i class="bi bi-file-earmark-text"></i>
-                                <span>Laporan KBM</span>
-                            </span>
-                        </a>
-                    </div>
-                    <div class="nav-item-container">
-                        <a href="{{ route('waka-sdm.dashboard') }}" class="nav-btn {{ request()->routeIs('waka-sdm.*') ? 'active' : '' }}">
-                            <span class="btn-left">
-                                <i class="bi bi-person-workspace"></i>
-                                <span>Portal Waka SDM</span>
-                            </span>
-                        </a>
-                    </div>
-                @endif
 
-                {{-- Jadwal Piket Guru: Super Admin & Petugas TU --}}
-                @if($isSuperAdmin || $isPetugasTU)
-                    <div class="nav-item-container">
-                        <a href="{{ route('kurikulum.jadwal-piket.index') }}" class="nav-btn {{ (request()->is('*jadwal-piket*') || request()->routeIs('kurikulum.jadwal-piket.*')) ? 'active' : '' }}">
-                            <span class="btn-left">
-                                <i class="bi bi-shield-check"></i>
-                                <span>Jadwal Piket Guru</span>
-                            </span>
-                        </a>
-                    </div>
-                @endif
+                    @if($isPetugasTU || $isSuperAdmin)
+                        <!-- Jadwal Pelajaran (dropdown accordion) -->
+                        <div class="nav-item-container">
+                            <button class="nav-btn {{ $isJadwalAdminActive ? 'active' : '' }}"
+                                    type="button"
+                                    :aria-expanded="openMenu === 'jadwalPelajaran'"
+                                    @click.prevent="openMenu = openMenu === 'jadwalPelajaran' ? null : 'jadwalPelajaran'">
+                                <span class="btn-left">
+                                    <i class="bi bi-calendar3"></i>
+                                    <span>Jadwal Pelajaran</span>
+                                </span>
+                                <i class="bi bi-chevron-down chevron-icon transition-transform duration-200" :class="openMenu === 'jadwalPelajaran' ? 'rotate-180' : ''"></i>
+                            </button>
+                            <div x-show="openMenu === 'jadwalPelajaran'" 
+                                 x-transition:enter="transition ease-out duration-200"
+                                 x-transition:enter-start="opacity-0 transform -translate-y-2"
+                                 x-transition:enter-end="opacity-100 transform translate-y-0"
+                                 x-transition:leave="transition ease-in duration-150"
+                                 x-transition:leave-start="opacity-100 transform translate-y-0"
+                                 x-transition:leave-end="opacity-0 transform -translate-y-2"
+                                 id="dropdownJadwalAdmin">
+                                <ul class="submenu-list">
+                                    <li><a href="{{ route('admin.jam-pelajaran.index') }}" class="submenu-item-link {{ request()->routeIs('admin.jam-pelajaran.*') ? 'active' : '' }}"><i class="bi bi-clock-history"></i><span>Master Jam Pelajaran</span></a></li>
+                                    <li><a href="{{ route('admin.jadwal.index') }}" class="submenu-item-link {{ request()->routeIs('admin.jadwal.*') ? 'active' : '' }}"><i class="bi bi-calendar-range"></i><span>Plotting Jadwal Kelas</span></a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if($isSuperAdmin || $isPetugasTU)
+                        <!-- Jadwal Piket Guru -->
+                        <div class="nav-item-container">
+                            <a href="{{ route('kurikulum.jadwal-piket.index') }}" class="nav-btn {{ (request()->is('*jadwal-piket*') || request()->routeIs('kurikulum.jadwal-piket.*')) ? 'active' : '' }}" title="Jadwal piket harian guru">
+                                <span class="btn-left">
+                                    <i class="bi bi-shield-check"></i>
+                                    <span>Jadwal Piket Guru</span>
+                                </span>
+                            </a>
+                        </div>
+                    @endif
+
+                    {{-- Menu tambahan khusus Super Admin (tetap dipertahankan) --}}
+                    @if($isSuperAdmin)
+                        <div class="nav-item-container mt-3">
+                            <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                                KURIKULUM & LAPORAN
+                            </div>
+                        </div>
+                        <div class="nav-item-container">
+                            <a href="{{ route('laporan.index') }}" class="nav-btn {{ request()->routeIs('laporan.*', 'kurikulum.laporan.*') ? 'active' : '' }}">
+                                <span class="btn-left">
+                                    <i class="bi bi-file-earmark-text"></i>
+                                    <span>Laporan KBM</span>
+                                </span>
+                            </a>
+                        </div>
+                        <div class="nav-item-container">
+                            <a href="{{ route('waka-sdm.dashboard') }}" class="nav-btn {{ request()->routeIs('waka-sdm.*') ? 'active' : '' }}">
+                                <span class="btn-left">
+                                    <i class="bi bi-person-workspace"></i>
+                                    <span>Portal Waka SDM</span>
+                                </span>
+                            </a>
+                        </div>
+                    @endif
+                </div>
             @endif
         </div>
 
         <!-- Sidebar Bottom Footer -->
         <div class="sidebar-bottom">
+            @php
+                // Label "SISTEM" hanya tampil pada sidebar area admin/TU (sesuai struktur
+                // menu yang dirombak); sidebar role lain tetap tanpa label agar tidak berubah.
+                $isAdminSidebarNav = !($isKurikulumRole || $isWakaSdmRole || $isWakaKesiswaanRole || $isWakaPiketRole
+                    || $isKepsekRole || $isSatpamRole || ($isGuruPiketRole && !$isGuruRole)
+                    || $isGuruContext || $isPetugasItRole || $isPreviewSiswa);
+            @endphp
+            @if($isAdminSidebarNav)
+                <div class="nav-item-container mb-2">
+                    <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                        SISTEM
+                    </div>
+                </div>
+            @endif
             <div class="nav-item-container">
                 <a href="{{ route('pengaturan.index') }}" class="nav-btn px-2 {{ request()->routeIs('pengaturan.*') ? 'active' : '' }}">
                     <span class="btn-left">
@@ -1602,18 +1683,25 @@
             </div>
         </header>
 
+        <!-- Bootstrap 5.3 JS Bundle: dimuat SEBELUM konten, karena beragam halaman
+             memakai bootstrap.Modal/Toast di dalam script push-an halaman yang kini
+             dirender di dalam <main> (ikut terbawa navigasi SPA). -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
         <!-- PAGE CONTENT BODY
              Padding responsive pakai utility Tailwind (px-3 sm:px-6 py-4):
-             mobile = padding samping tipis (0.75rem), >= sm = 1.5rem, vertical 1rem. -->
-        <main class="page-content px-3 sm:px-6 py-4">
+             mobile = padding samping tipis (0.75rem), >= sm = 1.5rem, vertical 1rem.
+             #page-content = target swap SPA (Unpoly): sidebar & header tidak ikut
+             di-reload. Style & script per-halaman sengaja dirender DI DALAM <main>
+             supaya aset per-halaman ikut terbawa & dieksekusi saat fragmen di-swap. -->
+        <main id="page-content" class="page-content px-3 sm:px-6 py-4">
             @yield('content')
+            @stack('styles')
+            @stack('scripts')
         </main>
     </div>
 
 </div>
-
-<!-- Bootstrap 5.3 JS Bundle -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
     // Klik item notifikasi lonceng: tandai terbaca (async) lalu lanjut ke URL
@@ -1682,6 +1770,5 @@
     </script>
 @endif
 
-@stack('scripts')
 </body>
 </html>
