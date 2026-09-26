@@ -132,6 +132,47 @@ class JamPelajaran extends Model
     }
 
     /**
+     * Normalisasi nilai waktu penyimpanan menjadi format konsisten "HH:MM".
+     * Sumber bisa berupa 'HH:MM:SS', 'HH:MM', datetime string ('YYYY-MM-DD HH:MM:SS'),
+     * atau nilai korup dari versi lama. Nilai yang tidak dapat diparsing
+     * ditampilkan sebagai '--:--' agar tidak pernah menghasilkan teks acak
+     * seperti '10:00 - 07:'.
+     */
+    public static function formatJamHm(?string $value): string
+    {
+        $value = is_string($value) ? trim($value) : '';
+
+        if ($value === '') {
+            return '--:--';
+        }
+
+        if (preg_match('/(\d{1,2}):(\d{2})/', $value, $m)) {
+            $hour = min(23, max(0, (int) $m[1]));
+            $minute = min(59, max(0, (int) $m[2]));
+
+            return sprintf('%02d:%02d', $hour, $minute);
+        }
+
+        return '--:--';
+    }
+
+    /**
+     * Label jam mulai konsisten HH:MM (opsi dropdown Agenda / Pembiasaan).
+     */
+    public function getJamMulaiLabelAttribute(): string
+    {
+        return static::formatJamHm($this->jam_mulai);
+    }
+
+    /**
+     * Label jam selesai konsisten HH:MM (opsi dropdown Agenda / Pembiasaan).
+     */
+    public function getJamSelesaiLabelAttribute(): string
+    {
+        return static::formatJamHm($this->jam_selesai);
+    }
+
+    /**
      * Relasi ke Jadwal Pelajaran
      */
     public function jadwalPelajaran(): HasMany

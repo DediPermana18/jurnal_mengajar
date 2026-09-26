@@ -348,7 +348,6 @@ Route::prefix('admin')->middleware(['auth', AdminScheduleAccess::class])->group(
     Route::get('/jam-pelajaran/generate-check', [JamPelajaranController::class, 'checkGeneratePreset'])->name('admin.jam-pelajaran.generate-check');
     Route::post('/jam-pelajaran/copy-from', [JamPelajaranController::class, 'copyFromPrevious'])->name('admin.jam-pelajaran.copy-from');
     Route::post('/jam-pelajaran/bulk-update', [JamPelajaranController::class, 'bulkUpdate'])->name('admin.jam-pelajaran.bulk-update');
-    Route::post('/jam-pelajaran/schedule-mode', [JamPelajaranController::class, 'updateScheduleMode'])->name('admin.jam-pelajaran.schedule-mode');
     Route::post('/jam-pulang/upsert', [JamPulangController::class, 'upsert'])->name('admin.jam-pulang.upsert');
 
     // CRUD Master Shift (Shift 1 Pagi, Shift 2 Siang, dst.) dari Master Jam Pelajaran

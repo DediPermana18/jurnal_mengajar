@@ -170,6 +170,18 @@ class KelasController extends Controller
 
         $shiftId = ! empty($request->shift_id) ? (int) $request->shift_id : null;
 
+        // Grade Level Mapping: bila shift ditetapkan untuk tingkatan tertentu, pastikan
+        // tingkat kelas yang dibuat termasuk dalam daftar tingkatan yang dilayani shift.
+        if ($shiftId) {
+            $shiftKelas = ShiftPelajaran::find($shiftId);
+            $gradeLevels = $shiftKelas?->grade_levels ?? [];
+            if (! empty($gradeLevels) && ! $shiftKelas->servesGrade($request->tingkat)) {
+                return back()->withErrors([
+                    'shift_id' => 'Shift "'.$shiftKelas->nama_shift.'" hanya berlaku untuk tingkatan '.ShiftPelajaran::gradeLevelsLabel($gradeLevels).' — tidak cocok dengan tingkat kelas '.$request->tingkat.'. Pilih shift yang sesuai atau ubah tingkat kelas.',
+                ])->withInput();
+            }
+        }
+
         // Validasi: 1 Guru hanya boleh menjadi Wali Kelas pada 1 kelas
         if (! empty($idWaliKelas)) {
             $isAssigned = Kelas::where('id_wali_kelas', $idWaliKelas)->exists();
@@ -260,6 +272,18 @@ class KelasController extends Controller
         $idWaliKelas = $request->id_wali_kelas;
         $shiftId = ! empty($request->shift_id) ? (int) $request->shift_id : null;
         $oldWaliKelasId = $kelas->id_wali_kelas;
+
+        // Grade Level Mapping: bila shift ditetapkan untuk tingkatan tertentu, pastikan
+        // tingkat kelas hasil update tetap termasuk dalam daftar tingkatan yang dilayani shift.
+        if ($shiftId) {
+            $shiftKelas = ShiftPelajaran::find($shiftId);
+            $gradeLevels = $shiftKelas?->grade_levels ?? [];
+            if (! empty($gradeLevels) && ! $shiftKelas->servesGrade($request->tingkat)) {
+                return back()->withErrors([
+                    'shift_id' => 'Shift "'.$shiftKelas->nama_shift.'" hanya berlaku untuk tingkatan '.ShiftPelajaran::gradeLevelsLabel($gradeLevels).' — tidak cocok dengan tingkat kelas '.$request->tingkat.'. Pilih shift yang sesuai atau ubah tingkat kelas.',
+                ])->withInput();
+            }
+        }
 
         // Validasi: Cegah guru yang sudah menjadi wali kelas lain dipilih lagi
         if (! empty($idWaliKelas) && $idWaliKelas != $oldWaliKelasId) {

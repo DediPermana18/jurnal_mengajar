@@ -191,7 +191,7 @@
                             <option value="">-- Global (Tanpa Shift) --</option>
                             @foreach($daftarShift as $shift)
                                 <option value="{{ $shift->id }}" {{ old('shift_id') == $shift->id ? 'selected' : '' }}>
-                                    {{ $shift->nama_shift }} @if($shift->jam_mulai) ({{ substr($shift->jam_mulai, 0, 5) }} - {{ substr($shift->jam_selesai ?: '00:00', 0, 5) }}) @endif
+                                    {{ $shift->nama_shift }} @if(!empty($shift->grade_levels)) · {{ $shift->grade_levels_label }} @endif @if($shift->jam_mulai) ({{ substr($shift->jam_mulai, 0, 5) }} - {{ substr($shift->jam_selesai ?: '00:00', 0, 5) }}) @endif
                                     @if(!$shift->is_active) — Non-Aktif @endif
                                 </option>
                             @endforeach

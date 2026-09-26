@@ -58,6 +58,11 @@
                                         <i class="bi bi-clock me-1"></i>{{ $kelas->shift->nama_shift }}
                                         @if(!$kelas->shift->is_active) <span class="text-warning">(Non-Aktif)</span> @endif
                                     </span>
+                                    @if(!empty($kelas->shift->grade_levels))
+                                        <span class="badge rounded-pill px-2 py-1 ms-1" style="font-size: 0.62rem; background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;">
+                                            <i class="bi bi-mortarboard-fill me-1"></i>{{ $kelas->shift->grade_levels_label }}
+                                        </span>
+                                    @endif
                                 </div>
                             @else
                                 <div class="mt-1">
@@ -210,6 +215,11 @@
                             <span class="badge bg-dark-subtle text-dark border px-2 py-1 rounded-pill" style="font-size: 0.7rem;">
                                 <i class="bi bi-clock me-1"></i>{{ $kelas->shift->nama_shift }}
                             </span>
+                            @if(!empty($kelas->shift->grade_levels))
+                                <span class="badge rounded-pill px-2 py-1" style="font-size: 0.62rem; background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;">
+                                    <i class="bi bi-mortarboard-fill me-1"></i>{{ $kelas->shift->grade_levels_label }}
+                                </span>
+                            @endif
                         @else
                             <span class="badge bg-secondary-subtle text-secondary border px-2 py-1 rounded-pill" style="font-size: 0.7rem;">
                                 <i class="bi bi-globe2 me-1"></i>Global
@@ -376,7 +386,7 @@
                             <option value="">-- Global (Tanpa Shift) --</option>
                             @foreach($daftarShift as $shift)
                                 <option value="{{ $shift->id }}" {{ old('shift_id', $kelas->shift_id) == $shift->id ? 'selected' : '' }}>
-                                    {{ $shift->nama_shift }} @if($shift->jam_mulai) ({{ substr($shift->jam_mulai, 0, 5) }} - {{ substr($shift->jam_selesai ?: '00:00', 0, 5) }}) @endif
+                                    {{ $shift->nama_shift }} @if(!empty($shift->grade_levels)) · {{ $shift->grade_levels_label }} @endif @if($shift->jam_mulai) (Mulai {{ substr($shift->jam_mulai, 0, 5) }}@if($shift->jam_selesai_dinamis) – {{ substr($shift->jam_selesai_dinamis, 0, 5) }}@endif) @endif
                                     @if(!$shift->is_active) — Non-Aktif @endif
                                 </option>
                             @endforeach

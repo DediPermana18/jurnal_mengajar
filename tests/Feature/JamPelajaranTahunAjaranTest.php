@@ -74,17 +74,18 @@ class JamPelajaranTahunAjaranTest extends TestCase
         $response->assertSee('2024/2025 – Ganjil', false);
         $response->assertSee('2025/2026 – Genap (Aktif)', false);
 
-        // Opsi TA aktif terpilih (attribute selected) sebagai default.
+        // TA aktif ditandai sebagai pilihan aktif (class active + aria-current) pada
+        // dropdown soft-pill; TA non-aktif tidak boleh menjadi pilihan aktif.
         $content = $response->getContent();
         $this->assertMatchesRegularExpression(
-            '/<option value="[^"]*ta='.$aktif->id.'"[^>]*selected/',
+            '/<a class="dropdown-item d-flex align-items-center gap-2 rounded-3 active"\s+href="[^"]*ta='.$aktif->id.'"[^>]*aria-current="true"/',
             $content,
-            'Tahun Ajaran aktif harus terpilih sebagai default pada dropdown.'
+            'Tahun Ajaran aktif harus menjadi pilihan aktif pada dropdown.'
         );
         $this->assertDoesNotMatchRegularExpression(
-            '/<option value="[^"]*ta='.$lama->id.'"[^>]*selected/',
+            '/<a class="dropdown-item d-flex align-items-center gap-2 rounded-3 active"\s+href="[^"]*ta='.$lama->id.'"/',
             $content,
-            'Tahun Ajaran non-aktif tidak boleh menjadi default.'
+            'Tahun Ajaran non-aktif tidak boleh menjadi pilihan aktif.'
         );
 
         // Badge konteks TA pada header kartu.

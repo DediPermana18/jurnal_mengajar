@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AppSetting;
 use App\Models\JamPelajaran;
+use App\Models\JamPulang;
 use App\Models\Jurusan;
 use App\Models\Kelas;
 use App\Models\MataPelajaran;
@@ -14,12 +15,13 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Fitur Global System Toggle untuk Schedule Mode (Global vs Multi-Shift):
- *  - Konfigurasi sistem 'schedule_mode' disimpan di app_settings (global).
- *  - Toggle "Tipe Penjadwalan Sekolah" di bagian atas Master Jam Pelajaran.
- *  - Mode Global menyembunyikan seluruh UI shift (??mode=shift diabaikan).
- *  - Mode Multi-Shift membuka pengelolaan shift; slot jam terisolasi per shift.
- *  - Validator plotting menolak kelas tanpa alokasi shift saat sekolah multi-shift.
+ * Fitur Read-Only Schedule Mode (Global vs Multi-Shift) pada Master Jam Pelajaran:
+ *  - Mode penjadwalan HANYA dikendalikan oleh mode_jadwal Tahun Ajaran terpilih
+ *    (data master Tahun Ajaran) — tidak ada toggle manual di halaman Master.
+ *  - Tipikal fallback 'schedule_mode' di app_settings hanya berlaku untuk TA legacy.
+ *  - Mode Global: murni slot jam Global; seluruh UI shift disembunyikan.
+ *  - Mode Multi-Shift: tab shift + slot jam per shift; tampilan slot Global disembunyikan.
+ *  - Validator plotting menolak kelas tanpa alokasi shift saat T.A multi-shift.
  */
 class ScheduleModeSystemTest extends TestCase
 {
@@ -92,36 +94,42 @@ class ScheduleModeSystemTest extends TestCase
         ];
     }
 
-    public function test_default_schedule_mode_is_global_and_hides_shift_ui_even_with_mode_param(): void
+    public function test_schedule_mode_is_read_only_from_tahun_ajaran_global_and_hides_shift_ui(): void
     {
-        // Tanpa setting eksplisit, tipe penjadwalan sistem = Global.
+        // Tanpa mode eksplisit, Tahun Ajaran ikut tipe penjadwalan sistem (default Global).
         $this->assertSame(AppSetting::SCHEDULE_GLOBAL, AppSetting::scheduleMode());
 
         $this->makeShift('Shift 1 (Pagi)');
         $this->makeSlot(null, '07:00', '07:45');
 
+        // Tidak ada toggle manual di halaman — parameter ?mode=shift pun diabaikan:
+        // mode sepenuhnya ditentukan oleh mode_jadwal Tahun Ajaran (read-only).
         $response = $this->actingAs($this->admin)
             ->get(route('admin.jam-pelajaran.index', ['tab' => 'Senin-Kamis', 'mode' => 'shift']));
 
         $response->assertOk()
             ->assertSee('Mode Global')
+            ->assertSee('07.00 – 07.45')
             ->assertDontSee('Pilih Shift:')
             ->assertDontSee('+ Tambah Shift')
             ->assertDontSee('Kelola Daftar Shift')
             ->assertDontSee('mode=shift')
-            // Toggle "Tipe Penjadwalan Sekolah" tersedia di bagian atas halaman.
-            ->assertSee('Tipe Penjadwalan')
-            ->assertSee('Multi-Shift');
+            ->assertDontSee('Kembali ke Mode Global')
+            ->assertDontSee('Tipe Penjadwalan Sekolah')
+            ->assertDontSee('Multi-Shift');
     }
 
-    public function test_shift_schedule_mode_defaults_index_to_shift_management_ui(): void
+    public function test_shift_schedule_mode_defaults_index_to_shift_management_ui_hiding_global_slots(): void
     {
         AppSetting::setScheduleMode(AppSetting::SCHEDULE_SHIFT);
 
         $s1 = $this->makeShift('Shift 1 (Pagi)');
         $this->makeSlot($s1->id, '13:00', '13:45');
+        // Slot Global tidak boleh bocor ke tampilan shift.
+        $this->makeSlot(null, '07:00', '07:45');
 
-        // Tanpa ?mode=..., halaman langsung membuka pengelolaan shift.
+        // Tanpa parameter mode manual, halaman langsung membuka pengelolaan shift;
+        // tidak ada toggle/tautan untuk kembali ke tampilan slot Global.
         $response = $this->actingAs($this->admin)
             ->get(route('admin.jam-pelajaran.index', ['tab' => 'Senin-Kamis']));
 
@@ -130,63 +138,10 @@ class ScheduleModeSystemTest extends TestCase
             ->assertSee('Pilih Shift:')
             ->assertSee('+ Tambah Shift')
             ->assertSee('Kelola Daftar Shift')
-            ->assertSee('13.00 – 13.45');
-    }
-
-    public function test_shift_schedule_mode_allows_explicit_global_view(): void
-    {
-        AppSetting::setScheduleMode(AppSetting::SCHEDULE_SHIFT);
-
-        $s1 = $this->makeShift('Shift 1 (Pagi)');
-        $this->makeSlot($s1->id, '13:00', '13:45');
-        $this->makeSlot(null, '07:00', '07:45');
-
-        // ?mode=global tetap tersedia untuk mengelola slot dasar/global.
-        $response = $this->actingAs($this->admin)
-            ->get(route('admin.jam-pelajaran.index', ['tab' => 'Senin-Kamis', 'mode' => 'global']));
-
-        $response->assertOk()
-            ->assertSee('Mode Global')
-            ->assertDontSee('Pilih Shift:')
-            ->assertDontSee('+ Tambah Shift')
-            ->assertDontSee('Kelola Daftar Shift')
-            ->assertSee('07.00 – 07.45');
-    }
-
-    public function test_update_schedule_mode_persists_setting_and_redirects(): void
-    {
-        $this->makeShift('Shift 1 (Pagi)');
-
-        // Beralih ke Multi-Shift.
-        $response = $this->actingAs($this->admin)
-            ->post(route('admin.jam-pelajaran.schedule-mode'), ['schedule_mode' => AppSetting::SCHEDULE_SHIFT]);
-
-        $response->assertRedirect();
-        $response->assertSessionHas('success');
-
-        $this->assertDatabaseHas('app_settings', [
-            'key' => 'schedule_mode',
-            'value' => AppSetting::SCHEDULE_SHIFT,
-        ]);
-        $this->assertSame(AppSetting::SCHEDULE_SHIFT, AppSetting::scheduleMode());
-
-        // Kembali ke Global.
-        $response = $this->actingAs($this->admin)
-            ->post(route('admin.jam-pelajaran.schedule-mode'), ['schedule_mode' => AppSetting::SCHEDULE_GLOBAL]);
-
-        $response->assertRedirect();
-        $response->assertSessionHas('success');
-
-        $this->assertDatabaseHas('app_settings', [
-            'key' => 'schedule_mode',
-            'value' => AppSetting::SCHEDULE_GLOBAL,
-        ]);
-        $this->assertSame(AppSetting::SCHEDULE_GLOBAL, AppSetting::scheduleMode());
-
-        // Mode invalid ditolak oleh validasi.
-        $this->actingAs($this->admin)
-            ->post(route('admin.jam-pelajaran.schedule-mode'), ['schedule_mode' => 'campuran'])
-            ->assertSessionHasErrors('schedule_mode');
+            ->assertSee('13.00 – 13.45')
+            ->assertDontSee('07.00 – 07.45')
+            ->assertDontSee('Kembali ke Mode Global')
+            ->assertDontSee('mode=global');
     }
 
     public function test_plotting_rejects_class_without_shift_when_school_is_multishift(): void
@@ -372,5 +327,90 @@ class ScheduleModeSystemTest extends TestCase
             'id_kelas' => $kelas->id,
             'id_guru' => $guru->id,
         ]);
+    }
+
+    /**
+     * Bug: matriks kelas terikat Shift 2 dulu mencampur slot Shift 1 + Global
+     * (total 19 slot, Jam 1 muncul 07.00 milik Shift 1, dan blok "Pulang Sekolah"
+     * berulang di tengah jadwal). Query harus STRICT terhadap shift kelas:
+     * hanya slot dengan shift_id = shift kelas yang diambil, tanpa shift lain/Global.
+     */
+    public function test_plotting_matrix_shows_only_own_shift_slots_and_pulang_lock_per_shift(): void
+    {
+        AppSetting::setScheduleMode(AppSetting::SCHEDULE_SHIFT);
+
+        // Shift 1 (Pagi) + slot Global TIDAK boleh bocor ke matriks kelas Shift 2.
+        $s1 = $this->makeShift('Shift 1 (Pagi)');
+        $this->makeSlot($s1->id, '07:00', '07:45');
+        $this->makeSlot(null, '09:00', '09:45');
+
+        // Shift 2 (Siang): 7 slot KBM, Jam 1 mulai pukul 11.00 (bukan 07.00).
+        $s2 = $this->makeShift('Shift 2 (Siang)', '11:00', '18:00');
+        foreach (range(1, 7) as $jamKe) {
+            $this->makeSlot(
+                $s2->id,
+                sprintf('%02d:00', 10 + $jamKe),
+                sprintf('%02d:40', 10 + $jamKe),
+                $jamKe
+            );
+        }
+
+        // Kelas XI RPL 1 terikat langsung ke Shift 2.
+        $kelas = Kelas::create([
+            'nama_kelas' => 'XI RPL 1',
+            'tingkat' => 'XI',
+            'id_jurusan' => $this->jurusan->id,
+            'shift_id' => $s2->id,
+        ]);
+
+        $content = $this->actingAs($this->admin)
+            ->get(route('admin.jadwal.index', ['id_kelas' => $kelas->id, 'hari' => 'Senin']))
+            ->assertOk()
+            ->getContent();
+
+        // Matriks HANYA memuat 7 slot Shift 2 (mulai 11.00), tanpa Shift 1/Global.
+        $this->assertStringContainsString('Shift 2 (Siang)', $content);
+        $this->assertStringContainsString('Total 7 Slot', $content);
+        $this->assertStringContainsString('11.00 – 11.40', $content);
+        $this->assertStringNotContainsString('07.00 – 07.45', $content);
+        $this->assertStringNotContainsString('09.00 – 09.45', $content);
+
+        // Plotting pada slot Shift 2 harus mendarat di slot MURNI milik Shift 2.
+        $mapel = MataPelajaran::create(['nama_mapel' => 'Matematika']);
+        $guru = User::create([
+            'nama' => 'Drs. Supriyanto',
+            'nip' => '197001011995011001',
+            'username' => 'gurucoba',
+            'password' => bcrypt('password'),
+            'role' => User::ROLE_GURU,
+            'is_active' => true,
+        ]);
+        $slotShift2Jam1 = JamPelajaran::where('shift_id', $s2->id)->where('jam_ke', 1)->firstOrFail();
+
+        $response = $this->actingAs($this->admin)
+            ->postJson(route('admin.jadwal.store'), $this->plottingPayload($kelas->id, $mapel->id, $guru->id));
+
+        $response->assertJsonPath('success', true);
+        $this->assertDatabaseHas('jadwal_pelajaran', [
+            'id_kelas' => $kelas->id,
+            'hari' => 'Senin',
+            'id_jam' => $slotShift2Jam1->id,
+        ]);
+
+        // Jam Pulang Shift 2 (XI selesai setelah Jam ke-5): HANYA Jam 6 & Jam 7
+        // yang diblokir "Pulang Sekolah" — tidak boleh ada blok berulang di tengah.
+        JamPulang::create([
+            'shift_id' => $s2->id,
+            'kategori_hari' => 'Senin-Kamis',
+            'tingkat' => 'XI',
+            'max_jam_ke' => 5,
+        ]);
+
+        $content2 = $this->actingAs($this->admin)
+            ->get(route('admin.jadwal.index', ['id_kelas' => $kelas->id, 'hari' => 'Senin']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertSame(2, substr_count($content2, 'Kelas XI selesai KBM setelah Jam ke-5'));
     }
 }

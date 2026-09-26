@@ -15,6 +15,7 @@ use App\Models\MataPelajaran;
 use App\Models\PengaturanJadwal;
 use App\Models\Ruangan;
 use App\Models\Scopes\ActiveTahunAjaranScope;
+use App\Models\ShiftPelajaran;
 use App\Models\TahunAjaran;
 use App\Models\User;
 use Carbon\Carbon;
@@ -76,11 +77,22 @@ class JadwalPelajaranController extends Controller
             'X' => '10', 'XI' => '11', 'XII' => '12', default => $selectedKelas->tingkat
         } : '10';
 
-        // 4. Ambil master jam pelajaran sekolah: slot Global + slot milik shift kelas terpilih
-        //    (dalam konteks Tahun Ajaran terpilih — arsip lama tidak ikut tampil).
+        // 4. Deteksi shift EFEKTIF kelas yang sedang di-plot:
+        //    - Ikatan langsung kelas (kelas.shift_id) menang.
+        //    - Bila kelas tidak terikat shift, tetapi konteks Tahun Ajaran ber-mode
+        //      Multi-Shift, cari shift AKTIF yang grade_levels-nya mencakup tingkatan
+        //      kelas tsb (mis. tingkat XI -> Shift 2, meskipun kelas belum di-set shift).
+        //    - Tidak ditemukan / mode Global => null (slot Global).
+        $plotShift = $selectedKelas ? $this->shiftUntukKelas($selectedKelas, $tahunAktif) : null;
+        $plotShiftId = $plotShift?->id;
+
+        // Ambil master jam pelajaran sekolah: HANYA slot MURNI milik shift efektif
+        // kelas terpilih (shift_id = shift kelas). Slots Global (shift_id NULL) atau
+        // milik shift LAIN TIDAK disertakan — mencegah pencampuran shift berganda.
+        // Kelas tanpa shift efektif => slot Global (shift_id NULL).
         $jamPelajaranList = JamPelajaran::withoutGlobalScope(ActiveTahunAjaranScope::class)
             ->where('hari', $selectedHari)
-            ->forShift($selectedKelas?->shift_id)
+            ->ofShift($plotShiftId)
             ->ofTahunAjaran($tahunAktif?->id, (bool) ($tahunAktif?->is_active ?? false))
             ->orderBy('jam_mulai')
             ->get();
@@ -125,19 +137,21 @@ class JadwalPelajaranController extends Controller
         // Total slot jam (kategori hari terpilih) untuk badge ringkasan di header matriks.
         $totalSlot = $jamPelajaranList->count();
 
-        // 7. Ambil batas jam pulang untuk kelas & hari yang dipilih (per shift kelas)
+        // 7. Ambil batas jam pulang untuk kelas & hari yang dipilih (per shift efektif kelas)
         $maxJamKe = null;
         if ($selectedKelas) {
             $maxJamKe = JamPulang::getMaxJamKe(
                 $kategoriHari,
                 strtoupper(trim($selectedKelas->tingkat)),
-                $selectedKelas->shift_effective
+                $plotShiftId ?? 0
             );
         }
 
-        // 8. Ambil agenda rutin / upacara aktif untuk hari terpilih
+        // 8. Ambil agenda rutin / upacara aktif untuk hari terpilih, TERISOLASI
+        // per shift efektif kelas yang sedang di-plot (Global: 0).
         $agendaRutinAktif = AgendaRutin::where('hari', $selectedHari)
             ->where('is_active', true)
+            ->ofShift($plotShiftId ?? 0)
             ->get()
             ->keyBy('jam_ke');
 
@@ -163,6 +177,7 @@ class JadwalPelajaranController extends Controller
             'hariList',
             'selectedHari',
             'selectedKelas',
+            'plotShift',
             'jamPelajaranList',
             'jadwalList',
             'totalSlot',
@@ -249,11 +264,20 @@ class JadwalPelajaranController extends Controller
             ->get()
             ->groupBy('hari');
 
-        // Agenda rutin aktif dikunci per hari -> jam_ke.
+        // Agenda rutin aktif dikunci per shift -> hari -> jam_ke.
+        // Peta bersarang: [shift_id][hari][jam_ke] = AgendaRutin, agar slot
+        // kosong dihitung terhadap agenda shift kelas masing-masing, bukan
+        // satu agenda global yang bocor ke semua shift.
         $agendaAktif = AgendaRutin::where('is_active', true)
             ->get()
-            ->groupBy('hari')
-            ->mapWithKeys(fn ($items, $hari) => [$hari => $items->keyBy('jam_ke')]);
+            ->groupBy('shift_id')
+            ->mapWithKeys(function ($rows, $shiftId) {
+                return [
+                    (int) $shiftId => $rows->groupBy('hari')->mapWithKeys(
+                        fn ($items, $hari) => [$hari => $items->keyBy('jam_ke')]
+                    ),
+                ];
+            });
 
         $rows = [];
         $totalSlotKosong = 0;
@@ -261,6 +285,10 @@ class JadwalPelajaranController extends Controller
 
         foreach ($kelasList as $kelas) {
             $punyaKosong = false;
+
+            // Shift efektif kelas (ikon langsung + deteksi grade_levels) untuk
+            // menghitung slot terlihat, agenda & batas jam pulang per kelas.
+            $shiftEff = $this->shiftUntukKelas($kelas, $tahunAktif)?->id ?? 0;
 
             foreach ($hariList as $hari) {
                 // Filter hari: skip hari yang tidak dipilih (bila dropdown terisi).
@@ -275,16 +303,16 @@ class JadwalPelajaranController extends Controller
                     $slots = $slotsPerHari->get('Senin', collect());
                 }
 
-                // Hanya slot yang terlihat oleh shift kelas ini (Global + shift kelas).
+                // Hanya slot MURNI milik shift efektif kelas ini (tanpa campuran slot Global/shift lain).
                 $slots = $slots
-                    ->filter(fn ($slot) => $slot->shift_id === null || (int) $slot->shift_id === (int) $kelas->shift_id)
+                    ->filter(fn ($slot) => (int) ($slot->shift_id ?? 0) === $shiftEff)
                     ->values();
 
-                $agendaHari = $agendaAktif->get($hari, collect());
+                $agendaHari = $agendaAktif[$shiftEff][$hari] ?? collect();
                 // Batas Jam Pulang per tingkat kelas (format tingkat sama dengan master:
                 // huruf Romawi, mis. 'X', 'XI', 'XII' — lihat PengaturanJadwalSeeder).
                 // Slot dengan jam_ke > max_jam_ke (mis. jam ke-13 saat max 12) tidak dihitung kosong.
-                $maxJamKe = JamPulang::getMaxJamKe($kategori, strtoupper(trim($kelas->tingkat)), $kelas->shift_effective);
+                $maxJamKe = JamPulang::getMaxJamKe($kategori, strtoupper(trim($kelas->tingkat)), $shiftEff);
 
                 $kosong = [];
                 foreach ($slots as $slot) {
@@ -361,15 +389,36 @@ class JadwalPelajaranController extends Controller
             $kelas = Kelas::find($validated['id_kelas']);
 
             // Validator SISTEM (Tipe Penjadwalan konteks T.A): pada tipe Multi-Shift,
-            // setiap kelas WAJIB teralokasi ke sebuah shift. Slot jam yang diambil hanya
-            // milik shift kelas tsb (+ Global sebagai basis) via scope forShift — kelas
-            // tanpa shift ditolak agar jadwal tidak menyalahi alokasi shift sekolah.
+            // kelas WAJIB memiliki shift efektif. Shift efektif = ikatan langsung kelas
+            // (kelas.shift_id) ATAU deteksi otomatis dari grade_levels shift (mis. kelas
+            // XI tanpa ikatan shift -> shift yang melayani tingkatan Kelas 11). Slot jam
+            // yang diambil hanya milik shift efektif tsb (scope ofShift - MURNI shift,
+            // tanpa bocoran slot Global/shift lain). Kelas tanpa shift efektif sama
+            // sekali ditolak agar jadwal tidak menyalahi alokasi shift sekolah.
             // Mode efektif = mode_jadwal T.A aktif; bila belum ditentukan, ikut sistem.
             $tahunAktifMode = $tahunAktif?->effective_schedule_mode
                 ?? AppSetting::scheduleMode();
+            $plotShift = $kelas ? $this->shiftUntukKelas($kelas, $tahunAktif) : null;
 
-            if ($tahunAktifMode === AppSetting::SCHEDULE_SHIFT && ! $kelas?->shift_id) {
+            if ($tahunAktifMode === AppSetting::SCHEDULE_SHIFT && ! $plotShift) {
                 throw new \Exception('Gagal! Sekolah menggunakan tipe penjadwalan Multi-Shift — Kelas "'.($kelas->nama_kelas ?? '?').'" belum dialokasikan ke shift tertentu. Tetapkan shift pada data kelas sebelum melakukan plotting jadwal.');
+            }
+
+            // Validator Grade Level Mapping: bila shift yang dialokasikan ke kelas
+            // sekadar melayani tingkatan tertentu (grade_levels terisi), kelas yang
+            // tingkatan-nya di luar daftar tersebut ditolak — slot jam shift hanya
+            // relevan untuk tingkatan yang memang dilayani shift itu.
+            if ($kelas?->shift_id) {
+                $shiftKelas = $kelas->shift;
+                $gradeLevels = $shiftKelas?->grade_levels ?? [];
+                if (! empty($gradeLevels) && ! $shiftKelas->servesGrade($kelas->tingkat)) {
+                    throw new \Exception(
+                        'Gagal! Shift "'.$shiftKelas->nama_shift.'" hanya berlaku untuk tingkatan '
+                        .ShiftPelajaran::gradeLevelsLabel($gradeLevels)
+                        .' — Kelas "'.($kelas->nama_kelas ?? '?').'" ber-tingkat '.($kelas->tingkat ?? '?')
+                        .'. Sesuaikan alokasi shift pada data kelas sebelum plotting jadwal.'
+                    );
+                }
             }
 
             $tingkatKelas = $kelas ? match (strtoupper(trim($kelas->tingkat))) {
@@ -377,10 +426,10 @@ class JadwalPelajaranController extends Controller
             } : '10';
 
             // 1. Ambil semua slot KBM dalam rentang jam_ke_mulai s/d jam_ke_selesai (abaikan jenis istirahat)
-            //    — hanya slot yang terlihat oleh shift kelas (Global + shift kelas) pada TA terpilih.
+            //    — HANYA slot murni milik shift efektif kelas pada TA terpilih.
             $targetSlots = JamPelajaran::withoutGlobalScope(ActiveTahunAjaranScope::class)
                 ->where('hari', $validated['hari'])
-                ->forShift($kelas?->shift_id)
+                ->ofShift($plotShift?->id)
                 ->ofTahunAjaran($tahunAktif?->id, (bool) ($tahunAktif?->is_active ?? false))
                 ->whereNotNull('jam_ke')
                 ->where('jenis', '!=', 'istirahat')
@@ -420,7 +469,7 @@ class JadwalPelajaranController extends Controller
                 $tahunAktif,
                 $tingkatKelas,
                 $isEditMode ? $groupId : null,
-                $kelas?->shift_effective
+                $plotShift?->id ?? 0
             );
 
             if (! empty($blockedSlots)) {
@@ -639,9 +688,16 @@ class JadwalPelajaranController extends Controller
                 'X' => '10', 'XI' => '11', 'XII' => '12', default => $kelasUpdate->tingkat
             } : '10';
 
+            $plotShiftUpdate = $kelasUpdate ? $this->shiftUntukKelas($kelasUpdate, $tahunAktif) : null;
+            $plotShiftUpdateId = $plotShiftUpdate?->id ?? 0;
+
             if ($slot) {
-                $agendaUpdate = AgendaRutin::where('hari', $validated['hari'])->where('jam_ke', $slot->jam_ke)->where('is_active', true)->first();
-                $maxJamKeUpdate = JamPulang::getMaxJamKe($kategoriHari, $tingkatUpdate, $kelasUpdate?->shift_effective ?? 0);
+                $agendaUpdate = AgendaRutin::where('hari', $validated['hari'])
+                    ->where('jam_ke', $slot->jam_ke)
+                    ->where('is_active', true)
+                    ->ofShift($plotShiftUpdateId)
+                    ->first();
+                $maxJamKeUpdate = JamPulang::getMaxJamKe($kategoriHari, $tingkatUpdate, $plotShiftUpdateId);
                 $terkunci = ($slot->jenis !== 'kbm')
                     || ($agendaUpdate !== null)
                     || ($maxJamKeUpdate !== null && $slot->jam_ke !== null && $slot->jam_ke > $maxJamKeUpdate);
@@ -855,6 +911,7 @@ class JadwalPelajaranController extends Controller
 
         $agendaAktif = AgendaRutin::where('hari', $hari)
             ->where('is_active', true)
+            ->ofShift($shiftId)
             ->get()
             ->keyBy('jam_ke');
 
@@ -952,6 +1009,44 @@ class JadwalPelajaranController extends Controller
             ->route('admin.jadwal.index', $redirectParams)
             ->withInput()
             ->with('error', $flashMessage);
+    }
+
+    /**
+     * Resolve shift EFEKTIF untuk sebuah kelas pada konteks plotting jadwal.
+     *
+     * Prioritas:
+     *  1. Ikatan langsung kelas (kelas.shift_id) — menang apa pun kondisinya.
+     *  2. Mode Multi-Shift: shift AKTIF yang grade_levels-nya PENTING memuat
+     *     tingkatan kelas tsb (non-kosong). Inilah deteksi otomatis "kelas tanpa
+     *     ikatan shift namun dinaungi shift berdasarkan tingkatan kelas". Bila
+     *     ambigu (beberapa shift melayani tingkatan yang sama), shift ber-id
+     *     terkecil dipilih secara deterministik.
+     *     Shift legacy (grade_levels kosong = berlaku semua tingkatan) TIDAK
+     *     dipakai sebagai hasil deteksi — kelas semacam itu dianggap "berlaku
+     *     semua" sehingga memakai slot Global.
+     *  3. Tidak ditemukan / mode Global => null (slot Global).
+     */
+    private function shiftUntukKelas(Kelas $kelas, ?TahunAjaran $tahunAktif): ?ShiftPelajaran
+    {
+        if ($kelas->shift_id) {
+            return $kelas->shift;
+        }
+
+        $mode = $tahunAktif?->effective_schedule_mode ?? AppSetting::scheduleMode();
+        if ($mode !== AppSetting::SCHEDULE_SHIFT) {
+            return null;
+        }
+
+        $tingkat = strtoupper(trim((string) $kelas->tingkat));
+
+        return ShiftPelajaran::where('is_active', true)
+            ->orderBy('id')
+            ->get()
+            ->first(function ($shift) use ($tingkat) {
+                $levels = $shift->grade_levels ?? [];
+
+                return ! empty($levels) && in_array($tingkat, $levels, true);
+            });
     }
 
     /**

@@ -34,20 +34,15 @@ class JamPelajaranController extends Controller
         $selectedTahunAjaranIsActive = (bool) ($selectedTahunAjaran?->is_active ?? false);
 
         // Tipe penjadwalan EFEKTIF pada konteks T.A: mode_jadwal milik T.A terpilih
-        // (dari Modal Tahun Ajaran) MENANG; bila belum ditentukan (TA legacy/null),
-        // mengikuti tipe penjadwalan sistem (AppSetting::scheduleMode, default 'global').
-        // - 'global' => halaman murni slot Global; seluruh UI shift disembunyikan
-        //   dan parameter ?mode=shift DIIABAIKAN (Global & Shift tidak boleh berjalan bareng).
-        // - 'shift'  => sekolah multi-sesi; halaman membuka pengelolaan shift (default),
-        //   namun ?mode=global tetap tersedia untuk mengelola slot dasar/global saja.
+        // (diatur dari Form Edit Tahun Ajaran di Data Master Tahun Ajaran) adalah
+        // SATU-SATUNYA sumber mode — tidak ada toggle manual di halaman ini (read-only).
+        // Bila belum ditentukan (TA legacy/null), mengikuti tipe penjadwalan sistem
+        // (AppSetting::scheduleMode, default 'global').
+        // - 'global' => halaman murni slot Global; seluruh UI shift disembunyikan.
+        // - 'shift'  => halaman membuka pengelolaan shift saja; tampilan slot Global
+        //   disembunyikan (slot Global tetap dipakai kelas tanpa shift saat plotting).
         $systemMode = $selectedTahunAjaran?->effective_schedule_mode
             ?? AppSetting::scheduleMode();
-
-        if ($systemMode === AppSetting::SCHEDULE_GLOBAL) {
-            $mode = 'global';
-        } else {
-            $mode = $request->input('mode') === 'global' ? 'global' : 'shift';
-        }
 
         // Total slot pada konteks TA terpilih (pengontrol tampilan "Salin dari Semester Lalu").
         $totalSlotsForTa = JamPelajaran::withoutGlobalScope(ActiveTahunAjaranScope::class)
@@ -79,8 +74,8 @@ class JamPelajaranController extends Controller
             ->groupBy('shift_id')
             ->pluck('total', 'shift_id');
 
-        if ($mode === 'shift') {
-            // Shift terpilih pada sub-tab shift: default ke shift pertama bila tidak ditentukan.
+        if ($systemMode === AppSetting::SCHEDULE_SHIFT) {
+            // Mode Multi-Shift: sub-tab shift aktif — default ke shift pertama bila tidak dipilih.
             $selectedShiftId = $this->resolveShiftFilter($request) ?? $shifts->first()?->id;
         } else {
             // Mode Global: konsep shift tidak ditampilkan — selalu slot global (tanpa shift).
@@ -91,7 +86,7 @@ class JamPelajaranController extends Controller
 
         // Mode shift ketika belum ada shift terdaftar → tampilkan state kosong,
         // jangan bocorkan slot global ke tampilan shift.
-        $shiftModeEmpty = $mode === 'shift' && $shifts->isEmpty();
+        $shiftModeEmpty = $systemMode === AppSetting::SCHEDULE_SHIFT && $shifts->isEmpty();
 
         // Pastikan penomoran jam_ke terurut konsisten untuk semua hari (per shift),
         // hanya dalam konteks Tahun Ajaran terpilih (slot arsip tidak ikut berubah).
@@ -138,29 +133,44 @@ class JamPelajaranController extends Controller
         // Ambil ulang setting setelah normalisasi
         $jamPulangSettings = JamPulang::getAllAsLookup();
 
-        // Pengaturan Agenda Rutin / Upacara Sekolah (Senin & Jumat)
-        $agendaSenin = AgendaRutin::where('hari', 'Senin')->first();
-        $agendaJumat = AgendaRutin::where('hari', 'Jumat')->first();
-        $agendaRutin = $agendaSenin ?? AgendaRutin::first();
+        // Pengaturan Agenda Rutin / Upacara Sekolah (Senin & Jumat).
+        // TERISOLASI per konteks shift: record shift_id = 0 (Global) hanya
+        // dipakai mode Global / kelas tanpa shift; setiap shift menyimpan
+        // konfigurasi sendiri sehingga mengaktifkan Upacara di Shift 1 tidak
+        // akan tampil Aktif saat membuka tab Shift 2 (state default: Non-Aktif).
+        $agendaShiftId = (int) ($selectedShiftId ?? 0);
+        $agendaSenin = AgendaRutin::where('hari', 'Senin')->ofShift($agendaShiftId)->first();
+        $agendaJumat = AgendaRutin::where('hari', 'Jumat')->ofShift($agendaShiftId)->first();
+        $agendaRutin = $agendaSenin ?? AgendaRutin::ofShift($agendaShiftId)->first();
 
-        // Opsi dropdown jam untuk Pengaturan Upacara (Senin-Kamis) & Pembiasaan (Jumat).
-        $jamOptionsSenin = JamPelajaran::withoutGlobalScope(ActiveTahunAjaranScope::class)
-            ->where('hari', 'Senin')
-            ->where('jenis', 'kbm')
-            ->whereNotNull('jam_ke')
-            ->ofTahunAjaran($selectedTahunAjaranId, $selectedTahunAjaranIsActive)
-            ->orderBy('jam_ke')
-            ->orderBy('jam_mulai')
-            ->get();
+        // Opsi dropdown jam untuk Pengaturan Upacara (khusus hari Senin, mewakili
+        // kategori Senin-Kamis) & Pembiasaan (khusus hari Jumat), TERBATAS pada
+        // konteks shift yang sedang aktif (ofShift) — slot milik shift lain tidak
+        // boleh bocor ke dropdown (mis. slot Shift 2 muncul saat melihat Shift 1).
+        // ofShift(null) => slot Global saja; ofShift($id) => slot shift tersebut saja.
+        $jamOptionsSenin = $shiftModeEmpty
+            ? collect()
+            : JamPelajaran::withoutGlobalScope(ActiveTahunAjaranScope::class)
+                ->where('hari', 'Senin')
+                ->where('jenis', 'kbm')
+                ->whereNotNull('jam_ke')
+                ->ofShift($selectedShiftId)
+                ->ofTahunAjaran($selectedTahunAjaranId, $selectedTahunAjaranIsActive)
+                ->orderBy('jam_ke')
+                ->orderBy('jam_mulai')
+                ->get();
 
-        $jamOptionsJumat = JamPelajaran::withoutGlobalScope(ActiveTahunAjaranScope::class)
-            ->where('hari', 'Jumat')
-            ->where('jenis', 'kbm')
-            ->whereNotNull('jam_ke')
-            ->ofTahunAjaran($selectedTahunAjaranId, $selectedTahunAjaranIsActive)
-            ->orderBy('jam_ke')
-            ->orderBy('jam_mulai')
-            ->get();
+        $jamOptionsJumat = $shiftModeEmpty
+            ? collect()
+            : JamPelajaran::withoutGlobalScope(ActiveTahunAjaranScope::class)
+                ->where('hari', 'Jumat')
+                ->where('jenis', 'kbm')
+                ->whereNotNull('jam_ke')
+                ->ofShift($selectedShiftId)
+                ->ofTahunAjaran($selectedTahunAjaranId, $selectedTahunAjaranIsActive)
+                ->orderBy('jam_ke')
+                ->orderBy('jam_mulai')
+                ->get();
 
         // Auto-suggest jam mulai pada modal tambah: jam_selesai dari slot terakhir per kategori
         $lastSeninKamis = $seninKamis->sortBy('jam_mulai')->last();
@@ -171,7 +181,7 @@ class JamPelajaranController extends Controller
         ];
 
         return view('admin.jam_pelajaran.index', compact(
-            'seninKamis', 'jumat', 'tab', 'mode', 'shiftModeEmpty',
+            'seninKamis', 'jumat', 'tab', 'shiftModeEmpty',
             'systemMode',
             'shifts', 'selectedShift', 'selectedShiftId', 'jamPulangCountByShift',
             'jamPulangSettings', 'maxJamKeSeninKamis', 'maxJamKeJumat', 'maxByShift',
@@ -201,56 +211,6 @@ class JamPelajaranController extends Controller
         $id = (int) $raw;
 
         return ShiftPelajaran::whereKey($id)->exists() ? $id : null;
-    }
-
-    /**
-     * Ubah tipe penjadwalan sekolah secara global: 'global' (slot universal/regular)
-     * atau 'shift' (multi-sesi — setiap kelas terikat shift & slot diisolasi per shift).
-     *
-     * Global & Shift TIDAK BOLEH berjalan bersamaan — pertukaran mode ini dilakukan
-     * dari toggle "Tipe Penjadwalan Sekolah" di bagian atas halaman Master Jam Pelajaran.
-     * Route berada di grup AdminScheduleAccess (Admin / Petugas TU / Petugas IT).
-     */
-    public function updateScheduleMode(Request $request)
-    {
-        $validated = $request->validate([
-            'schedule_mode' => 'required|in:global,shift',
-        ]);
-
-        AppSetting::setScheduleMode($validated['schedule_mode']);
-
-        $newMode = $validated['schedule_mode'] === 'shift' ? 'shift' : 'global';
-
-        // Sinkronkan juga ke Tahun Ajaran yang sedang dibuka (konteks dropdown),
-        // sehingga mode penjadwalan tersimpan persisten per T.A (kolom mode_jadwal).
-        $ta = $this->resolveTahunAjaran($request);
-        if ($ta) {
-            $ta->update(['mode_jadwal' => $newMode]);
-        }
-
-        $redirect = ['mode' => $newMode];
-        if ($ta) {
-            $redirect['ta'] = $ta->id;
-        }
-
-        return redirect()
-            ->route('admin.jam-pelajaran.index', $redirect)
-            ->with('success', $newMode === 'shift'
-                ? 'Tipe penjadwalan sekolah diubah ke Multi-Shift. Master Jam Pelajaran kini membuka pengelolaan slot jam per shift.'
-                : 'Tipe penjadwalan sekolah diubah ke Global. Seluruh UI shift disembunyikan — sistem hanya mengelola slot jam global/regular.');
-    }
-
-    /**
-     * Pertahankan mode tampilan "shift" pada redirect kembali ke index,
-     * sehingga admin tidak terlempar ke Mode Global setelah menyimpan data.
-     */
-    private function applyRedirectMode(Request $request, array $redirect): array
-    {
-        if ($request->input('mode') === 'shift') {
-            $redirect['mode'] = 'shift';
-        }
-
-        return $redirect;
     }
 
     /**
@@ -294,7 +254,6 @@ class JamPelajaranController extends Controller
         if ($shiftId) {
             $redirect['shift'] = $shiftId;
         }
-        $redirect = $this->applyRedirectMode($request, $redirect);
         if ($taId) {
             $redirect['ta'] = $taId;
         }
@@ -372,7 +331,6 @@ class JamPelajaranController extends Controller
         if ($newShiftId) {
             $redirect['shift'] = $newShiftId;
         }
-        $redirect = $this->applyRedirectMode($request, $redirect);
         $taRedirectId = $this->redirectTaParam($jamPelajaran);
         if ($taRedirectId) {
             $redirect['ta'] = $taRedirectId;
@@ -469,7 +427,6 @@ class JamPelajaranController extends Controller
         if ($shiftId) {
             $redirect['shift'] = $shiftId;
         }
-        $redirect = $this->applyRedirectMode($request, $redirect);
         $taRedirectId = $this->redirectTaParam($jamPelajaran);
         if ($taRedirectId) {
             $redirect['ta'] = $taRedirectId;
@@ -487,7 +444,6 @@ class JamPelajaranController extends Controller
     {
         if (! in_array($kategori_hari, ['Senin-Kamis', 'Jumat'])) {
             $redirect = ['tab' => 'Senin-Kamis'];
-            $redirect = $this->applyRedirectMode($request, $redirect);
 
             return redirect()
                 ->route('admin.jam-pelajaran.index', $redirect)
@@ -517,7 +473,6 @@ class JamPelajaranController extends Controller
         if ($shiftId) {
             $redirect['shift'] = $shiftId;
         }
-        $redirect = $this->applyRedirectMode($request, $redirect);
         if ($taId) {
             $redirect['ta'] = $taId;
         }
@@ -787,7 +742,6 @@ class JamPelajaranController extends Controller
         if ($shiftId) {
             $redirect['shift'] = $shiftId;
         }
-        $redirect = $this->applyRedirectMode($request, $redirect);
         if ($taId) {
             $redirect['ta'] = $taId;
         }

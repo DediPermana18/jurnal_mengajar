@@ -41,6 +41,11 @@ class JamPulangController extends Controller
 
         $shiftKeys = array_keys((array) $request->input('jam_pulang', []));
 
+        // Muat shift sekali pakai (hindari N+1) untuk filter tingkatan per shift.
+        $knownShifts = ShiftPelajaran::whereKey(
+            collect($shiftKeys)->filter(fn ($k) => is_numeric($k) && (int) $k > 0)->values()
+        )->get()->keyBy('id');
+
         foreach ($shiftKeys as $shiftKey) {
             if (! is_numeric($shiftKey) || (int) $shiftKey < 0) {
                 continue;
@@ -48,12 +53,31 @@ class JamPulangController extends Controller
             $shiftId = (int) $shiftKey;
 
             // Guard: shift yang tidak dikenal diabaikan (tidak boleh disisipkan).
-            if ($shiftId !== 0 && ! ShiftPelajaran::whereKey($shiftId)->exists()) {
+            if ($shiftId !== 0 && ! $knownShifts->has($shiftId)) {
                 continue;
+            }
+
+            $shift          = $shiftId === 0 ? null : $knownShifts->get($shiftId);
+            $relevantGrades = $shift ? ($shift->grade_levels ?? []) : [];
+
+            // Fallback kebersihan data: hapus pengaturan lama milik tingkatan yang
+            // tidak lagi dilayani shift (mis. grade_levels diperketat), hanya pada
+            // konteks is_testing_data yang sama dengan penyimpanan ini.
+            if ($shift !== null && ! empty($relevantGrades)) {
+                JamPulang::where('shift_id', $shiftId)
+                    ->where('is_testing_data', $isTesting)
+                    ->whereNotIn('tingkat', $relevantGrades)
+                    ->delete();
             }
 
             foreach ($kategoriHariOptions as $kategoriHari) {
                 foreach ($tingkatOptions as $tingkat) {
+                    // Hanya tingkatan yang relevan dengan shift yang diproses:
+                    // grade_levels kosong (null/[]) = berlaku untuk semua tingkatan.
+                    if ($shift !== null && ! empty($relevantGrades) && ! in_array($tingkat, $relevantGrades, true)) {
+                        continue;
+                    }
+
                     // Ambil nilai; null/kosong = tidak dibatasi
                     $raw = $request->input("jam_pulang.{$shiftId}.{$kategoriHari}.{$tingkat}");
                     $maxJamKe = ($raw !== null && $raw !== '') ? (int) $raw : null;
@@ -78,6 +102,14 @@ class JamPulangController extends Controller
                     );
                 }
             }
+        }
+
+        // Auto-Save (AJAX) memakai Accept: application/json → balas JSON ringkas
+        // agar browser tidak perlu merender ulang seluruh halaman.
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Batas jam pulang per tingkat kelas berhasil diperbarui.',
+            ]);
         }
 
         $redirectTab = $request->input('redirect_tab', 'Senin-Kamis');

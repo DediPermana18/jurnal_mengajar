@@ -205,9 +205,9 @@
                         <div>
                             <h5 class="fw-black mb-0 text-dark" style="font-weight: 800;">
                                 {{ $selectedKelas->nama_kelas }} &mdash; Jadwal Hari {{ $selectedHari }}
-                                @if($selectedKelas->shift)
+                                @if($plotShift)
                                     <span class="badge bg-dark-subtle text-dark rounded-pill px-2 py-1 align-middle ms-1" style="font-size: 0.68rem;">
-                                        <i class="bi bi-clock"></i> {{ $selectedKelas->shift->nama_shift }}
+                                        <i class="bi bi-clock"></i> {{ $plotShift->nama_shift }}
                                     </span>
                                 @else
                                     <span class="badge bg-secondary-subtle text-secondary rounded-pill px-2 py-1 align-middle ms-1" style="font-size: 0.68rem;">
@@ -235,6 +235,25 @@
                 </div>
             </div>
         </div>
+
+        {{-- Peringatan Grade Level Mapping: shift kelas tidak melayani tingkat kelas ini --}}
+        @php
+            $gradeMismatch = $selectedKelas && $selectedKelas->shift_id && ! empty($selectedKelas->shift?->grade_levels)
+                && ! in_array(strtoupper(trim((string) $selectedKelas->tingkat)), $selectedKelas->shift->grade_levels, true);
+        @endphp
+        @if($gradeMismatch)
+            <div class="alert alert-warning rounded-3 mb-4 d-flex align-items-start gap-2" style="font-size: 0.85rem;" role="alert">
+                <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+                <div>
+                    <strong>Alokasi shift tidak selaras dengan tingkat kelas.</strong>
+                    Shift "<strong>{{ $selectedKelas->shift->nama_shift }}</strong>" hanya berlaku untuk tingkatan
+                    <strong>{{ \App\Models\ShiftPelajaran::gradeLevelsLabel($selectedKelas->shift->grade_levels) }}</strong>,
+                    sedangkan {{ $selectedKelas->nama_kelas }} ber-tingkat
+                    <strong>{{ $selectedKelas->tingkat }}</strong>. Plotting jadwal untuk kelas ini akan
+                    <strong>ditolak</strong> hingga alokasi shift pada data kelas disesuaikan.
+                </div>
+            </div>
+        @endif
 
         {{-- Tabel Matriks Jadwal Kelas --}}
         <div class="card border-0 rounded-4 shadow-sm bg-white overflow-hidden">
