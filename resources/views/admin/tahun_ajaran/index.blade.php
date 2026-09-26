@@ -59,11 +59,12 @@
                 <thead>
                     <tr>
                         <th class="whitespace-nowrap" style="width: 6%;">NO</th>
-                        <th class="whitespace-nowrap" style="width: 26%;">TAHUN AJARAN</th>
-                        <th class="whitespace-nowrap" style="width: 16%;">SEMESTER</th>
-                        <th class="text-center whitespace-nowrap" style="width: 16%;">STATUS</th>
-                        <th class="text-center whitespace-nowrap" style="width: 18%;">JUMLAH JADWAL</th>
-                        <th class="text-center whitespace-nowrap" style="width: 18%;">AKSI</th>
+                        <th class="whitespace-nowrap" style="width: 24%;">TAHUN AJARAN</th>
+                        <th class="whitespace-nowrap" style="width: 14%;">SEMESTER</th>
+                        <th class="text-center whitespace-nowrap" style="width: 14%;">STATUS</th>
+                        <th class="text-center whitespace-nowrap" style="width: 16%;">JUMLAH JADWAL</th>
+                        <th class="text-center whitespace-nowrap" style="width: 14%;">MODE</th>
+                        <th class="text-center whitespace-nowrap" style="width: 12%;">AKSI</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -92,6 +93,23 @@
                                     {{ $tahun->jadwal_pelajaran_count }} slot
                                 </span>
                             </td>
+                            <td class="text-center">
+                                @php
+                                    $effMode = $tahun->effective_schedule_mode;
+                                    $inheritedMode = $tahun->mode_jadwal === null;
+                                @endphp
+                                @if($effMode === 'shift')
+                                    <span class="badge bg-info-subtle text-info-emphasis border rounded-pill px-3 py-1">
+                                        <i class="bi bi-arrow-left-right me-1"></i>Ber-Shift
+                                        @if($inheritedMode) <span class="opacity-50">(sistem)</span> @endif
+                                    </span>
+                                @else
+                                    <span class="badge bg-primary-subtle text-primary border rounded-pill px-3 py-1">
+                                        <i class="bi bi-globe2 me-1"></i>Global
+                                        @if($inheritedMode) <span class="opacity-50">(sistem)</span> @endif
+                                    </span>
+                                @endif
+                            </td>
                             <td class="text-center whitespace-nowrap">
                                 @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
                                     <div class="flex items-center justify-center gap-2 whitespace-nowrap">
@@ -106,7 +124,7 @@
                                         @endif
                                         <button type="button" class="btn btn-sm btn-warning text-white rounded-3 px-2 py-1" title="Edit tahun ajaran"
                                                 data-bs-toggle="modal" data-bs-target="#modalEditTahunAjaran"
-                                                onclick="openEditModal({{ $tahun->id }}, '{{ addslashes($tahun->tahun_ajaran) }}', '{{ $tahun->semester }}')">
+                                                onclick="openEditModal({{ $tahun->id }}, '{{ addslashes($tahun->tahun_ajaran) }}', '{{ $tahun->semester }}', '{{ $tahun->effective_schedule_mode }}')">
                                             <i class="bi bi-pencil-square"></i>
                                         </button>
                                         <form action="{{ route('tahun-ajaran.destroy', $tahun->id) }}" method="POST" class="d-inline"
@@ -123,7 +141,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="text-center py-5 text-muted">
+                            <td colspan="7" class="text-center py-5 text-muted">
                                 <i class="bi bi-calendar-x fs-1 d-block mb-2"></i>
                                 Belum ada data Tahun Ajaran.
                             </td>
@@ -165,6 +183,30 @@
                                 <option value="Genap" {{ old('semester') === 'Genap' ? 'selected' : '' }}>Genap</option>
                             </select>
                             @error('semester') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Mode Penjadwalan <span class="text-danger">*</span></label>
+                            <div class="d-grid gap-2">
+                                <label class="d-flex align-items-start gap-2 border rounded-3 px-3 py-2 mb-0 cursor-pointer {{ (old('mode_jadwal', $defaultMode) === 'global') ? 'border-primary' : '' }}">
+                                    <input type="radio" name="mode_jadwal" value="global"
+                                           class="form-check-input mt-1 {{ $errors->has('mode_jadwal') ? 'is-invalid' : '' }}"
+                                           {{ (old('mode_jadwal', $defaultMode) === 'global') ? 'checked' : '' }}>
+                                    <span>
+                                        <span class="fw-semibold d-block text-dark">Mode Global / Standard</span>
+                                        <span class="text-muted" style="font-size: 0.8rem;">Satu struktur jam pelajaran untuk seluruh kelas.</span>
+                                    </span>
+                                </label>
+                                <label class="d-flex align-items-start gap-2 border rounded-3 px-3 py-2 mb-0 cursor-pointer {{ (old('mode_jadwal', $defaultMode) === 'shift') ? 'border-primary' : '' }}">
+                                    <input type="radio" name="mode_jadwal" value="shift"
+                                           class="form-check-input mt-1 {{ $errors->has('mode_jadwal') ? 'is-invalid' : '' }}"
+                                           {{ (old('mode_jadwal', $defaultMode) === 'shift') ? 'checked' : '' }}>
+                                    <span>
+                                        <span class="fw-semibold d-block text-dark">Mode Ber-Shift</span>
+                                        <span class="text-muted" style="font-size: 0.8rem;">Mendukung pembagian Shift 1, Shift 2, dst.; slot jam per shift (kelas terikat shift).</span>
+                                    </span>
+                                </label>
+                            </div>
+                            @error('mode_jadwal') <div class="invalid-feedback d-block mt-1">{{ $message }}</div> @enderror
                         </div>
                         <div class="col-12">
                             <div class="alert alert-info border-0 rounded-3 py-2 px-3 mb-0 d-flex align-items-center gap-2" style="font-size: 0.8rem;">
@@ -215,6 +257,26 @@
                             </select>
                             @error('semester') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Mode Penjadwalan <span class="text-danger">*</span></label>
+                            <div class="d-grid gap-2">
+                                <label class="d-flex align-items-start gap-2 border rounded-3 px-3 py-2 mb-0 cursor-pointer">
+                                    <input type="radio" name="mode_jadwal" value="global" class="form-check-input mt-1">
+                                    <span>
+                                        <span class="fw-semibold d-block text-dark">Mode Global / Standard</span>
+                                        <span class="text-muted" style="font-size: 0.8rem;">Satu struktur jam pelajaran untuk seluruh kelas.</span>
+                                    </span>
+                                </label>
+                                <label class="d-flex align-items-start gap-2 border rounded-3 px-3 py-2 mb-0 cursor-pointer">
+                                    <input type="radio" name="mode_jadwal" value="shift" class="form-check-input mt-1">
+                                    <span>
+                                        <span class="fw-semibold d-block text-dark">Mode Ber-Shift</span>
+                                        <span class="text-muted" style="font-size: 0.8rem;">Mendukung pembagian Shift 1, Shift 2, dst.; slot jam per shift (kelas terikat shift).</span>
+                                    </span>
+                                </label>
+                            </div>
+                            @error('mode_jadwal') <div class="invalid-feedback d-block mt-1">{{ $message }}</div> @enderror
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer border-0 pt-0">
@@ -233,12 +295,15 @@
 
 @push('scripts')
 <script>
-    function openEditModal(id, tahunAjaran, semester) {
+    function openEditModal(id, tahunAjaran, semester, mode) {
         const form = document.getElementById('formEditTahunAjaran');
         form.action = '/admin/tahun-ajaran/' + id;
 
         document.getElementById('tahun_ajaran_edit').value = tahunAjaran;
         document.getElementById('semester_edit').value = semester;
+
+        const modeInputs = form.querySelectorAll('input[name="mode_jadwal"]');
+        modeInputs.forEach((el) => { el.checked = (el.value === mode); });
     }
 </script>
 @endpush

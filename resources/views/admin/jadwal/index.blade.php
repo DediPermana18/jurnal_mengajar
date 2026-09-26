@@ -83,24 +83,23 @@
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            @if($tahunAktif)
-                <button type="button"
-                        class="btn btn-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fw-semibold d-inline-flex align-items-center justify-content-center gap-2 w-full sm:w-auto text-nowrap"
-                        style="background-color: #e7f1ff; border-color: #b8d9ff !important; font-size: 0.82rem;"
-                        data-bs-toggle="modal" data-bs-target="#modalPilihTahunAjaran"
-                        title="Ganti Tahun Ajaran & Semester">
-                    <i class="bi bi-calendar-check me-1"></i>
-                    T.A. {{ $tahunAktif->tahun_ajaran }} (Semester {{ $tahunAktif->semester }})
-                    <i class="bi bi-chevron-down" style="font-size: 0.7rem;"></i>
-                </button>
+            {{-- Pemilih Tahun Ajaran & Semester: dropdown instan — begitu opsi diganti, matriks jadwal langsung dimuat ulang --}}
+            @if($tahunAjaranList->isNotEmpty())
+                <select id="selectTahunAjaran"
+                        class="form-select rounded-pill fw-semibold text-dark border-primary-subtle px-3 py-2 w-full sm:w-auto text-nowrap"
+                        style="background-color: #e7f1ff; border-color: #b8d9ff !important; font-size: 0.82rem; min-width: 240px; cursor: pointer;"
+                        title="Tahun Ajaran & Semester — pilih untuk mengubah konteks jadwal"
+                        aria-label="Pilih Tahun Ajaran & Semester">
+                    @foreach($tahunAjaranList as $ta)
+                        <option value="{{ $ta->id }}" @if($tahunAktif && (int) $tahunAktif->id === (int) $ta->id) selected @endif>
+                            {{ $ta->tahun_ajaran }} - {{ $ta->semester }}{{ $ta->is_active ? ' (Aktif)' : '' }}
+                        </option>
+                    @endforeach
+                </select>
             @else
-                <button type="button"
-                        class="btn btn-outline-secondary rounded-pill px-3 py-2 fw-semibold d-inline-flex align-items-center justify-content-center gap-2 w-full sm:w-auto text-nowrap"
-                        style="font-size: 0.82rem;"
-                        data-bs-toggle="modal" data-bs-target="#modalPilihTahunAjaran">
-                    <i class="bi bi-calendar-plus"></i> Pilih Tahun Ajaran & Semester
-                    <i class="bi bi-chevron-down" style="font-size: 0.7rem;"></i>
-                </button>
+                <span class="text-muted d-inline-flex align-items-center gap-1 fw-semibold px-2 py-2 text-nowrap" style="font-size: 0.82rem;">
+                    <i class="bi bi-calendar-event"></i> Tahun Ajaran belum tersedia
+                </span>
             @endif
             <div class="dropdown w-full sm:w-auto">
                 <button class="btn btn-outline-success rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 dropdown-toggle w-full sm:w-auto text-nowrap" type="button" data-bs-toggle="dropdown" style="font-size: 0.875rem;">
@@ -584,65 +583,6 @@
 
 </div>
 
-{{-- ===================== MODAL PILIH TAHUN AJARAN & SEMESTER ===================== --}}
-<div class="modal fade" id="modalPilihTahunAjaran" tabindex="-1" aria-labelledby="modalPilihTahunAjaranTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow rounded-4">
-            <form id="formPilihTahunAjaran" onsubmit="applyTahunAjaranFilter(event)">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold" id="modalPilihTahunAjaranTitle">
-                        <i class="bi bi-calendar-range-fill text-primary me-2"></i>Pilih Tahun Ajaran & Semester
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-
-                <div class="modal-body pt-3">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.875rem;">Tahun Ajaran</label>
-                            <select name="tahun_ajaran" id="filterTahunAjaran" class="form-select rounded-3" required>
-                                <option value="">-- Pilih Tahun Ajaran --</option>
-                                @foreach($tahunOptions as $tahunOption)
-                                    <option value="{{ $tahunOption }}" {{ $tahunAktif && $tahunAktif->tahun_ajaran === $tahunOption ? 'selected' : '' }}>
-                                        {{ $tahunOption }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label fw-semibold text-dark mb-1" style="font-size: 0.875rem;">Semester</label>
-                            <select name="semester" id="filterSemester" class="form-select rounded-3" required>
-                                <option value="">-- Pilih Semester --</option>
-                                @foreach($semesterList as $semesterOption)
-                                    <option value="{{ $semesterOption }}" {{ $tahunAktif && $tahunAktif->semester === $semesterOption ? 'selected' : '' }}>
-                                        {{ $semesterOption }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="alert alert-info border-0 rounded-3 py-2 px-3 mt-3 d-flex align-items-start gap-2" style="font-size: 0.78rem;">
-                        <i class="bi bi-info-circle-fill text-info flex-shrink-0 mt-1"></i>
-                        <div>
-                            Matriks jadwal, slot yang kosong/terisi, dan <strong>plotting baru yang disimpan</strong>
-                            akan mengikuti Tahun Ajaran &amp; Semester yang dipilih. Pilihan ini otomatis tersimpan dan
-                            tetap aktif saat Anda kembali ke halaman ini.
-                        </div>
-                    </div>
-                </div>
-
-                <div class="modal-footer border-0 pt-0">
-                    <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold" id="btnTerapkanTahunAjaran">
-                        <i class="bi bi-check-lg me-1"></i> Terapkan Filter
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
 {{-- ===================== MODAL PLOTTING JADWAL (MULTI-SLOT / BLOK JAM) ===================== --}}
 @if($selectedKelas)
 <div class="modal fade" id="modalPlottingJadwal" tabindex="-1" aria-labelledby="modalPlottingJadwalTitle" aria-hidden="true">
@@ -819,51 +759,17 @@
 <script>
     const allSlots = @json($formattedSlots);
 
-    // Peta kombinasi Tahun Ajaran | Semester -> id (dari master tahun_ajaran)
-    const tahunAjaranMap = @json(
-        collect($tahunAjaranList)->keyBy(fn ($t) => $t->tahun_ajaran . '|' . $t->semester)
-            ->map(fn ($t) => ['id' => $t->id, 'tahun_ajaran' => $t->tahun_ajaran, 'semester' => $t->semester])
-            ->all()
-    );
-
-    // Terapkan filter Tahun Ajaran & Semester: resolve kombinasi -> tahun_ajaran_id, lalu reload
-    function applyTahunAjaranFilter(event) {
-        if (event) event.preventDefault();
-
-        const tahunEl = document.getElementById('filterTahunAjaran');
-        const semesterEl = document.getElementById('filterSemester');
-        if (!tahunEl || !semesterEl) return;
-
-        const kombinasi = tahunEl.value + '|' + semesterEl.value;
-        const row = tahunAjaranMap[kombinasi];
-
-        if (!row) {
-            alert('Kombinasi Tahun Ajaran & Semester tersebut tidak tersedia pada master data. Silakan pilih kombinasi lain atau buat Tahun Ajaran terlebih dahulu.');
-            return;
-        }
-
-        // Pertahankan id_kelas & hari yang sedang aktif di URL
-        const url = new URL(window.location.href);
-        url.searchParams.set('tahun_ajaran_id', row.id);
-        url.searchParams.delete('tahun_ajaran');
-        url.searchParams.delete('semester');
-        window.location.href = url.toString();
-    }
-
-    // Saat modal dibuka, sinkronkan nilai option dengan konteks yang sedang aktif
+    // Pemilih Tahun Ajaran & Semester: begitu opsi diganti, langsung muat ulang matriks jadwal
+    // (id_kelas, hari, dan parameter URL lain tetap dipertahankan).
     document.addEventListener('DOMContentLoaded', function () {
-        const modalTahun = document.getElementById('modalPilihTahunAjaran');
-        if (modalTahun) {
-            modalTahun.addEventListener('shown.bs.modal', function () {
-                const tahunEl = document.getElementById('filterTahunAjaran');
-                const semesterEl = document.getElementById('filterSemester');
-                if (tahunEl && semesterEl && tahunEl.options.length > 1 && !tahunEl.value) {
-                    tahunEl.selectedIndex = 1;
-                    for (let i = 0; i < semesterEl.options.length; i++) {
-                        const o = semesterEl.options[i];
-                        if (o.value === '{{ $tahunAktif->semester ?? 'Ganjil' }}') { semesterEl.selectedIndex = i; break; }
-                    }
-                }
+        const selectTahunAjaran = document.getElementById('selectTahunAjaran');
+        if (selectTahunAjaran) {
+            selectTahunAjaran.addEventListener('change', function () {
+                const url = new URL(window.location.href);
+                url.searchParams.set('tahun_ajaran_id', this.value);
+                url.searchParams.delete('tahun_ajaran');
+                url.searchParams.delete('semester');
+                window.location.href = url.toString();
             });
         }
     });

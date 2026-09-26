@@ -6,6 +6,7 @@ use App\Exports\JadwalPelajaranExport;
 use App\Http\Controllers\Controller;
 use App\Imports\SiswaImport;
 use App\Models\AgendaRutin;
+use App\Models\AppSetting;
 use App\Models\JadwalPelajaran;
 use App\Models\JamPelajaran;
 use App\Models\JamPulang;
@@ -13,6 +14,7 @@ use App\Models\Kelas;
 use App\Models\MataPelajaran;
 use App\Models\PengaturanJadwal;
 use App\Models\Ruangan;
+use App\Models\Scopes\ActiveTahunAjaranScope;
 use App\Models\TahunAjaran;
 use App\Models\User;
 use Carbon\Carbon;
@@ -75,8 +77,11 @@ class JadwalPelajaranController extends Controller
         } : '10';
 
         // 4. Ambil master jam pelajaran sekolah: slot Global + slot milik shift kelas terpilih
-        $jamPelajaranList = JamPelajaran::where('hari', $selectedHari)
+        //    (dalam konteks Tahun Ajaran terpilih — arsip lama tidak ikut tampil).
+        $jamPelajaranList = JamPelajaran::withoutGlobalScope(ActiveTahunAjaranScope::class)
+            ->where('hari', $selectedHari)
             ->forShift($selectedKelas?->shift_id)
+            ->ofTahunAjaran($tahunAktif?->id, (bool) ($tahunAktif?->is_active ?? false))
             ->orderBy('jam_mulai')
             ->get();
 
@@ -237,8 +242,10 @@ class JadwalPelajaranController extends Controller
         // Slot non-KBM (istirahat, upacara, pembiasaan, agenda rutin, pulang, dsb.)
         // TIDAK dimasukkan ke dalam kalkulasi slot_kosong. Batas per tingkat kelas
         // (JamPulang) tetap diaplikasikan terpisah pada loop di bawah.
-        $slotsPerHari = JamPelajaran::where('jenis', 'kbm')
+        $slotsPerHari = JamPelajaran::withoutGlobalScope(ActiveTahunAjaranScope::class)
+            ->where('jenis', 'kbm')
             ->whereNotNull('jam_ke')
+            ->ofTahunAjaran($tahunAktif?->id, (bool) ($tahunAktif?->is_active ?? false))
             ->get()
             ->groupBy('hari');
 
@@ -352,14 +359,29 @@ class JadwalPelajaranController extends Controller
             $taStr = $tahunAktif ? " (T.A. {$tahunAktif->tahun_ajaran} {$tahunAktif->semester})" : '';
             $kategoriHari = ($validated['hari'] === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
             $kelas = Kelas::find($validated['id_kelas']);
+
+            // Validator SISTEM (Tipe Penjadwalan konteks T.A): pada tipe Multi-Shift,
+            // setiap kelas WAJIB teralokasi ke sebuah shift. Slot jam yang diambil hanya
+            // milik shift kelas tsb (+ Global sebagai basis) via scope forShift — kelas
+            // tanpa shift ditolak agar jadwal tidak menyalahi alokasi shift sekolah.
+            // Mode efektif = mode_jadwal T.A aktif; bila belum ditentukan, ikut sistem.
+            $tahunAktifMode = $tahunAktif?->effective_schedule_mode
+                ?? AppSetting::scheduleMode();
+
+            if ($tahunAktifMode === AppSetting::SCHEDULE_SHIFT && ! $kelas?->shift_id) {
+                throw new \Exception('Gagal! Sekolah menggunakan tipe penjadwalan Multi-Shift — Kelas "'.($kelas->nama_kelas ?? '?').'" belum dialokasikan ke shift tertentu. Tetapkan shift pada data kelas sebelum melakukan plotting jadwal.');
+            }
+
             $tingkatKelas = $kelas ? match (strtoupper(trim($kelas->tingkat))) {
                 'X' => '10', 'XI' => '11', 'XII' => '12', default => $kelas->tingkat
             } : '10';
 
             // 1. Ambil semua slot KBM dalam rentang jam_ke_mulai s/d jam_ke_selesai (abaikan jenis istirahat)
-            //    — hanya slot yang terlihat oleh shift kelas (Global + shift kelas).
-            $targetSlots = JamPelajaran::where('hari', $validated['hari'])
+            //    — hanya slot yang terlihat oleh shift kelas (Global + shift kelas) pada TA terpilih.
+            $targetSlots = JamPelajaran::withoutGlobalScope(ActiveTahunAjaranScope::class)
+                ->where('hari', $validated['hari'])
                 ->forShift($kelas?->shift_id)
+                ->ofTahunAjaran($tahunAktif?->id, (bool) ($tahunAktif?->is_active ?? false))
                 ->whereNotNull('jam_ke')
                 ->where('jenis', '!=', 'istirahat')
                 ->whereBetween('jam_ke', [$validated['jam_ke_mulai'], $validated['jam_ke_selesai']])
@@ -610,7 +632,7 @@ class JadwalPelajaranController extends Controller
 
             $tahunAktif = $this->resolveTahunAjaranContext($request);
             $taStr = $tahunAktif ? " (T.A. {$tahunAktif->tahun_ajaran} {$tahunAktif->semester})" : '';
-            $slot = JamPelajaran::find($validated['id_jam']);
+            $slot = JamPelajaran::withoutGlobalScope(ActiveTahunAjaranScope::class)->find($validated['id_jam']);
             $kategoriHari = ($validated['hari'] === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
             $kelasUpdate = Kelas::find($validated['id_kelas']);
             $tingkatUpdate = $kelasUpdate ? match (strtoupper(trim($kelasUpdate->tingkat))) {

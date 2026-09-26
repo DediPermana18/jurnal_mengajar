@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasTestingData;
+use App\Models\Scopes\ActiveTahunAjaranScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,11 +23,15 @@ class JamPelajaran extends Model
         'jam_mulai',
         'jam_selesai',
         'jenis',
+        'tahun_ajaran_id',
     ];
 
     protected static function booted(): void
     {
         parent::booted();
+
+        // Konsumen runtime hanya melihat slot TA aktif (+ slot legacy).
+        static::addGlobalScope(new ActiveTahunAjaranScope);
 
         static::saving(function ($jam) {
             if (empty($jam->hari)) {
@@ -61,6 +66,28 @@ class JamPelajaran extends Model
         }
 
         return $query->where('shift_id', $shiftId);
+    }
+
+    /**
+     * Scope: batasi slot ke konteks Tahun Ajaran & Semester tertentu.
+     *
+     * @param  int|null  $tahunAjaranId  id tahun_ajaran; null = hanya slot legacy (tanpa TA).
+     * @param  bool  $includeLegacy  sertakan slot legacy (tahun_ajaran_id NULL) — dipakai
+     *                               khusus untuk Tahun Ajaran yang sedang AKTIF, karena
+     *                               data lama dipandang sebagai kepunyaan TA berjalan.
+     */
+    public function scopeOfTahunAjaran($query, ?int $tahunAjaranId, bool $includeLegacy = false)
+    {
+        if ($tahunAjaranId === null) {
+            return $query->whereNull('tahun_ajaran_id');
+        }
+
+        return $query->where(function ($q) use ($tahunAjaranId, $includeLegacy) {
+            $q->where('tahun_ajaran_id', $tahunAjaranId);
+            if ($includeLegacy) {
+                $q->orWhereNull('tahun_ajaran_id');
+            }
+        });
     }
 
     /**
@@ -118,5 +145,13 @@ class JamPelajaran extends Model
     public function shift(): BelongsTo
     {
         return $this->belongsTo(ShiftPelajaran::class, 'shift_id', 'id');
+    }
+
+    /**
+     * Relasi ke Tahun Ajaran & Semester (NULL = slot legacy / era sebelum fitur TA).
+     */
+    public function tahunAjaran(): BelongsTo
+    {
+        return $this->belongsTo(TahunAjaran::class, 'tahun_ajaran_id', 'id');
     }
 }

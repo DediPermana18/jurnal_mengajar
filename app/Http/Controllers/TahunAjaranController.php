@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AppSetting;
 use App\Models\JadwalPelajaran;
 use App\Models\TahunAjaran;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class TahunAjaranController extends Controller
 {
@@ -35,7 +37,11 @@ class TahunAjaranController extends Controller
             ->orderByDesc('id')
             ->get();
 
-        return view('admin.tahun_ajaran.index', compact('tahunAjaranList'));
+        // Nilai awal radio "Mode Penjadwalan" pada modal Tambah = tipe penjadwalan
+        // sistem saat ini (agar T.A baru konsisten dengan pengaturan sekolah).
+        $defaultMode = AppSetting::scheduleMode();
+
+        return view('admin.tahun_ajaran.index', compact('tahunAjaranList', 'defaultMode'));
     }
 
     public function store(Request $request)
@@ -45,11 +51,13 @@ class TahunAjaranController extends Controller
         $validated = $request->validate([
             'tahun_ajaran' => 'required|string|max:20|regex:/^\d{4}\/\d{4}$/',
             'semester' => 'required|in:Ganjil,Genap',
+            'mode_jadwal' => ['nullable', Rule::in([TahunAjaran::MODE_GLOBAL, TahunAjaran::MODE_SHIFT])],
         ], [
             'tahun_ajaran.required' => 'Tahun Ajaran wajib diisi, contoh: 2025/2026.',
             'tahun_ajaran.regex' => 'Format Tahun Ajaran tidak valid, gunakan format 2025/2026.',
             'semester.required' => 'Semester wajib dipilih.',
             'semester.in' => 'Semester harus Ganjil atau Genap.',
+            'mode_jadwal.in' => 'Mode Penjadwalan harus Global atau Ber-Shift.',
         ]);
 
         $exists = TahunAjaran::where('tahun_ajaran', $validated['tahun_ajaran'])
@@ -65,6 +73,7 @@ class TahunAjaranController extends Controller
         TahunAjaran::create([
             'tahun_ajaran' => $validated['tahun_ajaran'],
             'semester' => $validated['semester'],
+            'mode_jadwal' => $validated['mode_jadwal'] ?? AppSetting::scheduleMode(),
             'is_active' => false,
         ]);
 
@@ -80,11 +89,13 @@ class TahunAjaranController extends Controller
         $validated = $request->validate([
             'tahun_ajaran' => 'required|string|max:20|regex:/^\d{4}\/\d{4}$/',
             'semester' => 'required|in:Ganjil,Genap',
+            'mode_jadwal' => ['nullable', Rule::in([TahunAjaran::MODE_GLOBAL, TahunAjaran::MODE_SHIFT])],
         ], [
             'tahun_ajaran.required' => 'Tahun Ajaran wajib diisi, contoh: 2025/2026.',
             'tahun_ajaran.regex' => 'Format Tahun Ajaran tidak valid, gunakan format 2025/2026.',
             'semester.required' => 'Semester wajib dipilih.',
             'semester.in' => 'Semester harus Ganjil atau Genap.',
+            'mode_jadwal.in' => 'Mode Penjadwalan harus Global atau Ber-Shift.',
         ]);
 
         $exists = TahunAjaran::where('tahun_ajaran', $validated['tahun_ajaran'])
@@ -101,6 +112,7 @@ class TahunAjaranController extends Controller
         $tahunAjaran->update([
             'tahun_ajaran' => $validated['tahun_ajaran'],
             'semester' => $validated['semester'],
+            'mode_jadwal' => $validated['mode_jadwal'] ?? $tahunAjaran->mode_jadwal,
         ]);
 
         return redirect()

@@ -29,6 +29,7 @@ class JamPulangController extends Controller
             'redirect_tab' => 'nullable|string|in:Senin-Kamis,Jumat',
             'redirect_shift' => 'nullable|integer',
             'redirect_mode' => 'nullable|string|in:global,shift',
+            'redirect_ta' => 'nullable|integer',
         ]);
 
         $kategoriHariOptions = ['Senin-Kamis', 'Jumat'];
@@ -89,6 +90,11 @@ class JamPulangController extends Controller
 
         if ($request->input('redirect_mode') === 'shift') {
             $redirect['mode'] = 'shift';
+        }
+
+        $redirectTa = $request->input('redirect_ta');
+        if ($redirectTa !== null && $redirectTa !== '' && (int) $redirectTa > 0) {
+            $redirect['ta'] = (int) $redirectTa;
         }
 
         return redirect()

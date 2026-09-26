@@ -11,6 +11,7 @@ use App\Models\MataPelajaran;
 use App\Models\ShiftPelajaran;
 use App\Models\TahunAjaran;
 use App\Models\User;
+use App\Models\AppSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -143,7 +144,10 @@ class ShiftManagementTest extends TestCase
             ->delete(route('admin.shift-pelajaran.destroy', $shift->id));
 
         $response->assertRedirect();
-        $response->assertSessionHas('success');
+        $response->assertSessionHas('success', function (string $msg) {
+            return str_contains($msg, '1 slot jam & 1 kelas yang terikat dialihkan ke Global (tidak turut dihapus)')
+                && str_contains($msg, '1 pengaturan jam pulang shift ikut dihapus');
+        });
 
         $this->assertDatabaseMissing('shift_pelajaran', ['id' => $shift->id]);
         $this->assertDatabaseHas('kelas', ['id' => $kelas->id, 'shift_id' => null]);
@@ -179,6 +183,8 @@ class ShiftManagementTest extends TestCase
 
     public function test_store_redirect_preserves_shift_mode_when_submitted_from_shift_mode(): void
     {
+        AppSetting::setScheduleMode(AppSetting::SCHEDULE_SHIFT);
+
         $shift = $this->makeShift('Shift 1 (Pagi)');
 
         $response = $this->actingAs($this->admin)
@@ -215,22 +221,30 @@ class ShiftManagementTest extends TestCase
         $this->makeSlot($s1->id, '13:00', '13:45');
         $this->makeSlot($s2->id, '17:00', '17:45');
 
+        // Tipe penjadwalan sistem = Global (default): UI shift disembunyikan total,
+        // termasuk tombol 'Mode Shift' maupun tautan shift — ?mode=shift pun diabaikan.
+        AppSetting::setScheduleMode(AppSetting::SCHEDULE_GLOBAL);
+
         // Mode Global (default): hanya slot global; seluruh UI shift disembunyikan.
         $this->actingAs($this->admin)
-            ->get(route('admin.jam-pelajaran.index', ['tab' => 'Senin-Kamis']))
+            ->get(route('admin.jam-pelajaran.index', ['tab' => 'Senin-Kamis', 'mode' => 'shift']))
             ->assertOk()
             ->assertSee('Mode Global')
             ->assertSee('<strong>Global</strong>', false)
             ->assertDontSee('Pilih Shift:')
             ->assertDontSee('+ Tambah Shift')
+            ->assertDontSee('Kelola Daftar Shift')
             ->assertDontSee('id="tambahShiftId"')
             ->assertDontSee('id="editShiftId"')
-            ->assertSee('mode=shift')
+            ->assertDontSee('mode=shift')
             ->assertSee('jam_pulang[0][Senin-Kamis][X]')
             ->assertDontSee('jam_pulang[1][Senin-Kamis][X]')
             ->assertSee('07.00 – 07.45')
             ->assertDontSee('13.00 – 13.45')
             ->assertDontSee('17.00 – 17.45');
+
+        // Sekolah beralih ke Multi-Shift: UI shift aktif & slot difilter per shift.
+        AppSetting::setScheduleMode(AppSetting::SCHEDULE_SHIFT);
 
         // Mode Shift: sub-tab [Shift 1][Shift 2], hanya slot milik shift terpilih,
         // form jam pulang hanya memuat konteks shift aktif.
@@ -240,6 +254,7 @@ class ShiftManagementTest extends TestCase
             ->assertSee('Mode Shift: Shift 1 (Pagi)', false)
             ->assertSee('Pilih Shift:')
             ->assertSee('+ Tambah Shift')
+            ->assertSee('Kelola Daftar Shift')
             ->assertSee('id="tambahShiftId"', false)
             ->assertSee('id="editShiftId"', false)
             ->assertSee('default: Shift 1 (Pagi) (sub-tab aktif)')
@@ -266,6 +281,9 @@ class ShiftManagementTest extends TestCase
         // Satu slot global ada, tetapi belum ada shift terdaftar.
         $this->makeSlot(null, '07:00', '07:45');
 
+        // Sekolah ber-tipe Multi-Shift.
+        AppSetting::setScheduleMode(AppSetting::SCHEDULE_SHIFT);
+
         // Mode shift tanpa shift: jangan bocorkan slot global; tampilkan prompt buat shift.
         $this->actingAs($this->admin)
             ->get(route('admin.jam-pelajaran.index', ['tab' => 'Senin-Kamis', 'mode' => 'shift']))
@@ -276,11 +294,59 @@ class ShiftManagementTest extends TestCase
             ->assertDontSee('07.00 – 07.45')
             ->assertDontSee('id="tambahShiftId"');
 
+        // Kembali ke tipe Global: slot global tampil seperti biasa.
+        AppSetting::setScheduleMode(AppSetting::SCHEDULE_GLOBAL);
+
         // Mode Global tetap menampilkan slot global seperti biasa.
         $this->actingAs($this->admin)
             ->get(route('admin.jam-pelajaran.index', ['tab' => 'Senin-Kamis']))
             ->assertOk()
             ->assertSee('07.00 – 07.45');
+    }
+
+    public function test_shift_management_modal_exposes_edit_delete_and_cascade_confirm_data(): void
+    {
+        AppSetting::setScheduleMode(AppSetting::SCHEDULE_SHIFT);
+
+        $shift = $this->makeShift('Shift 1 (Pagi)');
+        Kelas::create([
+            'nama_kelas' => 'X RPL 1',
+            'tingkat' => 'X',
+            'id_jurusan' => $this->jurusan->id,
+            'shift_id' => $shift->id,
+        ]);
+        $this->makeSlot($shift->id, '07:00', '07:45');
+        JamPulang::create([
+            'shift_id' => $shift->id,
+            'kategori_hari' => 'Senin-Kamis',
+            'tingkat' => 'X',
+            'max_jam_ke' => 5,
+        ]);
+
+        // Mode Shift: tombol kelola, tombol Edit/Hapus per shift, modal konfirmasi
+        // hapus dengan data dampak berantai (slot/kelas yang akan dialihkan ke Global).
+        $this->actingAs($this->admin)
+            ->get(route('admin.jam-pelajaran.index', ['tab' => 'Senin-Kamis', 'mode' => 'shift', 'shift' => $shift->id]))
+            ->assertOk()
+            ->assertSee('Kelola Daftar Shift')
+            ->assertSee('modalHapusShift', false)
+            ->assertSee('btn-edit-shift-strip', false)
+            ->assertSee('btn-hapus-shift', false)
+            ->assertSee('Dampak Penghapusan:')
+            ->assertSee('Ya, Hapus Shift')
+            ->assertSee('data-slots="1"', false)
+            ->assertSee('data-kelas="1"', false)
+            ->assertSee('data-pulang="1"', false);
+
+        // Kembali ke tipe Global: seluruh UI kelola/hapus shift disembunyikan.
+        AppSetting::setScheduleMode(AppSetting::SCHEDULE_GLOBAL);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.jam-pelajaran.index', ['tab' => 'Senin-Kamis']))
+            ->assertOk()
+            ->assertDontSee('Kelola Daftar Shift')
+            ->assertDontSee('Pilih Shift:')
+            ->assertDontSee('+ Tambah Shift');
     }
 
     public function test_update_slot_can_move_between_shifts(): void
@@ -510,6 +576,8 @@ class ShiftManagementTest extends TestCase
 
     public function test_sync_jam_ke_numbering_is_independent_per_shift(): void
     {
+        AppSetting::setScheduleMode(AppSetting::SCHEDULE_SHIFT);
+
         // Global punya 2 slot KBM, shift punya 3 slot KBM pada hari yang sama
         $this->makeSlot(null, '07:00', '07:45', 1);
         $this->makeSlot(null, '07:45', '08:30', 2);

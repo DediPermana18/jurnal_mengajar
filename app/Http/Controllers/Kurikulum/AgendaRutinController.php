@@ -20,6 +20,7 @@ class AgendaRutinController extends Controller
             'redirect_tab' => 'nullable|string|in:Senin-Kamis,Jumat',
             'redirect_shift' => 'nullable|integer',
             'redirect_mode' => 'nullable|string|in:global,shift',
+            'redirect_ta' => 'nullable|integer',
         ]);
 
         $hari = $validated['hari'];
@@ -66,6 +67,10 @@ class AgendaRutinController extends Controller
         }
         if ($request->input('redirect_mode') === 'shift') {
             $redirectParams['mode'] = 'shift';
+        }
+        $redirectTa = $request->input('redirect_ta');
+        if ($redirectTa !== null && $redirectTa !== '' && (int) $redirectTa > 0) {
+            $redirectParams['ta'] = (int) $redirectTa;
         }
         $statusText = $isActive ? 'diaktifkan & dikunci' : 'dinonaktifkan';
 
