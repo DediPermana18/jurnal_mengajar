@@ -2,6 +2,7 @@
 
 namespace App\Models\Scopes;
 
+use App\Models\Concerns\TestingDataContextAware;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -9,12 +10,19 @@ use Illuminate\Database\Eloquent\Scope;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Global Scope is_testing_data: isolasi data berdasarkan peran pengguna.
+ * Global Scope is_testing_data — isolasi data secara konsisten per KONTEKS.
  *
- * - Petugas IT / QA Tester (isTestingUser() TRUE — termasuk saat impersonasi
- *   "Switch View As"): hanya melihat data testing (is_testing_data = true).
- * - User non-IT (admin, kurikulum, guru, siswa) & guest: hanya melihat data
- *   real (is_testing_data = false).
+ * - Model berpenanda TestingDataContextAware (sub-sistem penjadwalan: Shift,
+ *   Slot Jam, Jam Pulang, Plotting/Jadwal) mengikuti
+ *   KONTEKS LINGKUNGAN AKTIF (User::currentTestingStatus()): Tahun Ajaran aktif
+ *   ber-is_testing_data=1 ATAU user Petugas IT / QA Tester (termasuk saat
+ *   impersonasi "Switch View As" & akun sandbox is_testing_data=1).
+ *   Konteks TESTING (TRUE) → hanya partisi testing; PRODUKSI (FALSE) → real.
+ * - Model lain (User, Tahun Ajaran, Kelas, Siswa, Jurusan, Mata Pelajaran,
+ *   Ruangan, Jurnal, presensi, izin, dsb.) mempertahankan isolasi lama
+ *   berbasis peran: Petugas IT/QA hanya melihat testing, lainnya hanya real —
+ *   sehingga Tahun Ajaran testing yang aktif tidak mengunci data real dan
+ *   user operasional biasa selalu melihat hanya data PRODUKSI pada Data Master.
  */
 class TestingDataScope implements Scope
 {
@@ -53,23 +61,30 @@ class TestingDataScope implements Scope
         static::$resolving = true;
         try {
             $user = auth()->user();
+            $contextAware = $model instanceof TestingDataContextAware;
+            // Model penjadwalan: ikuti konteks lingkungan aktif (TA testing / user IT).
+            // Model lain: isolasi lama berbasis peran user (hindari lockout).
+            $testing = $contextAware
+                ? User::currentTestingStatus()
+                : ($user instanceof User && $user->isTestingUser());
         } finally {
             static::$resolving = false;
         }
 
-        // Petugas IT / QA Tester: dipaksa hanya melihat data testing.
-        if ($user instanceof User && $user->isTestingUser()) {
+        if ($testing) {
             if ($model instanceof User) {
-                // Untuk model User, izinkan ID user tester sendiri agar session Auth tetap valid
+                // Untuk model User, izinkan ID user sendiri agar session Auth tetap valid.
                 $builder->where(function ($q) use ($table, $user) {
-                    $q->where("{$table}.is_testing_data", true)
-                        ->orWhere("{$table}.id", $user->id);
+                    $q->where("{$table}.is_testing_data", true);
+                    if ($user instanceof User) {
+                        $q->orWhere("{$table}.id", $user->id);
+                    }
                 });
             } else {
                 $builder->where("{$table}.is_testing_data", true);
             }
         }
-        // User non-IT & guest: hanya melihat data real.
+        // Di luar konteks testing (produksi): hanya melihat data real.
         else {
             $builder->where("{$table}.is_testing_data", false);
         }

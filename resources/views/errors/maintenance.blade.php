@@ -94,6 +94,39 @@
                 </ul>
             </div>
 
+            @if(isset($maintenanceBlockedUser) && $maintenanceBlockedUser instanceof \App\Models\User && $maintenanceBlockedUser->isItOriginatedAccount())
+                <div class="rounded-4 p-3 text-start mb-4" style="background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.28);">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <i class="bi bi-shield-lock text-warning"></i>
+                        <span class="fw-semibold text-light small">Login / Restore Mode IT</span>
+                    </div>
+                    <p class="small mb-2" style="color:#cbd5e1 !important;">
+                        Akun ini terdeteksi sebagai <strong>Petugas IT / Admin IT</strong>.
+                        Pulihkan ke Mode IT biasa tanpa mengubah database secara manual:
+                    </p>
+                    @if($maintenanceBlockedUser->isEmergencyTakeover())
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <form action="{{ route('it-emergency.demote-self') }}" method="POST" class="d-inline">
+                                @csrf
+                                <button type="submit"
+                                        class="btn btn-sm btn-outline-warning rounded-3 fw-semibold"
+                                        onclick="return confirm('Kembalikan akun ke Mode IT / QA (petugas_it) dan lepaskan status Super Admin darurat?')"
+                                        title="Kembalikan akun hasil Emergency Super Admin Takeover ke Mode IT biasa">
+                                    <i class="bi bi-arrow-return-left me-1"></i> Restore Mode IT (Demote)
+                                </button>
+                            </form>
+                            <a href="{{ route('login') }}" class="btn btn-sm btn-outline-light rounded-3 fw-semibold">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> Login Ulang
+                            </a>
+                        </div>
+                    @else
+                        <a href="{{ route('login') }}" class="btn btn-sm btn-outline-warning rounded-3 fw-semibold">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> Login / Restore Mode IT
+                        </a>
+                    @endif
+                </div>
+            @endif
+
             <div class="text-muted small" style="color:#94a3b8 !important;">
                 <i class="bi bi-clock-history me-1"></i>
                 Terakhir diperiksa:

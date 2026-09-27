@@ -2,8 +2,11 @@
 
 namespace App\Providers;
 
+use App\Listeners\RecordSecurityLogin;
 use App\Models\User;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
@@ -30,6 +33,16 @@ class AppServiceProvider extends ServiceProvider
         }
 
         // ================================================================
+        // Audit jejak digital login (immutable): setiap login BERHASIL
+        // dicatat ke security_logs + pemilik akun diberi notifikasi bot.
+        // Registrasi dijaga agar listener terdaftar hanya SATU kali (di
+        // lingkungan CLI / test, provider dapat ikut di-boot lebih dari sekali).
+        // ================================================================
+        if (! Event::hasListeners(Login::class)) {
+            Event::listen(Login::class, RecordSecurityLogin::class);
+        }
+
+        // ================================================================
         // Gate::before — bypass seluruh pengecekan Gate/Policy untuk:
         //   1. Petugas IT / QA Tester (role asli petugas_it / qa_tester)
         //      — termasuk saat dalam mode impersonasi "Switch View As".
@@ -41,6 +54,12 @@ class AppServiceProvider extends ServiceProvider
         Gate::before(function ($user, string $ability) {
             if (! $user instanceof User) {
                 return null;
+            }
+
+            // Super Admin (role 'super_admin' / sub_role 'super_admin'): akses
+            // penuh ke seluruh Gate/Policy — global bypass tanpa terkecuali.
+            if ($user->isSuperAdmin()) {
+                return true;
             }
 
             // Petugas IT asli (role DB = petugas_it / qa_tester)

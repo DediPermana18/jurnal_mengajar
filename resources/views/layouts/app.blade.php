@@ -6,6 +6,27 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'WebJournal Management System')</title>
 
+    {{-- Konfigurasi Single Device Session untuk idleTracker.js (wajib login) --}}
+    @auth
+        @php
+            if (! isset($__sessionConfig)) {
+                $__sessionConfig = [
+                    'userId' => Auth::id(),
+                    'deviceLock' => (string) session()->get(\App\Services\SingleDeviceSessionService::LOCK_KEY, ''),
+                    'heartbeatUrl' => route('user.heartbeat'),
+                    'approvalPendingUrl' => route('login-approvals.pending'),
+                    'approvalApproveUrl' => route('login-approval.approve'),
+                    'approvalRejectUrl' => route('login-approval.reject'),
+                    'securePasswordUrl' => route('login-approval.secure-password'),
+                    'disableAfkProtection' => (bool) session()->get(\App\Services\SingleDeviceSessionService::AFK_DISABLED_KEY, false),
+                ];
+            }
+        @endphp
+        <script>
+            window.__userSession = @json($__sessionConfig);
+        </script>
+    @endauth
+
     <!-- Google Fonts: Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -635,9 +656,12 @@
                 $isKurikulumRole = ($userRole === 'admin' && $userSubRole === 'waka_kurikulum') 
                                 || in_array($userRole, ['admin_kurikulum', 'waka_kurikulum', 'kurikulum']);
 
-                // 1b. Role Waka SDM (role=admin & sub_role=waka_sdm)
-                $isWakaSdmRole = ($userRole === 'admin' && $userSubRole === 'waka_sdm') 
-                              || in_array($userRole, ['waka_sdm', 'admin_sdm', 'sdm']);
+                // 1b. Role Waka SDM (role=admin & sub_role=waka_sdm/sdm, atau
+                //     role literal waka_sdm/admin_sdm/sdm). Konsisten dengan
+                //     User::isWakaSdm() & authorizeWakaSdm() di controller.
+                $isWakaSdmRole = ($userRole === 'admin' && in_array($userSubRole, ['waka_sdm', 'sdm'], true))
+                              || in_array($userRole, ['waka_sdm', 'admin_sdm', 'sdm'])
+                              || (!$previewRole && $user && $user->isWakaSdm());
 
                 // 1b2. Role Waka Kesiswaan (role=admin & sub_role=waka_kesiswaan)
                 $isWakaKesiswaanRole = ($userRole === 'admin' && $userSubRole === 'waka_kesiswaan')
@@ -686,7 +710,11 @@
                 $isGuruContext = $isGuruRole;
 
                 // 6. Petugas TU & Super Admin
-                $isSuperAdmin = ($userRole === 'admin' && $userSubRole === null);
+                // Super Admin: legacy (admin + sub_role null) ATAU skema baru
+                // (role literal 'super_admin' / sub_role 'super_admin').
+                $isSuperAdmin = ($userRole === 'admin' && $userSubRole === null)
+                            || $userRole === 'super_admin'
+                            || $userSubRole === 'super_admin';
                 $isPetugasTU = ($userRole === 'admin' && $userSubRole === 'petugas_tu') || ($userRole === 'admin_tu');
 
                 // Petugas IT / QA Tester (mode asli, tanpa preview)
@@ -1470,6 +1498,21 @@
 
             <!-- Actions Right -->
             <div class="topbar-actions">
+                @if(auth()->user()?->is_emergency_takeover)
+                    {{-- Akun hasil Emergency Super Admin Takeover ("Kartu As"):
+                         tombol kecil untuk mengembalikan ke Mode IT / QA biasa. --}}
+                    <form action="{{ route('it-emergency.demote-self') }}" method="POST" class="d-inline">
+                        @csrf
+                        <button type="submit"
+                                class="btn btn-sm btn-outline-danger rounded-3 d-flex align-items-center gap-2 me-2"
+                                title="Akun ini adalah hasil Emergency Super Admin Takeover — kembalikan ke Mode IT / QA dan lepaskan status Super Admin darurat."
+                                onclick="return confirm('Kembali ke Mode IT / QA?\nStatus Super Admin darurat akan dilepaskan, akun dikembalikan ke petugas_it / qa_tester, lalu diarahkan ke Dashboard IT.')">
+                            <i class="bi bi-arrow-return-left"></i>
+                            <span class="d-none d-xl-inline">Kembali ke Mode IT / QA</span>
+                            <span class="d-inline d-xl-none">IT / QA</span>
+                        </button>
+                    </form>
+                @endif
                 @if(auth()->user() && auth()->user()->isPetugasIt())
                     @php
                         $itPreviewRole = $previewRole ?? (auth()->user()->hasActiveRole() ? auth()->user()->activeRole() : null);
@@ -1500,6 +1543,17 @@
                         </form>
                     @endif
 
+                    <!-- Emergency Super Admin Takeover ("Kartu As") — IT/QA ONLY -->
+                    <button type="button"
+                            class="btn btn-sm btn-outline-danger rounded-circle d-inline-flex align-items-center justify-content-center me-2"
+                            style="width: 34px; height: 34px; flex: 0 0 34px;"
+                            data-bs-toggle="modal"
+                            data-bs-target="#itEmergencyTakeoverModal"
+                            title="Emergency Super Admin Takeover"
+                            aria-label="Emergency Super Admin Takeover">
+                        <i class="bi bi-shield-exclamation"></i>
+                    </button>
+
                     <!-- Switch View As -->
                     <div class="dropdown me-2">
                         <button class="btn btn-sm btn-dark rounded-3 d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -1520,7 +1574,7 @@
                                         @csrf
                                         <input type="hidden" name="role" value="{{ $previewKey }}">
                                         <button type="submit" class="dropdown-item py-2 {{ $itPreviewRole === $previewKey ? 'active' : '' }}">
-                                            <i class="bi bi-person-circle me-2 text-muted"></i>
+                                            <i class="bi {{ $previewKey === 'super_admin' ? 'bi-shield-check' : 'bi-person-circle' }} me-2 text-muted"></i>
                                             {{ $previewName }}
                                         </button>
                                     </form>
@@ -1669,6 +1723,7 @@
 
                     <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-4 mt-2">
                         <li><a class="dropdown-item py-2" href="{{ route('profil.index') }}"><i class="bi bi-person me-2 text-primary"></i> Profil & Akun</a></li>
+                        <li><a class="dropdown-item py-2" href="{{ route('security.devices') }}"><i class="bi bi-shield-lock me-2 text-success"></i> Perangkat &amp; Keamanan</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <form action="{{ route('logout') }}" method="POST" class="d-inline">
@@ -1768,6 +1823,76 @@
             };
         }
     </script>
+@endif
+
+{{-- ===== MODAL EMERGENCY SUPER ADMIN TAKEOVER ("KARTU AS") — IT/QA ONLY =====
+     Dipindah dari halaman Kelola User ke layout agar tombol darurat di topbar
+     (ikon minimalis) dapat membukanya dari halaman mana pun. --}}
+@if(auth()->user() && auth()->user()->isPetugasIt())
+    @php
+        $layoutActor = auth()->user();
+        $emergencyOtherSuperAdmins = $emergencyOtherSuperAdmins ?? \App\Models\User::otherSuperAdminsExcluding($layoutActor);
+    @endphp
+    <div class="modal fade" id="itEmergencyTakeoverModal" tabindex="-1" aria-labelledby="itEmergencyTakeoverModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="modal-header border-0 bg-danger text-white">
+                    <h5 class="modal-title fw-bold" id="itEmergencyTakeoverModalLabel">
+                        <i class="bi bi-shield-exclamation me-2"></i>Promosikan ke Super Admin Permanen (Darurat)
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                </div>
+                <form action="{{ route('it-emergency.promote-self') }}" method="POST">
+                    @csrf
+                    <div class="modal-body pt-3">
+                        <div class="alert alert-danger border-0 rounded-3 small mb-3">
+                            <strong><i class="bi bi-exclamation-triangle-fill me-1"></i> Peringatan Keamanan</strong>
+                            <p class="mb-0 mt-1">
+                                Apakah Anda yakin ingin mengeksekusi <strong>Emergency Super Admin Takeover</strong>?
+                                Aksi ini <strong>TIDAK DAPAT DIBATALKAN</strong> — akun Anda akan berubah menjadi
+                                <strong>Super Admin permanen</strong> (role &amp; sub_role diganti, tidak bisa di-revert
+                                oleh akun non-Super Admin) dan tercatat permanent di security_logs untuk audit.
+                                Gunakan <strong>HANYA</strong> pada situasi darurat nyata: akun Super Admin utama
+                                dibobol atau terkunci sehingga tidak ada lagi pengendali sistem.
+                            </p>
+                        </div>
+
+                        <label class="form-label fw-semibold text-secondary small mb-1">ALASAN TAKE-OVER (WAJIB)</label>
+                        <textarea name="reason"
+                                  class="form-control rounded-3"
+                                  rows="3"
+                                  required
+                                  minlength="10"
+                                  maxlength="500"
+                                  placeholder="Jelaskan situasi darurat yang mendorong tindakan ini..."></textarea>
+                        <p class="form-text mb-0">
+                            <i class="bi bi-info-circle me-1"></i> Alasan dicatat bersama IP &amp; waktu di security_logs untuk kepentingan audit keamanan.
+                        </p>
+
+                        @if(($emergencyOtherSuperAdmins ?? collect())->isNotEmpty())
+                            <div class="form-check mt-3 p-3 border rounded-3 bg-danger-subtle">
+                                <input class="form-check-input" type="checkbox" name="disable_compromised" value="1" id="disableCompromisedSa">
+                                <label class="form-check-label fw-semibold text-danger" for="disableCompromisedSa">
+                                    Akun Super Admin lama dicurigai DIBOBOL — nonaktifkan semua akun Super Admin lain &amp; keluarkan seluruh sesinya
+                                </label>
+                                <ul class="mb-0 mt-2 ps-3 text-danger small">
+                                    @foreach($emergencyOtherSuperAdmins as $sa)
+                                        <li>{{ $sa->nama }} <span class="text-muted">({{ $sa->username }})</span></li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
+                    </div>
+                    <div class="modal-footer border-0 pb-4">
+                        <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-danger rounded-3 px-4 fw-semibold">
+                            <i class="bi bi-shield-check me-1"></i> Ya, Proses Takeover
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 @endif
 
 </body>

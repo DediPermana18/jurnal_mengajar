@@ -77,9 +77,59 @@ class KepsekController extends Controller
         return $daftar->first()?->id;
     }
 
+    /**
+     * Dashboard Kepala Sekolah — ringkasan/overview pengajuan izin guru.
+     *
+     * BERBEDA dari rekap-izin (Modul Persetujuan): di sini hanya menampilkan
+     * statistik ringkas, antrean terbaru, dan aktivitas terakhir; proses
+     * tinjau & TTD tetap dipindahkan ke halaman rekap-izin.
+     */
     public function dashboard(Request $request)
     {
-        return $this->rekapIzin($request);
+        $this->authorizeKepsek();
+
+        // ====== Ringkasan utama ======
+        $totalPendingKepsek = IzinGuru::where('status', IzinGuru::STATUS_PENDING_KEPSEK)->count();
+        $totalDisetujui = IzinGuru::where('status', IzinGuru::STATUS_DISETUJUI)->count();
+        $totalDitolak = IzinGuru::where('status', IzinGuru::STATUS_DITOLAK)->count();
+        $totalPengajuan = IzinGuru::count();
+
+        // Pipeline approval di tingkat lain sebagai konteks.
+        $totalPendingWaka = IzinGuru::where('status', IzinGuru::STATUS_PENDING_WAKA)->count();
+        $totalPendingPiket = IzinGuru::where('status', IzinGuru::STATUS_PENDING_PIKET)->count();
+
+        // Persetujuan final yang tercatat hari ini.
+        $disetujuiHariIni = IzinGuru::where('status', IzinGuru::STATUS_DISETUJUI)
+            ->whereDate('tanggal', now()->toDateString())
+            ->count();
+
+        // Antrean paling baru yang menunggu persetujuan Kepala Sekolah.
+        $antreanKepsek = IzinGuru::with(['user'])
+            ->where('status', IzinGuru::STATUS_PENDING_KEPSEK)
+            ->latest('tanggal')
+            ->take(6)
+            ->get();
+
+        // Aktivitas pengajuan izin terbaru (semua status).
+        $aktivitasTerbaru = IzinGuru::with(['user'])
+            ->latest('tanggal')
+            ->take(6)
+            ->get();
+
+        $hariIniStr = now()->translatedFormat('l');
+
+        return view('admin.kepsek.dashboard', compact(
+            'totalPendingKepsek',
+            'totalDisetujui',
+            'totalDitolak',
+            'totalPengajuan',
+            'totalPendingWaka',
+            'totalPendingPiket',
+            'disetujuiHariIni',
+            'antreanKepsek',
+            'aktivitasTerbaru',
+            'hariIniStr'
+        ));
     }
 
     public function rekapIzin(Request $request)

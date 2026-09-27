@@ -489,7 +489,7 @@
                         </div>
 
                         {{-- Ubah / Custom Kode Aktivasi --}}
-                        <form method="POST" action="{{ route('profil.update-kode-aktivasi') }}" id="formKodeAktivasi">
+                        <form method="POST" action="{{ route('profil.update-kode-aktivasi') }}" id="formKodeAktivasi" onsubmit="return validateKodeAktivasi()">
                             @csrf
                             <div class="pt-3 border-top">
                                 <label for="inputKodeAktivasi" class="form-label fw-semibold text-dark mb-2" style="font-size:0.85rem;">
@@ -497,15 +497,9 @@
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light border-end-0 rounded-start-3" style="font-size:0.85rem;"><i class="bi bi-key-fill text-warning"></i></span>
-                                    <input type="text"
-                                           name="kode_aktivasi"
-                                           id="inputKodeAktivasi"
-                                           class="form-control rounded-0 @error('kode_aktivasi') is-invalid @enderror"
-                                           value="{{ old('kode_aktivasi', $user?->kode_aktivasi ?? '') }}"
-                                           maxlength="8"
-                                           autocomplete="off"
-                                           placeholder="6-8 karakter huruf/angka, tanpa spasi"
-                                           style="font-family:'Courier New',monospace;letter-spacing:.15em;text-transform:uppercase;font-size:0.875rem;">
+                                    {{-- Input sengaja TANPA readonly/disabled: user boleh mengetik kode custom.
+                                         Generate Random hanya mengisi nilai, tidak mengunci field. --}}
+                                    <input type="text" name="kode_aktivasi" oninput="sanitizeKodeAktivasi()" id="inputKodeAktivasi" class="form-control rounded-0 @error('kode_aktivasi') is-invalid @enderror" value="{{ old('kode_aktivasi', $user?->kode_aktivasi ?? '') }}" maxlength="20" autocomplete="off" placeholder="6-20 karakter huruf/angka/tanda hubung, tanpa spasi" style="font-family:'Courier New',monospace;letter-spacing:.15em;text-transform:uppercase;font-size:0.875rem;">
                                     <button type="button" class="btn btn-outline-secondary rounded-end-3"
                                             onclick="generateRandomKode()" title="Buat kode acak otomatis" style="font-size:0.85rem;">
                                         <i class="bi bi-dice-6 me-1"></i> Generate Random
@@ -514,8 +508,9 @@
                                 @error('kode_aktivasi')
                                     <div class="invalid-feedback d-block mt-1">{{ $message }}</div>
                                 @enderror
+                                <div id="kodeFeedback" class="invalid-feedback d-none mt-1"></div>
                                 <div class="text-muted mt-2" style="font-size:0.75rem;">
-                                    <i class="bi bi-info-circle me-1"></i>Kode minimal 6 dan maksimal 8 karakter, hanya huruf dan/atau angka, tanpa spasi atau simbol.
+                                    <i class="bi bi-info-circle me-1"></i>Kode minimal 6 dan maksimal 20 karakter (huruf, angka, tanda hubung, tanpa spasi).
                                 </div>
                                 <div class="d-flex justify-content-end align-items-center gap-2 mt-3">
                                     <button type="button" class="btn btn-light border rounded-3" style="font-size:0.85rem;"
@@ -642,6 +637,55 @@
         const kode = document.getElementById('kodeAktivasiDisplay');
         const input = document.getElementById('inputKodeAktivasi');
         if (kode && input) input.value = kode.innerText.trim();
+    }
+
+    // ===== Frontend Kode Aktivasi (input custom, TANPA readonly) =====
+    // Field kode aktivasi bebas diketik manual oleh user. Fungsi di bawah
+    // menormalkan input (kapital; HANYA membuang spasi/simbol yang tidak
+    // diizinkan) dan memvalidasi di sisi client (6-20 karakter, huruf/angka/
+    // tanda hubung/underscore, tanpa spasi) sebelum dikirim — backend tetap
+    // memvalidasi ulang (min:6, max:20, regex [A-Za-z0-9_-]+).
+    function sanitizeKodeAktivasi() {
+        const input = document.getElementById('inputKodeAktivasi');
+        if (!input) return;
+        hideKodeError();
+        // Huruf & angka + tanda hubung (-) dan underscore (_) dipertahankan.
+        // Tanpa truncate otomatis — batas panjang dipegang atribut maxlength=20.
+        input.value = input.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+    }
+
+    function showKodeError(msg) {
+        const fb = document.getElementById('kodeFeedback');
+        const input = document.getElementById('inputKodeAktivasi');
+        if (fb) { fb.textContent = msg; fb.classList.remove('d-none'); }
+        if (input) input.classList.add('is-invalid');
+    }
+
+    function hideKodeError() {
+        const fb = document.getElementById('kodeFeedback');
+        const input = document.getElementById('inputKodeAktivasi');
+        if (fb) fb.classList.add('d-none');
+        if (input) input.classList.remove('is-invalid');
+    }
+
+    function validateKodeAktivasi() {
+        const input = document.getElementById('inputKodeAktivasi');
+        if (!input) return true;
+        const kode = input.value.trim();
+        if (kode.length < 6) {
+            showKodeError('Kode aktivasi minimal 6 karakter.');
+            return false;
+        }
+        if (kode.length > 20) {
+            showKodeError('Kode aktivasi maksimal 20 karakter.');
+            return false;
+        }
+        if (!/^[A-Z0-9_-]+$/.test(kode)) {
+            showKodeError('Kode aktivasi hanya boleh huruf, angka, tanda hubung (-) atau underscore (_), tanpa spasi.');
+            return false;
+        }
+        hideKodeError();
+        return true;
     }
 
     // ===== Auto-open tab jika ada error password / kode aktivasi =====

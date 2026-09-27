@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\SingleDeviceSessionController;
 use App\Http\Controllers\Guru\GuruPortalController;
 use App\Http\Controllers\Guru\JurnalController as GuruJurnalController;
 use App\Http\Controllers\Guru\DispensasiVerifikasiController as GuruDispensasiVerifikasiController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Kurikulum\KurikulumLaporanController;
 use App\Http\Controllers\Kurikulum\PengaturanJadwalController;
 use App\Http\Controllers\MataPelajaranController;
 use App\Http\Controllers\ProfilController;
+use App\Http\Controllers\SecurityDevicesController;
 use App\Http\Controllers\RuanganController;
 use App\Http\Controllers\SiswaController;
 use App\Http\Controllers\TahunAjaranController;
@@ -53,6 +55,37 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
+});
+
+// ================= SINGLE DEVICE SESSION =================
+// Endpoint heartbeat AFK/idle tracker + polling keamanan (wajib login).
+// Middleware global SingleDeviceSession melewati (skip) path ini; validasi
+// "kicked" dikelola di controller dengan respon JSON untuk frontend.
+Route::middleware(['auth'])->group(function () {
+    Route::post('/api/user/heartbeat', [SingleDeviceSessionController::class, 'heartbeat'])
+        ->name('user.heartbeat');
+});
+
+// ================= INTERACTIVE LOGIN APPROVAL (PUSH PROMPT) =================
+// Device B (pelamar login) — endpoint publik; request_id (UUID acak) adalah
+// rahasia akses satu permintaan. Device B mem-poll status sampai keputusan.
+use App\Http\Controllers\LoginApprovalController;
+
+Route::get('/api/login-approval/status/{requestId}', [LoginApprovalController::class, 'status'])
+    ->name('login-approval.status');
+Route::post('/api/login-approval/complete', [AuthController::class, 'completeApprovalLogin'])
+    ->name('login-approval.complete');
+
+// Device A (perangkat aktif / pemutus) — wajib login & memegang lock sesi.
+Route::middleware(['auth'])->group(function () {
+    Route::post('/api/login-approval/approve', [LoginApprovalController::class, 'approve'])
+        ->name('login-approval.approve');
+    Route::post('/api/login-approval/reject', [LoginApprovalController::class, 'reject'])
+        ->name('login-approval.reject');
+    Route::post('/api/login-approval/secure-password', [LoginApprovalController::class, 'securePassword'])
+        ->name('login-approval.secure-password');
+    Route::get('/api/user/login-approvals/pending', [LoginApprovalController::class, 'pending'])
+        ->name('login-approvals.pending');
 });
 
 // Halaman utama (Dashboard Admin) — WAJIB login.
@@ -116,10 +149,18 @@ Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
     Route::resource('admin/users', UserController::class)
         ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
         ->names('admin.users');
-    Route::post('/admin/users/{id}/reset-password', [UserController::class, 'resetPassword'])
-        ->name('admin.users.reset-password');
     Route::post('/admin/users/{id}/toggle-status', [UserController::class, 'toggleStatus'])
         ->name('admin.users.toggle-status');
+    // Suspend Darurat (toggle cepat) — route KUSUS, tidak lewat update biasa.
+    // Route-model binding `{user}`; hanya membalik is_active tanpa field form.
+    Route::post('/admin/users/{user}/toggle-suspend', [UserController::class, 'toggleSuspend'])
+        ->name('admin.users.toggle-suspend');
+    // Suspend Darurat (Peer Emergency Suspend) — area TU/Admin. Prefix `api/*`
+    // membuat error (403/404/dsb.) otomatis dirender sebagai JSON oleh
+    // exception handler (shouldRenderJsonWhen), sesuai kebutuhan endpoint API.
+    // Middleware diwarisi dari group induk (auth + AdminScheduleAccess).
+    Route::post('/api/users/{id}/emergency-suspend', [UserController::class, 'emergencySuspend'])
+        ->name('users.emergency-suspend');
 
     // Panel Admin TU: verifikasi pengajuan reset (lupa sandi / kode aktivasi)
     Route::get('/admin/pengajuan-reset', [ResetRequestController::class, 'index'])
@@ -167,6 +208,13 @@ Route::post('/profil/update-profil', [ProfilController::class, 'updateProfil'])-
 Route::post('/profil/update-password', [ProfilController::class, 'updatePassword'])->name('profil.update-password')->middleware('auth');
 Route::post('/profil/generate-kode-aktivasi', [ProfilController::class, 'generateKodeAktivasi'])->name('profil.generate-kode-aktivasi')->middleware('auth');
 Route::post('/profil/update-kode-aktivasi', [ProfilController::class, 'updateKodeAktivasi'])->name('profil.update-kode-aktivasi')->middleware('auth');
+
+// ================= PERANGKAT & KEAMANAN =================
+// Audit jejak digital login (immutable tabel security_logs): daftar perangkat
+// yang pernah/sedang login + remote session invalidation.
+Route::get('/security/devices', [SecurityDevicesController::class, 'index'])->name('security.devices')->middleware('auth');
+Route::post('/security/devices/name', [SecurityDevicesController::class, 'name'])->name('security.devices.name')->middleware('auth');
+Route::post('/security/devices/{log}/revoke', [SecurityDevicesController::class, 'revoke'])->name('security.devices.revoke')->middleware('auth');
 // Legacy redirect
 Route::get('/admin/pengaturan', fn () => redirect()->route('profil.index'))->name('pengaturan.index');
 
@@ -290,6 +338,7 @@ Route::prefix('satpam')->middleware(['auth'])->group(function () {
 
 use App\Http\Controllers\PetugasItController;
 use App\Http\Controllers\IT\WaSettingController;
+use App\Http\Controllers\ItEmergencyController;
 
 // ================= ROUTE PETUGAS IT / QA TESTER (Switch View As) =================
 Route::prefix('it')->middleware(['auth'])->group(function () {
@@ -299,6 +348,7 @@ Route::prefix('it')->middleware(['auth'])->group(function () {
     Route::post('/impersonate-target', [PetugasItController::class, 'selectImpersonateTarget'])->name('it.impersonate-target');
     Route::post('/testing-view', [PetugasItController::class, 'setTestingView'])->name('it.testing-view');
     Route::post('/maintenance-mode', [PetugasItController::class, 'toggleMaintenanceMode'])->name('it.maintenance-mode');
+    Route::post('/emergency-mode', [PetugasItController::class, 'toggleEmergencyMode'])->name('it.emergency-mode');
     Route::post('/kendala/{id}/status', [PetugasItController::class, 'updateKendalaStatus'])->name('it.kendala.status');
 
     // Pengaturan WhatsApp Gateway (Fonnte)
@@ -307,6 +357,24 @@ Route::prefix('it')->middleware(['auth'])->group(function () {
     Route::post('/settings/wa/test', [WaSettingController::class, 'test'])->name('it.settings.wa.test');
     Route::post('/settings/wa/toggle', [WaSettingController::class, 'toggle'])->name('it.settings.wa.toggle');
 });
+
+// ================= EMERGENCY SUPER ADMIN TAKEOVER ("KARTU AS") =================
+// Hanya akun Petugas IT / QA Tester (role ATAU sub_role) yang boleh mempromosikan
+// dirinya sendiri menjadi 'super_admin' permanen saat akun Super Admin utama
+// dibobol / terkunci. Authorization diperiksa di dalam controller (403), bukan
+// middleware — sehingga gate-nya selaras dengan definisi akun IT di User model.
+Route::post('/admin/it-emergency/promote-self', [ItEmergencyController::class, 'promoteSelf'])
+    ->name('it-emergency.promote-self')
+    ->middleware(['auth']);
+
+// Demote pasca takeover: kembalikan akun Petugas IT / QA Tester (yang berubah
+// menjadi Super Admin darurat via promote-self) ke identitas IT/QA asli —
+// role 'admin' + sub_role 'petugas_it'/'qa_tester' — lalu arahkan ke Dashboard IT.
+// Authorization diperiksa di dalam controller (403): HANYA akun dengan
+// is_emergency_takeover=true yang boleh memanggil.
+Route::post('/admin/it-emergency/demote-self', [ItEmergencyController::class, 'demoteSelf'])
+    ->name('it-emergency.demote-self')
+    ->middleware(['auth']);
 
 use App\Http\Controllers\Kurikulum\JadwalPiketController;
 

@@ -28,7 +28,13 @@ class JamPelajaranController extends Controller
         }
 
         // ===== Konteks Tahun Ajaran & Semester (param ?ta= atau default: TA aktif) =====
-        $tahunAjaranList = TahunAjaran::orderBy('tahun_ajaran')->orderBy('semester')->get();
+        // Dropdown ini mengikuti KONTEKS LINGKUNGAN AKTIF (testing/produksi),
+        // bukan partisi peran user — agar halaman penjadwalan tetap konsisten
+        // dengan model Shift/Slot Jam yang context-aware saat TA testing aktif.
+        $tahunAjaranList = TahunAjaran::forCurrentContext()
+            ->orderBy('tahun_ajaran')
+            ->orderBy('semester')
+            ->get();
         $selectedTahunAjaran = $this->resolveTahunAjaran($request, $tahunAjaranList);
         $selectedTahunAjaranId = $selectedTahunAjaran?->id;
         $selectedTahunAjaranIsActive = (bool) ($selectedTahunAjaran?->is_active ?? false);
@@ -858,14 +864,14 @@ class JamPelajaranController extends Controller
         if ($taId !== null && $taId !== '') {
             $ta = $available
                 ? $available->firstWhere('id', (int) $taId)
-                : TahunAjaran::find((int) $taId);
+                : TahunAjaran::forCurrentContext()->find((int) $taId);
             if ($ta) {
                 return $ta;
             }
         }
 
-        return TahunAjaran::where('is_active', true)->first()
-            ?? TahunAjaran::orderBy('tahun_ajaran')->orderBy('semester')->first();
+        return TahunAjaran::forCurrentContext()->where('is_active', true)->first()
+            ?? TahunAjaran::forCurrentContext()->orderBy('tahun_ajaran')->orderBy('semester')->first();
     }
 
     /**
@@ -874,7 +880,10 @@ class JamPelajaranController extends Controller
      */
     private function previousTahunAjaran(TahunAjaran $current): ?TahunAjaran
     {
-        $ordered = TahunAjaran::orderBy('tahun_ajaran')->orderBy('semester')->get();
+        $ordered = TahunAjaran::forCurrentContext()
+            ->orderBy('tahun_ajaran')
+            ->orderBy('semester')
+            ->get();
         $index = $ordered->search(fn ($t) => $t->id === $current->id);
 
         if ($index === false || $index === 0) {
@@ -894,7 +903,7 @@ class JamPelajaranController extends Controller
             return (int) $jam->tahun_ajaran_id;
         }
 
-        return TahunAjaran::where('is_active', true)->value('id');
+        return TahunAjaran::forCurrentContext()->where('is_active', true)->value('id');
     }
 
     /**

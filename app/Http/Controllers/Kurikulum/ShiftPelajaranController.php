@@ -8,6 +8,7 @@ use App\Models\JamPelajaran;
 use App\Models\JamPulang;
 use App\Models\Kelas;
 use App\Models\ShiftPelajaran;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 /**
@@ -38,14 +39,20 @@ class ShiftPelajaranController extends Controller
             'jam_mulai' => 'nullable|date_format:H:i',
             'jam_selesai' => 'nullable|date_format:H:i|after:jam_mulai',
             'is_active' => 'nullable|boolean',
-            'grade_levels' => 'nullable|array',
+            'grade_levels' => 'required|array|min:1',
             'grade_levels.*' => 'in:X,XI,XII',
         ], [
             'nama_shift.required' => 'Nama shift wajib diisi.',
             'jam_selesai.after' => 'Jam selesai harus setelah jam mulai.',
+            'grade_levels.required' => 'Pilih minimal satu tingkatan kelas untuk shift ini.',
+            'grade_levels.min' => 'Pilih minimal satu tingkatan kelas untuk shift ini.',
             'grade_levels.*.in' => 'Pilihan tingkatan kelas tidak valid (harus X, XI, atau XII).',
         ]);
 
+        // Konteks is_testing_data mengikuti lingkungan aktif (Tahun Ajaran aktif
+        // ber-is_testing_data=1 atau user Petugas IT/QA): pada Mode IT/Testing
+        // shift baru disimpan sebagai data testing (is_testing_data = 1) sehingga
+        // langsung terlihat di UI mode testing; pada mode produksi = 0.
         ShiftPelajaran::create([
             'nama_shift' => trim($validated['nama_shift']),
             'keterangan' => trim($validated['keterangan'] ?? '') ?: null,
@@ -53,6 +60,7 @@ class ShiftPelajaranController extends Controller
             'jam_selesai' => $validated['jam_selesai'] ?? null,
             'is_active' => $request->boolean('is_active'),
             'grade_levels' => ShiftPelajaran::normalizeGradeLevels($validated['grade_levels'] ?? null) ?: null,
+            'is_testing_data' => User::currentTestingStatus(),
         ]);
 
         return redirect()
@@ -84,14 +92,19 @@ class ShiftPelajaranController extends Controller
             'jam_mulai' => 'nullable|date_format:H:i',
             'jam_selesai' => 'nullable|date_format:H:i|after:jam_mulai',
             'is_active' => 'nullable|boolean',
-            'grade_levels' => 'nullable|array',
+            'grade_levels' => 'required|array|min:1',
             'grade_levels.*' => 'in:X,XI,XII',
         ], [
             'nama_shift.required' => 'Nama shift wajib diisi.',
             'jam_selesai.after' => 'Jam selesai harus setelah jam mulai.',
+            'grade_levels.required' => 'Pilih minimal satu tingkatan kelas untuk shift ini.',
+            'grade_levels.min' => 'Pilih minimal satu tingkatan kelas untuk shift ini.',
             'grade_levels.*.in' => 'Pilihan tingkatan kelas tidak valid (harus X, XI, atau XII).',
         ]);
 
+        // Konteks is_testing_data mengikuti lingkungan aktif (sama seperti store):
+        // update shift dalam Mode IT/Testing mempertahankan partisi testing (1),
+        // di mode produksi mempertahankan partisi real (0).
         $shiftPelajaran->update([
             'nama_shift' => trim($validated['nama_shift']),
             'keterangan' => trim($validated['keterangan'] ?? '') ?: null,
@@ -99,6 +112,7 @@ class ShiftPelajaranController extends Controller
             'jam_selesai' => $validated['jam_selesai'] ?? null,
             'is_active' => $request->boolean('is_active'),
             'grade_levels' => ShiftPelajaran::normalizeGradeLevels($validated['grade_levels'] ?? null) ?: null,
+            'is_testing_data' => User::currentTestingStatus(),
         ]);
 
         return redirect()

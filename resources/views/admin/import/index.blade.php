@@ -456,7 +456,8 @@
                     </div>
                 </div>
 
-                {{-- Zona Berbahaya: Reset Data Siswa --}}
+                {{-- Zona Berbahaya: Reset Data Siswa (hanya Super Admin) --}}
+                @if(auth()->user()->isSuperAdmin())
                 <div class="card-import mt-4" style="border-color:#fecaca;background:#fff7f7;">
                     <div class="card-import-header d-flex align-items-center gap-3" style="border-color:#fee2e2;">
                         <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#ef4444,#b91c1c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -486,6 +487,7 @@
                         </button>
                     </div>
                 </div>
+                @endif
             </div>
 
             {{-- Kolom Kanan: Panduan Format --}}
@@ -636,7 +638,8 @@
                     </div>
                 </div>
 
-                {{-- Zona Berbahaya: Reset Data Guru --}}
+                {{-- Zona Berbahaya: Reset Data Guru (hanya Super Admin) --}}
+                @if(auth()->user()->isSuperAdmin())
                 <div class="card-import mt-4" style="border-color:#fecaca;background:#fff7f7;">
                     <div class="card-import-header d-flex align-items-center gap-3" style="border-color:#fee2e2;">
                         <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#ef4444,#b91c1c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -665,6 +668,7 @@
                         </button>
                     </div>
                 </div>
+                @endif
             </div>
 
             {{-- Kolom Kanan: Panduan & Template --}}
@@ -849,7 +853,8 @@
                     </div>
                 </div>
 
-                {{-- Zona Berbahaya: Reset Data Kelas / Jurusan --}}
+                {{-- Zona Berbahaya: Reset Data Kelas / Jurusan (hanya Super Admin) --}}
+                @if(auth()->user()->isSuperAdmin())
                 <div class="card-import mb-4" style="border-color:#fecaca;background:#fff7f7;">
                     <div class="card-import-header d-flex align-items-center gap-3" style="border-color:#fee2e2;">
                         <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#ef4444,#b91c1c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -879,6 +884,7 @@
                         </button>
                     </div>
                 </div>
+                @endif
             </div>
 
             {{-- Kolom Kanan: Panduan & Template --}}
@@ -1034,7 +1040,8 @@
                     </div>
                 </div>
 
-                {{-- Zona Berbahaya: Reset Data Ruangan --}}
+                {{-- Zona Berbahaya: Reset Data Ruangan (hanya Super Admin) --}}
+                @if(auth()->user()->isSuperAdmin())
                 <div class="card-import mt-4" style="border-color:#fecaca;background:#fff7f7;">
                     <div class="card-import-header d-flex align-items-center gap-3" style="border-color:#fee2e2;">
                         <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#ef4444,#b91c1c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -1063,6 +1070,7 @@
                         </button>
                     </div>
                 </div>
+                @endif
             </div>
 
             {{-- Kolom Kanan: Panduan & Template --}}
@@ -1197,7 +1205,8 @@
                     </div>
                 </div>
 
-                {{-- Zona Berbahaya: Reset Data Jadwal --}}
+                {{-- Zona Berbahaya: Reset Data Jadwal (hanya Super Admin) --}}
+                @if(auth()->user()->isSuperAdmin())
                 <div class="card-import mt-4" style="border-color:#fecaca;background:#fff7f7;">
                     <div class="card-import-header d-flex align-items-center gap-3" style="border-color:#fee2e2;">
                         <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#ef4444,#b91c1c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -1227,6 +1236,7 @@
                         </button>
                     </div>
                 </div>
+                @endif
             </div>
 
             {{-- Kolom Kanan: Panduan Format --}}

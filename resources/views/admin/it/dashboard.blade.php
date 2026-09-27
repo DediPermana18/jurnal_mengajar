@@ -14,6 +14,32 @@
         <span class="text-muted small mt-1 mt-md-0"><i class="bi bi-calendar3 me-1"></i>{{ now()->translatedFormat('l, d F Y') }}</span>
     </div>
 
+    {{-- Emergency Super Admin Takeover ("Kartu As") — akses cepat untuk Petugas IT --}}
+    <div class="alert alert-danger d-flex flex-wrap align-items-center justify-content-between gap-2 rounded-4 border-0 shadow-sm py-3 mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-shield-exclamation fs-5"></i>
+            <div>
+                <strong class="d-block" style="font-size: 0.9rem;">Kartu As — Emergency Super Admin Takeover</strong>
+                <span class="text-danger-emphasis small">
+                    Bila akun Super Admin utama dibobol / terkunci dan sistem tak terkendali, promosikan akun ini
+                    menjadi Super Admin permanen lewat ikon perisai merah
+                    <i class="bi bi-shield-exclamation"></i> di pojok kanan atas (topbar) — tercatat di security_logs.
+                </span>
+                <span class="d-block text-danger-emphasis small mt-1">
+                    <i class="bi bi-unlock me-1"></i>Setelah takeover (atau saat Mode Darurat aktif), tombol
+                    <strong>Suspend</strong> akun Utama (Admin) terbuka untuk mengeluarkan penyadap seketika.
+                </span>
+            </div>
+        </div>
+        <button type="button"
+                class="btn btn-outline-danger btn-sm rounded-3 px-3 fw-semibold text-decoration-none"
+                data-bs-toggle="modal"
+                data-bs-target="#itEmergencyTakeoverModal"
+                title="Buka konfirmasi Emergency Super Admin Takeover">
+            <i class="bi bi-shield-exclamation me-1"></i> Promosikan ke Super Admin Permanen
+        </button>
+    </div>
+
     {{-- WIDGET STAT CARD --}}
     <div class="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4 mb-3 md:mb-4">
         <div>
@@ -217,6 +243,21 @@
                 </ul>
 
                 <div class="d-grid gap-2 mt-auto">
+                    @php
+                        $emergencyModeActive = (bool) session('emergency_mode');
+                    @endphp
+                    <form method="POST" action="{{ route('it.emergency-mode') }}" class="d-grid">
+                        @csrf
+                        <input type="hidden" name="emergency_mode" value="{{ $emergencyModeActive ? '0' : '1' }}">
+                        <button type="submit" class="btn {{ $emergencyModeActive ? 'btn-success' : 'btn-outline-danger' }} rounded-3 py-2 fw-semibold"
+                                title="Mode Darurat membuka tombol Suspend akun Utama (Admin) di Kelola User — seluruh sesi aktif akun tersebut akan dikeluarkan saat di-suspend.">
+                            <i class="bi {{ $emergencyModeActive ? 'bi-shield-x' : 'bi-shield-exclamation' }} me-1"></i>
+                            {{ $emergencyModeActive ? 'Nonaktifkan Mode Darurat' : 'Aktifkan Mode Darurat' }}
+                            @if($emergencyModeActive)
+                                <span class="badge bg-danger text-white rounded-pill ms-1">AKTIF</span>
+                            @endif
+                        </button>
+                    </form>
                     <form method="POST" action="{{ route('it.maintenance-mode') }}" class="d-grid">
                         @csrf
                         <input type="hidden" name="maintenance_mode" value="{{ $maintenanceActive ? '0' : '1' }}">

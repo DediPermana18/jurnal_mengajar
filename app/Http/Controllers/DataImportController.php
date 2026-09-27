@@ -453,6 +453,19 @@ class DataImportController extends Controller
     }
 
     /**
+     * Zona Berbahaya (halaman Import) — hanya Super Admin (role ATAU
+     * sub_role 'super_admin') yang boleh mengeksekusi reset data massal.
+     */
+    private function authorizeBulkReset(): void
+    {
+        abort_unless(
+            auth()->user()?->isSuperAdmin() ?? false,
+            403,
+            'Anda tidak memiliki hak akses untuk melakukan reset data massal.'
+        );
+    }
+
+    /**
      * Validasi frasa konfirmasi berbahaya — harus diketik utuh (huruf besar).
      */
     private function validateResetConfirmation(Request $request, string $expected): void
@@ -477,6 +490,7 @@ class DataImportController extends Controller
      */
     public function resetSiswa(Request $request)
     {
+        $this->authorizeBulkReset();
         $this->validateResetConfirmation($request, 'HAPUS DATA SISWA');
         $scope = $this->resetScope($request);
 
@@ -499,6 +513,7 @@ class DataImportController extends Controller
      */
     public function resetGuru(Request $request)
     {
+        $this->authorizeBulkReset();
         $this->validateResetConfirmation($request, 'HAPUS DATA GURU');
         $scope = $this->resetScope($request);
 
@@ -551,6 +566,7 @@ class DataImportController extends Controller
      */
     public function resetKelasJurusan(Request $request)
     {
+        $this->authorizeBulkReset();
         $this->validateResetConfirmation($request, 'HAPUS DATA KELAS JURUSAN');
         $scope = $this->resetScope($request);
 
@@ -579,6 +595,7 @@ class DataImportController extends Controller
      */
     public function resetRuangan(Request $request)
     {
+        $this->authorizeBulkReset();
         $this->validateResetConfirmation($request, 'HAPUS DATA RUANGAN');
         $scope = $this->resetScope($request);
 
@@ -600,6 +617,7 @@ class DataImportController extends Controller
      */
     public function resetJadwal(Request $request)
     {
+        $this->authorizeBulkReset();
         $this->validateResetConfirmation($request, 'HAPUS DATA JADWAL');
         $scope = $this->resetScope($request);
 

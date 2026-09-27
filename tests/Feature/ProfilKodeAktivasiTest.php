@@ -52,6 +52,32 @@ class ProfilKodeAktivasiTest extends TestCase
             ->assertSee(route('profil.update-kode-aktivasi'), false);
     }
 
+    public function test_input_kode_aktivasi_baru_bisa_diketik_manual_tanpa_readonly(): void
+    {
+        $user = $this->makeUser('admin', 'petugas_tu', ['kode_aktivasi' => 'KODE123']);
+
+        $this->actingAs($user)->get(route('profil.index'))
+            ->assertOk()
+            // (1) Field TIDAK di-set readonly/disabled → user boleh mengetik kode custom.
+            ->assertSee('<input type="text" name="kode_aktivasi" oninput="sanitizeKodeAktivasi()"', false)
+            ->assertDontSee('<input type="text" name="kode_aktivasi" readonly', false)
+            ->assertDontSee('<input type="text" name="kode_aktivasi" disabled', false)
+            // (2) Generate Random tetap ada & hanya mengisi nilai (bukan mengunci input).
+            ->assertSee('function generateRandomKode()', false)
+            ->assertDontSee("input.readOnly = true", false)
+            ->assertDontSee("input.disabled = true", false)
+            // (3) Validasi frontend tetap berjalan: 6-20 karakter, huruf/angka/tanda hubung/underscore.
+            ->assertSee('onsubmit="return validateKodeAktivasi()"', false)
+            ->assertSee('function validateKodeAktivasi()', false)
+            ->assertSee('maxlength="20"', false)
+            ->assertSee('Kode aktivasi minimal 6 karakter', false)
+            ->assertSee('Kode aktivasi maksimal 20 karakter', false)
+            ->assertSee('tanpa spasi', false)
+            // Sanitizer TIDAK lagi menghapus '-' / '_' dan TIDAK memotong ke 8 karakter.
+            ->assertSee("replace(/[^A-Z0-9_-]/g, '')", false)
+            ->assertDontSee('slice(0, 8)', false);
+    }
+
     public function test_tab_kode_aktivasi_disembunyikan_untuk_role_guru(): void
     {
         // Guru tetap disembunyikan meskipun kolom kode_aktivasi terisi.
@@ -106,13 +132,36 @@ class ProfilKodeAktivasiTest extends TestCase
     {
         $user = $this->makeUser('admin', 'petugas_tu', ['kode_aktivasi' => 'KODE123']);
 
-        foreach (['', 'ABC12', 'ABCDEFGHI', 'ABC 12', 'ABC-12', 'ABC_12'] as $kode) {
+        foreach (['', 'ABC12', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'ABC 12', 'ABC!12', 'ABC.12'] as $kode) {
             $this->actingAs($user)
                 ->post(route('profil.update-kode-aktivasi'), ['kode_aktivasi' => $kode])
                 ->assertSessionHasErrors('kode_aktivasi');
 
             $this->assertSame('KODE123', $user->fresh()->kode_aktivasi);
         }
+    }
+
+    public function test_kode_aktivasi_izinkan_tanda_hubung_dan_underscore(): void
+    {
+        $user = $this->makeUser('admin', 'petugas_tu', ['kode_aktivasi' => 'KODE123']);
+
+        $this->actingAs($user)
+            ->post(route('profil.update-kode-aktivasi'), ['kode_aktivasi' => 'KU-NDDE_01'])
+            ->assertRedirect(route('profil.index'));
+
+        $this->assertSame('KU-NDDE_01', $user->fresh()->kode_aktivasi);
+    }
+
+    public function test_kode_aktivasi_maksimal_20_karakter_diterima(): void
+    {
+        $user = $this->makeUser('admin', 'petugas_tu', ['kode_aktivasi' => 'KODE123']);
+
+        $kode = 'ABCDEFGHIJKLMNOPQRST'; // tepat 20 karakter — masih valid
+        $this->actingAs($user)
+            ->post(route('profil.update-kode-aktivasi'), ['kode_aktivasi' => $kode])
+            ->assertRedirect(route('profil.index'));
+
+        $this->assertSame($kode, $user->fresh()->kode_aktivasi);
     }
 
     public function test_kode_aktivasi_harus_unik_antar_akun(): void

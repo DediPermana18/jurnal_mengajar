@@ -47,7 +47,16 @@ class UserCreatePasswordTest extends TestCase
 
     public function test_halaman_edit_tidak_menampilkan_field_password(): void
     {
-        $admin = $this->adminTu();
+        // Edit user admin hanya diizinkan untuk Petugas IT (peer-protection):
+        // bukan lagi Petugas TU. IT melihat field kode aktivasi tersensor (tanpa password).
+        $it = User::create([
+            'nama' => 'Petugas IT',
+            'username' => 'it_'.Str::random(6),
+            'password' => 'password123',
+            'role' => 'petugas_it',
+            'sub_role' => null,
+            'is_active' => true,
+        ]);
         $user = User::create([
             'nama' => 'Waka Edit',
             'username' => 'waka_edit_'.Str::random(6),
@@ -55,13 +64,19 @@ class UserCreatePasswordTest extends TestCase
             'role' => 'admin',
             'sub_role' => 'waka_kurikulum',
             'is_active' => true,
+            'kode_aktivasi' => 'AKT-EDITFIELD',
+            // Petugas IT/QA hanya melihat partisi testing (TestingDataScope).
+            'is_testing_data' => true,
         ]);
 
-        $this->actingAs($admin)
+        $this->actingAs($it)
             ->get(route('admin.users.edit', $user->id))
             ->assertOk()
             ->assertDontSee('KONFIRMASI PASSWORD')
-            ->assertDontSee('name="password"');
+            ->assertDontSee('name="password"')
+            // Kode aktivasi ditampilkan tersensor di form edit (bukan plaintext).
+            ->assertSee('AKT-•')
+            ->assertDontSee('value="AKT-EDITFIELD"');
     }
 
     public function test_store_menyimpan_password_terhash(): void

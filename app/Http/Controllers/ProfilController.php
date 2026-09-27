@@ -124,8 +124,9 @@ class ProfilController extends Controller
                 'required',
                 'string',
                 'min:6',
-                'max:8',
-                'alpha_num',
+                'max:20',
+                // Huruf, angka, tanda hubung (-), underscore (_); TANPA spasi/simbol lain.
+                'regex:/^[A-Za-z0-9_-]+$/',
                 Rule::unique('users', 'kode_aktivasi')
                     ->withoutTrashed()
                     ->where(fn ($q) => $q->where('is_testing_data', $user->is_testing_data ?? false))
@@ -134,8 +135,8 @@ class ProfilController extends Controller
         ], [
             'kode_aktivasi.required' => 'Kode aktivasi wajib diisi.',
             'kode_aktivasi.min' => 'Kode aktivasi minimal 6 karakter.',
-            'kode_aktivasi.max' => 'Kode aktivasi maksimal 8 karakter.',
-            'kode_aktivasi.alpha_num' => 'Kode aktivasi hanya boleh huruf dan angka, tanpa spasi atau simbol.',
+            'kode_aktivasi.max' => 'Kode aktivasi maksimal 20 karakter.',
+            'kode_aktivasi.regex' => 'Kode aktivasi hanya boleh huruf, angka, tanda hubung (-) atau underscore (_), tanpa spasi.',
             'kode_aktivasi.unique' => 'Kode aktivasi sudah digunakan oleh akun lain.',
         ]);
 

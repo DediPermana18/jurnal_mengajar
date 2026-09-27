@@ -48,6 +48,13 @@ class KelasController extends Controller
 
         $query = Kelas::with(['jurusan', 'waliKelas', 'shift'])->withCount('siswa');
 
+        // Isolasi data testing: user operasional biasa hanya melihat data PRODUKSI
+        // (is_testing_data = 0) — ditambah global scope TestingDataScope sebagai
+        // lapisan kedua yang menjamin partisi sesuai peran.
+        if ($this->isRegularOperationalUser()) {
+            $query->where('is_testing_data', false);
+        }
+
         // Pencarian Nama Kelas, Tingkat, Jurusan, atau Wali Kelas
         if ($request->filled('search')) {
             $search = trim($request->search);
@@ -97,8 +104,11 @@ class KelasController extends Controller
         $daftarShift = ShiftPelajaran::orderBy('jam_mulai')->orderBy('id')->get();
 
         // Jumlah rombel per kombinasi tingkat + jurusan untuk auto-increment nomor rombel
-        $countsByKombinasi = Kelas::selectRaw('tingkat, id_jurusan, count(*) as total')
-            ->groupBy('tingkat', 'id_jurusan')
+        $countsQuery = Kelas::selectRaw('tingkat, id_jurusan, count(*) as total');
+        if ($this->isRegularOperationalUser()) {
+            $countsQuery->where('is_testing_data', false);
+        }
+        $countsByKombinasi = $countsQuery->groupBy('tingkat', 'id_jurusan')
             ->get()
             ->mapWithKeys(fn ($row) => [$row->tingkat.'|'.$row->id_jurusan => (int) $row->total])
             ->all();

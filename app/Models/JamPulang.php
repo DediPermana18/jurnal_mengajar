@@ -3,11 +3,12 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasTestingData;
+use App\Models\Concerns\TestingDataContextAware;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
-class JamPulang extends Model
+class JamPulang extends Model implements TestingDataContextAware
 {
     use HasFactory, HasTestingData;
 

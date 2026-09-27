@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasTestingData;
+use App\Models\Scopes\TestingDataScope;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,6 +27,8 @@ class User extends Authenticatable
 
     public const ROLE_QA_TESTER = 'qa_tester';
 
+    public const ROLE_SUPER_ADMIN = 'super_admin';
+
     public const ROLES = [
         self::ROLE_ADMIN,
         self::ROLE_GURU,
@@ -36,8 +39,11 @@ class User extends Authenticatable
     /**
      * Kode role yang dapat dipilih oleh Petugas IT / QA Tester pada fitur
      * "Switch View As" (disimpan di session sebagai active_role).
+     *
+     * 'super_admin' → preview tampilan & otorisasi Super Admin penuh.
      */
     public const PREVIEW_ROLES = [
+        'super_admin' => 'Super Admin',
         'admin_tu' => 'Admin TU',
         'satpam' => 'Satpam',
         'waka_kesiswaan' => 'Waka Kesiswaan',
@@ -56,6 +62,7 @@ class User extends Authenticatable
      * impersonation tanpa perlu login ulang.
      */
     public const PREVIEW_ROLE_MAP = [
+        'super_admin' => ['role' => 'super_admin', 'sub_role' => 'super_admin'],
         'admin_tu' => ['role' => 'admin',     'sub_role' => 'petugas_tu'],
         'satpam' => ['role' => 'admin',     'sub_role' => 'satpam'],
         'waka_kesiswaan' => ['role' => 'admin',     'sub_role' => 'waka_kesiswaan'],
@@ -83,6 +90,13 @@ class User extends Authenticatable
         'guru',
     ];
 
+    /**
+     * Sub-role yang menandai akun istimewa (Super Admin / Admin) yang DIHINDARI
+     * dari pengelolaan Petugas TU biasa. Hanya privilege manager (Petugas IT /
+     * Super Admin / Admin Utama) yang boleh melihat aksi & memanipulasi akun ini.
+     */
+    public const PROTECTED_SUB_ROLES = ['super_admin', 'admin'];
+
     protected $table = 'users';
 
     protected $fillable = [
@@ -95,16 +109,26 @@ class User extends Authenticatable
         'password',
         'kode_aktivasi',
         'is_active',
+        'suspended_until',
         'role',
         'sub_role',
         'kelas_id',
         'is_testing_data',
+        'last_active_at',
+        'is_idle',
+        'current_session_id',
+        'last_security_alert_at',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'suspended_until' => 'datetime',
         'password' => 'hashed',
         'is_testing_data' => 'boolean',
+        'is_idle' => 'boolean',
+        'last_active_at' => 'datetime',
+        'last_security_alert_at' => 'datetime',
+        'is_emergency_takeover' => 'boolean',
     ];
 
     protected $hidden = [
@@ -273,6 +297,57 @@ class User extends Authenticatable
     }
 
     /**
+     * Apakah user ini adalah Super Admin?
+     *
+     * Super Admin dikenali dari role 'super_admin' ATAU sub_role 'super_admin'.
+     * Akun ini memiliki akses penuh ke seluruh route admin (Data Master dsb.)
+     * tanpa terkecuali — Middleware, Gate, maupun Policy mengizinkannya.
+     */
+    public function isSuperAdmin(): bool
+    {
+        if ($this->role === self::ROLE_SUPER_ADMIN || $this->sub_role === self::ROLE_SUPER_ADMIN) {
+            return true;
+        }
+
+        // Preview "Switch View As" (Petugas IT / QA Tester memilih role
+        // Super Admin): selama mode impersonasi ini aktif, sesi diperlakukan
+        // sebagai Super Admin PENUH — seluruh otorisasi (termasuk Zona
+        // Berbahaya / reset massal, portal Waka, dan bypass Gate) terbuka,
+        // konsisten dengan Gate::before global di AppServiceProvider.
+        return $this->hasActiveRole() && $this->activeRole() === self::ROLE_SUPER_ADMIN;
+    }
+
+    /**
+     * Apakah akun ini merupakan akun istimewa (Super Admin / Admin) yang
+     * dilindungi dari pengelolaan Petugas TU biasa?
+     *
+     * Akun dilindungi bila role-nya 'super_admin' ATAU sub_role-nya bernilai
+     * 'super_admin' / 'admin' (hak akses setara administrator sistem).
+     * Akun ini tidak dapat diubah, dihapus, atau di-suspend oleh user biasa.
+     */
+    public function isProtectedAccount(): bool
+    {
+        return $this->role === self::ROLE_SUPER_ADMIN
+            || in_array($this->sub_role, self::PROTECTED_SUB_ROLES, true);
+    }
+
+    /**
+     * Apakah akun pengguna (actor) saat ini termasuk "Privilege Manager User"
+     * yang berhak mengelola akun Super Admin / Admin?
+     *
+     * Privilege manager = Petugas IT / QA Tester (pengendali penuh sistem),
+     * Super Admin literal (role/sub_role 'super_admin'), ataupun Admin Utama
+     * legacy (role 'admin' + sub_role null — konsep Super Admin awal aplikasi).
+     * Petugas TU / Waka* maupun admin terspesialisasi BUKAN privilege manager.
+     */
+    public function isPrivilegedUserManager(): bool
+    {
+        return $this->isPetugasIt()
+            || $this->isSuperAdmin()
+            || ($this->role === 'admin' && $this->sub_role === null);
+    }
+
+    /**
      * Apakah user ini adalah admin (role = 'admin')?
      */
     public function isAdmin(): bool
@@ -282,10 +357,106 @@ class User extends Authenticatable
 
     /**
      * Apakah user ini adalah Petugas IT / QA Tester (boleh menguji sistem)?
+     *
+     * Petugas IT dikenali dari role 'petugas_it' / 'qa_tester' ATAU
+     * sub_role 'petugas_it' / 'qa_tester'. Bentuk sub_role (role 'admin' +
+     * sub_role IT) dipakai karena kolom role di MySQL production
+     * ber-ENUM('admin','guru'), sehingga identitas IT dibawa oleh sub_role —
+     * termasuk hasil restorasi demoteSelf (ItEmergencyController) yang
+     * mengembalikan akun takeover ke role 'admin' + sub_role IT.
      */
     public function isPetugasIt(): bool
     {
-        return in_array($this->role, [self::ROLE_PETUGAS_IT, self::ROLE_QA_TESTER], true);
+        return in_array($this->role, [self::ROLE_PETUGAS_IT, self::ROLE_QA_TESTER], true)
+            || in_array($this->sub_role, [self::ROLE_PETUGAS_IT, self::ROLE_QA_TESTER], true);
+    }
+
+    /**
+     * Daftar akun Super Admin LAIN (selain $actor) untuk modal "Emergency
+     * Super Admin Takeover" ("Kartu As") di topbar.
+     *
+     * Query TANPA global scope testing agar mencakup akun super admin partisi
+     * real (produksi) yang mungkin dicurigai dibobol — aktor IT sendiri terlihat
+     * hanya dari partisi testing, sehingga scope default tidak akan menemukan
+     * akun produksi tersebut.
+     */
+    public static function otherSuperAdminsExcluding(User $actor, array $columns = ['id', 'nama', 'username']): Collection
+    {
+        return static::withoutGlobalScope(TestingDataScope::class)
+            ->where('id', '!=', $actor->id)
+            ->where(function ($query) {
+                $query->where('role', static::ROLE_SUPER_ADMIN)
+                    ->orWhere('sub_role', static::ROLE_SUPER_ADMIN);
+            })
+            ->orderBy('nama')
+            ->get($columns);
+    }
+
+    /**
+     * Apakah akun ini merupakan hasil Emergency Super Admin Takeover
+     * ("Kartu As") — di-promosikan menjadi Super Admin permanen dari akun
+     * Petugas IT / QA Tester saat akun Super Admin utama dibobol / terkunci?
+     *
+     * Penanda permanen ini membuka gembok pengelolaan akun Utama 'admin'
+     * (UserController::isEmergencyPrimaryAdminOverride) sehingga penyadap
+     * akun utama dapat dikeluarkan seketika dalam situasi darurat.
+     */
+    public function isEmergencyTakeover(): bool
+    {
+        return (bool) $this->is_emergency_takeover;
+    }
+
+    /**
+     * Apakah akun boleh mengakses sistem saat Maintenance Mode aktif?
+     *
+     * Prioritas izin (sumber kebenaran tunggal untuk middleware
+     * CheckMaintenanceMode, gate login AuthController, dan halaman maintenance):
+     *  1. Petugas IT / QA Tester (role atau sub_role), termasuk saat
+     *     impersonasi "Switch View As" dan akun sandbox (isTestingUser).
+     *  2. Super Admin (role literal 'super_admin' ATAU sub_role 'super_admin') —
+     *     termasuk akun hasil Emergency Takeover ("Kartu As") yang ber-role
+     *     'admin' + sub_role 'super_admin' agar pengendali darurat tidak
+     *     terkunci keluar dari sistem saat maintenance.
+     *  3. Role 'admin' (admin-area: TU, waka, satpam, kepsek, dsb.).
+     *  4. Akun IT khusus dengan username 'petugas.it'.
+     */
+    public function canBypassMaintenance(): bool
+    {
+        if ($this->isTestingUser()) {
+            return true;
+        }
+
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        return $this->role === self::ROLE_ADMIN || $this->username === 'petugas.it';
+    }
+
+    /**
+     * Apakah akun termasuk "dunia IT / pengendali darurat" sehingga berhak
+     * melihat tombol pemulihan "Login / Restore Mode IT" pada halaman
+     * Maintenance (errors.maintenance)?
+     */
+    public function isItOriginatedAccount(): bool
+    {
+        return $this->isPetugasIt()
+            || $this->isSuperAdmin()
+            || $this->isEmergencyTakeover()
+            || $this->username === 'petugas.it'
+            || (bool) $this->is_testing_data;
+    }
+
+    /**
+     * Apakah akun sedang diblokir sementara (Suspend Darurat berbasis waktu)?
+     *
+     * TRUE selama suspended_until masih di masa depan — login & sesi berjalan
+     * ditolak sampai waktu tersebut tercapai (lalu otomatis kembali normal).
+     */
+    public function isCurrentlySuspended(): bool
+    {
+        return $this->suspended_until !== null
+            && now()->lessThan($this->suspended_until);
     }
 
     /**
@@ -301,11 +472,17 @@ class User extends Authenticatable
 
     /**
      * Apakah user ini adalah Waka SDM / Kepegawaian?
+     *
+     * Mencakup skema role-sub-role (role 'admin' + sub_role 'waka_sdm'/'sdm')
+     * maupun skema role literal ('waka_sdm', 'admin_sdm', 'sdm'). Definisi ini
+     * selaras dengan gate navigasi sidebar ($isWakaSdmRole di layouts/app.blade.php)
+     * dan authorizeWakaSdm() pada WakaSdmController — agar menu "Portal Waka SDM"
+     * tidak pernah tampil untuk role yang justru ditolak oleh controller.
      */
     public function isWakaSdm(): bool
     {
-        return ($this->role === 'admin' && $this->sub_role === 'waka_sdm')
-            || $this->role === 'waka_sdm';
+        return ($this->role === 'admin' && in_array($this->sub_role, ['waka_sdm', 'sdm'], true))
+            || in_array($this->role, ['waka_sdm', 'admin_sdm', 'sdm'], true);
     }
 
     /**
@@ -381,6 +558,42 @@ class User extends Authenticatable
     public function isTestingUser(): bool
     {
         return $this->isPetugasIt() || $this->hasActiveRole() || (bool) $this->is_testing_data;
+    }
+
+    /**
+     * Status konteks TESTING saat ini (lingkungan aktif) — sumber kebenaran tunggal
+     * untuk isolasi data `is_testing_data`:
+     *
+     *  - Tahun Ajaran AKTIF ber-label data testing (is_testing_data = 1) => SELURUH
+     *    sub-sistem (Shift, Slot Jam, Plotting, agenda, dsb.) mewarisi konteks
+     *    testing, apa pun peran user yang sedang masuk;
+     *  - ATAU user yang sedang login adalah Petugas IT / QA Tester / sedang
+     *    impersonasi "Switch View As" / akun sandbox (is_testing_data = 1).
+     *
+     * TRUE  → baca & tulis hanya pada partisi testing (is_testing_data = true).
+     * FALSE → baca & tulis hanya pada partisi real (is_testing_data = false).
+     *
+     * Dipakai oleh global scope TestingDataScope (filter baca) dan trait
+     * HasTestingData (flag tulis saat create) agar tidak terjadi mismatch:
+     * data yang baru dibuat dalam konteks testing langsung terlihat di UI.
+     */
+    public static function currentTestingStatus(): bool
+    {
+        // Preferensi (1): Tahun Ajaran aktif. Dipakai tanpa global scope agar tidak
+        // memicu rekursi dan selalu bisa membaca flag is_testing_data TA itu sendiri.
+        $activeTa = TahunAjaran::withoutGlobalScope(TestingDataScope::class)
+            ->where('is_active', true)
+            ->latest('id')
+            ->first();
+
+        if ($activeTa && (bool) $activeTa->is_testing_data) {
+            return true;
+        }
+
+        // Preferensi (2): session user (Petugas IT / QA Tester / impersonasi / sandbox).
+        $user = auth()->user();
+
+        return $user instanceof self && $user->isTestingUser();
     }
 
     /**
@@ -477,6 +690,24 @@ class User extends Authenticatable
     public function isTerdaftarPiket(): bool
     {
         return $this->jadwalPiket()->exists();
+    }
+
+    /**
+     * Kode Aktivasi dalam bentuk tersensor (masked) untuk tampilan UI:
+     * mis. 'AKT-XXXXXXXX' → 'AKT-••••-XX'. Nilai asli tidak pernah bocor ke
+     * layar daftar user; hanya Petugas IT yang boleh melihatnya utuh di form.
+     */
+    public function getKodeAktivasiMaskedAttribute(): string
+    {
+        $code = (string) ($this->kode_aktivasi ?? '');
+        if ($code === '') {
+            return '-';
+        }
+        if (strlen($code) <= 4) {
+            return str_repeat('•', strlen($code));
+        }
+
+        return substr($code, 0, 3).'-••••-'.substr($code, -2);
     }
 
     /**

@@ -52,6 +52,13 @@ class SiswaController extends Controller
     {
         $query = Siswa::with(['kelas', 'jurusan']);
 
+        // Isolasi data testing: user operasional biasa hanya melihat data PRODUKSI
+        // (is_testing_data = 0) — ditambah global scope TestingDataScope sebagai
+        // lapisan kedua yang menjamin partisi sesuai peran.
+        if ($this->isRegularOperationalUser()) {
+            $query->where('is_testing_data', false);
+        }
+
         // Filter pencarian nama / NISN / NIS
         if ($request->filled('search')) {
             $search = trim($request->input('search'));

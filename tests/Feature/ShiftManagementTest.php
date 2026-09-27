@@ -88,6 +88,7 @@ class ShiftManagementTest extends TestCase
                 'keterangan' => 'Sesi pagi',
                 'jam_mulai' => '07:00',
                 'jam_selesai' => '14:00',
+                'grade_levels' => ['X'],
                 'is_active' => 1,
             ]);
 
@@ -111,6 +112,7 @@ class ShiftManagementTest extends TestCase
                 'nama_shift' => 'Shift 1 (Pagi) - Revisi',
                 'jam_mulai' => '06:30',
                 'jam_selesai' => '14:30',
+                'grade_levels' => ['X'],
                 'is_active' => 0,
             ]);
 
@@ -142,6 +144,7 @@ class ShiftManagementTest extends TestCase
             ->post(route('admin.shift-pelajaran.store'), [
                 'nama_shift' => 'Shift 1 (Pagi)',
                 'jam_mulai' => '07:00',
+                'grade_levels' => ['X'],
                 'is_active' => 1,
             ])
             ->assertRedirect()
@@ -703,5 +706,240 @@ class ShiftManagementTest extends TestCase
             [1, 2, 3],
             JamPelajaran::where('hari', 'Senin')->where('shift_id', $shift->id)->orderBy('jam_ke')->pluck('jam_ke')->all()
         );
+    }
+
+    // ─── Konteks is_testing_data mengikuti Lingkungan Aktif (TA testing / mode IT) ───
+
+    public function test_shift_store_in_testing_tahun_ajaran_context_is_flagged_testing_and_visible(): void
+    {
+        // TA produksi (tidak aktif) berisi satu shift real (partisi is_testing_data=0).
+        TahunAjaran::create([
+            'tahun_ajaran' => '2025/2026',
+            'semester' => 'Ganjil',
+            'is_active' => false,
+        ]);
+        $this->makeShift('Shift Real (Produksi)');
+
+        // TA TESTING AKTIF: seluruh sub-sistem Shift/Slot Jam/Plotting mewarisi
+        // konteks is_testing_data = 1, apa pun peran user yang masuk.
+        TahunAjaran::create([
+            'tahun_ajaran' => '2026/2027',
+            'semester' => 'Ganjil',
+            'is_active' => true,
+            'is_testing_data' => true,
+            'mode_jadwal' => TahunAjaran::MODE_SHIFT,
+        ]);
+
+        // User admin NON-IT di lingkungan testing: shift produksi TIDAK bocor ke UI
+        // (isolasi ketat per partisi), sehingga daftar shift tampak kosong.
+        $this->actingAs($this->admin)
+            ->get(route('admin.jam-pelajaran.index'))
+            ->assertOk()
+            ->assertDontSee('Shift Real (Produksi)')
+            ->assertSee('Belum Ada Shift Pelajaran');
+
+        // Tambah shift baru dalam Mode IT/Testing -> tersimpan sebagai data TESTING.
+        $this->actingAs($this->admin)
+            ->post(route('admin.shift-pelajaran.store'), [
+                'nama_shift' => 'Shift Sandbox',
+                'jam_mulai' => '07:00',
+                'jam_selesai' => '15:00',
+                'grade_levels' => ['X'],
+                'is_active' => 1,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('shift_pelajaran', [
+            'nama_shift' => 'Shift Sandbox',
+            'is_testing_data' => true,
+        ]);
+
+        // Shift baru kini MUNCUL di UI mode testing (tidak lagi mismatch baca-tulis).
+        $this->actingAs($this->admin)
+            ->get(route('admin.jam-pelajaran.index'))
+            ->assertOk()
+            ->assertSee('Shift Sandbox')
+            ->assertDontSee('Shift Real (Produksi)');
+    }
+
+    public function test_shift_store_in_production_context_stays_real_partition(): void
+    {
+        // TA real aktif (tidak ada TA testing) -> store shift masuk partisi real.
+        $this->actingAs($this->admin)
+            ->post(route('admin.shift-pelajaran.store'), [
+                'nama_shift' => 'Shift Produksi',
+                'jam_mulai' => '07:00',
+                'jam_selesai' => '15:00',
+                'grade_levels' => ['X'],
+                'is_active' => 1,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('shift_pelajaran', [
+            'nama_shift' => 'Shift Produksi',
+            'is_testing_data' => false,
+        ]);
+    }
+
+    public function test_shift_store_by_petugas_it_always_goes_to_testing_partition(): void
+    {
+        // TA real aktif (bukan testing), namun pelaku adalah Petugas IT/QA -> sandbox.
+        $it = User::create([
+            'nama' => 'Petugas IT',
+            'username' => 'it_shift_test',
+            'password' => bcrypt('password'),
+            'role' => User::ROLE_PETUGAS_IT,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($it)
+            ->post(route('admin.shift-pelajaran.store'), [
+                'nama_shift' => 'Shift Sandbox IT',
+                'jam_mulai' => '08:00',
+                'jam_selesai' => '16:00',
+                'grade_levels' => ['X'],
+                'is_active' => 1,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('shift_pelajaran', [
+            'nama_shift' => 'Shift Sandbox IT',
+            'is_testing_data' => true,
+        ]);
+    }
+
+    public function test_slot_jam_inherits_testing_context_when_testing_tahun_ajaran_is_active(): void
+    {
+        // TA testing aktif -> Slot Jam yang dibuat admin NON-IT ikut partisi testing.
+        TahunAjaran::create([
+            'tahun_ajaran' => '2026/2027',
+            'semester' => 'Ganjil',
+            'is_active' => true,
+            'is_testing_data' => true,
+            'mode_jadwal' => TahunAjaran::MODE_SHIFT,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.jam-pelajaran.store'), [
+                'kategori_hari' => 'Senin-Kamis',
+                'jam_mulai' => '07:00',
+                'jam_selesai' => '07:45',
+                'jenis' => 'kbm',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('jam_pelajaran', [
+            'kategori_hari' => 'Senin-Kamis',
+            'jam_mulai' => '07:00',
+            'jam_selesai' => '07:45',
+            'is_testing_data' => true,
+        ]);
+    }
+
+    // ─── 'Berlaku untuk Tingkatan Kelas' wajib diisi (minimal satu) ───
+
+    public function test_shift_store_requires_at_least_one_grade_level(): void
+    {
+        $this->actingAs($this->admin)
+            ->post(route('admin.shift-pelajaran.store'), [
+                'nama_shift' => 'Shift Tanpa Tingkatan',
+                'jam_mulai' => '07:00',
+                'is_active' => 1,
+            ])
+            ->assertSessionHasErrors('grade_levels');
+
+        $this->assertDatabaseMissing('shift_pelajaran', ['nama_shift' => 'Shift Tanpa Tingkatan']);
+    }
+
+    public function test_shift_store_rejects_empty_grade_levels_array(): void
+    {
+        $this->actingAs($this->admin)
+            ->post(route('admin.shift-pelajaran.store'), [
+                'nama_shift' => 'Shift Kosong',
+                'grade_levels' => [],
+                'is_active' => 1,
+            ])
+            ->assertSessionHasErrors('grade_levels');
+
+        $this->assertDatabaseMissing('shift_pelajaran', ['nama_shift' => 'Shift Kosong']);
+    }
+
+    public function test_shift_update_requires_at_least_one_grade_level(): void
+    {
+        $shift = $this->makeShift('Shift 1 (Pagi)', '07:00', '14:00', true);
+
+        $this->actingAs($this->admin)
+            ->put(route('admin.shift-pelajaran.update', $shift->id), [
+                'nama_shift' => 'Shift Tanpa Tingkatan (Edit)',
+                'is_active' => 1,
+            ])
+            ->assertSessionHasErrors('grade_levels');
+
+        // Nama shift tidak berubah (update ditolak validasi).
+        $this->assertDatabaseHas('shift_pelajaran', [
+            'id' => $shift->id,
+            'nama_shift' => 'Shift 1 (Pagi)',
+        ]);
+    }
+
+    public function test_shift_form_marks_grade_levels_required_and_prevents_overlap(): void
+    {
+        AppSetting::setScheduleMode(AppSetting::SCHEDULE_SHIFT);
+
+        // Shift aktif yang sudah mengalokasikan Kelas XII -> XII tidak boleh
+        // dipilih lagi untuk shift baru (indikator overlap + checkbox disabled).
+        $shiftSiang = $this->makeShift('Shift Siang', '12:00', '17:00', true);
+        $shiftSiang->update(['grade_levels' => ['XII']]);
+
+        $response = $this->actingAs($this->admin)
+            ->get(route('admin.jam-pelajaran.index', ['tab' => 'Senin-Kamis']))
+            ->assertOk();
+
+        // (1) Label kini bertanda wajib (*) & helper "(kosongkan...)" sudah dihapus.
+        $response->assertSee('Berlaku untuk Tingkatan Kelas <span class="text-danger">*</span>', false)
+            ->assertDontSee('kosongkan bila berlaku untuk semua tingkatan');
+
+        // (2) Validasi "minimal satu" dilakukan lewat JS (grade_levels.length > 0)
+        //     BUKAN atribut required per checkbox — satu shift boleh memakai 1
+        //     tingkatan saja. X/XI belum dipakai -> tetap bisa dipilih.
+        $response->assertSee('value="X" id="gradeLevel_X"', false)
+            ->assertSee('value="XI" id="gradeLevel_XI"', false)
+            ->assertDontSee('value="X" id="gradeLevel_X" disabled', false)
+            ->assertDontSee('value="XI" id="gradeLevel_XI" disabled', false)
+            // Tidak ada atribut required per-item pada group checkbox.
+            ->assertDontSee('value="X" id="gradeLevel_X" required', false)
+            ->assertDontSee('value="XI" id="gradeLevel_XI" required', false)
+            // Guard submit JS (pesan validasi "minimal satu") tersedia di form.
+            ->assertSee('id="gradeLevelErrorTambah"', false);
+
+        // (3) XII sudah terikat "Shift Siang" -> checkbox disabled + warning overlap.
+        $response->assertSee('value="XII" id="gradeLevel_XII" disabled', false)
+            ->assertSee('Sudah dipakai: Shift Siang')
+            // Form EDIT tidak meng-hardcode disabled di markup (penguncian dinamis
+            // per shift via JS) & menghapus atribut required per-item juga.
+            ->assertSee('value="XII" id="kelolaGradeLevel_XII"', false)
+            ->assertDontSee('value="XII" id="kelolaGradeLevel_XII" disabled', false)
+            ->assertDontSee('value="XII" id="kelolaGradeLevel_XII" required', false);
+    }
+
+    public function test_shift_store_accepts_single_grade_level_only(): void
+    {
+        // Satu Shift boleh berlaku untuk SATU tingkatan saja (mis. khusus Kelas 12)
+        // — validasi menggunakan minimal-1 elemen, bukan menuntut X+XI+XII.
+        $this->actingAs($this->admin)
+            ->post(route('admin.shift-pelajaran.store'), [
+                'nama_shift' => 'Shift Pagi Khusus XII',
+                'jam_mulai' => '07:00',
+                'jam_selesai' => '12:00',
+                'grade_levels' => ['XII'],
+                'is_active' => 1,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('shift_pelajaran', [
+            'nama_shift' => 'Shift Pagi Khusus XII',
+            'grade_levels' => '["XII"]',
+        ]);
     }
 }

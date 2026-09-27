@@ -20,14 +20,14 @@ class JadwalPiketController extends Controller
         $role = $user ? $user->role : null;
 
         $isAllowed = ($user && $user->isPetugasIt())
-            || in_array($role, ['admin', 'admin_kurikulum', 'waka_kurikulum', 'kurikulum', 'admin_tu']);
+            || in_array($role, ['admin', 'admin_kurikulum', 'waka_kurikulum', 'kurikulum', 'admin_tu', 'super_admin']);
         abort_unless($isAllowed, 403, 'Akses ditolak. Anda tidak memiliki izin untuk mengelola Jadwal Piket.');
     }
 
     protected function authorizeManage()
     {
         $user = auth()->user();
-        $manageRoles = ['admin', 'admin_kurikulum', 'waka_kurikulum', 'admin_tu'];
+        $manageRoles = ['admin', 'admin_kurikulum', 'waka_kurikulum', 'admin_tu', 'super_admin'];
 
         // Memakai effectiveRole agar Petugas IT yang impersonasi waka_kurikulum /
         // admin_tu diizinkan menulis (data masuk mode testing), sedangkan IT mode

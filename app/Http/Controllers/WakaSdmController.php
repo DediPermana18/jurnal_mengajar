@@ -19,7 +19,13 @@ use Illuminate\Support\Facades\Storage;
 class WakaSdmController extends Controller
 {
     /**
-     * Authorize access for Waka SDM, Super Admin, and Petugas IT in preview mode.
+     * Authorize access for Waka SDM / Kepegawaian, Super Admin, and Petugas IT
+     * in preview mode.
+     *
+     * Gate ini SELARAS dengan $isWakaSdmRole pada sidebar (layouts/app.blade.php):
+     * siapapun yang menu "Dashboard SDM / Portal Waka SDM" tampil untuknya pasti
+     * diizinkan di sini, dan sebaliknya (tidak ada menu tanpa akses, tidak ada
+     * akses tanpa menu). Petugas TU / user operasional lain tetap ditolak.
      */
     protected function authorizeWakaSdm(): void
     {
@@ -29,7 +35,7 @@ class WakaSdmController extends Controller
             abort(401, 'Silakan login terlebih dahulu.');
         }
 
-        // Preview role Petugas IT
+        // Preview role Petugas IT / QA (Switch View As)
         if ($user->hasPreviewRole() && $user->previewRole() === 'waka_sdm') {
             return;
         }
@@ -39,10 +45,17 @@ class WakaSdmController extends Controller
             return;
         }
 
-        // Admin, Waka SDM, or Super Admin
-        $allowed = ($user->role === 'admin' && ($user->sub_role === 'waka_sdm' || $user->sub_role === null))
-            || $user->role === 'waka_sdm'
-            || in_array($user->role, ['super_admin', 'epic_admin', 'absolute_admin'], true);
+        // Waka SDM / Kepegawaian (User::isWakaSdm — mencakup role literal
+        // 'waka_sdm'/'admin_sdm'/'sdm' dan sub_role 'waka_sdm'/'sdm'),
+        // Admin Utama legacy (role 'admin' + sub_role null), serta
+        // Super Admin — dikenali DARI KEDUA bentuk (role 'super_admin' ATAU
+        // sub_role 'super_admin') via User::isSuperAdmin(), selaras dengan
+        // Gate::before global di AppServiceProvider. Role super legacy
+        // 'epic_admin'/'absolute_admin' juga tetap diizinkan.
+        $allowed = $user->isWakaSdm()
+            || ($user->role === 'admin' && $user->sub_role === null)
+            || $user->isSuperAdmin()
+            || in_array($user->role, ['epic_admin', 'absolute_admin'], true);
 
         abort_unless($allowed, 403, 'Akses ditolak. Halaman ini khusus untuk Waka SDM / Kepegawaian.');
     }

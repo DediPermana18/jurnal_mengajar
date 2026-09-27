@@ -28,6 +28,13 @@ class RuanganController extends Controller
 
         $query = Ruangan::with(['pengurus', 'jadwalPelajaran.kelas']);
 
+        // Isolasi data testing: user operasional biasa hanya melihat data PRODUKSI
+        // (is_testing_data = 0) — ditambah global scope TestingDataScope sebagai
+        // lapisan kedua yang menjamin partisi sesuai peran.
+        if ($this->isRegularOperationalUser()) {
+            $query->where('is_testing_data', false);
+        }
+
         if ($request->filled('search')) {
             $search = trim($request->string('search'));
             $query->where(function ($ruanganQuery) use ($search) {

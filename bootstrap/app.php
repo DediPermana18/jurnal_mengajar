@@ -2,9 +2,11 @@
 
 use App\Http\Middleware\CheckMaintenanceMode;
 use App\Http\Middleware\CheckPetugasPiket;
+use App\Http\Middleware\ConfigureClientHints;
 use App\Http\Middleware\EnsureKoordinatorPiket;
 use App\Http\Middleware\EnsureWakaKesiswaan;
 use App\Http\Middleware\EnsureWakaPiket;
+use App\Http\Middleware\SingleDeviceSession;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -31,6 +33,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // Maintenance Mode: blokir semua web request bagi non-IT/QA saat aktif.
         $middleware->web(append: [
             CheckMaintenanceMode::class,
+            // Validasi sesi perangkat tunggal (menjalankan pengecekan "kicked"
+            // pada setiap request terautentikasi, kecuali endpoint heartbeat).
+            SingleDeviceSession::class,
+            // Undang Client Hints high-entropy (model perangkat) dari browser.
+            ConfigureClientHints::class,
         ]);
 
         // Pastikan pengecekan Maintenance Mode jalan SEBELUM middleware 'auth'

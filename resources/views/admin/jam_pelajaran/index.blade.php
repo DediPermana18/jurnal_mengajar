@@ -1265,6 +1265,18 @@
 </div>
 {{-- ===================== MODAL TAMBAH SHIFT BARU (form saja, tanpa daftar) ===================== --}}
 @if($systemMode === 'shift')
+@php
+    // Peta jatah tingkatan kelas -> shift AKTIF yang sudah memakainya, untuk
+    // mencegah overlapping shift: tingkat yang sudah terikat shift aktif lain
+    // dinonaktifkan (add form) / diberi peringatan (edit form).
+    $activeGradeAllocation = [];
+    foreach ($shifts as $sd) {
+        if (! $sd->is_active) continue;
+        foreach ((array) ($sd->grade_levels ?? []) as $gd) {
+            $activeGradeAllocation[$gd][] = ['id' => $sd->id, 'nama' => $sd->nama_shift];
+        }
+    }
+@endphp
 <div class="modal fade" id="modalShiftTambah" tabindex="-1" aria-labelledby="modalShiftTambahTitle" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow rounded-4" style="max-height: 85vh; overflow: hidden;">
@@ -1303,19 +1315,26 @@
                             </div>
                             <div class="mt-3">
                                 <label class="form-label fw-semibold text-dark mb-1 d-flex align-items-center gap-2" style="font-size: 0.85rem;">
-                                    <i class="bi bi-mortarboard text-primary"></i> Berlaku untuk Tingkatan Kelas
-                                    <span class="text-muted fw-normal" style="font-size: 0.72rem;">(opsional — kosongkan bila berlaku untuk semua tingkatan)</span>
+                                    <i class="bi bi-mortarboard text-primary"></i> Berlaku untuk Tingkatan Kelas <span class="text-danger">*</span>
                                 </label>
                                 <div class="d-flex flex-wrap gap-2">
                                     @foreach(\App\Models\ShiftPelajaran::GRADE_LEVELS as $grade)
+                                        @php $gradeHolders = $activeGradeAllocation[$grade] ?? []; @endphp
                                         <div class="form-check form-check-inline mb-0">
-                                            <input class="form-check-input grade-level-check" type="checkbox"
-                                                   name="grade_levels[]" value="{{ $grade }}" id="gradeLevel_{{ $grade }}">
+                                            <input class="form-check-input grade-level-check" type="checkbox" name="grade_levels[]" value="{{ $grade }}" id="gradeLevel_{{ $grade }}"{{ ! empty($gradeHolders) ? ' disabled' : '' }}>
                                             <label class="form-check-label text-dark" for="gradeLevel_{{ $grade }}" style="font-size: 0.82rem;">
                                                 {{ \App\Models\ShiftPelajaran::GRADE_LEVEL_FULL_LABELS[$grade] }}
                                             </label>
+                                            @if(!empty($gradeHolders))
+                                                <span class="d-block text-warning fw-semibold grade-conflict-tag" style="font-size: 0.66rem; line-height: 1.25;">
+                                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>Sudah dipakai: {{ collect($gradeHolders)->pluck('nama')->join(', ') }}
+                                                </span>
+                                            @endif
                                         </div>
                                     @endforeach
+                                </div>
+                                <div id="gradeLevelErrorTambah" class="text-danger fw-semibold d-none mt-1" style="font-size: 0.78rem;">
+                                    <i class="bi bi-exclamation-circle-fill me-1"></i>Pilih minimal satu tingkatan kelas untuk shift ini.
                                 </div>
                                 <div class="form-text text-muted" style="font-size: 0.72rem;">
                                     Contoh: Shift 1 khusus <strong>Kelas 12</strong>; Shift 2 untuk <strong>Kelas 10 &amp; 11</strong>.
@@ -1382,19 +1401,23 @@
                                 </div>
                                 <div class="mt-3">
                                     <label class="form-label fw-semibold text-dark mb-1 d-flex align-items-center gap-2" style="font-size: 0.85rem;">
-                                        <i class="bi bi-mortarboard text-primary"></i> Berlaku untuk Tingkatan Kelas
-                                        <span class="text-muted fw-normal" style="font-size: 0.72rem;">(kosongkan bila berlaku untuk semua tingkatan)</span>
+                                        <i class="bi bi-mortarboard text-primary"></i> Berlaku untuk Tingkatan Kelas <span class="text-danger">*</span>
                                     </label>
                                     <div class="d-flex flex-wrap gap-2">
                                         @foreach(\App\Models\ShiftPelajaran::GRADE_LEVELS as $grade)
                                             <div class="form-check form-check-inline mb-0">
-                                                <input class="form-check-input kelola-grade-level-check" type="checkbox"
-                                                       name="grade_levels[]" value="{{ $grade }}" id="kelolaGradeLevel_{{ $grade }}">
+                                                <input class="form-check-input kelola-grade-level-check" type="checkbox" name="grade_levels[]" value="{{ $grade }}" id="kelolaGradeLevel_{{ $grade }}">
                                                 <label class="form-check-label text-dark" for="kelolaGradeLevel_{{ $grade }}" style="font-size: 0.82rem;">
                                                     {{ \App\Models\ShiftPelajaran::GRADE_LEVEL_FULL_LABELS[$grade] }}
                                                 </label>
+                                                <span class="d-block text-warning fw-semibold grade-conflict-warn" style="font-size: 0.66rem; line-height: 1.25; display: none;">
+                                                    <i class="bi bi-exclamation-triangle-fill me-1"></i><span class="grade-conflict-text"></span>
+                                                </span>
                                             </div>
                                         @endforeach
+                                    </div>
+                                    <div id="gradeLevelErrorKelola" class="text-danger fw-semibold d-none mt-1" style="font-size: 0.78rem;">
+                                        <i class="bi bi-exclamation-circle-fill me-1"></i>Pilih minimal satu tingkatan kelas untuk shift ini.
                                     </div>
                                 </div>
                                 <div class="d-flex gap-2 mt-3">
@@ -1567,6 +1590,11 @@
 </style>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+
+        // Peta jatah tingkatan kelas -> shift aktif (dari server), dipakai untuk
+        // memberi peringatan/disabled agar tidak ada dua shift aktif memakai
+        // tingkatan kelas yang sama (mencegah overlapping).
+        const activeGradeAllocation = @json($activeGradeAllocation ?? []);
 
         const forms = [
             document.getElementById('formTambahJam'),
@@ -2047,6 +2075,8 @@
             document.querySelectorAll('#modalShiftTambah .grade-level-check').forEach(function (cb) {
                 cb.checked = false;
             });
+            const errTambah = document.getElementById('gradeLevelErrorTambah');
+            if (errTambah) errTambah.classList.add('d-none');
         }
 
         if (modalShiftTambah) {
@@ -2068,6 +2098,63 @@
             if (kelolaDaftarWrap) kelolaDaftarWrap.classList.toggle('d-none', showEdit);
         }
 
+        // Peringatan overlap pada form EDIT: tingkatan yang sudah dipakai shift AKTIF
+        // lain (selain shift yang sedang diedit) TIDAK boleh ditambahkan lagi ->
+        // checkbox dikunci (disabled) + warning kuning. Tingkatan milik shift itu
+        // sendiri tetap bebas dicentang/dihapus (tanpa kunci) agar nilai yang
+        // sudah melekat tidak hilang diam-diam saat update.
+        function applyGradeConflictState(editingShiftId, ownedGrades) {
+            document.querySelectorAll('#modalShiftKelola .kelola-grade-level-check').forEach(function (cb) {
+                const holders = (activeGradeAllocation[cb.value] || []).filter(function (h) {
+                    return String(h.id) !== String(editingShiftId);
+                });
+                const owned      = ownedGrades.indexOf(cb.value) !== -1;
+                const conflicted = ! owned && holders.length > 0;
+
+                cb.disabled = conflicted;
+                const wrap  = cb.closest('.form-check');
+                const warn  = wrap ? wrap.querySelector('.grade-conflict-warn') : null;
+                const text  = warn ? wrap.querySelector('.grade-conflict-text') : null;
+                if (conflicted) {
+                    if (warn) warn.style.display = 'block';
+                    if (text) text.textContent = ' Sudah dipakai: ' + holders.map(function (h) { return h.nama; }).join(', ');
+                    cb.classList.add('grade-has-conflict');
+                } else {
+                    if (warn) warn.style.display = 'none';
+                    if (text) text.textContent = '';
+                    cb.classList.remove('grade-has-conflict');
+                }
+            });
+        }
+
+        // Validasi minimal SATU tingkatan kelas dipilih (array grade_levels
+        // berisi minimal 1 elemen) — memakai JS, bukan atribut required per
+        // checkbox, agar shift satu-tingkatan (mis. hanya Kelas 12) tetap valid.
+        function watchGradeLevelsForm(formId, checkboxSelector, errorId) {
+            const form = document.getElementById(formId);
+            const err  = document.getElementById(errorId);
+            if (!form || !err) return;
+            function gradeCount() {
+                return form.querySelectorAll(checkboxSelector + ':checked').length;
+            }
+            function show(show) {
+                err.classList.toggle('d-none', !show);
+                if (show) err.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+            form.addEventListener('submit', function (e) {
+                if (gradeCount() < 1) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    show(true);
+                }
+            });
+            form.querySelectorAll(checkboxSelector).forEach(function (cb) {
+                cb.addEventListener('change', function () { show(false); });
+            });
+        }
+        watchGradeLevelsForm('formShiftTambah', '.grade-level-check', 'gradeLevelErrorTambah');
+        watchGradeLevelsForm('formShiftKelola', '.kelola-grade-level-check', 'gradeLevelErrorKelola');
+
         document.querySelectorAll('.btn-edit-shift').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 const id    = btn.dataset.shiftId;
@@ -2086,6 +2173,13 @@
                 document.querySelectorAll('#modalShiftKelola .kelola-grade-level-check').forEach(function (cb) {
                     cb.checked = selectedGrades.includes(cb.value);
                 });
+
+                // Penguncian overlap relatif terhadap shift yang sedang diedit:
+                // dirinya sendiri dikeluarkan dari daftar pemegang tingkatan dan
+                // miliknya sendiri tetap bebas diubah (bukan "centang semua").
+                applyGradeConflictState(id, selectedGrades);
+                const errKelola = document.getElementById('gradeLevelErrorKelola');
+                if (errKelola) errKelola.classList.add('d-none');
 
                 showKelolaMode(true);
             });

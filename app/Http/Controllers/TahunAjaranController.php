@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AppSetting;
 use App\Models\JadwalPelajaran;
+use App\Models\Scopes\TestingDataScope;
 use App\Models\TahunAjaran;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -24,6 +25,13 @@ class TahunAjaranController extends Controller
         $this->authorizePetugasTU();
 
         $query = TahunAjaran::withCount('jadwalPelajaran');
+
+        // Isolasi data testing: user operasional biasa hanya melihat data PRODUKSI
+        // (is_testing_data = 0) — ditambah global scope TestingDataScope sebagai
+        // lapisan kedua yang menjamin partisi sesuai peran.
+        if ($this->isRegularOperationalUser()) {
+            $query->where('is_testing_data', false);
+        }
 
         if ($request->filled('search')) {
             $search = trim($request->string('search'));
@@ -149,7 +157,13 @@ class TahunAjaranController extends Controller
     {
         $this->authorizePetugasTU();
 
-        TahunAjaran::where('id', '!=', $tahunAjaran->id)->update(['is_active' => false]);
+        // Nonaktifkan T.A aktif lain di SEMUA partisi (real + testing), agar
+        // hanya ada satu Tahun Ajaran aktif di sistem. Tanpa ini, user
+        // operasional bisa mengaktifkan T.A real sementara T.A testing milik IT
+        // masih aktif — mengakibatkan dua T.A aktif & ambiguitas konteks.
+        TahunAjaran::withoutGlobalScope(TestingDataScope::class)
+            ->where('id', '!=', $tahunAjaran->id)
+            ->update(['is_active' => false]);
         $tahunAjaran->update(['is_active' => true]);
 
         // Reset konteks pilihan semester pada Plotting Jadwal agar seluruh sistem

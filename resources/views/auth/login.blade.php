@@ -133,7 +133,7 @@
                             <i class="bi bi-tools"></i>
                             <span>Mode Maintenance Aktif</span>
                         </div>
-                        <p class="mb-0">Sistem sedang dalam pemeliharaan. Hanya Petugas IT yang dapat mengakses sistem saat ini.</p>
+                        <p class="mb-0">Sistem sedang dalam pemeliharaan. Hanya Petugas IT, Super Admin, dan Admin yang dapat mengakses sistem saat ini.</p>
                     </div>
                 @endif
 
@@ -179,11 +179,27 @@
                     </div>
                 @endif
 
+                @if (session('login_approval'))
+                    @php $pendingApproval = session('login_approval'); @endphp
+                    <!-- PANEL MENUNGGU KONFIRMASI (Interactive Login Approval — Device B) -->
+                    <div id="approval-pending-panel"
+                         class="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-800 text-xs font-semibold shadow-sm">
+                        <div class="flex items-center gap-2 mb-1 text-amber-900 font-bold">
+                            <span class="inline-block w-3 h-3 rounded-full border-2 border-amber-500 border-t-transparent animate-spin"></span>
+                            <span>Menunggu Konfirmasi Perangkat Aktif</span>
+                        </div>
+                        <p class="mb-0">Akun Anda sedang aktif digunakan di perangkat lain. Perangkat aktif akan menerima permintaan izin — pilih <b>Izinkan Login</b> untuk masuk dari perangkat ini, atau permintaan kedaluwarsa otomatis dalam 60 detik.</p>
+                    </div>
+                @endif
+
                 <!-- LOGIN FORM -->
-                <form action="{{ route('login.post') }}" method="POST" class="space-y-5">
+                <form action="{{ route('login.post') }}" method="POST" class="space-y-5" id="login-form">
                     @csrf
                     <!-- Hidden input role mode -->
                     <input type="hidden" name="mode" :value="mode">
+
+                    <!-- Sidik jari perangkat (screen, timezone, dll) — diisi skrip di bawah -->
+                    <input type="hidden" name="device_meta" id="login-device-meta" value="">
 
                     <!-- USERNAME / NIP -->
                     <div>
@@ -243,6 +259,162 @@
         </div>
 
     </main>
+
+    {{-- Kumpulkan sidik jari perangkat (screen, timezone, dsb.) untuk jejak keamanan. --}}
+    <script>
+        (function () {
+            function collectDeviceMeta() {
+                try {
+                    const nav = navigator;
+                    const screen = window.screen;
+                    const timezone = (function () {
+                        try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; }
+                        catch (e) { return null; }
+                    })();
+                    const platform = (nav.userAgentData && nav.userAgentData.platform) || nav.platform || null;
+                    return {
+                        screen: (screen && screen.width && screen.height)
+                            ? [screen.width, screen.height, screen.colorDepth || 0]
+                            : null,
+                        timezone: timezone,
+                        language: nav.language || null,
+                        platform: platform,
+                        cores: nav.hardwareConcurrency || null,
+                        touch: nav.maxTouchPoints || 0,
+                    };
+                } catch (e) {
+                    return null;
+                }
+            }
+            window.__deviceMeta = collectDeviceMeta();
+            if (window.__deviceMeta) {
+                const input = document.getElementById('login-device-meta');
+                if (input) input.value = JSON.stringify(window.__deviceMeta);
+            }
+        })();
+    </script>
+
+    @if (session('login_approval'))
+        @php $pendingApproval = session('login_approval'); @endphp
+        {{-- Sidik jari perangkat Device B (dikirim ulang saat menuntaskan login) --}}
+        <script>
+            (function () {
+                const meta = window.__deviceMeta || null;
+                if (meta) {
+                    document.getElementById('login-device-meta') &&
+                        (document.getElementById('login-device-meta').value = JSON.stringify(meta));
+                }
+            })();
+        </script>
+        {{-- Polling interaktif Device B: tunggu keputusan Device A sampai timeout 60 detik. --}}
+        <script>
+            (function () {
+                const requestId = {{ Js::from($pendingApproval['request_id']) }};
+                const statusUrl = {{ Js::from(route('login-approval.status', ['requestId' => '__REQ__'])) }}.replace('__REQ__', requestId);
+                const completeUrl = {{ Js::from(route('login-approval.complete')) }};
+                const csrfToken = {{ Js::from(csrf_token()) }};
+                const maxWaitMs = {{ \App\Services\LoginApprovalService::TTL_SECONDS }} * 1000;
+                const startedAt = Date.now();
+                let stopped = false;
+
+                function panel() { return document.getElementById('approval-pending-panel'); }
+                function submitButton() { return document.querySelector('#login-form button[type="submit"]'); }
+
+                function showFinal(isError, title, text) {
+                    const p = panel();
+                    if (!p) return;
+                    p.className = 'mb-6 p-4 rounded-2xl text-xs font-semibold shadow-sm ' + (isError
+                        ? 'bg-rose-50 border border-rose-200 text-rose-700'
+                        : 'bg-emerald-50 border border-emerald-200 text-emerald-700');
+                    p.innerHTML =
+                        '<div class="flex items-center gap-2 mb-1 font-bold">' +
+                        '<i class="bi ' + (isError ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill') + '"></i>' +
+                        '<span>' + title + '</span></div><p class="mb-0">' + escapeHtml(text) + '</p>';
+                }
+
+                function escapeHtml(value) {
+                    return String(value)
+                        .replaceAll('&', '&amp;')
+                        .replaceAll('<', '&lt;')
+                        .replaceAll('>', '&gt;')
+                        .replaceAll('"', '&quot;')
+                        .replaceAll("'", '&#039;');
+                }
+
+                function setFormDisabled(disabled) {
+                    const btn = submitButton();
+                    if (btn) btn.disabled = disabled;
+                }
+
+                function scheduleNext() {
+                    if (stopped) return;
+                    if (Date.now() - startedAt >= maxWaitMs) {
+                        stopped = true;
+                        showFinal(true, 'Waktu Tunggu Habis', 'Permintaan konfirmasi kedaluwarsa. Silakan coba login kembali.');
+                        setFormDisabled(false);
+                        return;
+                    }
+                    window.setTimeout(poll, 2500);
+                }
+
+                async function poll() {
+                    if (stopped) return;
+
+                    let data;
+                    try {
+                        const res = await fetch(statusUrl, { headers: { Accept: 'application/json' } });
+                        data = await res.json();
+                    } catch (err) {
+                        scheduleNext(); // transient error — lanjut polling
+                        return;
+                    }
+
+                    if (data.status === 'approved') {
+                        stopped = true;
+                        // Login dituntaskan memakai one-time login_token dari Device A.
+                        try {
+                            const done = await fetch(completeUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
+                                    'X-CSRF-TOKEN': csrfToken,
+                                },
+                                body: JSON.stringify({
+                                    request_id: requestId,
+                                    login_token: data.login_token,
+                                    device_meta: window.__deviceMeta || null,
+                                }),
+                            });
+                            const result = await done.json();
+                            if (done.ok && result && result.success && result.redirect_url) {
+                                window.location.href = result.redirect_url;
+                                return;
+                            }
+                            throw new Error('complete failed');
+                        } catch (err) {
+                            showFinal(true, 'Login Ditolak', 'Permintaan login ditolak oleh perangkat aktif.');
+                            setFormDisabled(false);
+                        }
+                        return;
+                    }
+
+                    if (data.status === 'rejected' || data.status === 'expired') {
+                        stopped = true;
+                        showFinal(true, 'Login Ditolak', data.reject_message || 'Permintaan login ditolak oleh perangkat aktif.');
+                        setFormDisabled(false);
+                        return;
+                    }
+
+                    // Masih 'pending' → tetap tunggu keputusan Device A.
+                    scheduleNext();
+                }
+
+                setFormDisabled(true);
+                scheduleNext();
+            })();
+        </script>
+    @endif
 
 </body>
 </html>

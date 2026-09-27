@@ -70,6 +70,7 @@ class PetugasItController extends Controller
         }
 
         $redirect = match ($role) {
+            'super_admin' => route('home'), // Dashboard Admin (sidebar Super Admin penuh).
             'guru_mapel' => route('guru.dashboard'),
             'guru_piket' => route('piket.dashboard'),
             'wali_kelas' => route('walikelas.dashboard'),
@@ -230,6 +231,41 @@ class PetugasItController extends Controller
             $active
                 ? 'Mode Maintenance DIAKTIFKAN. Pengguna selain IT/QA akan melihat halaman pemeliharaan.'
                 : 'Mode Maintenance dimatikan. Sistem kembali normal.'
+        );
+    }
+
+    /**
+     * Nyalakan / matikan Mode Darurat (Emergency Mode) yang membuka gembok
+     * tombol Suspend akun Utama 'admin' di Kelola User.
+     *
+     * Khusus Petugas IT / QA Tester (account-level, bukan preview). Statusnya
+     * per-sesi browser aktor: halaman Kelola User yang dibuka sesi yang sama
+     * menampilkan tombol "Suspend Darurat" aktif untuk akun utama.
+     *
+     * Pertahanan berlapis tetap ada di controller UserController: session
+     * 'emergency_mode' hanya memberi efek bagi privilege manager / Petugas IT
+     * (isEmergencyPrimaryAdminOverride) — pengguna biasa yang session-nya
+     * dipalsukan tetap ditolak 403.
+     */
+    public function toggleEmergencyMode(Request $request)
+    {
+        $user = $request->user();
+
+        abort_unless(
+            $user instanceof User && $user->isPetugasIt(),
+            403,
+            'Akses ditolak. Hanya Petugas IT / QA Tester yang dapat mengatur Mode Darurat.'
+        );
+
+        $active = $request->boolean('emergency_mode');
+
+        session(['emergency_mode' => $active]);
+
+        return back()->with(
+            'success',
+            $active
+                ? 'MODE DARURAT AKTIF: tombol Suspend akun Utama (Admin) dibuka di Kelola User. Seluruh sesinya akan dikeluarkan saat di-suspend.'
+                : 'Mode Darurat dimatikan. Akun Utama (Admin) kembali dilindungi dari suspend.'
         );
     }
 

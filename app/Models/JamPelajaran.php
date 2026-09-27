@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasTestingData;
+use App\Models\Concerns\TestingDataContextAware;
 use App\Models\Scopes\ActiveTahunAjaranScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class JamPelajaran extends Model
+class JamPelajaran extends Model implements TestingDataContextAware
 {
     use HasFactory, HasTestingData;
 

@@ -9,6 +9,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * Master Data Kelas — memakai isolasi data testing BERBASIS PERAN (bukan
+ * mengikuti konteks lingkungan aktif), persis seperti master data lain
+ * (Guru, Siswa, Jurusan, Mata Pelajaran, Ruangan):
+ *
+ *  - User operasional biasa (bukan Petugas IT / QA / akun sandbox) hanya
+ *    MELIHAT & MENULIS data PRODUKSI (is_testing_data = false) — meskipun
+ *    Tahun Ajaran aktif sedang di-flag testing, data kelas produksi tidak
+ *    pernah disembunyikan/ditumpangi.
+ *  - Petugas IT / QA Tester / sandbox hanya melihat & menulis partisi testing.
+ *
+ * Global scope TestingDataScope (via HasTestingData) menegakkan filter baca;
+ * model event 'creating' menegakkan flag tulis agar konsisten.
+ */
 class Kelas extends Model
 {
     use HasFactory, HasTestingData, SoftDeletes;

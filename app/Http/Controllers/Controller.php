@@ -28,12 +28,44 @@ abstract class Controller
             return false;
         }
 
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
         if ($user->isPetugasIt()) {
             return true;
         }
 
         return in_array($user->effectiveRole(), ['admin'], true)
             || in_array($user->role, ['admin', 'admin_tu', 'super_admin'], true);
+    }
+
+    /**
+     * Apakah user yang login adalah user operasional biasa (bukan penguji)?
+     *
+     * Sesuai kebijakan isolasi data testing pada area Data Master: user
+     * operasional biasa HANYA boleh melihat data PRODUKSI (is_testing_data = 0),
+     * apa pun konteks lingkungan aktif (mis. Tahun Ajaran testing yang sedang
+     * diaktifkan oleh IT). Predikat ini bermakna BUKAN Petugas IT / QA Tester /
+     * akun sandbox (isTestingUser) DAN BUKAN Super Admin — pola yang sama dengan
+     * contoh kebijakan `!is_tester && !is_super_admin`.
+     *
+     * Penguji & Super Admin tidak dilewati filter ini; jangkauan partisinya
+     * tetap diatur sepenuhnya oleh global scope TestingDataScope.
+     */
+    protected function isRegularOperationalUser(): bool
+    {
+        $user = Auth::user();
+
+        if (! $user instanceof User) {
+            return false;
+        }
+
+        if ($user->isTestingUser()) {
+            return false;
+        }
+
+        return ! $user->isSuperAdmin();
     }
 
     /**

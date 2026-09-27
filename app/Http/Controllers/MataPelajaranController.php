@@ -26,8 +26,11 @@ class MataPelajaranController extends Controller
         $isKurikulum = ($user && $user->role === 'admin' && $user->sub_role === 'waka_kurikulum')
             || ($user && in_array($user->role, ['admin_kurikulum', 'waka_kurikulum', 'kurikulum'], true));
 
+        // Super Admin (role/sub_role 'super_admin'): akses penuh tanpa 403.
+        $isSuperAdmin = $user && $user->isSuperAdmin();
+
         // Petugas IT / QA Tester: peninjau semua role (impersonasi admin_tu / waka_kurikulum)
-        $isAllowed = ($user && $user->isPetugasIt()) || $isPetugasTu || $isKurikulum;
+        $isAllowed = ($user && $user->isPetugasIt()) || $isSuperAdmin || $isPetugasTu || $isKurikulum;
 
         if (! $isAllowed) {
             abort(403, 'Akses ditolak.');
@@ -40,6 +43,13 @@ class MataPelajaranController extends Controller
     public function index(Request $request)
     {
         $query = MataPelajaran::with('jurusan');
+
+        // Isolasi data testing: user operasional biasa hanya melihat data PRODUKSI
+        // (is_testing_data = 0) — ditambah global scope TestingDataScope sebagai
+        // lapisan kedua yang menjamin partisi sesuai peran.
+        if ($this->isRegularOperationalUser()) {
+            $query->where('is_testing_data', false);
+        }
 
         // Search Filter (Cari Nama Mapel / Kode Mapel)
         if ($search = $request->get('search')) {

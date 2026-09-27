@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasTestingData;
+use App\Models\Concerns\TestingDataContextAware;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class JadwalPelajaran extends Model
+class JadwalPelajaran extends Model implements TestingDataContextAware
 {
     use HasFactory, HasTestingData, SoftDeletes;
 

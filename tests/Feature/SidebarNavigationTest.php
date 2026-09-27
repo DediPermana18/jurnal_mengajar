@@ -125,6 +125,61 @@ class SidebarNavigationTest extends TestCase
             ->assertSee('Portal Waka SDM');
     }
 
+    public function test_sidebar_super_admin_role_literal_mendapat_semua_grup_menu(): void
+    {
+        // role literal 'super_admin' (skema baru) => seluruh grup menu
+        // Admin/TU tampil lengkap (KELOLA AKUN, DATA MASTER, JADWAL & PIKET,
+        // KURIKULUM & LAPORAN), setara dengan legacy super admin (admin+null).
+        $user = $this->makeUser('super_admin', null);
+
+        $html = $this->actingAs($user)
+            ->get(route('home'))
+            ->assertOk()
+            ->getContent();
+
+        // Section header SUPER ADMIN
+        $this->assertStringContainsString('ADMINISTRATOR', $html);
+        // KELOLA AKUN
+        $this->assertStringContainsString('KELOLA AKUN', $html);
+        $this->assertStringContainsString('<span>Akun Admin</span>', $html);
+        $this->assertStringContainsString('<span>Pengajuan Reset Password</span>', $html);
+        // DATA MASTER (AKADEMIK) + khusus Super Admin
+        $this->assertStringContainsString('DATA MASTER (AKADEMIK)', $html);
+        $this->assertStringContainsString('<span>Data Guru</span>', $html);
+        $this->assertStringContainsString('<span>Data Mata Pelajaran</span>', $html);
+        // JADWAL & PIKET
+        $this->assertStringContainsString('JADWAL & PIKET', $html);
+        $this->assertStringContainsString('<span>Jadwal Pelajaran</span>', $html);
+        $this->assertStringContainsString('<span>Jadwal Piket Guru</span>', $html);
+        // KURIKULUM & LAPORAN
+        $this->assertStringContainsString('KURIKULUM & LAPORAN', $html);
+        $this->assertStringContainsString('<span>Laporan KBM</span>', $html);
+        $this->assertStringContainsString('<span>Portal Waka SDM</span>', $html);
+        // Footer SISTEM
+        $this->assertStringContainsString('SISTEM', $html);
+    }
+
+    public function test_sidebar_super_admin_via_sub_role_mendapat_semua_grup_menu(): void
+    {
+        // role=admin + sub_role='super_admin' => perlakuan sama dengan super admin.
+        $user = $this->makeUser('admin', 'super_admin');
+
+        $html = $this->actingAs($user)
+            ->get(route('home'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('KELOLA AKUN', $html);
+        $this->assertStringContainsString('<span>Akun Admin</span>', $html);
+        $this->assertStringContainsString('<span>Data Mata Pelajaran</span>', $html);
+        $this->assertStringContainsString('JADWAL & PIKET', $html);
+        $this->assertStringContainsString('<span>Jadwal Pelajaran</span>', $html);
+        $this->assertStringContainsString('<span>Jadwal Piket Guru</span>', $html);
+        $this->assertStringContainsString('KURIKULUM & LAPORAN', $html);
+        $this->assertStringContainsString('<span>Laporan KBM</span>', $html);
+        $this->assertStringContainsString('<span>Portal Waka SDM</span>', $html);
+    }
+
     public function test_sidebar_accordion_memakai_state_open_menu_bersama(): void
     {
         $user = $this->makeUser('admin', 'petugas_tu');

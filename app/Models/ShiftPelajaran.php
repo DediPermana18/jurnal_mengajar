@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasTestingData;
+use App\Models\Concerns\TestingDataContextAware;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -15,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Slot/jam pelajaran dengan shift_id NULL adalah "Global" (legacy) dan
  * tetap berlaku untuk semua kelas.
  */
-class ShiftPelajaran extends Model
+class ShiftPelajaran extends Model implements TestingDataContextAware
 {
     use HasFactory, HasTestingData;
 

@@ -51,7 +51,7 @@ class JadwalPelajaranController extends Controller
 
         // 1b. Konteks Tahun Ajaran & Semester (dari URL/query, session, atau default aktif).
         //     Dipakai untuk mem-filter plotting jadwal yang ditampilkan & yang akan di-plot/di-record.
-        $tahunAjaranList = TahunAjaran::orderByDesc('id')->get();
+        $tahunAjaranList = TahunAjaran::forCurrentContext()->orderByDesc('id')->get();
         $semesterList = ['Ganjil', 'Genap'];
         $tahunOptions = $tahunAjaranList
             ->pluck('tahun_ajaran')
@@ -1063,8 +1063,10 @@ class JadwalPelajaranController extends Controller
         $sessionKey = 'jadwal_selected_tahun_ajaran_id';
 
         // 1. tahun_ajaran_id dari request (langsung ter-resolve)
+        //    Konteks dropdown mengikuti LINGKUNGAN AKTIF (testing/produksi),
+        //    bukan partisi peran — konsisten dengan sub-sistem penjadwalan.
         if ($request->filled('tahun_ajaran_id')) {
-            $tahun = TahunAjaran::find($request->input('tahun_ajaran_id'));
+            $tahun = TahunAjaran::forCurrentContext()->find($request->input('tahun_ajaran_id'));
             if ($tahun) {
                 session([$sessionKey => $tahun->id]);
 
@@ -1074,7 +1076,8 @@ class JadwalPelajaranController extends Controller
 
         // 2. Kombinasi tahun_ajaran + semester dari request
         if ($request->filled('tahun_ajaran') && $request->filled('semester')) {
-            $tahun = TahunAjaran::where('tahun_ajaran', $request->input('tahun_ajaran'))
+            $tahun = TahunAjaran::forCurrentContext()
+                ->where('tahun_ajaran', $request->input('tahun_ajaran'))
                 ->where('semester', $request->input('semester'))
                 ->first();
             if ($tahun) {
@@ -1086,14 +1089,15 @@ class JadwalPelajaranController extends Controller
 
         // 3. Konteks dari session
         if ($sessionId = session($sessionKey)) {
-            $tahun = TahunAjaran::find($sessionId);
+            $tahun = TahunAjaran::forCurrentContext()->find($sessionId);
             if ($tahun) {
                 return $tahun;
             }
         }
 
         // 4. Default: tahun aktif / baris pertama
-        return TahunAjaran::where('is_active', true)->first() ?? TahunAjaran::first();
+        return TahunAjaran::forCurrentContext()->where('is_active', true)->first()
+            ?? TahunAjaran::forCurrentContext()->first();
     }
 
     /**
