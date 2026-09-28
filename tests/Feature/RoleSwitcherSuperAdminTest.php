@@ -85,7 +85,10 @@ class RoleSwitcherSuperAdminTest extends TestCase
         $this->actingAs($this->petugasIt())
             ->get(route('home'))
             ->assertOk()
-            ->assertSee('Switch View As')
+            // Widget impersonasi/testing terkonsolidasi dalam banner 'Mode Dev & Testing'
+            // dengan dropdown 'Switch Role' (status view ditampilkan di bahasa banner).
+            ->assertSee('Mode Dev &amp; Testing', false)
+            ->assertSee('Switch Role')
             ->assertSee('Super Admin')
             // Tanpa preview, IT tidak melihat menu Super Admin (sidebar IT).
             ->assertDontSee('Portal Waka SDM');

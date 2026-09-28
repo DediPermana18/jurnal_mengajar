@@ -6,50 +6,54 @@
 <div class="container-fluid px-0">
 
     {{-- Page Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
-            <h2 class="fw-black text-dark mb-1" style="font-weight: 900; font-size: 1.75rem; letter-spacing: -0.02em;">
+            <h2 class="text-2xl font-bold text-slate-800 mb-1 tracking-tight">
                 Laporan KBM
             </h2>
-            <p class="text-muted mb-0" style="font-size: 0.9rem;">
+            <p class="text-sm text-slate-500 mb-0">
                 Rekapitulasi keterlaksanaan Kegiatan Belajar Mengajar per tanggal, kelas, guru, dan mata pelajaran.
             </p>
         </div>
-        <div class="d-flex align-items-center gap-2">
-            <a href="{{ route('kurikulum.laporan.print', request()->query()) }}" class="btn btn-outline-danger rounded-3 px-3 py-2 fw-semibold m-0">
-                <i class="bi bi-file-earmark-pdf me-1"></i> Download PDF
+        <div class="flex items-center gap-2">
+            <a href="{{ route('kurikulum.laporan.print', request()->query()) }}"
+               class="h-9 px-3.5 text-sm flex items-center gap-2 font-medium rounded-lg border border-red-200 text-red-600 bg-red-50/60 hover:bg-red-100/80 transition-colors shadow-sm text-decoration-none">
+                <i class="bi bi-file-earmark-pdf"></i> Download PDF
             </a>
-            <a href="{{ route('kurikulum.laporan.excel', request()->query()) }}" class="btn btn-outline-success rounded-3 px-3 py-2 fw-semibold m-0">
-                <i class="bi bi-file-earmark-excel me-1"></i> Export Excel
+            <a href="{{ route('kurikulum.laporan.excel', request()->query()) }}"
+               class="h-9 px-3.5 text-sm flex items-center gap-2 font-medium rounded-lg border border-emerald-200 text-emerald-700 bg-emerald-50/60 hover:bg-emerald-100/80 transition-colors shadow-sm text-decoration-none">
+                <i class="bi bi-file-earmark-excel"></i> Export Excel
             </a>
         </div>
     </div>
 
     {{-- Filter Card --}}
-    <div class="table-card-custom mb-4">
-        <form method="GET" action="{{ route('kurikulum.laporan.index') }}" class="row g-3 align-items-end" id="formLaporanFilter">
-            <div class="col-12 col-md-3 col-xl-2">
-                <label class="form-label fw-bold text-secondary text-uppercase small mb-1">Tanggal Mulai</label>
+    <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm mb-6">
+        <form method="GET" action="{{ route('kurikulum.laporan.index') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end" id="formLaporanFilter">
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Tanggal Mulai</label>
                 <input type="date" name="tanggal_mulai" value="{{ old('tanggal_mulai', $mulai) }}"
-                       class="form-control rounded-3 py-2" onchange="this.form.submit()">
+                       class="w-full min-w-[140px] rounded-lg border border-slate-200 bg-slate-50/40 pl-3 pr-2 py-1.5 text-sm text-slate-700 focus:bg-white focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                       onchange="this.form.submit()">
             </div>
-            <div class="col-12 col-md-3 col-xl-2">
-                <label class="form-label fw-bold text-secondary text-uppercase small mb-1">Tanggal Selesai</label>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Tanggal Selesai</label>
                 <input type="date" name="tanggal_selesai" value="{{ old('tanggal_selesai', $selesai) }}"
-                       class="form-control rounded-3 py-2" onchange="this.form.submit()">
+                       class="w-full min-w-[140px] rounded-lg border border-slate-200 bg-slate-50/40 pl-3 pr-2 py-1.5 text-sm text-slate-700 focus:bg-white focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                       onchange="this.form.submit()">
             </div>
-            <div class="col-12 col-md-3 col-xl-2">
-                <label class="form-label fw-bold text-secondary text-uppercase small mb-1">Tingkat</label>
-                <select name="tingkat" class="form-select rounded-3 py-2" onchange="this.form.submit()">
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Tingkat</label>
+                <select name="tingkat" class="w-full rounded-lg border border-slate-200 bg-slate-50/40 px-3 py-1.5 text-sm text-slate-700 focus:bg-white focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500" onchange="this.form.submit()">
                     <option value="">Semua Tingkat</option>
                     @foreach($tingkatList as $tgl)
                         <option value="{{ $tgl }}" {{ $tingkatInput == $tgl ? 'selected' : '' }}>{{ $tgl }}</option>
                     @endforeach
                 </select>
             </div>
-            <div class="col-12 col-md-3 col-xl-2">
-                <label class="form-label fw-bold text-secondary text-uppercase small mb-1">Kelas</label>
-                <select name="id_kelas" class="form-select rounded-3 py-2" onchange="this.form.submit()">
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Kelas</label>
+                <select name="id_kelas" class="w-full rounded-lg border border-slate-200 bg-slate-50/40 px-3 py-1.5 text-sm text-slate-700 focus:bg-white focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500" onchange="this.form.submit()">
                     <option value="">Semua Kelas</option>
                     @foreach($kelasList as $kelas)
                         <option value="{{ $kelas->id }}" {{ $idKelasInput == $kelas->id ? 'selected' : '' }}>
@@ -58,9 +62,9 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-12 col-md-4 col-xl-2">
-                <label class="form-label fw-bold text-secondary text-uppercase small mb-1">Guru</label>
-                <select name="id_guru" class="form-select rounded-3 py-2" onchange="this.form.submit()">
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Guru</label>
+                <select name="id_guru" class="w-full rounded-lg border border-slate-200 bg-slate-50/40 px-3 py-1.5 text-sm text-slate-700 focus:bg-white focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500" onchange="this.form.submit()">
                     <option value="">Semua Guru</option>
                     @foreach($guruList as $guru)
                         <option value="{{ $guru->id }}" {{ $idGuruInput == $guru->id ? 'selected' : '' }}>
@@ -69,9 +73,9 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-12 col-md-4 col-xl-2">
-                <label class="form-label fw-bold text-secondary text-uppercase small mb-1">Mata Pelajaran</label>
-                <select name="id_mapel" class="form-select rounded-3 py-2" onchange="this.form.submit()">
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Mata Pelajaran</label>
+                <select name="id_mapel" class="w-full rounded-lg border border-slate-200 bg-slate-50/40 px-3 py-1.5 text-sm text-slate-700 focus:bg-white focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500" onchange="this.form.submit()">
                     <option value="">Semua Mapel</option>
                     @foreach($mapelList as $mapel)
                         <option value="{{ $mapel->id }}" {{ $idMapelInput == $mapel->id ? 'selected' : '' }}>
@@ -82,12 +86,12 @@
             </div>
             {{-- Reset Filter --}}
             @if(request()->hasAny(['tanggal_mulai','tanggal_selesai','tingkat','id_kelas','id_guru','id_mapel']))
-            <div class="col-12 col-xl-auto d-flex align-items-end">
+            <div class="sm:col-span-2 md:col-span-3 lg:col-span-6 flex justify-end pt-1">
                 <a href="{{ route('kurikulum.laporan.index') }}"
-                   class="btn btn-outline-secondary rounded-3 px-3 py-2 d-flex align-items-center gap-1"
+                   class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200/80 border border-slate-200 rounded-lg px-3 py-1.5 transition-colors text-decoration-none"
                    title="Reset semua filter">
                     <i class="bi bi-x-circle"></i>
-                    <span class="d-none d-sm-inline" style="font-size:0.8rem;">Reset Filter</span>
+                    <span>Reset Filter</span>
                 </a>
             </div>
             @endif
@@ -95,34 +99,42 @@
     </div>
 
     {{-- Metric Cards --}}
-    <div class="row g-4 mb-4">
-        <div class="col-12 col-sm-6 col-xl-4">
-            <div class="stat-card-custom h-100">
-                <div class="stat-card-title">Total Jam KBM Terlaksana</div>
-                <div class="stat-number-large text-success">{{ number_format($totalJamKBM) }}</div>
-                <div class="stat-card-label">sesi KBM yang tercatat</div>
-                <p class="stat-card-subtext">{{ $periodeMulai }} – {{ $periodeSelesai }}</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        {{-- Card 1: Total Jam --}}
+        <div class="bg-white border border-slate-200/80 rounded-xl shadow-sm p-4 flex flex-col justify-between">
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Total Jam KBM Terlaksana</div>
+                <div class="text-3xl font-bold text-slate-800">{{ number_format($totalJamKBM) }}</div>
+                <div class="text-xs text-slate-500 mt-1">sesi KBM yang tercatat</div>
             </div>
+            <p class="text-xs text-slate-400 mt-3 pt-2 border-t border-slate-100 mb-0">{{ $periodeMulai }} – {{ $periodeSelesai }}</p>
         </div>
-        <div class="col-12 col-sm-6 col-xl-4">
-            <div class="stat-card-custom h-100">
-                <div class="stat-card-title">Kehadiran Guru</div>
-                <div class="stat-number-large text-primary">Hadir: {{ number_format($guruHadir) }}</div>
-                <div class="stat-card-label">Izin/Sakit/Dinas: {{ number_format($guruTidakHadir) }}</div>
-                <p class="stat-card-subtext">
-                    Izin {{ number_format($guruIzin) }} &middot; Sakit {{ number_format($guruSakit) }} &middot; Dinas {{ number_format($guruDinas) }}
-                </p>
+
+        {{-- Card 2: Kehadiran Guru --}}
+        <div class="bg-white border border-slate-200/80 rounded-xl shadow-sm p-4 flex flex-col justify-between">
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Kehadiran Guru</div>
+                <div class="flex items-baseline gap-2">
+                    <span class="text-3xl font-bold text-emerald-600">{{ number_format($guruHadir) }}</span>
+                    <span class="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">Hadir</span>
+                </div>
+                <div class="text-xs text-slate-500 mt-1">Izin/Sakit/Dinas: <strong>{{ number_format($guruTidakHadir) }}</strong></div>
             </div>
+            <p class="text-xs text-slate-500 mt-3 pt-2 border-t border-slate-100 mb-0">
+                Izin: {{ number_format($guruIzin) }} &middot; Sakit: {{ number_format($guruSakit) }} &middot; Dinas: {{ number_format($guruDinas) }}
+            </p>
         </div>
-        <div class="col-12 col-sm-6 col-xl-4">
-            <div class="stat-card-custom h-100">
-                <div class="stat-card-title">Jurnal Mengajar Terisi</div>
-                <div class="stat-number-large text-warning">{{ number_format($totalJurnalTerisi) }}</div>
-                <div class="stat-card-label">jurnal dengan materi terisi</div>
-                <p class="stat-card-subtext">
-                    {{ $totalJurnalTerisi > 0 ? number_format(($totalJurnalTerisi / max($totalJamKBM, 1)) * 100, 1) : 0 }}% dari total sesi
-                </p>
+
+        {{-- Card 3: Jurnal Terisi --}}
+        <div class="bg-white border border-slate-200/80 rounded-xl shadow-sm p-4 flex flex-col justify-between">
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Jurnal Mengajar Terisi</div>
+                <div class="text-3xl font-bold text-amber-500">{{ number_format($totalJurnalTerisi) }}</div>
+                <div class="text-xs text-slate-500 mt-1">jurnal dengan materi terisi</div>
             </div>
+            <p class="text-xs text-slate-500 mt-3 pt-2 border-t border-slate-100 mb-0">
+                {{ $totalJamKBM > 0 ? number_format(($totalJurnalTerisi / $totalJamKBM) * 100, 1) : 0 }}% dari total sesi
+            </p>
         </div>
     </div>
 

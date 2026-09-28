@@ -3,7 +3,10 @@
 @section('title', 'Dashboard Satpam')
 
 @section('content')
-<div class="container-fluid px-0">
+{{-- Choices.js untuk dropdown searchable "Pilih Siswa" (pola sama dgn halaman jadwal KBM). --}}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+
+<div class="container-fluid px-0 pt-3 md:pt-4 pb-4">
 
     {{-- Header --}}
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 md:mb-4 gap-2 md:gap-3">
@@ -15,9 +18,6 @@
                 Kedisiplinan siswa di gerbang — {{ \Carbon\Carbon::parse($today)->translatedFormat('l, d F Y') }}.
             </p>
         </div>
-        <a href="{{ route('satpam.verifikasi') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm text-xs md:text-sm mt-1 mt-md-0">
-            <i class="bi bi-door-open-fill me-1"></i> Verifikasi Izin Keluar
-        </a>
     </div>
 
     {{-- Alert --}}
@@ -92,8 +92,8 @@
         <div class="tab-pane fade {{ $tab === 'terlambat' ? 'show active' : '' }}" id="tab-terlambat" role="tabpanel">
             <div class="row g-4">
                 {{-- Form Catat Terlambat --}}
-                <div class="col-xl-4">
-                    <div class="table-card-custom h-100">
+                <div class="col-lg-4">
+                    <div class="table-card-custom h-100 d-flex flex-column">
                         <h5 class="fw-bold text-dark mb-1"><i class="bi bi-clock-history me-2 text-warning"></i>Catat Siswa Terlambat</h5>
                         <p class="text-muted small mb-4">Record otomatis diteruskan ke <strong>semua Guru Piket</strong> bertugas hari ini & <strong>Wali Kelas</strong> siswa.</p>
 
@@ -111,10 +111,10 @@
                             <div class="mb-3">
                                 <label class="form-label fw-bold text-secondary text-uppercase small mb-1">Siswa <span class="text-danger">*</span></label>
                                 <select name="id_siswa" id="selectSiswaTerlambat" class="form-select rounded-3 py-2" required>
-                                    <option value="">-- Pilih Siswa --</option>
+                                    <option value="" placeholder>-- Pilih Siswa --</option>
                                     @foreach($siswaList as $siswa)
                                         <option value="{{ $siswa->id }}" data-kelas="{{ $siswa->id_kelas }}">
-                                            @if($siswa->kelas) {{ $siswa->kelas->nama_lengkap }} - @endif{{ $siswa->nama }}
+                                            {{ $siswa->nama }}{{ $siswa->kelas ? ' — ' . $siswa->kelas->nama_lengkap : '' }} — {{ $siswa->nis ? 'NIS ' . $siswa->nis : 'Tanpa NIS' }}{{ $siswa->nisn ? ' · NISN ' . $siswa->nisn : '' }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -141,7 +141,7 @@
                             </button>
                         </form>
 
-                        <hr class="my-4">
+                        <hr class="my-4 mt-auto">
                         <div class="text-muted small">
                             <div class="fw-bold text-dark mb-1"><i class="bi bi-info-circle me-1"></i> Penerima Hari Ini</div>
                             @forelse($guruPiketHariIni as $guru)
@@ -157,13 +157,13 @@
                 </div>
 
                 {{-- Rekap Terlambat --}}
-                <div class="col-xl-8">
-                    <div class="table-card-custom">
+                <div class="col-lg-8">
+                    <div class="table-card-custom h-100 d-flex flex-column">
                         <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                             <h5 class="fw-bold text-dark mb-0">Siswa Terlambat Hari Ini</h5>
                             <span class="text-muted small">{{ $daftarTerlambat->count() }} siswa</span>
                         </div>
-                        <div class="overflow-x-auto w-full rounded-lg">
+                        <div class="overflow-x-auto w-full rounded-lg flex-grow-1" style="min-height: 0;">
                             <table class="table table-custom align-middle mb-0 min-w-full">
                                 <thead>
                                     <tr>
@@ -312,30 +312,49 @@
 @endsection
 
 @push('scripts')
+<!-- Choices.js JS untuk Searchable Select "Pilih Siswa" -->
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        function setupSiswaFilter(filterId, selectId) {
-            const filter = document.getElementById(filterId);
-            const select = document.getElementById(selectId);
-            if (!filter || !select) return;
-            const options = Array.from(select.options);
+        const filter = document.getElementById('filterKelasTerlambat');
+        const select = document.getElementById('selectSiswaTerlambat');
+        if (!filter || !select) return;
 
-            function applyFilter() {
-                const kelasId = filter.value;
-                select.innerHTML = '';
-                select.appendChild(new Option('-- Pilih Siswa --', '', true, true));
-                options.forEach(function (opt) {
-                    if (opt.value && (kelasId === '' || opt.dataset.kelas === kelasId)) {
-                        select.appendChild(new Option(opt.text, opt.value));
-                    }
-                });
-                select.dispatchEvent(new Event('change'));
-            }
+        // Simpan opsi siswa dari server SEKALI (sebelum Choices menyembunyikan <select>).
+        const siswaOptions = Array.from(select.options).filter((opt) => opt.value);
 
-            filter.addEventListener('change', applyFilter);
+        const CHOICES_CONFIG = {
+            searchEnabled: true,
+            searchPlaceholderValue: 'Cari nama / NIS / NISN...',
+            searchFloor: 1,
+            itemSelectText: '',
+            shouldSort: false,
+            placeholder: true,
+            placeholderValue: '-- Pilih Siswa --',
+            noResultsText: 'Siswa tidak ditemukan',
+            noChoicesText: 'Tidak ada siswa',
+        };
+
+        let siswaChoices = new Choices(select, CHOICES_CONFIG);
+
+        function applyFilter() {
+            const kelasId = filter.value;
+
+            // Bangun ulang <select> asli dengan opsi hasil filter, lalu init ulang Choices.
+            siswaChoices.destroy();
+            select.innerHTML = '';
+            select.appendChild(new Option('-- Pilih Siswa --', '', true, true));
+
+            siswaOptions.forEach(function (opt) {
+                if (kelasId === '' || opt.dataset.kelas === kelasId) {
+                    select.appendChild(new Option(opt.text, opt.value));
+                }
+            });
+
+            siswaChoices = new Choices(select, CHOICES_CONFIG);
         }
 
-        setupSiswaFilter('filterKelasTerlambat', 'selectSiswaTerlambat');
+        filter.addEventListener('change', applyFilter);
     });
 </script>
 @endpush

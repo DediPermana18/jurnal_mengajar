@@ -50,6 +50,7 @@ function bestSidebarLink(path) {
 
     const links = root.querySelectorAll('.nav-btn[href], .submenu-item-link');
     let best = null;
+    let bestExact = false;
     let bestLength = -1;
 
     links.forEach((link) => {
@@ -64,9 +65,18 @@ function bestSidebarLink(path) {
         const matches = hrefPath === '/'
             ? path === '/'
             : path === hrefPath || path.startsWith(hrefPath + '/');
+        if (!matches) return;
 
-        if (matches && hrefPath.length > bestLength) {
+        const isExact = path === hrefPath;
+
+        // Match EKSAK selalu menang atas match prefix; di antara match sekelas
+        // dipilih href terpanjang (paling spesifik). Contoh: pada path
+        // `/piket/dashboard`, hanya "Dashboard Piket" (/piket/dashboard) yang
+        // match — "Status Kehadiran Guru" (/piket/status-guru) tidak pernah
+        // cocok sehingga tidak dapat menyalip highlight.
+        if (!best || (isExact && !bestExact) || (isExact === bestExact && hrefPath.length > bestLength)) {
             best = link;
+            bestExact = isExact;
             bestLength = hrefPath.length;
         }
     });
@@ -148,6 +158,10 @@ export function initSpa() {
     //    ADA di Unpoly 3.x, sehingga versi sebelumnya tidak pernah jalan).
     up.on('up:fragment:inserted', () => {
         initNewAlpineContent();
+        // Re-sinkronkan highlight sidebar SETELAH konten baru terpasang.
+        // Pengaman untuk kasus event `up:location:changed` tidak terpantau
+        // (mis. restore cache Unpoly) agar status aktif tidak pernah stale.
+        syncSidebarActiveState();
     });
 
     // Sinkronkan sekali di awal (hasilnya identik dengan render server).

@@ -37,10 +37,6 @@
             <span class="badge bg-danger rounded-pill px-2 py-0.5" style="font-size: 0.7rem;">
                 {{ $pendingTtdCount }}
             </span>
-        @else
-            <span class="badge bg-secondary-subtle text-secondary border rounded-pill px-1.5 py-0.5" style="font-size: 0.68rem;">
-                0
-            </span>
         @endif
     </a>
 </div>

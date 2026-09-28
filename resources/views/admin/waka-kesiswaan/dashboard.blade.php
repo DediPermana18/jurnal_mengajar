@@ -42,13 +42,8 @@
 <div class="container-fluid px-0">
 
     {{-- Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <div>
-            <div class="d-flex align-items-center gap-2 mb-1">
-                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 rounded-pill fw-semibold text-xs">
-                    <i class="bi bi-shield-check me-1"></i> Kesiswaan
-                </span>
-            </div>
             <h2 class="fw-black text-dark mb-1" style="font-weight: 900; font-size: 1.55rem; letter-spacing: -0.02em;">
                 Dashboard Waka Kesiswaan
             </h2>
@@ -56,9 +51,12 @@
                 Peninjauan dispensasi siswa, verifikasi kelayakan, dan penandatanganan digital surat dispensasi.
             </p>
         </div>
-        <div class="d-flex flex-column align-items-end gap-2">
-            <a href="{{ route('waka-kesiswaan.dispensasi.approval.index') }}" class="btn btn-primary rounded-3 fw-semibold text-sm m-0 d-flex align-items-center gap-1.5 shadow-sm">
-                <i class="bi bi-clipboard-check"></i> Approval Dispensasi
+        <div class="d-flex flex-column align-items-start align-items-md-end gap-2">
+            <a href="{{ route('waka-kesiswaan.dispensasi.approval.index', ['filter' => 'menunggu']) }}"
+               class="link-primary text-decoration-none fw-semibold d-inline-flex align-items-center gap-1.5"
+               style="font-size: 0.9rem;">
+                <i class="bi bi-clipboard-check"></i> Buka Modul Approval
+                <i class="bi bi-arrow-right"></i>
             </a>
             <span class="badge bg-white text-dark border shadow-2xs rounded-pill px-3 py-2 fw-semibold text-sm m-0">
                 <i class="bi bi-calendar3 me-1 text-primary"></i>
@@ -142,11 +140,19 @@
         </div>
     </div>
 
-    {{-- Riwayat terbaru --}}
+    {{-- Quick view: antrian yang MEMBUTUHKAN TTD/APPROVAL Waka Kesiswaan --}}
     <div class="card border-0 rounded-4 shadow-sm">
-        <div class="card-header bg-white border-0 rounded-4 pt-4 pb-2 d-flex justify-content-between align-items-center px-4">
-            <h5 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history me-2"></i>Riwayat Dispensasi Terbaru</h5>
-            <a href="{{ route('waka-kesiswaan.dispensasi.approval.index') }}" class="btn btn-sm btn-light border rounded-3 fw-semibold">Lihat Semua</a>
+        <div class="card-header bg-white border-0 rounded-4 pt-4 pb-3 d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 px-4">
+            <div>
+                <h5 class="fw-bold text-dark mb-1"><i class="bi bi-hourglass-split me-2 text-warning"></i>Menunggu Approval Waka</h5>
+                <p class="text-muted mb-0" style="font-size: 0.8rem;">
+                    {{ $riwayatMenunggu->count() }} pengajuan terbaru menunggu TTD Waka Kesiswaan — kelola lengkap (search, filter tanggal, pagination) di modul Approval.
+                </p>
+            </div>
+            <a href="{{ route('waka-kesiswaan.dispensasi.approval.index', ['filter' => 'menunggu']) }}"
+               class="btn btn-sm btn-light border rounded-3 fw-semibold text-nowrap">
+                Buka Modul Approval <i class="bi bi-arrow-right ms-1"></i>
+            </a>
         </div>
         <div class="card-body px-3 pb-3">
             <div class="table-responsive">
@@ -158,10 +164,11 @@
                             <th>JAM</th>
                             <th>STATUS</th>
                             <th>TTD</th>
+                            <th class="text-end">AKSI</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($riwayatTerbaru as $dispen)
+                        @forelse($riwayatMenunggu as $dispen)
                             <tr>
                                 <td class="fw-semibold text-dark text-nowrap">{{ $dispen->tanggal?->translatedFormat('d/m/Y') ?? '-' }}</td>
                                 <td>
@@ -172,18 +179,22 @@
                                 <td><span class="badge {{ $dispen->status_badge }} rounded-pill px-2 py-1">{{ $dispen->status_label }}</span></td>
                                 <td>
                                     @if($dispen->has_ttd_waka)
-                                        <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle rounded-pill px-2 py-1">
-                                            {{ $dispen->wakaKesiswaan?->nama ?? 'Sudah di-TTD' }}
-                                        </span>
+                                        <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle rounded-pill px-2 py-1">Sudah</span>
                                     @else
                                         <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-1">Belum</span>
                                     @endif
                                 </td>
+                                <td class="text-end">
+                                    <a href="{{ route('waka-kesiswaan.dispensasi.approval.index', ['filter' => 'menunggu']) }}"
+                                       class="btn btn-sm btn-outline-primary rounded-3 text-nowrap">
+                                        <i class="bi bi-pen me-1"></i>Tanda Tangan
+                                    </a>
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="text-center text-muted py-4">
-                                    <i class="bi bi-inbox-fill me-2"></i>Belum ada pengajuan dispensasi.
+                                <td colspan="6" class="text-center text-muted py-4">
+                                    <i class="bi bi-check2-circle me-2"></i>Tidak ada pengajuan yang menunggu tanda tangan Waka Kesiswaan.
                                 </td>
                             </tr>
                         @endforelse

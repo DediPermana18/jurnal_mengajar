@@ -1,11 +1,11 @@
 <?php
 
+use App\Http\Controllers\Admin\TrashController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\SingleDeviceSessionController;
+use App\Http\Controllers\Guru\DispensasiVerifikasiController as GuruDispensasiVerifikasiController;
 use App\Http\Controllers\Guru\GuruPortalController;
 use App\Http\Controllers\Guru\JurnalController as GuruJurnalController;
-use App\Http\Controllers\Guru\DispensasiVerifikasiController as GuruDispensasiVerifikasiController;
 use App\Http\Controllers\HelpController;
 use App\Http\Controllers\JurnalMengajarController;
 use App\Http\Controllers\KepsekController;
@@ -13,14 +13,15 @@ use App\Http\Controllers\Kurikulum\AgendaRutinController;
 use App\Http\Controllers\Kurikulum\JadwalPelajaranController;
 use App\Http\Controllers\Kurikulum\JamPelajaranController;
 use App\Http\Controllers\Kurikulum\JamPulangController;
-use App\Http\Controllers\Kurikulum\ShiftPelajaranController;
 use App\Http\Controllers\Kurikulum\KurikulumDashboardController;
 use App\Http\Controllers\Kurikulum\KurikulumLaporanController;
 use App\Http\Controllers\Kurikulum\PengaturanJadwalController;
+use App\Http\Controllers\Kurikulum\ShiftPelajaranController;
 use App\Http\Controllers\MataPelajaranController;
 use App\Http\Controllers\ProfilController;
-use App\Http\Controllers\SecurityDevicesController;
 use App\Http\Controllers\RuanganController;
+use App\Http\Controllers\SecurityDevicesController;
+use App\Http\Controllers\SingleDeviceSessionController;
 use App\Http\Controllers\SiswaController;
 use App\Http\Controllers\TahunAjaranController;
 use App\Http\Controllers\WakaSdmController;
@@ -336,9 +337,9 @@ Route::prefix('satpam')->middleware(['auth'])->group(function () {
     Route::post('/dispensasi-kolektif/{kolektif}/kembali', [SatpamController::class, 'kolektifKembali'])->name('satpam.kolektif.kembali');
 });
 
-use App\Http\Controllers\PetugasItController;
 use App\Http\Controllers\IT\WaSettingController;
 use App\Http\Controllers\ItEmergencyController;
+use App\Http\Controllers\PetugasItController;
 
 // ================= ROUTE PETUGAS IT / QA TESTER (Switch View As) =================
 Route::prefix('it')->middleware(['auth'])->group(function () {
@@ -436,6 +437,18 @@ Route::prefix('admin')->middleware(['auth', AdminScheduleAccess::class])->group(
     Route::get('/jadwal-pelajaran', fn () => redirect()->route('admin.jadwal.index'));
 });
 
+// ================= RECYCLE BIN (DATA TERHAPUS) — SUPER ADMIN / PETUGAS IT =================
+// Akses dibatasi di dalam TrashController (auth + isSuperAdmin/isPetugasIt).
+// /admin/trash/{model}/{id} sengaja TIDAK memakai route-model binding agar
+// selalu berupa whitelist kunci kategori (guru/siswa/kelas/dll.) yang aman.
+Route::prefix('admin/trash')->middleware(['auth'])->group(function () {
+    Route::get('/', [TrashController::class, 'index'])->name('admin.trash.index');
+    Route::post('/{model}/{id}/restore', [TrashController::class, 'restore'])->name('admin.trash.restore');
+    Route::delete('/{model}/{id}/force-delete', [TrashController::class, 'forceDelete'])->name('admin.trash.force-delete');
+    Route::post('/{model}/restore-bulk', [TrashController::class, 'restoreBulk'])->name('admin.trash.restore-bulk');
+    Route::delete('/{model}/force-delete-bulk', [TrashController::class, 'forceDeleteBulk'])->name('admin.trash.force-delete-bulk');
+});
+
 // ================= ROUTE PORTAL WAKA SDM (KEPEGAWAIAN) =================
 Route::prefix('admin/waka-sdm')->middleware(['auth'])->group(function () {
     Route::get('/dashboard', [WakaSdmController::class, 'dashboard'])->name('waka-sdm.dashboard');
@@ -466,6 +479,7 @@ use App\Http\Controllers\WakaKesiswaanController;
 Route::prefix('admin/waka-kesiswaan')->middleware(['auth', 'waka-kesiswaan'])->group(function () {
     Route::get('/dashboard', [WakaKesiswaanController::class, 'dashboard'])->name('waka-kesiswaan.dashboard');
     Route::get('/approval-dispensasi', [WakaKesiswaanController::class, 'approvalIndex'])->name('waka-kesiswaan.dispensasi.approval.index');
+    Route::post('/approval-dispensasi/bulk', [WakaKesiswaanController::class, 'approvalBulkStore'])->name('waka-kesiswaan.dispensasi.approval.bulk');
     Route::post('/approval-dispensasi/{id}', [WakaKesiswaanController::class, 'approvalStore'])->name('waka-kesiswaan.dispensasi.approval.store');
 });
 

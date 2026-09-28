@@ -36,6 +36,36 @@
         padding-top: 0.55rem !important;
         padding-bottom: 0.55rem !important;
     }
+
+    /* Link aksi di dalam stat card: didorong ke bawah-kanan agar card
+       "Status Bot WA" tetap setinggi & sejajar dengan card statistik lain. */
+    .it-dashboard .stat-card-action {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        margin-top: auto;
+        padding-top: 0.7rem;
+    }
+
+    .it-dashboard .stat-card-action .action-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.2rem 0.6rem;
+        border-radius: 999px;
+        background: #eef4ff;
+        color: #0d6efd;
+        font-size: 0.68rem;
+        font-weight: 600;
+        line-height: 1.5;
+        white-space: nowrap;
+        transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .it-dashboard .stat-card-custom:hover .stat-card-action .action-chip {
+        background: #0d6efd;
+        color: #ffffff;
+    }
 </style>
 
 <div class="container-fluid px-0 it-dashboard">
@@ -74,21 +104,21 @@
     {{-- WIDGET STAT CARD --}}
     <div class="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4 mb-3 md:mb-4">
         <div>
-            <div class="stat-card-custom p-3 md:p-4 h-100">
+            <div class="stat-card-custom p-3 md:p-4 h-100 d-flex flex-column">
                 <div class="stat-card-title text-xs md:text-sm truncate mb-1 md:mb-2" title="Tiket Kendala Menunggu Diproses">Tiket Kendala Pending</div>
                 <div class="stat-number-large text-lg md:text-xl text-warning mb-1">{{ number_format($pendingCount) }}</div>
                 <div class="stat-card-label text-xs md:text-sm truncate" title="Kendala yang belum diproses Tim IT">Menunggu Tindak Lanjut</div>
             </div>
         </div>
         <div>
-            <div class="stat-card-custom p-3 md:p-4 h-100">
+            <div class="stat-card-custom p-3 md:p-4 h-100 d-flex flex-column">
                 <div class="stat-card-title text-xs md:text-sm truncate mb-1 md:mb-2" title="Laporan Kendola Masuk">Laporan Kendala Masuk</div>
                 <div class="stat-number-large text-lg md:text-xl text-info mb-1">{{ number_format($activeKendalaCount) }}</div>
                 <div class="stat-card-label text-xs md:text-sm truncate" title="Kendala dengan status Pending atau Proses">Pending / Proses</div>
             </div>
         </div>
         <div>
-            <div class="stat-card-custom p-3 md:p-4 h-100">
+            <div class="stat-card-custom p-3 md:p-4 h-100 d-flex flex-column">
                 <div class="stat-card-title text-xs md:text-sm truncate mb-1 md:mb-2" title="Konektivitas Aplikasi & Database">Status Server</div>
                 <div class="d-flex align-items-center gap-2 mb-1">
                     @if($dbOnline)
@@ -113,7 +143,7 @@
             </div>
         </div>
         <div>
-            <a href="{{ route('it.settings.wa') }}" class="stat-card-custom p-3 md:p-4 h-100 d-block text-decoration-none" title="Buka Pengaturan WA Gateway">
+            <a href="{{ route('it.settings.wa') }}" class="stat-card-custom p-3 md:p-4 h-100 d-flex flex-column text-decoration-none" title="Buka Pengaturan WA Gateway">
                 <div class="stat-card-title text-xs md:text-sm truncate mb-1 md:mb-2" title="Status Bot WA (Fonnte)">Status Bot WA</div>
                 <div class="d-flex align-items-center gap-2 mb-1">
                     @if($fonnteConnected)
@@ -135,8 +165,10 @@
                         </span>
                     @endif
                 </div>
-                <div class="mt-2 small text-primary fw-semibold" style="font-size:0.68rem !important;">
-                    <i class="bi bi-gear-wide-connected me-1"></i>Kelola & Tes Kirim →
+                <div class="stat-card-action">
+                    <span class="action-chip">
+                        <i class="bi bi-gear-wide-connected"></i>Kelola &amp; Tes Kirim<i class="bi bi-arrow-right"></i>
+                    </span>
                 </div>
             </a>
         </div>

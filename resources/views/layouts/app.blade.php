@@ -291,6 +291,15 @@
             min-height: 100vh;
         }
 
+        /* Sticky wrapper: banner Dev/Testing (opsional, IT/QA) + topbar menempel
+           bersama saat halaman di-scroll. Urutan z-index tidak berubah: 1030,
+           di bawah backdrop (1035) & drawer sidebar (1040). */
+        .topbar-sticky {
+            position: sticky;
+            top: 0;
+            z-index: 1030;
+        }
+
         /* Topbar Header */
         .topbar-header {
             height: 65px;
@@ -300,9 +309,152 @@
             align-items: center;
             justify-content: flex-end;
             padding: 0 2rem;
-            position: sticky;
-            top: 0;
-            z-index: 1030; /* di bawah backdrop (1035) & drawer sidebar (1040) */
+        }
+
+        /* ===== DEV & TESTING BANNER (Petugas IT / QA & Emergency Takeover) =====
+           Strip amber DI DALAM area konten utama (<main>): tepat di bawah Topbar
+           dan di atas judul halaman. Rumah tunggal widget impersonasi/testing
+           dengan palette SOFT AMBER (warning/dev mode) yang menyatu light mode.
+           margin-top negatif menembus padding atas <main> (py-4) agar strip lekat
+           pada tepi bawah Topbar dan membentang penuh selebar kontainer. */
+        .dev-testing-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            min-height: 38px;
+            padding: 0.4rem 1rem;
+            margin-top: -1rem;              /* menembus padding atas <main> -> lekat di bawah Topbar */
+            margin-bottom: 1rem;
+            background-color: #fffbeb;      /* amber-50  */
+            color: #92400e;                 /* amber-800 */
+            border: 1px solid #fde68a;      /* amber-200 */
+            border-radius: 0 0 14px 14px;   /* strip: sudut atas rata dengan Topbar */
+            font-size: 0.78rem;
+        }
+
+        .dev-testing-banner .dev-context {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            min-width: 0;
+        }
+
+        .dev-testing-banner .dev-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 3px 9px;
+            border-radius: 999px;
+            background: #fef3c7;            /* amber-100 */
+            border: 1px solid #fcd34d;      /* amber-300 */
+            color: #92400e;                 /* amber-800 */
+            font-size: 0.64rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            flex: 0 0 auto;
+        }
+
+        .dev-testing-banner .dev-context-text {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .dev-testing-banner .dev-context-detail {
+            color: #92400e;                 /* amber-800 */
+            font-weight: 650;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .dev-testing-banner .dev-context-sub {
+            color: #b45309;                 /* amber-700 */
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .dev-testing-banner .dev-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex: 0 0 auto;
+        }
+
+        .dev-sep {
+            width: 1px;
+            height: 18px;
+            margin: 0 0.15rem;
+            background: #fcd34d;            /* amber-300 */
+        }
+
+        .dev-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            height: 28px;
+            padding: 0 0.7rem;
+            border-radius: 8px;
+            border: 1px solid #fcd34d;      /* amber-300 */
+            background: transparent;
+            color: #92400e;                 /* amber-800 */
+            font-size: 0.74rem;
+            font-weight: 700;
+            line-height: 1;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+            text-decoration: none;
+        }
+        .dev-btn:hover { background: #fef3c7; color: #78350f; }   /* amber-100 */
+        .dev-btn:focus-visible { outline: 2px solid rgba(217, 119, 6, 0.55); outline-offset: 1px; }
+        .dev-btn-outline { border-color: #fcd34d; }
+        .dev-btn-danger { border-color: #fecaca; color: #b91c1c; } /* red-200 / red-700 */
+        .dev-btn-danger:hover { background: #fee2e2; color: #991b1b; }
+        .dev-btn-main {
+            background: #fde68a;            /* amber-200 */
+            border-color: #f59e0b;          /* amber-500 */
+            color: #78350f;
+        }
+        .dev-btn-main:hover { background: #fcd34d; color: #451a03; }
+        .dev-btn-exit {
+            background: #f59e0b;            /* solid amber-500 */
+            border-color: #f59e0b;
+            color: #ffffff;
+            box-shadow: 0 1px 3px rgba(217, 119, 6, 0.3);
+        }
+        .dev-btn-exit:hover { background: #d97706; color: #ffffff; }
+        .dev-btn-icon { width: 28px; padding: 0; justify-content: center; }
+
+        .dev-dropdown-menu {
+            min-width: 300px; /* lebar cukup agar nama target tidak terpotong */
+        }
+        .dev-dropdown-menu .dropdown-item {
+            white-space: normal;
+            line-height: 1.4;
+        }
+
+        @media (max-width: 1199.98px) {
+            .dev-testing-banner { padding: 0.35rem 1rem; }
+        }
+
+        @media (max-width: 767.98px) {
+            .dev-testing-banner {
+                flex-wrap: wrap;
+                row-gap: 0.4rem;
+                padding: 0.45rem 0.75rem;
+            }
+            .dev-testing-banner .dev-context-text { max-width: 100%; }
+            .dev-testing-banner .dev-context-detail { max-width: 44vw; }
+            .dev-testing-banner .dev-actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
         }
 
         .topbar-actions {
@@ -379,18 +531,26 @@
         .user-meta {
             text-align: left;
             line-height: 1.2;
+            min-width: 0;
+            max-width: 160px;
         }
 
         .user-name {
             font-size: 0.875rem;
             font-weight: 800;
             color: #0f172a;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .user-role {
             font-size: 0.75rem;
             color: #64748b;
             font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .user-chevron {
@@ -781,41 +941,22 @@
             @elseif($isGuruPiketRole && !$isGuruRole)
                 {{-- ================= NAVIGASI GURU PIKET ================= --}}
 
-                <!-- Dashboard Piket -->
-                <div class="nav-item-container mt-2">
-                    <a href="{{ route('piket.dashboard') }}" class="nav-btn {{ request()->routeIs('piket.dashboard') ? 'active' : '' }}">
-                        <span class="btn-left">
-                            <i class="bi bi-speedometer2"></i>
-                            <span>Dashboard</span>
-                        </span>
-                    </a>
-                </div>
-
-                <!-- Jurnal Mengajar Saya -->
-                <div class="nav-item-container">
-                    <a href="{{ route('guru.jurnal') }}" class="nav-btn {{ request()->routeIs('guru.jurnal*') ? 'active' : '' }}">
-                        <span class="btn-left">
-                            <i class="bi bi-journal-bookmark"></i>
-                            <span>Jurnal Mengajar Saya</span>
-                        </span>
-                    </a>
-                </div>
-
+                {{-- ===== GRUP 1: AREA TUGAS PIKET ===== --}}
                 <div class="nav-item-container mt-2">
                     <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
                         GURU PIKET
                     </div>
                 </div>
 
-                {{-- Presensi Guru (disabled/placeholder) --}}
-                {{-- <div class="nav-item-container">
-                    <a href="{{ route('piket.presensi-guru') }}" class="nav-btn {{ request()->routeIs('piket.presensi-guru') ? 'active' : '' }}">
+                <!-- Dashboard Piket -->
+                <div class="nav-item-container">
+                    <a href="{{ route('piket.dashboard') }}" class="nav-btn {{ request()->routeIs('piket.dashboard') ? 'active' : '' }}">
                         <span class="btn-left">
-                            <i class="bi bi-person-check-fill"></i>
-                            <span>Presensi Guru</span>
+                            <i class="bi bi-speedometer2"></i>
+                            <span>Dashboard Piket</span>
                         </span>
                     </a>
-                </div> --}}
+                </div>
 
                 <!-- Presensi Siswa -->
                 <div class="nav-item-container">
@@ -859,10 +1000,37 @@
 
                 <!-- Status Kehadiran Guru -->
                 <div class="nav-item-container">
-                    <a href="{{ route('piket.status-guru') }}" class="nav-btn {{ request()->routeIs('piket.status-guru*') ? 'active' : '' }}">
+                    <a href="{{ route('piket.status-guru') }}" class="nav-btn {{ (request()->routeIs('piket.status-guru*') && ! request()->is('piket/dashboard')) ? 'active' : '' }}">
                         <span class="btn-left">
                             <i class="bi bi-people-fill"></i>
                             <span>Status Kehadiran Guru</span>
+                        </span>
+                    </a>
+                </div>
+
+                {{-- ===== GRUP 2: AREA PRIBADI GURU ===== --}}
+                <div class="nav-item-container mt-3">
+                    <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                        AREA PRIBADI GURU
+                    </div>
+                </div>
+
+                <!-- Jurnal Mengajar Saya -->
+                <div class="nav-item-container">
+                    <a href="{{ route('guru.jurnal') }}" class="nav-btn {{ request()->routeIs('guru.jurnal*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-journal-bookmark"></i>
+                            <span>Jurnal Mengajar Saya</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Pengajuan Izin Saya -->
+                <div class="nav-item-container">
+                    <a href="{{ route('guru.izin.index') }}" class="nav-btn {{ request()->routeIs('guru.izin*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-person-dash"></i>
+                            <span>Pengajuan Izin Saya</span>
                         </span>
                     </a>
                 </div>
@@ -886,7 +1054,7 @@
                     <a href="{{ route($activeDashboardRoute) }}" class="nav-btn {{ request()->routeIs($activeDashboardRoute) ? 'active' : '' }}">
                         <span class="btn-left">
                             <i class="bi bi-speedometer2"></i>
-                            <span>Dashboard</span>
+                            <span>{{ $isGuruPiketNav ? 'Dashboard Piket' : ($isWaliKelasNav ? 'Dashboard Wali Kelas' : 'Dashboard') }}</span>
                         </span>
                     </a>
                 </div>
@@ -1029,7 +1197,7 @@
 
                     <!-- Status Kehadiran Guru -->
                     <div class="nav-item-container">
-                        <a href="{{ route('piket.status-guru') }}" class="nav-btn {{ request()->routeIs('piket.status-guru*') ? 'active' : '' }}">
+                        <a href="{{ route('piket.status-guru') }}" class="nav-btn {{ (request()->routeIs('piket.status-guru*') && ! request()->is('piket/dashboard')) ? 'active' : '' }}">
                             <span class="btn-left">
                                 <i class="bi bi-people-fill"></i>
                                 <span>Status Kehadiran Guru</span>
@@ -1075,21 +1243,10 @@
                     </a>
                 </div>
 
-                <div class="nav-item-container">
-                    <div class="px-2 mb-2 mt-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
-                        PENGUJIAN
-                    </div>
-                </div>
-
-                <!-- Switch View As -->
-                <div class="nav-item-container">
-                    <a href="#switchViewAs" class="nav-btn {{ session('active_role') ? 'active' : '' }}">
-                        <span class="btn-left">
-                            <i class="bi bi-arrows-fullscreen"></i>
-                            <span>Switch View As</span>
-                        </span>
-                    </a>
-                </div>
+                {{-- Catatan: menu "Switch View As" TIDAK lagi dimunculkan di sidebar.
+                     Fungsinya sudah tercakup banner "Mode Dev & Testing" di atas topbar
+                     (lihat blok .dev-testing-banner pada header) sehingga tidak ada
+                     duplikasi navigasi. --}}
 
                 <div class="nav-item-container">
                     <div class="px-2 mb-2 mt-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.06em;">
@@ -1100,27 +1257,29 @@
                 @php $isMaintenanceActive = \App\Models\PengaturanJadwal::isMaintenanceModeActive(); @endphp
                 <div class="nav-item-container">
                     <div class="px-2">
-                        <div class="card border-0 rounded-4 shadow-sm p-3" style="background:#ffffff;">
+                        {{-- Widget subtle: netral saat NORMAL, merah tegas hanya saat Mode Maintenance AKTIF. --}}
+                        <div class="card border-0 rounded-4 shadow-sm p-3"
+                             style="background: {{ $isMaintenanceActive ? '#fef2f2' : '#f1f5f9' }}; border: 1px solid {{ $isMaintenanceActive ? '#fecaca' : '#e2e8f0' }};">
                             <div class="d-flex align-items-center gap-2">
                                 <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0
                                             {{ $isMaintenanceActive ? 'text-white' : 'text-muted' }}"
-                                     style="width:38px; height:38px; {{ $isMaintenanceActive ? 'background:linear-gradient(135deg,#f59e0b,#d97706);' : 'background:#eef2f7;' }}">
+                                     style="width:38px; height:38px; {{ $isMaintenanceActive ? 'background:linear-gradient(135deg,#ef4444,#dc2626);' : 'background:#e2e8f0;' }}">
                                     <i class="bi bi-wrench-adjustable fs-5"></i>
                                 </div>
                                 <div>
                                     <div class="fw-bold text-dark small">Mode Maintenance</div>
                                     @if($isMaintenanceActive)
-                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1 mt-1" style="font-size:0.66rem;">
+                                        <span class="badge bg-danger text-white rounded-pill px-2 py-1 mt-1" style="font-size:0.66rem;">
                                             <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;"></i>AKTIF — PERBAIKAN
                                         </span>
                                     @else
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1 mt-1" style="font-size:0.66rem;">
+                                        <span class="badge bg-white text-muted border rounded-pill px-2 py-1 mt-1" style="font-size:0.66rem;">
                                             <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;"></i>NORMAL
                                         </span>
                                     @endif
                                 </div>
                             </div>
-                            <div class="text-muted mt-2 mb-1" style="font-size:0.72rem; line-height:1.4;">
+                            <div class="{{ $isMaintenanceActive ? 'text-danger' : 'text-muted' }} mt-2 mb-1" style="font-size:0.72rem; line-height:1.4;">
                                 @if($isMaintenanceActive)
                                     Seluruh pengguna selain IT/QA kini melihat halaman pemeliharaan.
                                 @else
@@ -1130,7 +1289,7 @@
                             <form method="POST" action="{{ route('it.maintenance-mode') }}">
                                 @csrf
                                 <input type="hidden" name="maintenance_mode" value="{{ $isMaintenanceActive ? '0' : '1' }}">
-                                <button type="submit" class="btn btn-sm {{ $isMaintenanceActive ? 'btn-success' : 'btn-danger' }} w-100 rounded-3 fw-semibold">
+                                <button type="submit" class="btn btn-sm {{ $isMaintenanceActive ? 'btn-danger' : 'btn-outline-secondary' }} w-100 rounded-3 fw-semibold">
                                     <i class="bi {{ $isMaintenanceActive ? 'bi-power' : 'bi-shield-exclamation' }} me-1"></i>
                                     {{ $isMaintenanceActive ? 'Nonaktifkan Mode' : 'Aktifkan Mode' }}
                                 </button>
@@ -1145,6 +1304,21 @@
                         <span class="btn-left">
                             <i class="bi bi-whatsapp"></i>
                             <span>Pengaturan WA</span>
+                        </span>
+                    </a>
+                </div>
+
+                {{-- ================= SISTEM (IT): Recycle Bin ================= --}}
+                <div class="nav-item-container">
+                    <div class="px-2 mb-2 mt-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.06em;">
+                        SISTEM
+                    </div>
+                </div>
+                <div class="nav-item-container">
+                    <a href="{{ route('admin.trash.index') }}" class="nav-btn {{ request()->routeIs('admin.trash.*') ? 'active' : '' }}" title="Kelola data terhapus: pulihkan (restore) atau hapus permanen (force delete)">
+                        <span class="btn-left">
+                            <i class="bi bi-trash3"></i>
+                            <span>Data Terhapus</span>
                         </span>
                     </a>
                 </div>
@@ -1458,6 +1632,18 @@
                     </div>
                 </div>
             @endif
+            {{-- Recycle Bin: khusus Super Admin / Petugas IT (kecuali IT dalam mode
+                 langsung — IT mode langsung sudah punya menu ini di navigasi IT-nya). --}}
+            @if(($isSuperAdmin || ($user && $user->isPetugasIt())) && !$isPetugasItRole)
+                <div class="nav-item-container">
+                    <a href="{{ route('admin.trash.index') }}" class="nav-btn px-2 {{ request()->routeIs('admin.trash.*') ? 'active' : '' }}" title="Kelola data terhapus: pulihkan (restore) atau hapus permanen (force delete)">
+                        <span class="btn-left">
+                            <i class="bi bi-trash3"></i>
+                            <span>Data Terhapus</span>
+                        </span>
+                    </a>
+                </div>
+            @endif
             <div class="nav-item-container">
                 <a href="{{ route('pengaturan.index') }}" class="nav-btn px-2 {{ request()->routeIs('pengaturan.*') ? 'active' : '' }}">
                     <span class="btn-left">
@@ -1479,6 +1665,7 @@
 
     <!-- MAIN CONTENT AREA -->
     <div class="main-wrapper">
+        <div class="topbar-sticky">
         <!-- TOPBAR HEADER -->
         <header class="topbar-header">
             <!-- Mobile Toggle -->
@@ -1498,153 +1685,6 @@
 
             <!-- Actions Right -->
             <div class="topbar-actions">
-                @if(auth()->user()?->is_emergency_takeover)
-                    {{-- Akun hasil Emergency Super Admin Takeover ("Kartu As"):
-                         tombol kecil untuk mengembalikan ke Mode IT / QA biasa. --}}
-                    <form action="{{ route('it-emergency.demote-self') }}" method="POST" class="d-inline">
-                        @csrf
-                        <button type="submit"
-                                class="btn btn-sm btn-outline-danger rounded-3 d-flex align-items-center gap-2 me-2"
-                                title="Akun ini adalah hasil Emergency Super Admin Takeover — kembalikan ke Mode IT / QA dan lepaskan status Super Admin darurat."
-                                onclick="return confirm('Kembali ke Mode IT / QA?\nStatus Super Admin darurat akan dilepaskan, akun dikembalikan ke petugas_it / qa_tester, lalu diarahkan ke Dashboard IT.')">
-                            <i class="bi bi-arrow-return-left"></i>
-                            <span class="d-none d-xl-inline">Kembali ke Mode IT / QA</span>
-                            <span class="d-inline d-xl-none">IT / QA</span>
-                        </button>
-                    </form>
-                @endif
-                @if(auth()->user() && auth()->user()->isPetugasIt())
-                    @php
-                        $itPreviewRole = $previewRole ?? (auth()->user()->hasActiveRole() ? auth()->user()->activeRole() : null);
-                        $itPreviewLabel = $itPreviewRole ? (\App\Models\User::PREVIEW_ROLES[$itPreviewRole] ?? ucfirst($itPreviewRole)) : null;
-                        $itMaintenanceOn = \App\Models\PengaturanJadwal::isMaintenanceModeActive();
-                    @endphp
-
-                    @if($itMaintenanceOn)
-                        <!-- Quick disable Maintenance Mode -->
-                        <form action="{{ route('it.maintenance-mode') }}" method="POST" class="d-inline">
-                            @csrf
-                            <input type="hidden" name="maintenance_mode" value="0">
-                            <button type="submit" class="btn btn-sm btn-danger rounded-3 d-flex align-items-center gap-2 me-2" title="Mode Maintenance AKTIF — klik untuk mematikan">
-                                <i class="bi bi-exclamation-triangle-fill"></i>
-                                <span class="d-none d-lg-inline">Maintenance ON — Matikan</span>
-                            </button>
-                        </form>
-                    @endif
-
-                    @if($itPreviewRole)
-                        <!-- Kembali ke Mode IT -->
-                        <form action="{{ route('it.reset-view') }}" method="POST" class="d-inline">
-                            @csrf
-                            <button type="submit" class="btn btn-sm btn-outline-warning rounded-3 d-flex align-items-center gap-2 me-2">
-                                <i class="bi bi-arrow-counterclockwise"></i>
-                                <span class="d-none d-sm-inline">Kembali ke Mode IT</span>
-                            </button>
-                        </form>
-                    @endif
-
-                    <!-- Emergency Super Admin Takeover ("Kartu As") — IT/QA ONLY -->
-                    <button type="button"
-                            class="btn btn-sm btn-outline-danger rounded-circle d-inline-flex align-items-center justify-content-center me-2"
-                            style="width: 34px; height: 34px; flex: 0 0 34px;"
-                            data-bs-toggle="modal"
-                            data-bs-target="#itEmergencyTakeoverModal"
-                            title="Emergency Super Admin Takeover"
-                            aria-label="Emergency Super Admin Takeover">
-                        <i class="bi bi-shield-exclamation"></i>
-                    </button>
-
-                    <!-- Switch View As -->
-                    <div class="dropdown me-2">
-                        <button class="btn btn-sm btn-dark rounded-3 d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-arrows-fullscreen"></i>
-                            <span class="d-none d-md-inline">
-                                {{ $itPreviewRole ? 'View: ' . $itPreviewLabel : 'Switch View As' }}
-                            </span>
-                            <i class="bi bi-chevron-down"></i>
-                        </button>
-
-                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-4 mt-2" style="max-height: 420px; overflow-y: auto;">
-                            <li class="px-3 py-2">
-                                <span class="text-uppercase fw-bold text-muted small" style="font-size: 0.68rem; letter-spacing: 0.06em;">Pilih Role Portal</span>
-                            </li>
-                            @foreach(\App\Models\User::PREVIEW_ROLES as $previewKey => $previewName)
-                                <li>
-                                    <form action="{{ route('it.switch-view') }}" method="POST" class="d-inline">
-                                        @csrf
-                                        <input type="hidden" name="role" value="{{ $previewKey }}">
-                                        <button type="submit" class="dropdown-item py-2 {{ $itPreviewRole === $previewKey ? 'active' : '' }}">
-                                            <i class="bi {{ $previewKey === 'super_admin' ? 'bi-shield-check' : 'bi-person-circle' }} me-2 text-muted"></i>
-                                            {{ $previewName }}
-                                        </button>
-                                    </form>
-                                </li>
-                            @endforeach
-                        </ul>
-                    </div>
-
-                    <!-- Select Impersonate Target Context (Mode QA IT - Portal Guru / Wali Kelas) -->
-                    @if(! empty($itPreviewRole) && in_array($itPreviewRole, ['guru_mapel', 'guru_piket', 'wali_kelas'], true))
-                        @php
-                            $itIsWaliKelas = $itPreviewRole === 'wali_kelas';
-                            $itTargetId = session('impersonate_target_id');
-                            $itTargetGuru = $itTargetId ? \App\Models\User::find($itTargetId) : null;
-                            $itTargetList = \App\Models\User::where('role', \App\Models\User::ROLE_GURU)
-                                ->where('is_active', true)
-                                ->when($itIsWaliKelas, fn ($q) => $q->where(function ($q2) {
-                                    $q2->where('sub_role', 'wali_kelas')
-                                        ->orWhereHas('kelasWali');
-                                }))
-                                ->orderBy('nama')
-                                ->get();
-                        @endphp
-                        <div class="dropdown me-2">
-                            <button class="btn btn-sm btn-outline-secondary rounded-3 d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="bi bi-person-badge"></i>
-                                <span class="d-none d-md-inline">
-                                    @if($itTargetGuru)
-                                        {{ $itIsWaliKelas ? 'Wali Kelas: ' : 'Guru: ' }}{{ $itTargetGuru->nama }}
-                                    @else
-                                        {{ $itIsWaliKelas ? 'Pilih Wali Kelas Target' : 'Pilih Context Target Guru' }}
-                                    @endif
-                                </span>
-                                <i class="bi bi-chevron-down"></i>
-                            </button>
-
-                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-4 mt-2" style="max-height: 420px; overflow-y: auto;">
-                                <li class="px-3 py-2">
-                                    <span class="text-uppercase fw-bold text-muted small" style="font-size: 0.68rem; letter-spacing: 0.06em;">Pilih {{ $itIsWaliKelas ? 'Wali Kelas' : 'Guru' }} Target</span>
-                                </li>
-                                <li>
-                                    <form action="{{ route('it.impersonate-target') }}" method="POST" class="d-inline">
-                                        @csrf
-                                        <input type="hidden" name="impersonate_target_id" value="">
-                                        <button type="submit" class="dropdown-item py-2 {{ $itTargetId ? '' : 'active' }}">
-                                            <i class="bi bi-person me-2 text-muted"></i>
-                                            Akun Saya (Tanpa Target)
-                                        </button>
-                                    </form>
-                                </li>
-                                @forelse($itTargetList as $guruOpt)
-                                    <li>
-                                        <form action="{{ route('it.impersonate-target') }}" method="POST" class="d-inline">
-                                            @csrf
-                                            <input type="hidden" name="impersonate_target_id" value="{{ $guruOpt->id }}">
-                                            <button type="submit" class="dropdown-item py-2 {{ (int) $itTargetId === (int) $guruOpt->id ? 'active' : '' }}">
-                                                <i class="bi bi-person-check me-2 text-muted"></i>
-                                                {{ $guruOpt->nama }}
-                                                <span class="small text-muted">({{ $guruOpt->username }})</span>
-                                            </button>
-                                        </form>
-                                    </li>
-                                @empty
-                                    <li class="px-3 py-2 text-muted small">Belum ada akun Guru testing.</li>
-                                @endforelse
-                            </ul>
-                        </div>
-                    @endif
-                @endif
-
                 <!-- Notifications -->
                 @php
                     $navUnreadNotifs = auth()->user()?->unreadNotifications()->latest()->limit(5)->get() ?? collect();
@@ -1715,7 +1755,7 @@
                         <img src="{{ $navAvatar }}" alt="Avatar" class="user-avatar"
                              onerror="this.onerror=null;this.src='{{ $defaultNavAvatar }}';">
                         <div class="user-meta">
-                            <div class="user-name">{{ $navUser?->nama ?? 'Admin Utama' }}</div>
+                            <div class="user-name" title="{{ $navUser?->nama ?? 'Admin Utama' }}">{{ $navUser?->nama ?? 'Admin Utama' }}</div>
                             <div class="user-role">{{ $navUser?->role_label ?? 'Administrator' }}</div>
                         </div>
                         <i class="bi bi-chevron-down user-chevron"></i>
@@ -1737,6 +1777,7 @@
                 </div>
             </div>
         </header>
+        </div><!-- /.topbar-sticky -->
 
         <!-- Bootstrap 5.3 JS Bundle: dimuat SEBELUM konten, karena beragam halaman
              memakai bootstrap.Modal/Toast di dalam script push-an halaman yang kini
@@ -1750,6 +1791,10 @@
              di-reload. Style & script per-halaman sengaja dirender DI DALAM <main>
              supaya aset per-halaman ikut terbawa & dieksekusi saat fragmen di-swap. -->
         <main id="page-content" class="page-content px-3 sm:px-6 py-4">
+            {{-- Banner Mode Dev & Testing (Petugas IT / QA): DI DALAM area konten utama,
+                 tepat di bawah Topbar dan di atas judul halaman — Topbar tetap bersih. --}}
+            @include('layouts.partials.dev-testing-banner')
+
             @yield('content')
             @stack('styles')
             @stack('scripts')

@@ -9,10 +9,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class JamPelajaran extends Model implements TestingDataContextAware
 {
-    use HasFactory, HasTestingData;
+    use HasFactory, HasTestingData, SoftDeletes;
 
     protected $table = 'jam_pelajaran';
 
@@ -101,6 +102,7 @@ class JamPelajaran extends Model implements TestingDataContextAware
             return in_array($h, ['Senin', 'Selasa', 'Rabu', 'Kamis'], true) ? 'Senin-Kamis' : 'Jumat';
         }
         $kat = $this->attributes['kategori_hari'] ?? 'Senin-Kamis';
+
         return ($kat === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
     }
 

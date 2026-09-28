@@ -44,14 +44,21 @@ class WakaKesiswaanController extends Controller
 
         $totalSemua = DispensasiSiswa::count();
 
-        $riwayatTerbaru = DispensasiSiswa::with(['siswa.kelas', 'guruPiket', 'wakaKesiswaan'])
+        // Quick-view dashboard: hanya pengajuan yang MEMBUTUHKAN TTD/APPROVAL
+        // Waka Kesiswaan (belum di-TTD + status aktif berjalan), dibatasi 5 data
+        // agar dashboard ringkas dan tidak menyaingi halaman Approval yang
+        // memegang manajemen tabel lengkap (search, filter tanggal, pagination).
+        $riwayatMenunggu = $this->dispensasiBaseQuery()
+            ->whereNull('ttd_waka')
+            ->where('tipe_dispen', '!=', DispensasiSiswa::TIPE_MASUK)
+            ->whereIn('status', self::PENDING_STATUSES)
             ->orderByDesc('tanggal')
             ->orderByDesc('id')
-            ->limit(8)
+            ->limit(5)
             ->get();
 
         return view('admin.waka-kesiswaan.dashboard', compact(
-            'totalHariIni', 'pendingTtd', 'sudahTtd', 'totalSemua', 'riwayatTerbaru'
+            'totalHariIni', 'pendingTtd', 'sudahTtd', 'totalSemua', 'riwayatMenunggu'
         ));
     }
 
@@ -73,20 +80,40 @@ class WakaKesiswaanController extends Controller
             $filter = 'menunggu';
         }
 
-        $user = Auth::user();
-        $isImpersonasi = $user && $user->hasActiveRole() && $user->activeRole() === 'waka_kesiswaan';
+        $base = $this->dispensasiBaseQuery()
+            ->where('tipe_dispen', '!=', DispensasiSiswa::TIPE_MASUK);
 
-        // Saat impersonasi, bypass TestingDataScope agar record real juga tampil,
-        // dan relasi (siswa/kelas/guru/approver) juga di-resolve tanpa scope —
-        // jika tidak, record real tampil namun kolom siswa hanya "-".
-        $baseQuery = $isImpersonasi
-            ? DispensasiSiswa::withoutGlobalScope(TestingDataScope::class)
-                ->with($this->crossScopeRelations())
-            : DispensasiSiswa::with(['siswa.kelas', 'guruPiket', 'wakaKesiswaan', 'approver']);
+        // Pencarian teks: nama siswa, NIS, NISN, nomor surat (DIS-####/Tahun),
+        // atau ID surat numerik.
+        $search = trim((string) $request->query('search'));
+        if ($search !== '') {
+            $base->where(function ($q) use ($search) {
+                $q->whereHas('siswa', function ($sq) use ($search) {
+                    $sq->where('nama', 'like', "%{$search}%")
+                        ->orWhere('nis', 'like', "%{$search}%")
+                        ->orWhere('nisn', 'like', "%{$search}%");
+                });
 
-        $base = $baseQuery->where('tipe_dispen', '!=', DispensasiSiswa::TIPE_MASUK);
+                if ($suratId = DispensasiSiswa::parseNomorSurat($search)) {
+                    $q->orWhere('id', $suratId);
+                } elseif (ctype_digit($search)) {
+                    $q->orWhere('id', (int) $search);
+                }
+            });
+        }
 
-        // Counter untuk badge di setiap tab.
+        // Filter rentang tanggal (tanggal_mulai s.d. tanggal_selesai).
+        $tanggalMulai = (string) $request->query('tanggal_mulai');
+        $tanggalSelesai = (string) $request->query('tanggal_selesai');
+        if ($tanggalMulai !== '' && $tanggalSelesai !== '') {
+            $base->whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai]);
+        } elseif ($tanggalMulai !== '') {
+            $base->whereDate('tanggal', '>=', $tanggalMulai);
+        } elseif ($tanggalSelesai !== '') {
+            $base->whereDate('tanggal', '<=', $tanggalSelesai);
+        }
+
+        // Counter untuk badge di setiap tab (ikut menghormati search & rentang tanggal).
         $counts = [
             'menunggu' => (clone $base)->whereNull('ttd_waka')->whereIn('status', self::PENDING_STATUSES)->count(),
             'disetujui' => (clone $base)->whereNotNull('ttd_waka')->where('status', '!=', DispensasiSiswa::STATUS_DITOLAK)->count(),
@@ -109,9 +136,113 @@ class WakaKesiswaanController extends Controller
                 $query->whereNull('ttd_waka')->whereIn('status', self::PENDING_STATUSES);
         }
 
-        $daftar = $query->orderByDesc('tanggal')->orderByDesc('id')->get();
+        $daftar = $query->orderByDesc('tanggal')->orderByDesc('id')->paginate(15)->withQueryString();
 
         return view('admin.waka-kesiswaan.approval', compact('daftar', 'filter', 'counts'));
+    }
+
+    /**
+     * Tanda tangan digital massal (bulk): satu tanda tangan Waka Kesiswaan
+     * diterapkan ke beberapa surat yang dipilih sekaligus. Hanya surat yang
+     * masih isMenungguTtdWaka() yang diproses; sisanya dilewati.
+     */
+    public function approvalBulkStore(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer',
+            'ttd_waka' => 'required|string|max:150000',
+        ], [
+            'ids.required' => 'Tidak ada surat yang dipilih untuk ditandatangani.',
+            'ids.min' => 'Pilih minimal satu surat untuk ditandatangani.',
+            'ttd_waka.required' => 'Tanda tangan Waka Kesiswaan wajib diisi.',
+        ]);
+
+        // Terima PNG (canvas default) maupun JPEG (canvas terkompresi dari frontend).
+        $ttdWaka = preg_match('/^data:image\/(png|jpeg|jpg);base64,/i', trim((string) $validated['ttd_waka']))
+            ? trim((string) $validated['ttd_waka'])
+            : null;
+
+        if (! $ttdWaka) {
+            $errMsg = 'Tanda tangan Waka Kesiswaan wajib digambar terlebih dahulu.';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $errMsg], 422);
+            }
+
+            return back()->withErrors(['ttd_waka' => $errMsg]);
+        }
+
+        $user = Auth::user();
+        $isWakaAsli = $user && $user->isWakaKesiswaan();
+        $isImpersonasi = $user && $user->hasActiveRole() && $user->activeRole() === 'waka_kesiswaan';
+
+        abort_unless(
+            $isWakaAsli || $isImpersonasi,
+            403,
+            'Akses ditolak. Halaman ini khusus untuk Waka Kesiswaan.'
+        );
+
+        $wakaId = Auth::id();
+        $terproses = 0;
+
+        $daftar = DispensasiSiswa::withoutGlobalScope(TestingDataScope::class)
+            ->whereIn('id', $validated['ids'])
+            ->get();
+
+        foreach ($daftar as $dispensasi) {
+            // Data testing hanya boleh dimutasi Petugas IT / QA (impersonasi).
+            if ($dispensasi->is_testing_data) {
+                $this->authorizeTestingMutation($dispensasi);
+            }
+
+            if (! $dispensasi->isMenungguTtdWaka()) {
+                continue;
+            }
+
+            $dispensasi->update([
+                'ttd_waka' => $ttdWaka,
+                'waka_kesiswaan_id' => $wakaId,
+                'status' => DispensasiSiswa::STATUS_APPROVED,
+                'approved_at' => now(),
+                'approved_by' => $wakaId,
+            ]);
+            $terproses++;
+        }
+
+        if ($terproses === 0) {
+            $errMsg = 'Tidak ada surat terpilih yang masih menunggu tanda tangan Waka Kesiswaan.';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $errMsg], 422);
+            }
+
+            return back()->withErrors(['ids' => $errMsg]);
+        }
+
+        $successMsg = "{$terproses} surat dispensasi berhasil ditandatangani Waka Kesiswaan secara massal.";
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => $successMsg]);
+        }
+
+        return back()->with('success', $successMsg);
+    }
+
+    /**
+     * Builder dasar dispensasi portal Waka Kesiswaan.
+     *
+     * Saat Petugas IT impersonasi 'waka_kesiswaan', TestingDataScope memfilter
+     * ke is_testing_data = true sehingga dispensasi real tidak muncul. Bypass
+     * scope (+ relasi tanpa scope) agar daftar real + testing lengkap tampil —
+     * perilaku yang sama dengan yang sudah diterapkan di approvalIndex.
+     */
+    protected function dispensasiBaseQuery()
+    {
+        $user = Auth::user();
+        $isImpersonasi = $user && $user->hasActiveRole() && $user->activeRole() === 'waka_kesiswaan';
+
+        return $isImpersonasi
+            ? DispensasiSiswa::withoutGlobalScope(TestingDataScope::class)->with($this->crossScopeRelations())
+            : DispensasiSiswa::with(['siswa.kelas', 'guruPiket', 'wakaKesiswaan', 'approver']);
     }
 
     /**

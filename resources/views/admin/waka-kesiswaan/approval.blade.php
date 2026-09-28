@@ -55,7 +55,7 @@
                        style="font-size: 0.85rem;">
                         <i class="bi {{ $tab['icon'] }}"></i>
                         <span>{{ $tab['label'] }}</span>
-                        <span class="badge {{ $isActive ? 'bg-white bg-opacity-25 text-white' : 'bg-secondary-subtle text-secondary' }} rounded-pill px-2" style="font-size: 0.7rem;">
+                        <span class="badge rounded-pill px-2 {{ $isActive ? 'bg-white bg-opacity-25 text-white' : ($countValue > 0 ? 'bg-secondary-subtle text-secondary' : 'bg-transparent text-muted opacity-50 border-0') }}" style="font-size: 0.7rem;">
                             {{ $countValue }}
                         </span>
                     </a>
@@ -64,18 +64,68 @@
         </div>
     </div>
 
+    {{-- Filter Panel: Search + Rentang Tanggal --}}
+    <div class="card border-0 rounded-4 shadow-sm mb-3">
+        <div class="card-body py-3 px-3">
+            <form method="GET" action="{{ route('waka-kesiswaan.dispensasi.approval.index') }}" id="filterApprovalForm" class="row g-2 align-items-end">
+                <input type="hidden" name="filter" value="{{ $filter }}">
+                <div class="col-12 col-md-4">
+                    <label class="form-label d-none d-md-block text-uppercase fw-bold text-muted mb-1" style="font-size:0.68rem;">Pencarian</label>
+                    <div class="position-relative">
+                        <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size:0.85rem;"></i>
+                        <input type="text" name="search" value="{{ request('search') }}"
+                               class="form-control form-control-sm rounded-3 ps-5 bg-light"
+                               placeholder="Cari nama siswa, NIS, NISN, no. surat..."
+                               autocomplete="off"
+                               data-live-submit
+                               title="Ketik untuk mencari otomatis, atau tekan Enter">
+                    </div>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label text-uppercase fw-bold text-muted mb-1" style="font-size:0.68rem;">Dari Tanggal</label>
+                    <input type="date" name="tanggal_mulai" value="{{ request('tanggal_mulai') }}" class="form-control form-control-sm rounded-3 bg-light">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label text-uppercase fw-bold text-muted mb-1" style="font-size:0.68rem;">Sampai Tanggal</label>
+                    <input type="date" name="tanggal_selesai" value="{{ request('tanggal_selesai') }}" class="form-control form-control-sm rounded-3 bg-light">
+                </div>
+                <div class="col-6 col-md-2">
+                    <button type="submit" class="btn btn-sm btn-primary rounded-3 fw-semibold w-100">
+                        <i class="bi bi-funnel me-1"></i> Terapkan
+                    </button>
+                </div>
+                <div class="col-6 col-md-2">
+                    <a href="{{ route('waka-kesiswaan.dispensasi.approval.index', ['filter' => $filter]) }}"
+                       class="btn btn-sm btn-light border rounded-3 fw-semibold w-100 text-secondary">
+                        <i class="bi bi-x-circle me-1"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="table-card-custom mb-4">
-        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-            <h5 class="fw-bold text-dark mb-0">
-                {{ $tabs[$filter]['label'] ?? 'Surat Dispensasi' }}
-            </h5>
-            <span class="text-muted small">{{ $daftar->count() }} surat</span>
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+                <h5 class="fw-bold text-dark mb-1">{{ $tabs[$filter]['label'] ?? 'Surat Dispensasi' }}</h5>
+                <span class="text-muted small">
+                    {{ $daftar->total() }} surat • Halaman {{ $daftar->currentPage() }} / {{ $daftar->lastPage() ?: 1 }}
+                </span>
+            </div>
+            {{-- Aksi TTD digital bulk (seleksi per halaman) --}}
+            <button type="button" id="btnBulkTtd" class="btn btn-sm btn-primary rounded-3 fw-semibold opacity-50 pointer-events-none" disabled>
+                <i class="bi bi-pen-fill me-1"></i> Tanda Tangani Terpilih
+                <span class="badge bg-white bg-opacity-25 text-white rounded-pill ms-1" id="bulkTtdCount">0</span>
+            </button>
         </div>
 
         <div class="table-responsive w-full overflow-x-auto">
             <table class="table table-custom align-middle mb-0 min-w-full">
                 <thead>
                     <tr>
+                        <th class="text-center" style="width: 44px;">
+                            <input type="checkbox" id="selectAllSurat" class="form-check-input cursor-pointer" title="Pilih semua surat di halaman ini">
+                        </th>
                         <th>TANGGAL</th>
                         <th>SISWA</th>
                         <th>JAM</th>
@@ -87,6 +137,11 @@
                 <tbody>
                     @forelse($daftar as $dispen)
                         <tr>
+                            <td class="text-center">
+                                @if($dispen->isMenungguTtdWaka())
+                                    <input type="checkbox" class="form-check-input row-surat-check align-middle cursor-pointer" value="{{ $dispen->id }}" title="Pilih untuk TTD massal">
+                                @endif
+                            </td>
                             <td class="fw-semibold text-dark text-nowrap">
                                 {{ $dispen->tanggal?->translatedFormat('d/m/Y') ?? '-' }}
                                 <div class="text-muted small fw-normal">{{ $dispen->nomor_surat }}</div>
@@ -131,7 +186,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="text-center text-muted py-4">
+                            <td colspan="7" class="text-center text-muted py-4">
                                 <i class="bi bi-inbox-fill me-2"></i>
                                 @if($filter === 'menunggu')
                                     Tidak ada dispensasi yang menunggu tanda tangan Waka Kesiswaan.
@@ -148,6 +203,12 @@
                 </tbody>
             </table>
         </div>
+
+        @if($daftar->hasPages())
+            <div class="d-flex justify-content-end pt-3">
+                {{ $daftar->links() }}
+            </div>
+        @endif
     </div>
 </div>
 
@@ -297,6 +358,50 @@
     @endif
 @endforeach
 
+{{-- ================= MODAL TTD MASSAL (BULK) — satu TTD untuk banyak surat ================= --}}
+<div class="modal fade" id="modalApprovalBulk" tabindex="-1" aria-labelledby="modalApprovalBulkLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow-lg">
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold text-dark" id="modalApprovalBulkLabel">
+                        <i class="bi bi-pen-fill me-2 text-primary"></i>Tanda Tangan Massal (Bulk)
+                    </h5>
+                    <div class="text-muted small" id="bulkTtdIdsInfo">0 surat terpilih.</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted small mb-3">
+                    Gambar tanda tangan Waka Kesiswaan <strong>sekali</strong> — tanda tangan yang sama akan
+                    diterapkan ke semua surat terpilih sekaligus. Hanya surat dengan status
+                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-1">Menunggu TTD</span>
+                    yang akan diproses.
+                </p>
+
+                <div class="border rounded-4 p-2 bg-light-subtle mb-3" style="min-height: 180px;">
+                    <canvas id="ttdWakaBulk" width="700" height="180" class="w-100" style="border: 1px solid #dfe5ef; border-radius: 12px; background: #fff; touch-action: none; cursor: crosshair;"></canvas>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-3" data-clear-canvas="ttdWakaBulk">
+                        <i class="bi bi-eraser me-1"></i>Bersihkan Canvas
+                    </button>
+                </div>
+
+                <form action="{{ route('waka-kesiswaan.dispensasi.approval.bulk') }}" method="POST" id="formApprovalBulk">
+                    @csrf
+                    <div id="bulkSuratIds"></div>
+                    <input type="hidden" name="ttd_waka" id="ttdWakaInputBulk" value="">
+                    <button type="submit" class="btn btn-success w-100 rounded-3 fw-semibold" data-submit-approval-bulk>
+                        <i class="bi bi-check-circle me-1"></i> Setujui & Simpan Semua TTD
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     // =========================================================
     // SIGNATURE CANVAS — inisialisasi HANYA saat modal sudah
@@ -415,7 +520,10 @@
     // - Handle sukses: tutup modal + reload halaman
     // - Handle error: tampilkan pesan tanpa reload
     // =========================================================
-    document.querySelectorAll('form[id^="formApproval"]').forEach((form) => {
+    // Form TTD per surat (id formApproval{id}) — EXCLUDE formApprovalBulk
+    // yang punya handler submit tersendiri di bawah, agar tidak terjadi
+    // double-fetch saat TTD massal.
+    document.querySelectorAll('form[id^="formApproval"]:not(#formApprovalBulk)').forEach((form) => {
         form.addEventListener('submit', async function (event) {
             event.preventDefault();
 
@@ -517,6 +625,162 @@
             initSignatureCanvas(canvasId, inputId);
         });
     });
+
+    // =========================================================
+    // BULK TTD — pilih beberapa surat lalu tandatangani sekaligus
+    // dengan satu tanda tangan. Seleksi berlaku per halaman.
+    // =========================================================
+    const selectAllSurat = document.getElementById('selectAllSurat');
+    const checkboxes     = Array.from(document.querySelectorAll('.row-surat-check'));
+    const btnBulkTtd     = document.getElementById('btnBulkTtd');
+    const bulkTtdCount   = document.getElementById('bulkTtdCount');
+
+    function selectedSuratIds() {
+        return checkboxes.filter((cb) => cb.checked).map((cb) => cb.value);
+    }
+
+    function updateBulkState() {
+        const ids = selectedSuratIds();
+        const hasSelection = ids.length > 0;
+        if (bulkTtdCount) bulkTtdCount.textContent = ids.length;
+        if (btnBulkTtd) {
+            btnBulkTtd.disabled = !hasSelection;
+            btnBulkTtd.classList.toggle('opacity-50', !hasSelection);
+            btnBulkTtd.classList.toggle('pointer-events-none', !hasSelection);
+        }
+    }
+
+    if (selectAllSurat && checkboxes.length) {
+        selectAllSurat.addEventListener('change', function () {
+            checkboxes.forEach((cb) => { cb.checked = selectAllSurat.checked; });
+            updateBulkState();
+        });
+        checkboxes.forEach((cb) => cb.addEventListener('change', function () {
+            if (!cb.checked && selectAllSurat) selectAllSurat.checked = false;
+            updateBulkState();
+        }));
+    }
+
+    // Salin ID terpilih ke hidden input ids[] sebelum modal dibuka.
+    const bulkModalEl    = document.getElementById('modalApprovalBulk');
+    const bulkIdsHolder  = document.getElementById('bulkSuratIds');
+    const bulkTtdIdsInfo = document.getElementById('bulkTtdIdsInfo');
+
+    if (btnBulkTtd && bulkModalEl) {
+        btnBulkTtd.addEventListener('click', function () {
+            const ids = selectedSuratIds();
+            if (ids.length === 0) return;
+
+            if (bulkIdsHolder) bulkIdsHolder.innerHTML = '';
+            ids.forEach((id) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'ids[]';
+                input.value = id;
+                if (bulkIdsHolder) bulkIdsHolder.appendChild(input);
+            });
+
+            if (bulkTtdIdsInfo) {
+                bulkTtdIdsInfo.textContent = `${ids.length} surat terpilih — satu tanda tangan akan dipakai untuk semuanya.`;
+            }
+        });
+    }
+
+    // Init canvas bulk saat modal bulk tampil penuh.
+    if (bulkModalEl) {
+        bulkModalEl.addEventListener('shown.bs.modal', function () {
+            initSignatureCanvas('ttdWakaBulk', 'ttdWakaInputBulk');
+        });
+    }
+
+    // Submit bulk via AJAX fetch (pola sama dengan submit individual).
+    const bulkForm = document.getElementById('formApprovalBulk');
+    if (bulkForm) {
+        bulkForm.addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const hiddenInput = bulkForm.querySelector('input[name="ttd_waka"]');
+            const canvasEl    = document.getElementById('ttdWakaBulk');
+
+            if (!canvasEl || !hiddenInput || !hiddenInput.value) {
+                alert('Silakan gambar tanda tangan Waka Kesiswaan terlebih dahulu.');
+                return;
+            }
+
+            // Kompres ke JPEG 60% dengan background putih (sama seperti single).
+            const offscreen = document.createElement('canvas');
+            offscreen.width  = canvasEl.width;
+            offscreen.height = canvasEl.height;
+            const offCtx = offscreen.getContext('2d');
+            offCtx.fillStyle = '#ffffff';
+            offCtx.fillRect(0, 0, offscreen.width, offscreen.height);
+            offCtx.drawImage(canvasEl, 0, 0);
+            hiddenInput.value = offscreen.toDataURL('image/jpeg', 0.7);
+
+            const submitBtn = bulkForm.querySelector('[data-submit-approval-bulk]');
+            const originalHtml = submitBtn ? submitBtn.innerHTML : '';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Menyimpan TTD...';
+            }
+
+            try {
+                const formData = new FormData(bulkForm);
+                const response = await fetch(bulkForm.action, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: formData,
+                });
+
+                let data = null;
+                try { data = await response.json(); } catch { /* bukan JSON, abaikan */ }
+
+                if ((response.ok && data?.success) || (response.ok && !data)) {
+                    const modal = bootstrap.Modal.getInstance(bulkModalEl);
+                    if (modal) modal.hide();
+                    setTimeout(() => { location.reload(); }, 400);
+                } else {
+                    const errMsg = data?.message
+                        || data?.errors?.ttd_waka?.[0]
+                        || data?.errors?.ids?.[0]
+                        || `Gagal menyimpan TTD massal (HTTP ${response.status}).`;
+                    alert(errMsg);
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalHtml;
+                    }
+                }
+            } catch (networkError) {
+                alert('Koneksi gagal. Periksa jaringan dan coba lagi.\n\nDetail: ' + networkError.message);
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalHtml;
+                }
+            }
+        });
+    }
+
+    // =========================================================
+    // INSTANT SEARCH — auto-submit (live filter) debounce 600ms
+    // pada input pencarian. Tombol "Terapkan" tetap tersedia untuk
+    // filter tanggal, dan tekan Enter tetap submit (native form).
+    // =========================================================
+    const filterApprovalForm = document.getElementById('filterApprovalForm');
+    const liveSearchInput    = filterApprovalForm
+        ? filterApprovalForm.querySelector('input[name="search"]')
+        : null;
+
+    if (liveSearchInput) {
+        let searchTimer = null;
+        liveSearchInput.addEventListener('input', function () {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+                filterApprovalForm.requestSubmit();
+            }, 600);
+        });
+    }
+
+    updateBulkState();
 </script>
 
 @endsection

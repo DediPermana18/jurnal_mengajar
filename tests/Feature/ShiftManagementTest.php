@@ -469,7 +469,7 @@ class ShiftManagementTest extends TestCase
         $response->assertRedirect();
         $response->assertSessionHas('success');
 
-        $this->assertDatabaseMissing('jam_pelajaran', ['id' => $slotS1->id]);
+        $this->assertSoftDeleted('jam_pelajaran', ['id' => $slotS1->id]);
         $this->assertDatabaseHas('jam_pelajaran', ['id' => $slotS2->id]);
         $this->assertDatabaseHas('jam_pelajaran', ['hari' => 'Senin', 'shift_id' => null]);
     }

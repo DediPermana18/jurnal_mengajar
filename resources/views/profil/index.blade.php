@@ -177,7 +177,7 @@
                      onerror="this.onerror=null;this.src='{{ $defaultAvatar }}';"
                      class="rounded-circle border mb-3 d-block mx-auto shadow-sm"
                      style="width:80px;height:80px;object-fit:cover;border-width:3px!important;border-color:#e2e8f0!important;">
-                <div class="fw-bold text-dark text-center" style="font-size:1rem;">{{ $namaProfil }}</div>
+                <div class="fw-bold text-dark text-center text-truncate w-100" style="font-size:1rem;" title="{{ $namaProfil }}">{{ $namaProfil }}</div>
                 <div class="text-muted text-center" style="font-size:0.78rem;">{{ $user?->role_label }}</div>
                 @if($user?->nip)
                     <div class="badge bg-light text-secondary border rounded-pill px-3 mt-1 text-center" style="font-size:0.72rem;">NIP: {{ $user->nip ?? '-' }}</div>
