@@ -75,11 +75,14 @@ class WakaPiketNotificationTest extends TestCase
     /**
      * Nyalakan lingkungan non-testing + fake HTTP agar sendNotification benar-
      * benar "mengirim" (hermetik testing memotong semua request).
+     *
+     * Fake memakai body JSON realistis (status=true) karena Fonnte membalas
+     * HTTP 200 walau gagal — lihat FonnteService::send().
      */
     protected function aktifkanPengirimanWa(): void
     {
         AppSetting::set('fonnte_token', 'test-token');
-        Http::fake();
+        $this->fakeFonnte();
         app()->detectEnvironment(fn () => 'production');
     }
 

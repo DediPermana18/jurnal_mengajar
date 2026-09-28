@@ -64,6 +64,43 @@ class TahunAjaran extends Model
             ->where('is_testing_data', User::currentTestingStatus());
     }
 
+    // =========================================================================
+    // Helpers: Tahun Ajaran Aktif
+    // =========================================================================
+
+    /**
+     * Query scope: filter hanya baris yang berstatus aktif (`is_active = true`).
+     *
+     * Penggunaan: TahunAjaran::aktif()->get()  atau  TahunAjaran::aktif()->first()
+     */
+    public function scopeAktif(Builder $query): Builder
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
+     * Kembalikan instance Tahun Ajaran yang sedang aktif, atau null jika belum ada.
+     *
+     * Penggunaan tunggal di seluruh aplikasi agar perubahan kolom cukup di satu tempat.
+     *
+     * @return static|null
+     */
+    public static function aktif(): ?static
+    {
+        return static::where('is_active', true)->first();
+    }
+
+    /**
+     * Kembalikan ID Tahun Ajaran aktif, atau null jika belum ada.
+     * Berguna untuk menyisipkan ke klausa WHERE tanpa perlu mengambil seluruh model.
+     */
+    public static function aktifId(): ?int
+    {
+        $ta = static::aktif();
+
+        return $ta ? (int) $ta->id : null;
+    }
+
     /**
      * Mode penjadwalan eksplisit milik Tahun Ajaran.
      */

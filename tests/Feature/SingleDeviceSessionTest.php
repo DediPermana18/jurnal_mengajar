@@ -290,9 +290,13 @@ class SingleDeviceSessionTest extends TestCase
         // Legacy / mode testing: current_session_id null → fitur non-aktif → tetap lewat.
         $user = $this->createUser();
 
+        // User tes ini berperan Guru Mapel, jadi '/' (dashboard admin) memang
+        // dialihkan ke portal guru. Yang diuji: middleware TIDAK meng-kick.
         $this->actingAs($user)
-            ->get(route('dashboard'))
-            ->assertOk();
+            ->get(route('home'))
+            ->assertRedirect(route('guru.dashboard'));
+
+        $this->get(route('guru.dashboard'))->assertOk();
 
         $this->assertAuthenticatedAs($user);
     }

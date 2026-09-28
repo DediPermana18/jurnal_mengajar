@@ -7,6 +7,7 @@ use App\Models\IzinGuru;
 use App\Models\JadwalPiket;
 use App\Models\PengaturanJadwal;
 use App\Models\User;
+use App\Support\WaSendResult;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
@@ -34,6 +35,24 @@ use Illuminate\Support\Facades\Log;
  *
  * Nomor tujuan Waka/Kepsek diambil dari
  * `PengaturanJadwal::noWaWakaIzin()/noWaKepsek()` (setting, fallback user).
+ *
+ * ================== KONTRAK RESPONS FONNTE (penting) ==================
+ * Endpoint POST /send membalas **HTTP 200** untuk KEAGALAN BISNIS, sehingga
+ * `response->successful()` TIDAK cukup untuk menyatakan "terkirim". Contoh
+ * nyata hasil uji langsung ke api.fonnte.com:
+ *
+ *     HTTP 200  {"reason":"invalid token","status":false}
+ *
+ * Bentuk success: {"detail":"success! message in queue","id":[...],
+ * "process":"pending","requestid":...,"status":true,"target":[...]}
+ *
+ * Bentuk failure (selalu `status:false`, `reason` berisi penyebab):
+ * "token invalid", "devices must belong to an account", "input invalid",
+ * "target invalid", "insufficient quota", dan sebagainya.
+ *
+ * Karena itu `send()` mengembalikan {@see WaSendResult} yang membaca field
+ * `status` tersebut, sedangkan `sendNotification()` (bool) tetap dipertahankan
+ * untuk pemanggil lama.
  */
 class FonnteService
 {
@@ -96,6 +115,59 @@ class FonnteService
     }
 
     /**
+     * Sanitasi nomor tujuan WA ke format internasional Indonesia (62xxxxxxxxx).
+     *
+     * Sumber kebenaran tunggal normalisasi nomor untuk SELURUH pengiriman WA
+     * (dispensasi, izin guru, jadwal guru, security bot). Menangani:
+     *   - "+62 812-3456-7890" / "0812 3456 7890" -> "6281234567890"
+     *   - "8123456789" (tanpa country code)       -> "628123456789"
+     *   - "0812..." (nol di depan)                -> "62812..."
+     *
+     * Semua karakter non-digit (spasi, tanda hubung, kurung, titik) dibuang.
+     * Mengembalikan string kosong bila tidak ada digit sama sekali.
+     */
+    public static function normalizeTarget(?string $no): string
+    {
+        $no = preg_replace('/[^0-9]/', '', (string) $no);
+
+        if ($no === '') {
+            return '';
+        }
+
+        // 0812… / 021… -> 62812… / 6221…
+        if (str_starts_with($no, '0')) {
+            return '62'.substr($no, 1);
+        }
+
+        // 812… (nomor lokal tanpa awalan 0 & tanpa country code) -> 62812…
+        if (str_starts_with($no, '8') && strlen($no) >= 9) {
+            return '62'.$no;
+        }
+
+        return $no;
+    }
+
+    /**
+     * Nomor dianggap valid bila: hanya digit, berawalan country code 62, dan
+     * panjang nomor lokal 8-13 digit. Mencegah request sia-sia ke Fonnte yang
+     * akan ditolak dengan "target invalid".
+     */
+    public static function isValidTarget(?string $no): bool
+    {
+        $no = (string) $no;
+
+        if ($no === '' || ! ctype_digit($no) || ! str_starts_with($no, '62')) {
+            return false;
+        }
+
+        $lokal = substr($no, 2);
+
+        return strlen($lokal) >= 8
+            && strlen($lokal) <= 13
+            && ! preg_match('/^0+$/', $lokal);
+    }
+
+    /**
      * Kirim notifikasi WhatsApp generik ke satu nomor.
      *
      * Graceful failover: bila token/target/pesan kosong, switch global
@@ -110,17 +182,49 @@ class FonnteService
      */
     public static function sendNotification($target, $message): bool
     {
+        return self::send((string) $target, (string) $message)->ok;
+    }
+
+    /**
+     * Kirim pesan WA ke satu nomor dan kembalikan hasil BERLENGKAP (alasan
+     * kegagalan ikut dibawa), sehingga UI bisa menampilkan error yang jujur.
+     *
+     * PENTING: Fonnte membalas HTTP 200 walau gagal secara bisnis
+     * ({"status":false,"reason":"..."}), jadi `ok` hanya true bila body JSON
+     * mengonfirmasi `status` true. Lihat {@see self::interpretResponse()}.
+     *
+     * Tidak pernah melempar exception.
+     */
+    public static function send($target, $message): WaSendResult
+    {
+        // Konversi literal '\n' menjadi newline murni (\n) bila ada
+        $message = str_replace('\n', "\n", $message);
+
+        // Paket gratis Fonnte menolak URL / karakter spesial / teks panjang.
+        // Sanitasi dilakukan di layer shared service agar seluruh fitur (dispensasi,
+        // izin guru, dsb.) konsisten dan tidak mengalami "invalid message request".
+        $messageClean = self::bersihkanPesan($message);
+        if ($messageClean !== $message) {
+            Log::info('Fonnte WA: pesan disanitasi untuk paket gratis', [
+                'target' => $target,
+                'original_length' => strlen($message),
+                'cleaned_length' => strlen($messageClean),
+            ]);
+        }
+
         // Switch global: admin (Petugas IT) dapat mematikan seluruh pengiriman
         // WA tanpa melempar error — cukup dicatat ke log lalu dibatalkan.
         if (! self::notificationsEnabled()) {
+            $alasan = 'layanan notifikasi WA sedang dinonaktifkan oleh admin (Status Layanan Notifikasi pada Dashboard IT).';
+
             Log::info('Fonnte WA dilewati: notifikasi WA dinonaktifkan oleh admin (wa_notification_enabled=0).');
 
-            return false;
+            return WaSendResult::gagal($target, $alasan);
         }
 
         // Hermetik di lingkungan testing: jangan pernah memanggil jaringan asli.
         if (app()->environment('testing')) {
-            return false;
+            return WaSendResult::gagal($target, 'environment testing — pengiriman nyata diblokir.');
         }
 
         $token = self::token();
@@ -128,43 +232,164 @@ class FonnteService
         if (! $token) {
             Log::warning('Fonnte WA dilewati: services.fonnte.token belum dikonfigurasi.');
 
-            return false;
+            return WaSendResult::gagal($target, 'token Fonnte belum dikonfigurasi (Pengaturan WA / .env FONNTE_TOKEN).');
         }
 
-        if (empty($target)) {
+        // Sanitasi + validasi nomor tujuan sebelum membuang request ke Fonnte.
+        $target = self::normalizeTarget($target);
+
+        if ($target === '') {
             Log::warning('Fonnte WA dilewati: nomor target kosong.');
 
-            return false;
+            return WaSendResult::gagal($target, 'nomor tujuan kosong.');
         }
 
-        if (empty($message)) {
-            Log::warning('Fonnte WA dilewati: isi pesan kosong.');
+        if (! self::isValidTarget($target)) {
+            Log::warning('Fonnte WA dilewati: nomor target tidak valid (harus format 62xxxxxxxxx).', [
+                'target' => $target,
+            ]);
 
-            return false;
+            return WaSendResult::gagal($target, 'nomor tujuan tidak valid untuk Indonesia (harus 62xxxxxxxxx).');
         }
+
+        if (trim($messageClean) === '') {
+            Log::warning('Fonnte WA dilewati: isi pesan kosong setelah sanitasi.');
+
+            return WaSendResult::gagal($target, 'isi pesan kosong.');
+        }
+
+        // Log payload yang akan dikirim ke API Fonnte (untuk debugging & audit).
+        Log::info('Payload Fonnte:', [
+            'target' => $target,
+            'message' => $messageClean,
+        ]);
 
         try {
             $response = Http::withHeaders([
                 'Authorization' => $token,
             ])->timeout(15)->post(self::API_URL, [
                 'target' => $target,
-                'message' => $message,
+                'message' => $messageClean,
             ]);
-
-            if (! $response->successful()) {
-                Log::warning('Fonnte WA gagal (HTTP '.$response->status().'): '.$response->body());
-
-                return false;
-            }
-
-            Log::info('Fonnte WA terkirim ke '.$target);
-
-            return true;
         } catch (\Exception $e) {
             Log::error('Fonnte WA Error: '.$e->getMessage());
 
+            return WaSendResult::gagal($target, 'gagal menghubungi server Fonnte: '.$e->getMessage());
+        }
+
+        $result = self::interpretResponse($target, $response);
+
+        // Log response mentah dari Fonnte (termasuk body JSON) untuk debugging kegagalan.
+        if (! $result->ok) {
+            Log::error('Response Fonnte Gagal:', $result->response ?? ['reason' => $result->reason, 'ok' => false]);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Terjemahkan respons Fonnte menjadi WaSendResult.
+     *
+     * Fonnte membalas HTTP 200 untuk KEGAGALAN BISNIS; field `status` pada body
+     * JSON adalah penentu sebenarnya:
+     *   sukses : {"detail":"success! message in queue","status":true,...}
+     *   gagal  : {"reason":"invalid token","status":false}
+     *
+     * Body kosong / JSON rusak pada HTTP 200 dianggap GAGAL (bukan sukses),
+     * agar tidak ada alert "berhasil" padahal pesan tidak terkirim.
+     */
+    protected static function interpretResponse(string $target, $response): WaSendResult
+    {
+        $http = $response->status();
+        $raw = (string) $response->body();
+        $body = $response->json();
+        $body = is_array($body) ? $body : null;
+
+        // Log respons mentah — satu-satunya cara membedakan sukses vs gagal
+        // karena Fonnte selalu membalas HTTP 200.
+        Log::info('Fonnte WA respons API', [
+            'target' => $target,
+            'http' => $http,
+            'body' => $body ?? $raw,
+        ]);
+
+        if (! $response->successful()) {
+            $alasan = 'Fonnte menolak permintaan (HTTP '.$http.'): '.self::reasonFrom($body, $raw);
+
+            Log::warning('Fonnte WA gagal: '.$alasan, [
+                'target' => $target,
+                'http' => $http,
+            ]);
+
+            return WaSendResult::gagal($target, $alasan, $http, $body, $raw);
+        }
+
+        // HTTP 200 belum tentu terkirim: Fonnte menjawab status=false (dengan
+        // `reason`) untuk kegagalan bisnis, dan body kosong tidak membuktikan
+        // apa pun. Keduanya dihitung GAGAL.
+        if (! self::apiStatusTrue($body)) {
+            $alasan = self::reasonFrom($body, $raw);
+
+            Log::warning('Fonnte WA GAGAL meski HTTP '.$http.': '.$alasan, [
+                'target' => $target,
+                'http' => $http,
+                'body' => $body,
+            ]);
+
+            return WaSendResult::gagal($target, $alasan, $http, $body, $raw);
+        }
+
+        Log::info('Fonnte WA terkirim ke '.$target, [
+            'http' => $http,
+            'requestid' => $body['requestid'] ?? null,
+        ]);
+
+        return WaSendResult::sukses($target, $http, $body, $raw);
+    }
+
+    /**
+     * True HANYA bila body Fonnte secara eksplisit mengonfirmasi status=true.
+     *
+     * Body kosong / JSON rusak / tanpa field status diperlakukan sebagai
+     * "belum terkonfirmasi" (bukan sukses) demi keamanan notifikasi.
+     */
+    protected static function apiStatusTrue(?array $body): bool
+    {
+        if (! $body) {
             return false;
         }
+
+        // Fonnte tidak konsisten kapitalisasi kunci ("Status" vs "status").
+        $status = $body['status'] ?? $body['Status'] ?? null;
+
+        return $status === true
+            || $status === 1
+            || $status === '1'
+            || $status === 'true';
+    }
+
+    /**
+     * Ambil alasan kegagalan dari body Fonnte, dengan fallback ke body mentah.
+     */
+    protected static function reasonFrom(?array $body, string $raw): string
+    {
+        if ($body) {
+            foreach (['reason', 'message', 'detail', 'error'] as $key) {
+                $value = $body[$key] ?? null;
+
+                if (is_string($value) && trim($value) !== '') {
+                    return trim($value);
+                }
+            }
+        }
+
+        $raw = trim($raw);
+
+        if ($raw === '') {
+            return 'Fonnte membalas tanpa body — hasil pengiriman tidak dapat dipastikan.';
+        }
+
+        return mb_strlen($raw) > 300 ? mb_substr($raw, 0, 300).'…' : $raw;
     }
 
     /**
@@ -410,12 +635,13 @@ class FonnteService
             $body = $response->json() ?? [];
             $device = is_array(data_get($body, 'device')) ? data_get($body, 'device') : $body;
 
-            // Status perangkat: prioritas key root (device_status / status),
-            // fallback key di dalam objek device.
+            // Status perangkat: `device_status` (mis. "connect") adalah penentu
+            // sebenarnya; key `status` di root bernilai numerik (1) dan hanya
+            // penanda umum, jadi dibaca setelah `device_status`.
             $statusRaw = strtolower((string) (
                 data_get($body, 'device_status')
-                ?? data_get($body, 'status')
                 ?? data_get($device, 'device_status')
+                ?? data_get($body, 'status')
                 ?? data_get($device, 'status')
                 ?? ''
             ));
@@ -427,7 +653,7 @@ class FonnteService
             ], true);
 
             $details = [];
-            foreach (['device_status', 'name', 'phone', 'status', 'last_update', 'battery', 'platform'] as $key) {
+            foreach (['device_status', 'name', 'phone', 'status', 'package', 'expired', 'last_update', 'battery', 'platform'] as $key) {
                 if (($val = (string) (data_get($body, $key) ?? data_get($device, $key) ?? '')) !== '') {
                     $details[$key] = $val;
                 }
@@ -445,13 +671,25 @@ class FonnteService
                 }
             }
 
+            $pesan = $connected
+                ? 'Gateway Fonnte terhubung.'
+                : 'Koneksi ke API diterima, namun status perangkat WhatsApp tidak aktif (device_status: '.$statusRaw.').';
+
+            if ($quota !== null) {
+                $pesan .= ' Sisa kuota: '.$quota.' pesan.';
+            }
+
+            // Token yang sudah kedaluwarsa ditolak Fonnte dengan
+            // {"status":false,"reason":"token invalid"} pada endpoint /send.
+            if (isset($details['expired'])) {
+                $pesan .= ' Masa berlaku token: '.$details['expired'].'.';
+            }
+
             return [
                 'connected' => $connected,
                 'details' => $details,
                 'quota' => $quota,
-                'message' => $connected
-                    ? 'Gateway Fonnte terhubung.'
-                    : 'Koneksi ke API diterima, namun status perangkat WhatsApp tidak aktif (device_status: '.$statusRaw.').',
+                'message' => $pesan,
             ];
         } catch (\Exception $e) {
             return [
@@ -461,5 +699,49 @@ class FonnteService
                 'message' => 'Gagal menghubungi server Fonnte: '.$e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Bersihkan isi pesan dari URL, link, domain, dan karakter khusus
+     * yang diblokir Fonnte pada paket free.
+     *
+     * Melakukan pengurangan:
+     * - Menghapus http:// dan https:// beserta seluruh URL yang mengandungnya
+     * - Menghapus tautan domain (mis. .com, .id, .co)
+     * - Menghapus tanda kurawal ganda atau berlebih
+     * - Menghapus karakter khusus yang bisa memicu error "invalid message request"
+     * pada free package Fonnte.
+     *
+     * @param  string  $pesan  Isi pesan mentah dari pengguna
+     * @return string          Pesan yang sudah dibersihkan
+     */
+    public static function bersihkanPesan(string $pesan): string
+    {
+        // 0. Konversi string literal '\n' menjadi newline murni terlebih dahulu
+        $hasil = str_replace('\n', "\n", $pesan);
+
+        // 1. Hapus http:// dan https:// dan seluruh URL yang mengandungnya
+        $hasil = preg_replace('/https?:\/\/\S+/', '', $hasil);
+
+        // 2. Hapus domain saja (mis. .com, .id, .co, .net) jika berdiri sendiri
+        //    (hindari menghapus domain yang bagian dari teks bukan URL)
+        $hasil = preg_replace('/\b([a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)(com|id|co|net|org|gov|edu)(?:\/\S*)?\b/i', '', $hasil);
+
+        // 3. Hapus spasi/tab berlebih pada baris yang sama (TIDAK menghapus \n ganti baris)
+        $hasil = preg_replace('/[ \t]+/', ' ', $hasil);
+
+        // 4. Batasi newline beruntun maksimal 2 (\n\n) agar tidak terlalu renggang
+        $hasil = preg_replace('/\n{3,}/', "\n\n", $hasil);
+
+        // 5. Hapus tanda kurawal ganda dan plus ganda
+        $hasil = preg_replace('/\{+/', '{', $hasil);
+        $hasil = preg_replace('/\++/', '+', $hasil);
+
+        // 6. Potong string jika terlalu panjang (Fonnte punya limit)
+        if (strlen($hasil) > 1600) {
+            $hasil = mb_substr($hasil, 0, 1600) . '…';
+        }
+
+        return trim($hasil);
     }
 }

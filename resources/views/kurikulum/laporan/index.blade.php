@@ -182,8 +182,7 @@
                                 @endif
                             </td>
                             <td>
-                                <span class="fw-semibold text-dark">{{ $jadwal?->kelas?->nama_kelas ?? '-' }}</span>
-                                <div><small class="text-muted">{{ $jadwal?->kelas?->tingkat ?? '' }}</small></div>
+                                <span class="fw-semibold text-dark">{{ $jadwal?->kelas?->nama_kelas_lengkap ?? $jadwal?->kelas?->nama_kelas ?? '-' }}</span>
                             </td>
                             <td>
                                 <div class="fw-medium text-dark">

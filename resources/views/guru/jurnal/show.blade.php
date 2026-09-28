@@ -75,7 +75,7 @@
                 <label class="form-label fw-semibold text-secondary small text-uppercase">Nama Kelas</label>
                 <input type="text"
                        class="form-control rounded-3 readonly-field"
-                       value="{{ $jadwal->kelas?->nama_kelas ?? '-' }}"
+                       value="{{ $jadwal->kelas?->nama_kelas_lengkap ?? $jadwal->kelas?->nama_kelas ?? '-' }}"
                        readonly>
             </div>
             <div class="col-md-6">
@@ -176,7 +176,7 @@
             </div>
         @endif
         <h5 class="fw-bold text-dark mb-3">
-            <i class="bi bi-people-fill text-primary me-2"></i> Rekap Presensi Siswa Kelas {{ $jadwal->kelas?->nama_kelas }}
+            <i class="bi bi-people-fill text-primary me-2"></i> Rekap Presensi Siswa Kelas {{ $jadwal->kelas?->nama_kelas_lengkap ?? $jadwal->kelas?->nama_kelas }}
         </h5>
 
         <div class="table-responsive w-full overflow-x-auto">

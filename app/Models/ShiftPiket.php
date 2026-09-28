@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTestingData;
+use App\Models\Concerns\TestingDataContextAware;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class ShiftPiket extends Model
+class ShiftPiket extends Model implements TestingDataContextAware
 {
-    use HasFactory;
+    use HasFactory, HasTestingData;
 
     protected $table = 'shift_piket';
 
@@ -19,12 +21,14 @@ class ShiftPiket extends Model
         'maksimal_petugas',
         'is_active',
         'urutan',
+        'is_testing_data',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'maksimal_petugas' => 'integer',
         'urutan' => 'integer',
+        'is_testing_data' => 'boolean',
     ];
 
     public function jadwalPiket(): HasMany

@@ -88,34 +88,34 @@ class UserSelfProtectionTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $admin->id]);
     }
 
-    public function test_user_cannot_change_own_role_or_status_via_global_management(): void
+    public function test_user_can_open_own_edit_page_and_update_profile(): void
     {
         $admin = $this->makeTu();
 
+        // User dapat membuka form edit untuk profilnya sendiri
+        $this->actingAs($admin)
+            ->get(route('admin.users.edit', $admin->id))
+            ->assertOk()
+            ->assertDontSee('Akun Aktif')
+            ->assertSee('Edit User');
+
+        // User dapat memperbarui nama / no_hp sendiri
         $this->actingAs($admin)
             ->put(route('admin.users.update', $admin->id), [
-                'name' => 'Nama Baru',
+                'name' => 'Nama Baru Petugas',
                 'username' => $admin->username,
-                'sub_role' => 'kepsek',
-                'is_active' => 0,
+                'sub_role' => 'petugas_tu',
+                'no_hp' => '08123456789',
+                'is_active' => 1,
             ])
-            ->assertForbidden();
+            ->assertRedirect(route('admin.users.index'));
 
         $this->assertDatabaseHas('users', [
             'id' => $admin->id,
-            'nama' => $admin->nama,
-            'sub_role' => 'petugas_tu',
+            'nama' => 'Nama Baru Petugas',
+            'no_hp' => '08123456789',
             'is_active' => true,
         ]);
-    }
-
-    public function test_user_cannot_open_own_edit_page(): void
-    {
-        $admin = $this->makeTu();
-
-        $this->actingAs($admin)
-            ->get(route('admin.users.edit', $admin->id))
-            ->assertForbidden();
     }
 
     // ================= MODE LIHAT SAJA (Peer detail readonly) =================
@@ -328,7 +328,7 @@ class UserSelfProtectionTest extends TestCase
             ->assertDontSee('AKT-SECRET99');
     }
 
-    public function test_index_marks_current_user_row_and_hides_all_action_buttons(): void
+    public function test_index_marks_current_user_row_shows_edit_profile_and_hides_destructive_action_buttons(): void
     {
         $tu = $this->makeTu();
         $other = $this->makeUser('waka_kurikulum');
@@ -341,9 +341,9 @@ class UserSelfProtectionTest extends TestCase
         $response->assertSee('Akun Anda Saat Ini')
             ->assertSee('person-check-fill');
 
-        // (2) Kolom AKSI untuk diri sendiri hanya berisi placeholder "Akun Aktif".
-        $response->assertSee('Akun Aktif')
-            ->assertDontSee(route('admin.users.edit', $tu->id))
+        // (2) Kolom AKSI untuk diri sendiri menampilkan tombol "Edit Profil", dan menyembunyikan aksi destruktif.
+        $response->assertSee('Edit Profil')
+            ->assertSee(route('admin.users.edit', $tu->id))
             ->assertDontSee(route('admin.users.toggle-status', $tu->id))
             ->assertDontSee(route('admin.users.destroy', $tu->id));
 
@@ -469,5 +469,44 @@ class UserSelfProtectionTest extends TestCase
         $this->actingAs($it)
             ->get(route('admin.users.edit', $itAccount->id))
             ->assertOk();
+    }
+
+    public function test_super_admin_bisa_membuka_edit_dan_mengubah_user_lain(): void
+    {
+        $superAdmin = User::create([
+            'nama' => 'Super Admin',
+            'username' => 'superadmin_'.Str::random(5),
+            'password' => 'password123',
+            'role' => 'admin',
+            'sub_role' => 'super_admin',
+            'is_active' => true,
+        ]);
+        $target = $this->makeUser('waka_kurikulum');
+
+        // Super Admin dapat membuka form edit user lain (bukan readonly)
+        $this->actingAs($superAdmin)
+            ->get(route('admin.users.edit', $target->id))
+            ->assertOk()
+            ->assertDontSee('Mode Lihat Saja')
+            ->assertSee('Simpan Perubahan');
+
+        // Super Admin dapat memperbarui nama, no_hp, nip, username
+        $this->actingAs($superAdmin)
+            ->put(route('admin.users.update', $target->id), [
+                'name' => 'Nama Diedit Super Admin',
+                'username' => $target->username,
+                'sub_role' => 'waka_kurikulum',
+                'no_hp' => '089988776655',
+                'nip' => '1987654321',
+                'is_active' => 1,
+            ])
+            ->assertRedirect(route('admin.users.index'));
+
+        $this->assertDatabaseHas('users', [
+            'id' => $target->id,
+            'nama' => 'Nama Diedit Super Admin',
+            'no_hp' => '089988776655',
+            'nip' => '1987654321',
+        ]);
     }
 }

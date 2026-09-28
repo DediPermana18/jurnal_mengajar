@@ -15,11 +15,18 @@ class CheckPetugasPiket
     {
         $user = $request->user();
 
-        abort_unless(
-            $user && $user->isPetugasPiketHariIni(),
-            403,
-            'Akses ditolak. Anda tidak memiliki jadwal piket hari ini.'
-        );
+        if (! $user || ! $user->isPetugasPiketHariIni()) {
+            $redirectRoute = $user ? $user->dashboardRouteName() : 'login';
+
+            if ($redirectRoute === 'piket.dashboard') {
+                $redirectRoute = 'home';
+            }
+
+            return redirect()->route($redirectRoute)->with(
+                'error',
+                'Akses ditolak: Shift piket Anda sudah berakhir atau belum dimulai.'
+            );
+        }
 
         return $next($request);
     }

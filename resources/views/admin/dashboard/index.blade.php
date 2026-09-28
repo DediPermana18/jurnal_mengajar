@@ -17,51 +17,57 @@
     @php $currentUserRole = auth()->user()?->role; @endphp
     @if(now()->isoFormat('d') == 1 && ($currentUserRole === 'admin' || in_array($currentUserRole, ['waka_kurikulum', 'admin_kurikulum', 'kurikulum'])))
         <div class="card border-0 rounded-4 shadow-sm mb-4 bg-white overflow-hidden">
-            <div class="card-body p-4">
-                <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-3 d-flex align-items-center justify-content-center text-white flex-shrink-0"
+            <div class="card-body p-5">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+
+                    {{-- Sisi Kiri: Ikon + Teks (Badge, Judul, Deskripsi) --}}
+                    <div class="flex items-start gap-4">
+                        <div class="rounded-3 flex items-center justify-center text-white shrink-0"
                              style="width: 44px; height: 44px; background: linear-gradient(135deg, #e11d48, #be123c);">
-                            <i class="bi bi-lightning-charge-fill fs-4"></i>
+                            <i class="bi bi-lightning-charge-fill fs-5"></i>
                         </div>
                         <div>
-                            <div class="d-flex align-items-center gap-2">
-                                <h6 class="fw-bold mb-0 text-dark" style="font-size: 1rem;">
+                            <div class="flex flex-wrap items-center gap-2 mb-1">
+                                <h6 class="text-base font-bold text-gray-900 mb-0">
                                     Sakelar Mode Khusus Hari Senin: Upacara Ditiadakan (KBM Dimajukan)
                                 </h6>
                                 @if($pengaturanJadwal->senin_tanpa_upacara && $pengaturanJadwal->tanggal_eksekusi)
-                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-1" style="font-size: 0.72rem;">
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2.5 py-1" style="font-size: 0.7rem;">
                                         <i class="bi bi-circle-fill me-1" style="font-size: 0.45rem;"></i>MODE TANPA UPACARA AKTIF ({{ \Carbon\Carbon::parse($pengaturanJadwal->tanggal_eksekusi)->translatedFormat('d M Y') }})
                                     </span>
                                 @else
-                                    <span class="badge bg-light text-muted border rounded-pill px-3 py-1" style="font-size: 0.72rem;">
+                                    <span class="badge bg-light text-muted border rounded-pill px-2.5 py-1" style="font-size: 0.7rem;">
                                         Normal (Ada Upacara)
                                     </span>
                                 @endif
                             </div>
-                            <div class="text-muted" style="font-size: 0.8rem;">
-                                Aktifkan sakelar ini jika upacara ditiadakan pada hari Senin. Seluruh jam KBM bergeser maju 1 JP & siswa/guru pulang lebih awal.
-                            </div>
+                            <p class="text-xs text-gray-500 mb-0 max-w-2xl">
+                                Aktifkan sakelar ini jika upacara ditiadakan pada hari Senin. Seluruh jam KBM bergeser maju 1 JP &amp; siswa/guru pulang lebih awal.
+                            </p>
                         </div>
                     </div>
 
-                    <form method="POST" action="{{ route('admin.toggle-senin-tanpa-upacara') }}" id="formToggleSeninShift">
-                        @csrf
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input" type="checkbox" role="switch" id="toggleSeninShift" name="senin_tanpa_upacara" value="1"
-                                   {{ $pengaturanJadwal->senin_tanpa_upacara ? 'checked' : '' }}
-                                   onchange="this.form.submit()" style="cursor: pointer; width: 3em; height: 1.5em;">
-                            <label class="form-check-label fw-bold text-dark ms-2" for="toggleSeninShift" style="font-size: 0.85rem; cursor: pointer;">
-                                {{ $pengaturanJadwal->senin_tanpa_upacara ? 'KBM Dimajukan (Tanpa Upacara)' : 'Senin Normal (Ada Upacara)' }}
-                            </label>
-                        </div>
-                    </form>
+                    {{-- Sisi Kanan: Toggle Sakelar --}}
+                    <div class="shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-gray-100 flex items-center gap-3">
+                        <form method="POST" action="{{ route('admin.toggle-senin-tanpa-upacara') }}" id="formToggleSeninShift">
+                            @csrf
+                            <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="toggleSeninShift" name="senin_tanpa_upacara" value="1"
+                                       {{ $pengaturanJadwal->senin_tanpa_upacara ? 'checked' : '' }}
+                                       onchange="this.form.submit()" style="cursor: pointer; width: 2.75em; height: 1.4em; flex-shrink: 0;">
+                                <label class="form-check-label fw-semibold text-dark cursor-pointer" for="toggleSeninShift" style="font-size: 0.85rem;">
+                                    {{ $pengaturanJadwal->senin_tanpa_upacara ? 'KBM Dimajukan' : 'Normal (Ada Upacara)' }}
+                                </label>
+                            </div>
+                        </form>
+                    </div>
+
                 </div>
             </div>
         </div>
     @endif
 
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-3 md:mb-4">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-3 md:mb-4">
         <div>
             <div class="stat-card-custom p-3 md:p-4 h-100">
                 <div class="stat-card-title text-xs md:text-sm truncate mb-1 md:mb-2" title="Total Guru Terdaftar">Total Guru Terdaftar</div>

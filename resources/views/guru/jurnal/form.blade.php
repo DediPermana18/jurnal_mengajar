@@ -105,7 +105,7 @@
                     <label class="form-label fw-semibold text-secondary small text-uppercase">Nama Kelas</label>
                     <input type="text"
                            class="form-control rounded-3 readonly-field"
-                           value="{{ $jadwal->kelas?->nama_kelas ?? '-' }}"
+                           value="{{ $jadwal->kelas?->nama_kelas_lengkap ?? $jadwal->kelas?->nama_kelas ?? '-' }}"
                            readonly
                            disabled>
                 </div>
@@ -191,7 +191,7 @@
             @endif
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                 <h5 class="fw-bold text-dark mb-0">
-                    <i class="bi bi-people-fill text-primary me-2"></i> Presensi Siswa Kelas {{ $jadwal->kelas?->nama_kelas }}
+                    <i class="bi bi-people-fill text-primary me-2"></i> Presensi Siswa Kelas {{ $jadwal->kelas?->nama_kelas_lengkap ?? $jadwal->kelas?->nama_kelas }}
                 </h5>
                 <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle rounded-pill px-3 py-2">
                     <i class="bi bi-check2-all me-1"></i> Default: Semua Hadir

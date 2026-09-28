@@ -49,6 +49,16 @@
         </div>
     @endif
 
+    @if(session('error'))
+        {{-- alert-danger: pesan ini membawa kegagalan nyata (mis. Fonnte
+             menolak: token invalid / kuota habis / nomor tujuan ditolak). --}}
+        <div class="alert alert-danger alert-dismissible fade show rounded-3 border-0 shadow-sm mb-4 d-flex align-items-center gap-2" role="alert">
+            <i class="bi bi-exclamation-octagon-fill text-danger fs-5"></i>
+            <div>{{ session('error') }}</div>
+            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
     @if($errors->any())
         <div class="alert alert-danger alert-dismissible fade show rounded-3 border-0 shadow-sm mb-4 d-flex align-items-center gap-2" role="alert">
             <i class="bi bi-exclamation-triangle-fill text-danger fs-5"></i>
@@ -156,23 +166,48 @@
                                         $aksiPrefix = $isKolektif ? 'kolektif' : 'dispen';
                                         $aksiToken = $isKolektif ? $kolektif->approval_token : $dispen->approval_token;
                                         $aksiNomorSurat = $isKolektif ? $kolektif->nomor_surat : $dispen->nomor_surat;
-                                        $aksiApprovalLink = $aksiToken ? route('dispen.approval.show', $aksiToken) : null;
+                                        $aksiApprovalLink = $isKolektif ? $kolektif->approval_url : $dispen->approval_url;
                                         $aksiQrSvg = $aksiApprovalLink ? \App\Support\QrCodeHelper::svg($aksiApprovalLink, 6) : null;
                                         $aksiWaText = $aksiApprovalLink ? 'Halo Waka Kesiswaan, mohon tandatangani surat dispensasi berikut: '.$aksiApprovalLink : null;
+                                        $aksiWaRoute = $isKolektif
+                                            ? route('piket.dispensasi.kolektif.kirim-wa', $kolektif->id)
+                                            : route('piket.dispensasi.kirim-wa', $dispen->id);
+                                        // Cegah menu dropdown ter-clip oleh wrapper tabel ber-overflow-x:
+                                        // Popper dipaksa strategy "fixed" + boundary viewport, sehingga menu
+                                        // diposisikan terhadap viewport dan bebas keluar dari area scroll.
+                                        $aksiDropdownConfig = json_encode([
+                                            'popperConfig' => ['strategy' => 'fixed'],
+                                            'boundary' => 'viewport',
+                                        ], JSON_UNESCAPED_SLASHES);
                                         $showDrowpdown = (bool) $aksiToken
                                             || (!$isKolektif && (($dispen->isApproved() && !$dispen->has_ttd) || $dispen->isBisaDibatalkan()));
                                     @endphp
                                     @if($showDrowpdown)
-                                        <div class="dropdown">
+                                        {{-- Wrapper tabel memakai overflow-x (scroll horizontal), sehingga dropdown
+                                             di dalam <td> ikut ter-clip. Solusinya: Popper memakai strategy
+                                             "fixed" (menu diposisikan terhadap viewport, bukan offsetParent
+                                             tabel) + boundary viewport, lewat data-bs-config Bootstrap. --}}
+                                        <div class="dropdown relative">
                                             <button class="btn btn-sm btn-outline-secondary rounded-3" type="button"
-                                                    data-bs-toggle="dropdown" aria-expanded="false" title="Aksi lainnya">
+                                                    data-bs-toggle="dropdown"
+                                                    data-bs-config="{{ $aksiDropdownConfig }}"
+                                                    aria-expanded="false" title="Aksi lainnya">
                                                 <i class="bi bi-three-dots-vertical"></i>
                                             </button>
                                             <ul class="dropdown-menu dropdown-menu-end shadow-sm rounded-3">
                                                 @if($aksiApprovalLink)
                                                     <li>
+                                                        <form method="POST" action="{{ $aksiWaRoute }}" class="m-0" data-wa-resend>
+                                                            @csrf
+                                                            <button class="dropdown-item" type="submit"
+                                                                    title="Kirim ulang notifikasi WhatsApp berisi link approval ke Waka Kesiswaan">
+                                                                <i class="bi bi-whatsapp me-2 text-success"></i>WA ke Waka (Kirim Ulang)
+                                                            </button>
+                                                        </form>
+                                                    </li>
+                                                    <li>
                                                         <a class="dropdown-item" href="https://wa.me/?text={{ urlencode($aksiWaText) }}" target="_blank" rel="noopener">
-                                                            <i class="bi bi-whatsapp me-2 text-success"></i>WA ke Waka
+                                                            <i class="bi bi-box-arrow-up-right me-2 text-success"></i>Share Link Manual
                                                         </a>
                                                     </li>
                                                     <li>
@@ -426,6 +461,23 @@
             ? canvas.id.replace('canvas-batal-', 'ttd-batal-input-')
             : canvas.id.replace('ttdPembatalan', 'ttdPembatalanInput');
         initSignatureCanvas(canvas.id, inputId);
+    });
+
+    // Kirim ulang notifikasi WA ke Waka Kesiswaan (form POST di dalam dropdown).
+    document.querySelectorAll('[data-wa-resend]').forEach((form) => {
+        form.addEventListener('submit', function (event) {
+            if (!confirm('Kirim ulang notifikasi WhatsApp pengajuan dispensasi ini ke Waka Kesiswaan?')) {
+                event.preventDefault();
+
+                return;
+            }
+
+            // Tutup dropdown agar halaman submit & muat ulang (flash message) bersih.
+            const toggle = form.closest('.dropdown')?.querySelector('[data-bs-toggle="dropdown"]');
+            if (toggle && window.bootstrap && bootstrap.Dropdown) {
+                bootstrap.Dropdown.getOrCreateInstance(toggle).hide();
+            }
+        });
     });
 
     // Salin Link Approval (tombol di modal QR)

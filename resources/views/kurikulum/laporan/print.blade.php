@@ -190,7 +190,7 @@
                             <div class="text-muted" style="font-size:9px;">{{ $jurnal->tanggal->translatedFormat('l') }}</div>
                         </td>
                         <td class="text-center">ke-{{ $jadwal?->jam?->jam_ke ?? '-' }}</td>
-                        <td>{{ $jadwal?->kelas?->nama_kelas ?? '-' }}</td>
+                        <td>{{ $jadwal?->kelas?->nama_kelas_lengkap ?? $jadwal?->kelas?->nama_kelas ?? '-' }}</td>
                         <td>
                             {{ $jurnal->guru?->nama ?? $jadwal?->guru?->nama ?? '-' }}
                             @if($jurnal->guruPengganti)

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\SecurityDevice;
 use App\Models\SecurityLog;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
@@ -29,16 +30,45 @@ class SecurityBotService
             ? "\n⚠️ *Perangkat Baru / Tak Dikenal* — sidik jari ini belum pernah tercatat untuk akun Anda."
             : '';
 
-        $pesan = "🔐 *Peringatan Keamanan — Login Baru*\n\n"
-            ."Akun      : {$user->username}\n"
-            ."Nama      : {$user->nama}\n"
-            ."Waktu     : {$log->login_at?->toDateTimeString()}\n"
-            ."IP        : ".($log->ip_address ?: '-')."\n"
-            ."Perangkat : ".($log->device_name ?: '-')."\n"
-            ."Sidik Jari: {$fpLabel}\n"
-            ."Browser   : ".($log->user_agent ?: '-')."\n"
-            .$unknownLabel."\n\n"
-            .'Jika ini bukan Anda, segera buka menu *Perangkat & Keamanan* untuk memutus sesi asing dan ganti password.';
+        $savedDevice = $fingerprint !== ''
+            ? SecurityDevice::where('user_id', $user->id)
+                ->where('fingerprint', $fingerprint)
+                ->first()
+            : null;
+
+        $browserInfo = $log->device_name ?: '-';
+        $customName = trim((string) $savedDevice?->name);
+
+        if ($customName !== '') {
+            $deviceDisplay = $browserInfo !== '-' ? "{$customName} ({$browserInfo})" : $customName;
+        } else {
+            $deviceDisplay = $browserInfo;
+        }
+
+        $waktu = $log->login_at?->translatedFormat('d F Y H:i:s') ?? $log->login_at?->toDateTimeString() ?? '-';
+        $username = $user->username ?: '-';
+        $nama = $user->nama ?: $user->name;
+        $ip = $log->ip_address ?: '-';
+        $browser = $log->user_agent ?: '-';
+
+        $baris = [
+            "🔐 *Peringatan Keamanan — Login Baru*\n",
+            "Akun : {$username}",
+            "Nama : {$nama}",
+            "Waktu : {$waktu}",
+            "IP : {$ip}",
+            "Perangkat : {$deviceDisplay}",
+            "Sidik Jari : {$fpLabel}",
+            "Browser : {$browser}",
+        ];
+
+        if ($log->is_unknown_device) {
+            $baris[] = "\n⚠️ *Perangkat Baru / Tak Dikenal* — sidik jari ini belum pernah tercatat untuk akun Anda.";
+        }
+
+        $baris[] = "\nJika ini bukan Anda, segera buka menu *Perangkat & Keamanan* untuk memutuskan sesi asing dan ganti password.";
+
+        $pesan = implode("\n", $baris);
 
         // ---------- 1) WhatsApp (Fonnte) ----------
         $noHp = $user->noHpInternasional();

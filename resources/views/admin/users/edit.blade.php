@@ -39,6 +39,12 @@
                       title="Akun utama (Administrator TU) tidak dapat di-suspend">
                     <i class="bi bi-shield-lock me-1"></i> Akun Utama (Tidak dapat di-suspend)
                 </span>
+            @elseif($user->id === auth()->id())
+                {{-- Akun diri sendiri: tidak bisa disuspend sendiri --}}
+                <span class="badge bg-info-subtle text-info rounded-pill px-3 py-2 align-self-center"
+                      title="Akun Anda saat ini">
+                    <i class="bi bi-person-check-fill me-1"></i> Akun Anda Saat Ini
+                </span>
             @elseif(($isProtectedAccount ?? false) && ! (auth()->user()?->isPrivilegedUserManager() ?? false))
                 {{-- Akun Super Admin / Admin dilindungi dari Petugas TU biasa:
                      tombol Suspend Darurat disembunyikan (hanya Super Admin). --}}

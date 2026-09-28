@@ -53,7 +53,7 @@ class GuruPortalController extends Controller
         // selain itu akun login.
         $guruId = $this->effectiveGuruId();
         $hari = $this->hariIndonesia();
-        $tahunAktif = TahunAjaran::where('is_active', true)->first();
+        $tahunAktif = TahunAjaran::aktif();
 
         // ===== Jadwal mengajar hari ini milik guru ini =====
         $jadwalQuery = JadwalPelajaran::with(['jamPelajaran', 'kelas', 'mapel'])

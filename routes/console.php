@@ -21,3 +21,20 @@ Schedule::command('dispensasi:auto-expire')
 Schedule::command('dispensasi:auto-mangkir')
     ->everyMinute()
     ->withoutOverlapping();
+
+// Notifikasi WA Guru — Agenda Pagi: ringkasan jadwal hari ini (setiap hari 06:30 WIB)
+Schedule::command('guru:notif-jadwal --type=pagi')
+    ->dailyAt('06:30')
+    ->timezone('Asia/Jakarta')
+    ->withoutOverlapping();
+
+// Notifikasi WA Guru — KBM: H-10 menit, H-0 jam masuk, H-5 pengingat jurnal
+// Berjalan setiap menit selama jam operasional sekolah (05:00–19:00 WIB).
+// Pengecekan jendela waktu dilakukan di dalam command itu sendiri.
+Schedule::command('guru:notif-jadwal --type=kbm')
+    ->everyMinute()
+    ->timezone('Asia/Jakarta')
+    ->between('05:00', '19:00')
+    ->withoutOverlapping();
+
+

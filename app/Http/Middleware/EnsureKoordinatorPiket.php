@@ -26,8 +26,8 @@ class EnsureKoordinatorPiket
             abort(401, 'Silakan login terlebih dahulu.');
         }
 
-        // Petugas IT / QA Tester: peninjau (isolasi data testing via scope).
-        if ($user->isPetugasIt()) {
+        // Petugas IT / QA Tester atau mode Switch Role Koordinator Piket.
+        if ($user->isPetugasIt() || ($user->hasActiveRole() && in_array($user->activeRole(), ['koordinator_piket', 'waka_piket'], true))) {
             return $next($request);
         }
 

@@ -121,7 +121,7 @@
                             <!-- Kelas -->
                             <td>
                                 <span class="fw-semibold text-dark" style="font-size: 0.88rem;">
-                                    {{ $jurnal->jadwal->kelas->nama_kelas ?? '-' }}
+                                    {{ $jurnal->jadwal->kelas->nama_kelas_lengkap ?? $jurnal->jadwal->kelas->nama_kelas ?? '-' }}
                                 </span>
                             </td>
 

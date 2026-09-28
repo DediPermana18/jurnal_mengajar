@@ -25,8 +25,8 @@ class EnsureWakaPiket
             abort(401, 'Silakan login terlebih dahulu.');
         }
 
-        // Impersonasi Petugas IT sebagai Waka Piket / Waka Kurikulum.
-        if ($user->hasActiveRole() && in_array($user->activeRole(), ['waka_piket', 'waka_kurikulum'], true)) {
+        // Impersonasi Petugas IT sebagai Waka Piket / Waka Kurikulum / Koordinator Piket.
+        if ($user->hasActiveRole() && in_array($user->activeRole(), ['waka_piket', 'waka_kurikulum', 'koordinator_piket'], true)) {
             return $next($request);
         }
 
@@ -36,7 +36,7 @@ class EnsureWakaPiket
         }
 
         $allowed = ($user->role === 'admin'
-                && in_array($user->sub_role, ['waka_piket', 'waka_kurikulum', null], true))
+                && in_array($user->sub_role, ['waka_piket', 'waka_kurikulum', 'koordinator_piket', null], true))
             || $user->isWakaPiket();
 
         abort_unless($allowed, 403, 'Akses ditolak. Halaman ini khusus untuk Waka Piket / Kurikulum.');

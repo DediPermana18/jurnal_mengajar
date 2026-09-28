@@ -20,18 +20,23 @@ use Illuminate\Support\Facades\Storage;
 
 class GuruPiketController extends Controller
 {
-    /**
-     * Akses ditentukan oleh jadwal_piket pada hari berjalan, bukan role user.
-     */
     protected function authorizeGuruPiket()
     {
         $user = Auth::user();
-        abort_unless(
-            $user instanceof User
-                && ($user->isPetugasIt() || $user->activeRole() === 'guru_piket' || $user->isPiketHariIni()),
-            403,
-            'Akses ditolak. Anda tidak mendapat jadwal piket hari ini.'
-        );
+        if (! $user instanceof User) {
+            abort(401, 'Silakan login terlebih dahulu.');
+        }
+
+        if (! ($user->isPetugasIt() || $user->activeRole() === 'guru_piket' || $user->isPiketHariIni())) {
+            $redirectRoute = $user->dashboardRouteName();
+            if ($redirectRoute === 'piket.dashboard') {
+                $redirectRoute = 'home';
+            }
+
+            session()->flash('error', 'Akses ditolak: Shift piket Anda sudah berakhir atau belum dimulai.');
+            redirect()->route($redirectRoute)->send();
+            exit();
+        }
     }
 
     /**
@@ -71,7 +76,7 @@ class GuruPiketController extends Controller
         $today = now()->toDateString();
         $hariIni = now()->translatedFormat('l');
 
-        $tahunAktif = TahunAjaran::where('is_active', true)->first();
+        $tahunAktif = TahunAjaran::aktif();
 
         // 1. Total siswa tidak hadir (Sakit / Izin / Alpha) hari ini
         //    (presensi kini per JP — hitung siswa unik agar tidak ganda)

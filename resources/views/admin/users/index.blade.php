@@ -107,15 +107,13 @@
                         @php
                             $isCurrentUser = $user->id === auth()->id();
                             $viewerIsIt = (bool) (auth()->user()?->isPetugasIt() ?? false);
-                            // Kebijakan "Mode Lihat Saja": Petugas TU (non-IT) hanya
-                            // membuka halaman DETAIL akun user lain (readonly). Perubahan
-                            // data akun hanya dikelola oleh Petugas IT / QA Tester.
-                            $viewerCanEdit = $viewerIsIt;
+                            $viewerIsPrivileged = (bool) (auth()->user()?->isPrivilegedUserManager() ?? false);
+                            // Super Admin dan Petugas IT dapat mengedit user lain.
+                            $viewerCanEdit = $viewerIsIt || $viewerIsPrivileged;
                             // Kebijakan Hidden Super Admin: akun istimewa (Super Admin /
                             // Admin) tidak menampilkan tombol Edit/Delete/Suspend bagi
                             // Petugas TU biasa — hanya privilege manager (IT / Super Admin).
                             $isProtectedAccount = $user->isProtectedAccount();
-                            $viewerIsPrivileged = (bool) (auth()->user()?->isPrivilegedUserManager() ?? false);
                             $isProtectedHiddenActions = $isProtectedAccount && ! $viewerIsPrivileged;
                             // State suspend terpadu untuk tombol aksi: suspend sementara
                             // (suspended_until > now) ATAU nonaktif permanen (is_active=false).
@@ -171,8 +169,12 @@
                             <td class="text-end whitespace-nowrap">
                                 <div class="flex items-center justify-center gap-2 whitespace-nowrap">
                                 @if($isCurrentUser)
-                                    {{-- Akun Anda saat ini: seluruh tombol aksi disembunyikan. --}}
-                                    <span class="text-muted fst-italic" style="font-size: 0.78rem;">Akun Aktif</span>
+                                    {{-- Akun Anda saat ini: tombol Edit/Detail profil diizinkan, tombol Suspend/Hapus disembunyikan. --}}
+                                    <div class="d-inline-flex align-items-center gap-2">
+                                        <a href="{{ route('admin.users.edit', $user->id) }}" class="btn btn-sm btn-outline-warning rounded-3" title="Edit Profil / Data Saya">
+                                            <i class="bi bi-pencil-square me-1"></i> Edit Profil
+                                        </a>
+                                    </div>
                                 @elseif($isProtectedHiddenActions)
                                     {{-- Akun Super Admin / Admin dilindungi: tidak ada tombol
                                          Edit/Delete/Suspend untuk Petugas TU biasa. --}}
@@ -183,10 +185,13 @@
                                     </span>
                                 @else
                                 <div class="d-inline-flex align-items-center gap-2">
-                                    <a href="{{ route('admin.users.edit', $user->id) }}" class="btn btn-sm {{ $viewerCanEdit ? 'btn-outline-warning' : 'btn-outline-info' }} rounded-3" title="{{ $viewerCanEdit ? 'Edit user' : 'Lihat detail user (mode lihat saja)' }}">
-                                        <i class="bi {{ $viewerCanEdit ? 'bi-pencil-square' : 'bi-eye' }}"></i>
+                                    <a href="{{ route('admin.users.edit', $user->id) }}" class="btn btn-sm btn-outline-info rounded-3" title="Lihat detail user">
+                                        <i class="bi bi-eye"></i>
                                     </a>
                                     @if($viewerCanEdit)
+                                        <a href="{{ route('admin.users.edit', $user->id) }}" class="btn btn-sm btn-outline-warning rounded-3" title="Edit user">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </a>
                                         <form action="{{ route('admin.users.toggle-status', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Ubah status aktif user ini?')">
                                             @csrf
                                             <button type="submit" class="btn btn-sm {{ $user->is_active ? 'btn-outline-secondary' : 'btn-outline-success' }} rounded-3" title="{{ $user->is_active ? 'Nonaktifkan user' : 'Aktifkan user' }}">

@@ -4,6 +4,9 @@ namespace App\Models;
 
 use App\Models\Concerns\HasTestingData;
 use App\Models\Scopes\TestingDataScope;
+use App\Observers\DispensasiSiswaObserver;
+use App\Services\DispensasiWaService;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +14,11 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Surat dispensasi siswa (individu). Pembuatan record otomatis memunculkan
+ * notifikasi WhatsApp ke Waka Kesiswaan lewat DispensasiSiswaObserver.
+ */
+#[ObservedBy(DispensasiSiswaObserver::class)]
 class DispensasiSiswa extends Model
 {
     use HasFactory, HasTestingData;
@@ -1004,6 +1012,18 @@ class DispensasiSiswa extends Model
     public function isTtdLengkap(): bool
     {
         return empty($this->missingSignatures());
+    }
+
+    /**
+     * Direct link approval publik Waka Kesiswaan (halaman tanda tangan digital),
+     * berbasis domain aplikasi `config('app.url')`. Null bila approval_token
+     * belum dibuat.
+     *
+     * Dipakai oleh QR Approval di portal Guru Piket dan pesan notifikasi WA.
+     */
+    public function getApprovalUrlAttribute(): ?string
+    {
+        return DispensasiWaService::approvalUrl($this);
     }
 
     /**

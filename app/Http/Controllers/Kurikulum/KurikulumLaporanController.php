@@ -139,7 +139,7 @@ class KurikulumLaporanController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        $tahunAjaran = TahunAjaran::where('is_active', true)->first();
+        $tahunAjaran = TahunAjaran::aktif();
 
         return view('kurikulum.laporan.index', array_merge(
             $this->kelengkapanFilter($request),
@@ -161,7 +161,7 @@ class KurikulumLaporanController extends Controller
             ->get();
 
         $ringkasan = $this->hitungRingkasan($query, $mulai, $selesai);
-        $tahunAjaran = TahunAjaran::where('is_active', true)->first();
+        $tahunAjaran = TahunAjaran::aktif();
 
         $html = "\xEF\xBB\xBF".view('kurikulum.laporan.excel', array_merge(
             $ringkasan,
@@ -190,7 +190,7 @@ class KurikulumLaporanController extends Controller
             ->get();
 
         $ringkasan = $this->hitungRingkasan($query, $mulai, $selesai);
-        $tahunAjaran = TahunAjaran::where('is_active', true)->first();
+        $tahunAjaran = TahunAjaran::aktif();
         $filterLabel = $this->labelFilter($request);
 
         return view('kurikulum.laporan.print', array_merge(

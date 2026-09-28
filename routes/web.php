@@ -91,7 +91,19 @@ Route::middleware(['auth'])->group(function () {
 
 // Halaman utama (Dashboard Admin) — WAJIB login.
 // Guest yang membuka '/' akan dialihkan otomatis ke halaman login oleh
-// middleware 'auth'. User yang sudah login tetap langsung melihat dashboard.
+// middleware 'auth'.
+//
+// CATATAN OTORISASI: 'auth' HANYA memastikan sudah login, bukan berhak melihat
+// statistik sekolah. Pembatasan peran dijalankan di DashboardController@index
+// melalui User::canViewAdminDashboard() + User::dashboardRouteName() — satu
+// sumber kebenaran yang sama dengan redirect setelah login (AuthController).
+// Dengan begitu:
+//   - Admin TU / Super Admin / Petugas IT → tetap melihat statistik di '/'
+//   - Guru Mapel, Wali Kelas, Satpam, Waka*, Kepsek → dialihkan ke portalnya
+//     (guru.dashboard / walikelas.dashboard / piket.dashboard /
+//      satpam.dashboard / kurikulum.dashboard / waka-sdm.dashboard /
+//      waka-kesiswaan.dashboard / waka-piket.dashboard / kepsek.dashboard)
+//   - Role tak dikenal → ditolak (fail-safe), tidak boleh melihat dashboard admin
 Route::middleware(['auth'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('home');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -298,6 +310,9 @@ Route::prefix('piket')->middleware(['auth'])->group(function () {
     Route::get('/dispensasi/{id}/ttd', [DispensasiController::class, 'showTtd'])->name('piket.dispensasi.ttd');
     Route::post('/dispensasi/{id}/ttd', [DispensasiController::class, 'saveTtd'])->name('piket.dispensasi.ttd-save');
     Route::post('/dispensasi/{id}/batalkan', [DispensasiController::class, 'pembatalanStore'])->name('piket.dispensasi.batalkan');
+    // Kirim ulang notifikasi WA ke Waka Kesiswaan (tombol "WA ke Waka").
+    Route::post('/dispensasi/{id}/kirim-wa', [DispensasiController::class, 'kirimWaWaka'])->name('piket.dispensasi.kirim-wa');
+    Route::post('/dispensasi/kolektif/{id}/kirim-wa', [DispensasiController::class, 'kirimWaWakaKolektif'])->name('piket.dispensasi.kolektif.kirim-wa');
     Route::get('/dispensasi/kolektif/{id}/surat', [DispensasiController::class, 'showSuratKolektif'])->name('piket.dispensasi.kolektif.surat');
 
     // Izin Guru oleh Guru Piket (verifikasi Step 1)

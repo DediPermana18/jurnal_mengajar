@@ -131,7 +131,7 @@
                                 @endif
                             </td>
                             <td>
-                                <span class="fw-bold text-dark">{{ $jurnal->jadwal->kelas->nama_kelas ?? '-' }}</span>
+                                <span class="fw-bold text-dark">{{ $jurnal->jadwal->kelas->nama_kelas_lengkap ?? $jurnal->jadwal->kelas->nama_kelas ?? '-' }}</span>
                             </td>
                             <td>
                                 <div class="fw-medium text-dark">

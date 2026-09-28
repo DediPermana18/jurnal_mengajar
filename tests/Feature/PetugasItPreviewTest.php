@@ -131,6 +131,68 @@ class PetugasItPreviewTest extends TestCase
         $this->assertNull(session('active_role'));
     }
 
+    public function test_switch_view_koordinator_piket_mengarah_ke_portal_koordinator()
+    {
+        $this->loginPetugasIt();
+
+        // Regression: 'koordinator_piket' dulu jatuh ke 'default' => route('home'),
+        // lalu DashboardController meneruskannya ke 'waka-piket.dashboard'.
+        $this->post(route('it.switch-view'), ['role' => 'koordinator_piket'])
+            ->assertRedirect(route('koordinator.piket'));
+
+        $this->assertEquals('koordinator_piket', session('active_role'));
+
+        // Halaman utama pun harus meneruskan ke portal koordinator, bukan Waka Piket.
+        $this->get(route('home'))
+            ->assertRedirect(route('koordinator.piket'));
+    }
+
+    public function test_dashboard_route_koordinator_piket_bukan_waka_piket()
+    {
+        $it = $this->loginPetugasIt();
+
+        // Impersonasi aktif: sumber kebenaran = PREVIEW_ROLE_DASHBOARD.
+        session(['active_role' => 'koordinator_piket']);
+        $this->assertSame('koordinator.piket', $it->dashboardRouteName());
+
+        // Akun riil ber-sub_role 'koordinator_piket' juga punya portal sendiri.
+        $koordinator = User::create([
+            'nama' => 'Koordinator Riil',
+            'username' => 'koordinator_riil',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+            'sub_role' => 'koordinator_piket',
+            'is_active' => true,
+        ]);
+        $this->assertSame('koordinator.piket', $koordinator->dashboardRouteName());
+
+        // Waka Piket tetap ke dashboardnya sendiri.
+        $waka = User::create([
+            'nama' => 'Waka Riil',
+            'username' => 'waka_riil',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+            'sub_role' => 'waka_piket',
+            'is_active' => true,
+        ]);
+        $this->assertSame('waka-piket.dashboard', $waka->dashboardRouteName());
+    }
+
+    public function test_sidebar_view_mode_koordinator_menunjuk_ke_portal_koordinator()
+    {
+        $this->loginPetugasIt();
+
+        $html = $this->get(route('koordinator.piket'))->assertOk()->getContent();
+
+        // Menu "Dashboard" pada View Mode Koordinator -> /koordinator/piket
+        // (bukan /admin/waka-piket/dashboard).
+        $this->assertStringContainsString(
+            'href="'.route('koordinator.piket').'" class="nav-btn active"',
+            $html
+        );
+        $this->assertStringNotContainsString(route('waka-piket.dashboard').'"', $html);
+    }
+
     public function test_reset_view_clears_active_role()
     {
         $this->loginPetugasIt();

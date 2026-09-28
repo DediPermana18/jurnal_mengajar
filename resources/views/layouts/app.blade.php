@@ -800,8 +800,12 @@
                 $userRole = $user ? $user->role : null;
                 $userSubRole = $user ? $user->sub_role : null;
 
-                // ============ ACTIVE ROLE (Petugas IT / QA - Switch View As) ============
-                $previewRole = $user && $user->hasActiveRole() ? $user->activeRole() : null;
+                // ============ ACTIVE ROLE (Petugas IT / QA - Switch View As / View Mode) ============
+                $previewRole = session('active_role')
+                            ?: session('view_mode')
+                            ?: session('simulated_role')
+                            ?: session('impersonate_role')
+                            ?: ($user && $user->hasActiveRole() ? $user->activeRole() : null);
 
                 if ($previewRole && $previewRole !== 'siswa') {
                     $previewRoleMap = \App\Models\User::PREVIEW_ROLE_MAP;
@@ -811,6 +815,14 @@
                     }
                 }
                 // =====================================================================
+
+                // Deteksi View Mode Koordinator Piket (session active_role / view_mode / simulated_role / sub_role)
+                $isKoordinatorPiketMode = in_array($previewRole, ['koordinator_piket'], true)
+                                       || in_array(session('active_role'), ['koordinator_piket'], true)
+                                       || in_array(session('view_mode'), ['koordinator_piket'], true)
+                                       || in_array(session('simulated_role'), ['koordinator_piket'], true)
+                                       || in_array(session('impersonate_role'), ['koordinator_piket'], true)
+                                       || ($userSubRole === 'koordinator_piket');
 
                 // 1. Role Waka Kurikulum (role=admin & sub_role=waka_kurikulum)
                 $isKurikulumRole = ($userRole === 'admin' && $userSubRole === 'waka_kurikulum') 
@@ -832,9 +844,10 @@
                 // 1b3. Role Waka Piket (role=admin & sub_role=waka_piket).
                 //      $userRole/$userSubRole sudah di-resolve dari previewRole,
                 //      sehingga impersonasi 'waka_piket' otomatis terdeteksi.
-                $isWakaPiketRole = ($userRole === 'admin' && $userSubRole === 'waka_piket')
-                                || in_array($userRole, ['waka_piket', 'admin_piket', 'piket'])
-                                || (!$previewRole && $user && $user->isWakaPiket());
+                $isWakaPiketRole = ((($userRole === 'admin' && $userSubRole === 'waka_piket')
+                                 || in_array($userRole, ['waka_piket', 'admin_piket', 'piket'])
+                                 || (!$previewRole && $user && $user->isWakaPiket())))
+                                && !$isKoordinatorPiketMode;
 
                 // 1c. Role Kepala Sekolah (role=kepsek / kepala_sekolah / admin & sub_role=kepsek)
                 $isKepsekRole = ($userRole === 'admin' && in_array($userSubRole, ['kepsek', 'kepala_sekolah'])) 
@@ -848,8 +861,9 @@
                              || $userRole === 'piket_satpam';
 
                 // 3. Petugas Piket ditentukan dari jadwal_piket pada hari berjalan (Senin–Jumat).
-                //    Saat preview 'guru_piket', dipaksa aktif agar menu terlihat.
-                $isGuruPiketRole = ($previewRole === 'guru_piket') 
+                //    Saat preview 'guru_piket' atau 'koordinator_piket', dipaksa aktif agar menu terlihat.
+                $isGuruPiketRole = in_array($previewRole, ['guru_piket', 'koordinator_piket'], true)
+                                || $isKoordinatorPiketMode 
                                 || ($user && !$previewRole && $user->isPetugasPiketHariIni());
 
                 // 3b. Koordinator Piket — tugas DINAMIS dari jadwal (bukan role tetap):
@@ -934,6 +948,92 @@
                         <span class="btn-left">
                             <i class="bi bi-qr-code-scan"></i>
                             <span>Verifikasi Izin &amp; Dispensasi</span>
+                        </span>
+                    </a>
+                </div>
+
+            @elseif($isKoordinatorPiketMode || $previewRole === 'koordinator_piket')
+                {{-- ================= NAVIGASI KOORDINATOR PIKET / VIEW MODE KOORDINATOR ================= --}}
+                <div class="nav-item-container mt-2">
+                    <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                        KOORDINATOR PIKET
+                    </div>
+                </div>
+
+                <!-- Dashboard -->
+                <div class="nav-item-container">
+                    <a href="{{ route('koordinator.piket') }}"
+                       class="nav-btn {{ request()->routeIs('koordinator.piket*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-speedometer2"></i>
+                            <span>Dashboard</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Presensi Siswa -->
+                <div class="nav-item-container">
+                    <a href="{{ route('piket.presensi-siswa') }}" class="nav-btn {{ request()->routeIs('piket.presensi-siswa*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-people-fill"></i>
+                            <span>Presensi Siswa</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Jurnal KBM Harian -->
+                <div class="nav-item-container">
+                    <a href="{{ route('piket.jurnal') }}" class="nav-btn {{ request()->routeIs('piket.jurnal*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-journal-text"></i>
+                            <span>Jurnal KBM Harian</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Dispensasi Siswa -->
+                <div class="nav-item-container">
+                    <a href="{{ route('piket.dispensasi.index') }}" class="nav-btn {{ request()->routeIs('piket.dispensasi*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-clipboard2-check"></i>
+                            <span>Dispensasi Siswa</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Approval Izin Guru -->
+                <div class="nav-item-container">
+                    <a href="{{ route('piket.izin.index') }}" class="nav-btn {{ request()->routeIs('piket.izin*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-person-check-fill"></i>
+                            <span>Approval Izin Guru</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Status Kehadiran Guru -->
+                <div class="nav-item-container">
+                    <a href="{{ route('piket.status-guru') }}" class="nav-btn {{ request()->routeIs('piket.status-guru*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-people-fill"></i>
+                            <span>Status Kehadiran Guru</span>
+                        </span>
+                    </a>
+                </div>
+
+                {{-- ===== TUGAS TAMBAHAN ===== --}}
+                <div class="nav-item-container mt-3">
+                    <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                        TUGAS TAMBAHAN
+                    </div>
+                </div>
+
+                <!-- Kelola Piket Shift (Koordinator) -->
+                <div class="nav-item-container">
+                    <a href="{{ route('koordinator.piket') }}" class="nav-btn {{ request()->routeIs('koordinator.piket*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-clipboard-check"></i>
+                            <span>Kelola Piket Shift (Koordinator)</span>
                         </span>
                     </a>
                 </div>
@@ -1233,92 +1333,86 @@
                     </div>
                 </div>
 
-                <!-- Dashboard -->
+                <!-- Dashboard (Petugas IT) -->
                 <div class="nav-item-container">
                     <a href="{{ route('it.dashboard') }}" class="nav-btn {{ request()->routeIs('home', 'it.dashboard') ? 'active' : '' }}">
                         <span class="btn-left">
                             <i class="bi bi-grid-fill"></i>
-                            <span>Dashboard</span>
+                            <span>Dashboard (Petugas IT)</span>
                         </span>
                     </a>
                 </div>
 
-                {{-- Catatan: menu "Switch View As" TIDAK lagi dimunculkan di sidebar.
-                     Fungsinya sudah tercakup banner "Mode Dev & Testing" di atas topbar
-                     (lihat blok .dev-testing-banner pada header) sehingga tidak ada
-                     duplikasi navigasi. --}}
-
-                <div class="nav-item-container">
-                    <div class="px-2 mb-2 mt-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.06em;">
-                        PERAWATAN
+                {{-- ===== NAVIGASI PIKET ===== --}}
+                <div class="nav-item-container mt-3">
+                    <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                        NAVIGASI PIKET
                     </div>
                 </div>
 
-                @php $isMaintenanceActive = \App\Models\PengaturanJadwal::isMaintenanceModeActive(); @endphp
+                <!-- Presensi Siswa -->
                 <div class="nav-item-container">
-                    <div class="px-2">
-                        {{-- Widget subtle: netral saat NORMAL, merah tegas hanya saat Mode Maintenance AKTIF. --}}
-                        <div class="card border-0 rounded-4 shadow-sm p-3"
-                             style="background: {{ $isMaintenanceActive ? '#fef2f2' : '#f1f5f9' }}; border: 1px solid {{ $isMaintenanceActive ? '#fecaca' : '#e2e8f0' }};">
-                            <div class="d-flex align-items-center gap-2">
-                                <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0
-                                            {{ $isMaintenanceActive ? 'text-white' : 'text-muted' }}"
-                                     style="width:38px; height:38px; {{ $isMaintenanceActive ? 'background:linear-gradient(135deg,#ef4444,#dc2626);' : 'background:#e2e8f0;' }}">
-                                    <i class="bi bi-wrench-adjustable fs-5"></i>
-                                </div>
-                                <div>
-                                    <div class="fw-bold text-dark small">Mode Maintenance</div>
-                                    @if($isMaintenanceActive)
-                                        <span class="badge bg-danger text-white rounded-pill px-2 py-1 mt-1" style="font-size:0.66rem;">
-                                            <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;"></i>AKTIF — PERBAIKAN
-                                        </span>
-                                    @else
-                                        <span class="badge bg-white text-muted border rounded-pill px-2 py-1 mt-1" style="font-size:0.66rem;">
-                                            <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;"></i>NORMAL
-                                        </span>
-                                    @endif
-                                </div>
-                            </div>
-                            <div class="{{ $isMaintenanceActive ? 'text-danger' : 'text-muted' }} mt-2 mb-1" style="font-size:0.72rem; line-height:1.4;">
-                                @if($isMaintenanceActive)
-                                    Seluruh pengguna selain IT/QA kini melihat halaman pemeliharaan.
-                                @else
-                                    Aktifkan untuk membatasi akses sistem selama perbaikan.
-                                @endif
-                            </div>
-                            <form method="POST" action="{{ route('it.maintenance-mode') }}">
-                                @csrf
-                                <input type="hidden" name="maintenance_mode" value="{{ $isMaintenanceActive ? '0' : '1' }}">
-                                <button type="submit" class="btn btn-sm {{ $isMaintenanceActive ? 'btn-danger' : 'btn-outline-secondary' }} w-100 rounded-3 fw-semibold">
-                                    <i class="bi {{ $isMaintenanceActive ? 'bi-power' : 'bi-shield-exclamation' }} me-1"></i>
-                                    {{ $isMaintenanceActive ? 'Nonaktifkan Mode' : 'Aktifkan Mode' }}
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Pengaturan WhatsApp Gateway (Fonnte) -->
-                <div class="nav-item-container">
-                    <a href="{{ route('it.settings.wa') }}" class="nav-btn {{ request()->routeIs('it.settings.wa*') ? 'active' : '' }}">
+                    <a href="{{ route('piket.presensi-siswa') }}" class="nav-btn {{ request()->routeIs('piket.presensi-siswa*') ? 'active' : '' }}">
                         <span class="btn-left">
-                            <i class="bi bi-whatsapp"></i>
-                            <span>Pengaturan WA</span>
+                            <i class="bi bi-people-fill"></i>
+                            <span>Presensi Siswa</span>
                         </span>
                     </a>
                 </div>
 
-                {{-- ================= SISTEM (IT): Recycle Bin ================= --}}
+                <!-- Jurnal KBM Harian -->
                 <div class="nav-item-container">
-                    <div class="px-2 mb-2 mt-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.06em;">
-                        SISTEM
+                    <a href="{{ route('piket.jurnal') }}" class="nav-btn {{ request()->routeIs('piket.jurnal*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-journal-text"></i>
+                            <span>Jurnal KBM Harian</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Dispensasi Siswa -->
+                <div class="nav-item-container">
+                    <a href="{{ route('piket.dispensasi.index') }}" class="nav-btn {{ request()->routeIs('piket.dispensasi*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-clipboard2-check"></i>
+                            <span>Dispensasi Siswa</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Approval Izin Guru -->
+                <div class="nav-item-container">
+                    <a href="{{ route('piket.izin.index') }}" class="nav-btn {{ request()->routeIs('piket.izin*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-person-check-fill"></i>
+                            <span>Approval Izin Guru</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Status Kehadiran Guru -->
+                <div class="nav-item-container">
+                    <a href="{{ route('piket.status-guru') }}" class="nav-btn {{ request()->routeIs('piket.status-guru*') ? 'active' : '' }}">
+                        <span class="btn-left">
+                            <i class="bi bi-people-fill"></i>
+                            <span>Status Kehadiran Guru</span>
+                        </span>
+                    </a>
+                </div>
+
+                {{-- ===== TUGAS TAMBAHAN ===== --}}
+                <div class="nav-item-container mt-3">
+                    <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                        TUGAS TAMBAHAN
                     </div>
                 </div>
+
+                <!-- Kelola Piket Shift (Koordinator) -->
                 <div class="nav-item-container">
-                    <a href="{{ route('admin.trash.index') }}" class="nav-btn {{ request()->routeIs('admin.trash.*') ? 'active' : '' }}" title="Kelola data terhapus: pulihkan (restore) atau hapus permanen (force delete)">
+                    <a href="{{ route('koordinator.piket') }}" class="nav-btn {{ request()->routeIs('koordinator.piket*') ? 'active' : '' }}">
                         <span class="btn-left">
-                            <i class="bi bi-trash3"></i>
-                            <span>Data Terhapus</span>
+                            <i class="bi bi-clipboard-check"></i>
+                            <span>Kelola Piket Shift (Koordinator)</span>
                         </span>
                     </a>
                 </div>
@@ -1622,7 +1716,7 @@
                 // Label "SISTEM" hanya tampil pada sidebar area admin/TU (sesuai struktur
                 // menu yang dirombak); sidebar role lain tetap tanpa label agar tidak berubah.
                 $isAdminSidebarNav = !($isKurikulumRole || $isWakaSdmRole || $isWakaKesiswaanRole || $isWakaPiketRole
-                    || $isKepsekRole || $isSatpamRole || ($isGuruPiketRole && !$isGuruRole)
+                    || $isKepsekRole || $isSatpamRole || $isKoordinatorPiketMode || ($isGuruPiketRole && !$isGuruRole)
                     || $isGuruContext || $isPetugasItRole || $isPreviewSiswa);
             @endphp
             @if($isAdminSidebarNav)

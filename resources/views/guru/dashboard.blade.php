@@ -27,8 +27,8 @@
                 <div class="stat-card-title text-uppercase text-xs md:text-sm truncate mb-1 md:mb-2" title="Jadwal Mengajar Hari Ini">Jadwal Mengajar Hari Ini</div>
                 <div class="stat-number-large text-2xl md:text-4xl text-primary mb-1">{{ $jadwalHariIni->count() }}</div>
                 <div class="stat-card-label text-xs md:text-sm truncate" title="Jam Pelajaran">Jam Pelajaran</div>
-                <p class="stat-card-subtext text-xs truncate mb-0 mt-1" title="{{ $jadwalHariIni->pluck('kelas.nama_kelas')->filter()->unique()->values()->implode(' & ') ?: 'Tidak ada jadwal' }}">
-                    {{ $jadwalHariIni->pluck('kelas.nama_kelas')->filter()->unique()->values()->implode(' & ') ?: 'Tidak ada jadwal' }}
+                <p class="stat-card-subtext text-xs truncate mb-0 mt-1" title="{{ $jadwalHariIni->pluck('kelas.nama_kelas_lengkap')->filter()->unique()->values()->implode(' & ') ?: 'Tidak ada jadwal' }}">
+                    {{ $jadwalHariIni->pluck('kelas.nama_kelas_lengkap')->filter()->unique()->values()->implode(' & ') ?: 'Tidak ada jadwal' }}
                 </p>
             </div>
         </div>
@@ -111,7 +111,7 @@
                         @foreach($dispensasiHariIni as $dispen)
                             <tr>
                                 <td class="fw-semibold whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $dispen->siswa?->nama ?? '-' }}</td>
-                                <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm"><span class="badge bg-light text-dark border text-xs md:text-sm">{{ $dispen->siswa?->kelas?->nama ?? '-' }}</span></td>
+                                <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm"><span class="badge bg-light text-dark border text-xs md:text-sm">{{ $dispen->siswa?->kelas?->nama_kelas_lengkap ?? '-' }}</span></td>
                                 <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $dispen->jam_ke_label }}</td>
                                 <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">
                                     @if($dispen->jadwal)
@@ -159,7 +159,7 @@
                         <tr>
                             <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm"><strong>{{ $jamP?->jam_ke ?? '-' }}</strong></td>
                             <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $waktuStr }}</td>
-                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm"><span class="badge bg-light text-dark border text-xs md:text-sm">{{ $item->kelas?->nama_kelas ?? '-' }}</span></td>
+                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm"><span class="badge bg-light text-dark border text-xs md:text-sm">{{ $item->kelas?->nama_kelas_lengkap ?? '-' }}</span></td>
                             <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $item->mapel?->nama_mapel ?? '-' }}</td>
                             <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">
                                 @if($sudahTerisi)

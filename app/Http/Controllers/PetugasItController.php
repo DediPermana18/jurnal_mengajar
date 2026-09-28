@@ -78,6 +78,11 @@ class PetugasItController extends Controller
             'waka_kurikulum' => route('kurikulum.dashboard'),
             'waka_sdm' => route('waka-sdm.dashboard'),
             'waka_kesiswaan' => route('waka-kesiswaan.dashboard'),
+            'waka_piket' => route('waka-piket.dashboard'),
+            // Koordinator Piket punya portalnya sendiri (/koordinator/piket).
+            // Jangan sampai jatuh ke 'default' (home) lalu diteruskan ke
+            // Waka Piket lewat DashboardController.
+            'koordinator_piket' => route('koordinator.piket'),
             'kepsek' => route('kepsek.dashboard'),
             default => route('home'), // Admin TU — dashboard Admin TU di halaman utama.
         };

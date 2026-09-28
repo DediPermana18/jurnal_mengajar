@@ -21,6 +21,7 @@ class UserController extends Controller
         'waka_kurikulum',
         'waka_sdm',
         'waka_piket',
+        'koordinator_piket',
         'satpam',
         'waka_kesiswaan',
         'kepsek',
@@ -33,6 +34,7 @@ class UserController extends Controller
         'waka_kurikulum' => 'Waka Kurikulum',
         'waka_sdm' => 'Waka SDM',
         'waka_piket' => 'Waka Piket',
+        'koordinator_piket' => 'Koordinator Piket',
         'satpam' => 'Petugas Keamanan / Satpam',
         'waka_kesiswaan' => 'Waka Kesiswaan',
         'kepsek' => 'Kepala Sekolah',
@@ -184,13 +186,19 @@ class UserController extends Controller
         $this->authorizePetugasTU();
 
         $user = $this->findNonGuruUser($id);
-        $this->abortIfCurrentUser($user, 'Anda tidak dapat melakukan tindakan manajemen pada akun Anda sendiri.');
-
-        // Kebijakan "Mode Lihat Saja": Petugas TU (non-IT) BOLEH membuka halaman
-        // detail akun user lain, tetapi seluruh field form terkunci readonly —
-        // perubahan kredensial/data hanya dikelola oleh Petugas IT / Super Admin.
         $actor = Auth::user();
-        $readonly = ! ($actor instanceof User) || ! $actor->isPetugasIt();
+        $isSelf = ($actor instanceof User) && $actor->id === $user->id;
+
+        $isSuperAdmin = ($actor instanceof User) && (
+            $actor->isSuperAdmin()
+            || $actor->isPetugasIt()
+            || $actor->isPrivilegedUserManager()
+            || in_array(strtolower((string) $actor->sub_role), ['super_admin', 'super admin'], true)
+            || strtolower((string) $actor->role) === 'super_admin'
+        );
+
+        // Jika bukan Super Admin dan bukan akun sendiri, form terkunci readonly (mode lihat saja)
+        $readonly = ! $isSelf && ! $isSuperAdmin;
 
         return view('admin.users.edit', [
             'user' => $user,
@@ -234,9 +242,16 @@ class UserController extends Controller
         $this->authorizePetugasTU();
 
         $user = $this->findNonGuruUser($id);
-        $this->abortIfCurrentUser($user, 'Anda tidak dapat melakukan tindakan manajemen pada akun Anda sendiri.');
-        $this->abortIfNonItMutation();
-        $this->abortIfProtectedAccount($user);
+        $actor = Auth::user();
+        $isSelf = ($actor instanceof User) && $actor->id === $user->id;
+
+        // Otorisasi: HANYA Super Admin / Petugas IT atau user yang mengedit akun sendiri yang berhak mengubah data user
+        $this->authorizeSuperAdminOrSelf($user);
+
+        if (! $isSelf) {
+            $this->abortIfProtectedAccount($user);
+        }
+
         $validated = $this->validateUser($request, $user->id);
         // Kebijakan Hidden Super Admin: non-privilege-manager dilarang mengubah
         // sub_role menjadi 'super_admin' / 'admin'.
@@ -245,7 +260,6 @@ class UserController extends Controller
         $kodeAktivasi = $validated['kode_aktivasi'] ?? $user->kode_aktivasi;
         // Kode aktivasi tidak pernah bisa diubah lewat form (disabled/masked).
         // Non-IT yang mencoba menyisipkan nilai baru diabaikan → tetap kode lama.
-        $actor = Auth::user();
         if (! $actor instanceof User || ! $actor->isPetugasIt()) {
             $kodeAktivasi = $user->kode_aktivasi;
         }
@@ -261,12 +275,9 @@ class UserController extends Controller
             'sub_role' => $validated['sub_role'],
             'role' => $this->roleForSubRole($validated['sub_role']),
             'kode_aktivasi' => $kodeAktivasi,
-            // Status aktif hanya diterapkan bila checkbox "Akun aktif" benar-benar
-            // dikirim (aktif). Saat akun disuspend checkbox dikunci (disabled) dengan
-            // state tercentang=false — tanpa guard ini, menyimpan form lain akan
-            // otomatis MENGAKTIFKAN kembali akun yang sedang disuspend. Perubahan
-            // status suspend dikelola lewat tombol Unsuspend / Suspend Darurat.
-            'is_active' => $request->has('is_active') ? $request->boolean('is_active') : $user->is_active,
+            // Status aktif: jika mengedit akun sendiri, tetap aktif (tidak bisa menonaktifkan diri sendiri).
+            // Saat akun disuspend checkbox dikunci (disabled).
+            'is_active' => $isSelf ? true : ($request->has('is_active') ? $request->boolean('is_active') : $user->is_active),
         ]);
 
         return redirect()->route('admin.users.index')->with('success', 'Data user berhasil diperbarui.');
@@ -376,6 +387,30 @@ class UserController extends Controller
     }
 
     /**
+     * Otorisasi ketat: HANYA Super Admin / Petugas IT yang boleh mengedit data user lain,
+     * atau user yang sedang mengedit akunnya sendiri.
+     */
+    protected function authorizeSuperAdminOrSelf(User $targetUser): void
+    {
+        $actor = Auth::user();
+        if (! $actor instanceof User) {
+            abort(403, 'Anda tidak memiliki hak akses untuk mengedit data user.');
+        }
+
+        if ($actor->id === $targetUser->id) {
+            return;
+        }
+
+        $isSuperAdmin = $actor->isSuperAdmin()
+            || $actor->isPetugasIt()
+            || $actor->isPrivilegedUserManager()
+            || in_array(strtolower((string) $actor->sub_role), ['super_admin', 'super admin'], true)
+            || strtolower((string) $actor->role) === 'super_admin';
+
+        abort_unless($isSuperAdmin, 403, 'Anda tidak memiliki hak akses untuk mengedit data user.');
+    }
+
+    /**
      * Tolak aksi yang menyasar akun user yang sedang login (menonaktifkan,
      * menghapus, atau mengubah role/status diri sendiri). Respon HTTP 403
      * dengan pesan warning yang jelas.
@@ -402,7 +437,7 @@ class UserController extends Controller
     {
         $actor = Auth::user();
 
-        if ($actor instanceof User && $actor->isPetugasIt()) {
+        if ($actor instanceof User && ($actor->isPetugasIt() || $actor->isPrivilegedUserManager() || $actor->isSuperAdmin())) {
             return;
         }
 

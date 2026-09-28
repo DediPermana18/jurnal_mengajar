@@ -418,7 +418,7 @@ class JurnalController extends Controller
         $today = Carbon::today()->toDateString();
         $now = Carbon::now();
 
-        $tahunAktif = TahunAjaran::where('is_active', true)->first();
+        $tahunAktif = TahunAjaran::aktif();
 
         $query = JadwalPelajaran::with(['jamPelajaran', 'kelas', 'mapel'])
             ->where('id_guru', $guruId)
@@ -582,7 +582,7 @@ class JurnalController extends Controller
                 'jam_ke_utama' => $jamKeUtama,
                 'jam_ke_sub' => $jamKeSub,
                 'waktu' => $waktuDisplay,
-                'kelas' => $primaryJadwal->kelas?->nama_kelas ?? '-',
+                'kelas' => $primaryJadwal->kelas?->nama_lengkap ?? '-',
                 'mapel' => $primaryJadwal->mapel?->nama_mapel ?? '-',
                 'is_filled' => $isFilled,
                 'is_today' => $isToday,

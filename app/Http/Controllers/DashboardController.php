@@ -6,31 +6,68 @@ use App\Models\Kelas;
 use App\Models\PengaturanJadwal;
 use App\Models\Siswa;
 use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
 {
-    public function index()
+    /**
+     * Halaman utama / Dashboard Admin.
+     *
+     * Dua lapis proteksi:
+     *
+     *  1. Impersonasi "Switch View As" (Petugas IT / QA Tester). Saat
+     *     active_role aktif, peran yang ditampilkan adalah peran hasil
+     *     preview, BUKAN peran asli user.
+     *  2. Otorisasi role(user). Bila user TIDAK berhak melihat statistik
+     *     sekolah, dialihkan ke portalnya sendiri (guru / piket / waka /
+     *     kepsek / satpam / IT) — bukan diberi dashboard admin.
+     *
+     * JANGAN redirect ke route('home') di sini: akan membuat infinite loop
+     * karena halaman ini adalah route('home') itu sendiri.
+     */
+    public function index(Request $request)
     {
-        $activeRole = session('active_role');
+        $user = $request->user();
 
-        // IT/QA sedang melakukan impersonasi — arahkan ke portal peran yang sesuai,
-        // kecuali admin_tu yang memang menampilkan dashboard Admin TU di halaman ini.
-        // JANGAN redirect kembali ke route('home') (avoid infinite loop).
-        if ($activeRole) {
-            $portalRoute = [
-                'satpam' => 'satpam.dashboard',
-                'waka_kurikulum' => 'kurikulum.dashboard',
-                'waka_sdm' => 'waka-sdm.dashboard',
-                'waka_kesiswaan' => 'waka-kesiswaan.dashboard',
-                'kepsek' => 'kepsek.dashboard',
-                'guru_piket' => 'piket.dashboard',
-                'guru_mapel' => 'guru.dashboard',
-                'wali_kelas' => 'walikelas.dashboard',
-            ][$activeRole] ?? null;
+        // Tanpa user (middleware 'auth' gagal) → biarkan ke penolakan default.
+        if (! $user) {
+            abort(401, 'Silakan login terlebih dahulu.');
+        }
 
-            if ($portalRoute) {
+        // ── 1. Impersonasi "Switch View As" ──────────────────────────────
+        // Dialihkan ke portal peran yang sedang di-preview. Admin TU &
+        // Super Admin tetap dirender di halaman ini (bukan redirect loop).
+        if ($user->activeRole()) {
+            $portalRoute = $user->dashboardRouteName();
+
+            if ($portalRoute && $portalRoute !== 'home') {
                 return redirect()->route($portalRoute);
             }
+        }
+
+        // ── 2. Otorisasi role(user) ──────────────────────────────────────
+        // Guru Mapel / Wali Kelas / Satpam / Waka / Kepsek TIDAK boleh melihat
+        // dashboard admin; arahkan ke portal masing-masing.
+        if (! $user->canViewAdminDashboard()) {
+            $portalRoute = $user->dashboardRouteName();
+
+            // Fail-safe: role tak dikenal (null) → jangan tampilkan statistik
+            // admin. Kembalikan ke halaman profil agar tidak bocor.
+            if (! $portalRoute || $portalRoute === 'home') {
+                Log::warning('dashboard:akses-ditolak-role-tidak-dikenal', [
+                    'user_id' => $user->id,
+                    'username' => $user->username,
+                    'role' => $user->role,
+                    'sub_role' => $user->sub_role,
+                    'ip' => $request->ip(),
+                ]);
+
+                return redirect()->route('profil.index')
+                    ->with('warning', 'Akun Anda belum memiliki hak akses dashboard. Hubungi administrator.');
+            }
+
+            return redirect()->route($portalRoute);
         }
 
         $totalGuru = User::where('role', User::ROLE_GURU)->count();

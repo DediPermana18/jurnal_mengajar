@@ -345,65 +345,69 @@ class AuthController extends Controller
     /**
      * Redirect User Berdasarkan Role
      *
-     * Urutan prioritas:
-     *  1. Satpam          → satpam.dashboard
-     *  2. Admin Waka Kurikulum (sub_role = waka_kurikulum) → kurikulum.dashboard
-     *  3. Admin lainnya (TU, super_admin, dll.) → home (admin dashboard)
-     *  4. Guru piket hari ini → piket.dashboard
-     *  5. Guru biasa / wali kelas → guru.dashboard
+     * Seluruh keputusan diambil dari User::dashboardRouteName() — sumber
+     * kebenaran TUNGGAL yang juga dipakai DashboardController sebagai penjaga
+     * akses '/'. Karena keduanya memakai fungsi yang sama, redirect setelah
+     * login dan pembatasan akses dashboard admin TIDAK PERNAH berbeda pendapat.
+     *
+     * Pemetaan role → portal:
+     *  - admin + sub_role 'satpam'          → satpam.dashboard
+     *  - admin + sub_role 'waka_kurikulum'  → kurikulum.dashboard
+     *  - admin + sub_role 'waka_sdm'        → waka-sdm.dashboard
+     *  - admin + sub_role 'waka_kesiswaan'  → waka-kesiswaan.dashboard
+     *  - admin + sub_role 'waka_piket'      → waka-piket.dashboard
+     *  - admin + sub_role 'kepsek'          → kepsek.dashboard
+     *  - admin + sub_role 'petugas_tu'/null → home (dashboard admin)
+     *  - petugas_it / qa_tester             → it.dashboard
+     *  - super_admin                        → home (dashboard admin)
+     *  - guru + jadwal piket HARI INI       → piket.dashboard
+     *  - guru / guru_mapel / wali_kelas     → guru.dashboard
      */
     protected function redirectBasedOnRole($user)
     {
-        // 1. Satpam / Petugas Keamanan → portal satpam
-        if ($user->isSatpam()) {
-            return redirect()->route('satpam.dashboard')
-                ->with('success', 'Selamat datang kembali, '.$user->nama.'!');
+        $routeName = $user->dashboardRouteName();
+
+        // Fail-safe: role/sub_role tidak dikenal (atau helper mengembalikan
+        // null). JANGAN fallback ke dashboard admin — area itu memuat statistik
+        // sekolah. Arahkan ke profil & beri petunjuk, dan catat di log.
+        if (! $routeName) {
+            Log::warning('auth:role-tidak-dikenal-tidak-ada-dashboard', [
+                'user_id' => $user->id,
+                'username' => $user->username,
+                'role' => $user->role,
+                'sub_role' => $user->sub_role,
+            ]);
+
+            return redirect()->route('profil.index')
+                ->with('warning', 'Peran akun Anda belum diatur. Hubungi administrator untuk akses dashboard.');
         }
 
-        // 2. Admin dengan sub_role waka_kurikulum → portal kurikulum
-        if ($user->role === 'admin' && $user->sub_role === 'waka_kurikulum') {
-            return redirect()->route('kurikulum.dashboard')
-                ->with('success', 'Selamat datang kembali, Waka Kurikulum '.$user->nama.'!');
-        }
+        $message = 'Selamat datang kembali, '.$this->sapaanRole($user, $routeName).$user->nama.'!';
 
-        // 3. Admin dengan sub_role waka_sdm → portal Waka SDM
-        if (($user->role === 'admin' && $user->sub_role === 'waka_sdm') || $user->role === 'waka_sdm') {
-            return redirect()->route('waka-sdm.dashboard')
-                ->with('success', 'Selamat datang kembali, Waka SDM '.$user->nama.'!');
-        }
+        return redirect()->route($routeName)->with('success', $message);
+    }
 
-        // 3b. Admin dengan sub_role waka_kesiswaan → portal Waka Kesiswaan
-        if ($user->role === 'admin' && $user->sub_role === 'waka_kesiswaan') {
-            return redirect()->route('waka-kesiswaan.dashboard')
-                ->with('success', 'Selamat datang kembali, Waka Kesiswaan '.$user->nama.'!');
-        }
-
-        // 4. Petugas IT / QA Tester → dashboard IT
-        if ($user->isPetugasIt()) {
-            return redirect()->route('it.dashboard')
-                ->with('success', 'Selamat datang kembali, Petugas IT '.$user->nama.'!');
-        }
-
-        // 5. Admin lainnya (super_admin, TU, warden, dll.) → halaman utama admin
-        if (in_array($user->role, ['admin', 'super_admin', 'epic_admin', 'absolute_admin', 'warden'])) {
-            return redirect()->route('home')
-                ->with('success', 'Selamat datang kembali, Admin '.$user->nama.'!');
-        }
-
-        // 6. Guru yang mendapat jadwal piket HARI INI → portal piket
-        if ($user->isPiketHariIni()) {
-            return redirect()->route('piket.dashboard')
-                ->with('success', 'Selamat datang kembali, Guru Piket '.$user->nama.'!');
-        }
-
-        // 5. Guru biasa / wali kelas / guru mapel → portal guru
-        if (in_array($user->role, ['guru', 'guru_mapel', 'wali_kelas'])) {
-            return redirect()->route('guru.dashboard')
-                ->with('success', 'Selamat datang kembali, '.$user->nama.'!');
-        }
-
-        // Fallback — redirect ke home
-        return redirect()->route('home');
+    /**
+     * Sapaan singkat sesuai peran, dipakai pada pesan "Selamat datang kembali".
+     * Sengaja memakai routeName (hasil resolusi) supaya tidak ada daftar
+     * role lagi yang harus dicocokkan terpisah dari pemetaan dashboard.
+     */
+    private function sapaanRole($user, string $routeName): string
+    {
+        return match ($routeName) {
+            'satpam.dashboard' => 'Satpam ',
+            'kurikulum.dashboard' => 'Waka Kurikulum ',
+            'waka-sdm.dashboard' => 'Waka SDM ',
+            'waka-kesiswaan.dashboard' => 'Waka Kesiswaan ',
+            'waka-piket.dashboard' => 'Waka Piket ',
+            'kepsek.dashboard' => 'Kepala Sekolah ',
+            'it.dashboard' => 'Petugas IT ',
+            'piket.dashboard' => 'Guru Piket ',
+            // Guru biasa / wali kelas / guru mapel: tanpa awalan jabatan.
+            'guru.dashboard', 'walikelas.dashboard' => '',
+            // Admin TU / Super Admin / Admin Utama.
+            default => 'Admin ',
+        };
     }
 
     /**

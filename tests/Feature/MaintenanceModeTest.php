@@ -170,9 +170,15 @@ class MaintenanceModeTest extends TestCase
     {
         PengaturanJadwal::setMaintenanceMode(false);
 
-        $this->actingAs($this->makeUser('guru'))
+        // Guru tidak lagi melihat dashboard admin: '/' mengalihkannya ke portal
+        // guru. Yang diuji di sini tetap "tidak diblokir maintenance".
+        $guru = $this->makeUser('guru');
+
+        $this->actingAs($guru)
             ->get(route('home'))
-            ->assertOk();
+            ->assertRedirect(route('guru.dashboard'));
+
+        $this->get(route('guru.dashboard'))->assertOk();
     }
 
     // ================= PEMULIHAN DARURAT SAAT MAINTENANCE =================

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\IT;
 use App\Http\Controllers\Controller;
 use App\Models\AppSetting;
 use App\Services\FonnteService;
+use App\Support\WaSendResult;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -124,31 +125,45 @@ class WaSettingController extends Controller
 
         Cache::forget(self::STATUS_CACHE_KEY);
 
-        $ok = FonnteService::sendNotification($target, $validated['pesan']);
+        // `send()` (bukan `sendNotification()`) agar alasan kegagalan asli dari
+        // Fonnte ditampilkan ke operator. Fonnte membalas HTTP 200 walau gagal
+        // bisnis, jadi tidak boleh disimpulkan sukses dari kode HTTP saja.
+        $hasil = FonnteService::send($target, $validated['pesan']);
 
-        if ($ok) {
-            return back()->with('success', "Pesan tes berhasil terkirim ke {$target}.");
+        if ($hasil->ok) {
+            return back()->with('success', "Pesan tes berhasil dikirim ke {$hasil->target} (Fonnte: {$this->ringkasanRespons($hasil)}).");
         }
 
-        return back()->withInput()
-            ->with('error', 'Pesan tes GAGAL terkirim. Periksa token Fonnte (database/.env) dan koneksi gateway — detail tercatat di log (storage/logs).');
+        return back()->withInput()->with('error', 'Pesan tes GAGAL dikirim — '.$hasil->pesan());
+    }
+
+    /**
+     * Ringkasan respons Fonnte untuk ditampilkan pada alert sukses (jumlah
+     * pesan, request id, dan status antrean) sebagai bukti kiriman diterima
+     * gateway — bukan sekadar "HTTP 200".
+     */
+    protected function ringkasanRespons(WaSendResult $hasil): string
+    {
+        $detail = $hasil->response['detail'] ?? null;
+        $requestid = $hasil->response['requestid'] ?? null;
+
+        $bagian = array_filter([
+            is_string($detail) ? $detail : null,
+            $requestid ? 'requestid '.$requestid : null,
+        ]);
+
+        return $bagian === [] ? 'status HTTP '.$hasil->httpStatus : implode(', ', $bagian);
     }
 
     /**
      * Normalisasi nomor WA ke format internasional tanpa awalan 0 (628xxx).
+     *
+     * Delegasi ke {@see FonnteService::normalizeTarget()} (sumber kebenaran
+     * tunggal) agar format yang diuji di halaman ini identik dengan format yang
+     * dipakai saat pengiriman notifikasi.
      */
     protected function normalizeTarget(string $no): string
     {
-        $no = preg_replace('/[^0-9]/', '', trim($no));
-
-        if ($no === '') {
-            return '';
-        }
-
-        if (str_starts_with($no, '0')) {
-            $no = '62'.substr($no, 1);
-        }
-
-        return $no;
+        return FonnteService::normalizeTarget($no);
     }
 }

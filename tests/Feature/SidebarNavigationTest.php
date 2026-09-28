@@ -216,19 +216,23 @@ class SidebarNavigationTest extends TestCase
 
     public function test_sidebar_guru_dan_role_lain_tidak_mendapat_grup_admin(): void
     {
+        // Guru tidak lagi diberi dashboard admin: '/' mengalihkannya ke portal
+        // guru, sehingga grup sidebar admin tidak pernah sempat ter-render.
         $guru = $this->makeUser('guru');
         $this->actingAs($guru)
             ->get(route('home'))
-            ->assertOk()
+            ->assertRedirect(route('guru.dashboard'))
             ->assertDontSee('KELOLA AKUN')
             ->assertDontSee('DATA MASTER (AKADEMIK)')
             ->assertDontSee('Akun Guru')
             ->assertDontSee('SISTEM');
 
+        // Waka Kurikulum punya portal sendiri — '/' juga mengalihkannya ke sana
+        // (konsisten dengan redirect setelah login).
         $wakaKurikulum = $this->makeUser('admin', 'waka_kurikulum');
         $this->actingAs($wakaKurikulum)
             ->get(route('home'))
-            ->assertOk()
+            ->assertRedirect(route('kurikulum.dashboard'))
             ->assertDontSee('KELOLA AKUN')
             ->assertDontSee('Akun Guru')
             // Footer SISTEM hanya untuk area admin/TU

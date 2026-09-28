@@ -204,7 +204,7 @@
                         </div>
                         <div>
                             <h5 class="fw-black mb-0 text-dark" style="font-weight: 800;">
-                                {{ $selectedKelas->nama_kelas }} &mdash; Jadwal Hari {{ $selectedHari }}
+                                {{ $selectedKelas->nama_kelas_lengkap ?? $selectedKelas->nama_kelas }} &mdash; Jadwal Hari {{ $selectedHari }}
                                 @if($plotShift)
                                     <span class="badge bg-dark-subtle text-dark rounded-pill px-2 py-1 align-middle ms-1" style="font-size: 0.68rem;">
                                         <i class="bi bi-clock"></i> {{ $plotShift->nama_shift }}
@@ -248,7 +248,7 @@
                     <strong>Alokasi shift tidak selaras dengan tingkat kelas.</strong>
                     Shift "<strong>{{ $selectedKelas->shift->nama_shift }}</strong>" hanya berlaku untuk tingkatan
                     <strong>{{ \App\Models\ShiftPelajaran::gradeLevelsLabel($selectedKelas->shift->grade_levels) }}</strong>,
-                    sedangkan {{ $selectedKelas->nama_kelas }} ber-tingkat
+                    sedangkan {{ $selectedKelas->nama_kelas_lengkap ?? $selectedKelas->nama_kelas }} ber-tingkat
                     <strong>{{ $selectedKelas->tingkat }}</strong>. Plotting jadwal untuk kelas ini akan
                     <strong>ditolak</strong> hingga alokasi shift pada data kelas disesuaikan.
                 </div>
@@ -625,7 +625,7 @@
                     {{-- Info Kelas & Hari (ringkas sebagai badge) --}}
                     <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
                         <span class="badge bg-primary-subtle text-primary border rounded-pill px-3 py-2" style="font-size: 0.85rem;">
-                            <i class="bi bi-mortarboard-fill me-1"></i>{{ $selectedKelas->nama_kelas }}
+                            <i class="bi bi-mortarboard-fill me-1"></i>{{ $selectedKelas->nama_kelas_lengkap ?? $selectedKelas->nama_kelas }}
                         </span>
                         <span class="badge bg-light text-dark border rounded-pill px-3 py-2" style="font-size: 0.85rem;">
                             <i class="bi bi-calendar-week me-1"></i>Hari {{ $selectedHari }}

@@ -107,7 +107,7 @@ class SatpamController extends Controller
     protected function jadwalHariIniByKelas(): array
     {
         $hari = static::namaHariToday();
-        $tahunAktif = TahunAjaran::where('is_active', true)->first();
+        $tahunAktif = TahunAjaran::aktif();
         $jamKe = $this->jamKeSekarang();
 
         $jadwalHariIni = JadwalPelajaran::with(['jamPelajaran', 'mapel', 'guru'])

@@ -50,6 +50,7 @@ class User extends Authenticatable
         'waka_kurikulum' => 'Waka Kurikulum',
         'waka_sdm' => 'Waka SDM',
         'waka_piket' => 'Waka Piket',
+        'koordinator_piket' => 'Koordinator Piket',
         'kepsek' => 'Kepala Sekolah',
         'guru_piket' => 'Guru Piket',
         'guru_mapel' => 'Guru Mapel',
@@ -69,6 +70,7 @@ class User extends Authenticatable
         'waka_kurikulum' => ['role' => 'admin',     'sub_role' => 'waka_kurikulum'],
         'waka_sdm' => ['role' => 'admin',     'sub_role' => 'waka_sdm'],
         'waka_piket' => ['role' => 'admin',     'sub_role' => 'waka_piket'],
+        'koordinator_piket' => ['role' => 'admin',     'sub_role' => 'koordinator_piket'],
         'kepsek' => ['role' => 'admin',     'sub_role' => 'kepsek'],
         'guru_piket' => ['role' => 'guru',      'sub_role' => 'guru'],
         'guru_mapel' => ['role' => 'guru',      'sub_role' => 'guru_mapel'],
@@ -80,6 +82,7 @@ class User extends Authenticatable
         'waka_kurikulum',
         'waka_sdm',
         'waka_piket',
+        'koordinator_piket',
         'kepsek',
         'kepala_sekolah',
         'petugas_tu',
@@ -652,6 +655,187 @@ class User extends Authenticatable
     }
 
     /**
+     * Petakan kode role "Switch View As" (active_role) ke route dashboard
+     * portalnya. Default-nya 'home' (dashboard admin) karena 'super_admin'
+     * dan 'admin_tu' memang seharusnya mendarat di sana.
+     */
+    public const PREVIEW_ROLE_DASHBOARD = [
+        'super_admin' => 'home',
+        'admin_tu' => 'home',
+        'satpam' => 'satpam.dashboard',
+        'waka_kesiswaan' => 'waka-kesiswaan.dashboard',
+        'waka_kurikulum' => 'kurikulum.dashboard',
+        'waka_sdm' => 'waka-sdm.dashboard',
+        'waka_piket' => 'waka-piket.dashboard',
+        'koordinator_piket' => 'koordinator.piket',
+        'kepsek' => 'kepsek.dashboard',
+        'guru_piket' => 'piket.dashboard',
+        'guru_mapel' => 'guru.dashboard',
+        'wali_kelas' => 'walikelas.dashboard',
+    ];
+
+    /**
+     * Role yang SAH mendarat di Dashboard Admin ('home' / 'dashboard').
+     *
+     * Gate ini bersifat ALLOW-list (fail-safe default DENY).
+     * Bila role/sub_role baru ditambahkan ke sistem tanpa mendaftarkan di sini,
+     * user akan dialihkan ke portalnya sendiri — bukan otomatis diberi
+     * statistik sekolah (Total Guru / Total Siswa / Rombel).
+     */
+    public const ADMIN_DASHBOARD_ROLES = [
+        'super_admin',
+        'admin_tu',
+        'petugas_it',
+        'qa_tester',
+        'epic_admin',
+        'absolute_admin',
+        'warden',
+        // Role literal 'guru_piket' (non-guru) tetap berlanding di 'home':
+        // layout memilih sidebar blok PIKET berdasarkan jadwal piket.
+        'guru_piket',
+    ];
+
+    /**
+     * Sub-role admin yang tetap memakai Dashboard Admin sebagai beranda.
+     *
+     *  - null         → "Admin Utama" (super admin legacy, sub_role kosong).
+     *  - petugas_tu   → Admin TU.
+     *  - admin_tu     → varian penamaan lain.
+     *  - admin        → admin tanpa jabatan khusus.
+     */
+    public const ADMIN_DASHBOARD_SUB_ROLES = [
+        null,
+        'petugas_tu',
+        'admin_tu',
+        'admin',
+    ];
+
+    /**
+     * Apakah user ini boleh melihat Dashboard Admin (route 'home'/'dashboard')?
+     *
+     * Fail-safe: HANYA role di bawah yang diizinkan. Semua role lain (terutama
+     * keluarga guru: guru / guru_mapel / wali_kelas) otomatis TIDAK BOLEH dan
+     * harus diarahkan ke portalnya masing-masing.
+     *
+     * PENTING: 'guru_piket' (role literal) tetap diizinkan agar layout di
+     * halaman utama bisa merender blok sidebar Piket sesuai jadwal hari ini.
+     */
+    public function canViewAdminDashboard(): bool
+    {
+        // 1. Super Admin (role/sub_role 'super_admin') — akses penuh.
+        if ($this->role === self::ROLE_SUPER_ADMIN || $this->sub_role === self::ROLE_SUPER_ADMIN) {
+            return true;
+        }
+
+        // 2. Petugas IT / QA Tester — baik mode literal (role 'petugas_it' /
+        //    'qa_tester') maupun hasil demote takeover (role 'admin' +
+        //    sub_role 'petugas_it'). Keduanya reviewing dashboard.
+        if ($this->isPetugasIt()) {
+            return true;
+        }
+
+        // 3. Admin + sub_role yang berlanding di dashboard admin.
+        if ($this->role === self::ROLE_ADMIN
+            && in_array($this->sub_role, self::ADMIN_DASHBOARD_SUB_ROLES, true)) {
+            return true;
+        }
+
+        // 4. Role literal lain yang Sah (petugas_tu, warden, guru_piket, dll).
+        return in_array($this->role, self::ADMIN_DASHBOARD_ROLES, true);
+    }
+
+    /**
+     * Route dashboard kanonik milik user — sumber kebenaran TUNGGAL untuk
+     * redirect setelah login (AuthController) DAN penjaga akses '/'
+     * (DashboardController), sehingga keduanya tidak pernah berbeda pendapat.
+     *
+     * Mengembalikan null bila role/sub_role tidak dikenal; pemanggil WAJIB
+     * menangani null sebagai kondisi gagal (fail-safe) — jangan mengirim
+     * user ke dashboard admin.
+     *
+     * @return string|null
+     */
+    public function dashboardRouteName(): ?string
+    {
+        // ── 1. Impersonasi "Switch View As" ──────────────────────────────
+        // Pakai kode active_role apa adanya (bukan jadwal nyata), sebab yang
+        // diimpersonasi adalah peran, bukan orang.
+        if ($activeRole = $this->activeRole()) {
+            return self::PREVIEW_ROLE_DASHBOARD[$activeRole] ?? 'home';
+        }
+
+        $role = (string) $this->role;
+        $subRole = $this->sub_role;
+
+        // ── 2. Super Admin ────────────────────────────────────────────────
+        if ($role === self::ROLE_SUPER_ADMIN || $subRole === self::ROLE_SUPER_ADMIN) {
+            return 'home';
+        }
+
+        // ── 3. Petugas IT / QA Tester (mode asli) ─────────────────────────
+        if ($this->isPetugasIt()) {
+            return 'it.dashboard';
+        }
+
+        // ── 4. Keluarga ADMIN — sub_role menentukan portalnya ────────────
+        if ($role === self::ROLE_ADMIN) {
+            return match ($subRole) {
+                'satpam' => 'satpam.dashboard',
+                'waka_kurikulum' => 'kurikulum.dashboard',
+                'waka_sdm', 'sdm' => 'waka-sdm.dashboard',
+                'waka_kesiswaan' => 'waka-kesiswaan.dashboard',
+                'waka_piket' => 'waka-piket.dashboard',
+                // Koordinator Piket adalah tugas dinamis dengan portal sendiri —
+                // BUKAN turunan Dashboard Waka Piket.
+                'koordinator_piket' => 'koordinator.piket',
+                'kepsek', 'kepala_sekolah', 'kepala_sekolah2' => 'kepsek.dashboard',
+                // petugas_tu, admin_tu, null (Admin Utama), admin, dll.
+                default => 'home',
+            };
+        }
+
+        // ── 5. Role literal legacy non-'guru' ────────────────────────────
+        if ($role === 'piket_satpam' || $role === 'satpam') {
+            return 'satpam.dashboard';
+        }
+
+        if ($role === 'waka_sdm') {
+            return 'waka-sdm.dashboard';
+        }
+
+        if ($role === 'guru_mapel' || $role === 'wali_kelas') {
+            return 'guru.dashboard';
+        }
+
+        // Role literal 'guru_piket' & admin_tu/warden/dll. → beranda.
+        if ($this->canViewAdminDashboard()) {
+            return 'home';
+        }
+
+        // ── 6. Keluarga GURU (role = 'guru') ─────────────────────────────
+        if ($role === self::ROLE_GURU) {
+            // Guru yang mendapat jadwal piket HARI INI → portal piket.
+            if ($this->isPiketHariIni()) {
+                return 'piket.dashboard';
+            }
+
+            // Selain itu (Guru Mapel & Wali Kelas) → portal guru.
+            return 'guru.dashboard';
+        }
+
+        // ── 7. Role tidak dikenal → null (fail-safe di pemanggil) ────────
+        return null;
+    }
+
+    /**
+     * Alias accessor for name -> nama
+     */
+    public function getNameAttribute(): string
+    {
+        return $this->attributes['nama'] ?? $this->attributes['name'] ?? $this->attributes['username'] ?? '';
+    }
+
+    /**
      * Display-friendly role label
      */
     public function getRoleLabelAttribute(): string
@@ -662,6 +846,7 @@ class User extends Authenticatable
                 'waka_kurikulum' => 'Waka Kurikulum',
                 'waka_sdm' => 'Waka SDM',
                 'waka_piket' => 'Waka Piket',
+                'koordinator_piket' => 'Koordinator Piket',
                 'petugas_tu' => 'Petugas TU',
                 'satpam' => 'Satpam',
             ],
@@ -728,9 +913,8 @@ class User extends Authenticatable
     }
 
     /**
-     * Cek apakah guru mendapat penugasan piket pada hari ini.
-     * Hanya berlaku pada hari aktif sekolah (Senin s.d. Jumat) dan hanya jika
-     * namanya terdaftar pada jadwal_piket untuk hari tersebut.
+     * Cek apakah guru mendapat penugasan piket pada hari ini dan di jam shift yang bersangkutan.
+     * Hanya berlaku pada hari aktif sekolah (Senin s.d. Jumat) dan jam sekarang di antara jam_mulai dan jam_selesai shift.
      */
     public function isPiketHariIni(): bool
     {
@@ -738,19 +922,12 @@ class User extends Authenticatable
             return false;
         }
 
-        $hari = $this->hariPiketHariIni();
-
-        if ($hari === null) {
-            return false;
-        }
-
-        return $this->jadwalPiket()->where('hari', $hari)->exists();
+        return $this->isPetugasPiketHariIni();
     }
 
     /**
-     * Cek apakah user adalah Petugas Piket hari ini (tanpa cek role di DB).
-     * Hanya berlaku pada hari aktif sekolah (Senin s.d. Jumat) dan hanya jika
-     * namanya terdaftar pada jadwal_piket untuk hari tersebut.
+     * Cek apakah user adalah Petugas Piket hari ini dan jam sekarang berada dalam rentang shift.
+     * Hanya berlaku pada hari aktif sekolah (Senin s.d. Jumat) dan rentang jam_mulai s.d. jam_selesai.
      */
     public function isPetugasPiketHariIni(): bool
     {
@@ -760,7 +937,20 @@ class User extends Authenticatable
             return false;
         }
 
-        return $this->jadwalPiket()->where('hari', $hari)->exists();
+        $now = Carbon::now()->format('H:i:s');
+
+        return $this->jadwalPiket()
+            ->where('hari', $hari)
+            ->where(function ($query) use ($now) {
+                // Pengecekan berbasis relasi shift_piket (shift_id)
+                $query->whereHas('shift', function ($q) use ($now) {
+                    $q->where('jam_mulai', '<=', $now)
+                      ->where('jam_selesai', '>=', $now);
+                })
+                // Fallback jika shift_id null (jadwal tanpa shift_id khusus diizinkan sepanjang hari)
+                ->orWhereNull('shift_id');
+            })
+            ->exists();
     }
 
     /**

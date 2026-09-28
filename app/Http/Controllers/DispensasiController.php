@@ -13,6 +13,8 @@ use App\Models\Scopes\TestingDataScope;
 use App\Models\Siswa;
 use App\Models\TahunAjaran;
 use App\Models\User;
+use App\Services\DispensasiWaService;
+use App\Support\DispensasiWaResult;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
@@ -164,7 +166,7 @@ class DispensasiController extends Controller
         // berdasarkan waktu sistem sekarang (fallback server-side bila JS gagal).
         $jamMasukDefault = $this->jamKeSaranSekarang();
 
-        $tahunAktif = TahunAjaran::where('is_active', true)->first();
+        $tahunAktif = TahunAjaran::aktif();
 
         // Baris siswa yang diisi sebelum validasi gagal (old()) agar daftar
         // siswa multi-baris di form kolektif tetap ter-restore setelah redirect back.
@@ -790,8 +792,105 @@ class DispensasiController extends Controller
             return $parent;
         });
 
+        // Notifikasi WA otomatis ke Waka Kesiswaan untuk penandatanganan
+        // digital: satu pesan untuk satu pengajuan (rombongan), dikirim
+        // setelah transaksi selesai agar seluruh baris siswa sudah persist.
+        DispensasiWaService::notifyWakaKesiswaan(
+            $kolektif->load('siswaItems.siswa.kelas'),
+            'dispensasi kolektif baru'
+        );
+
         return redirect()->route('piket.dispensasi.kolektif.surat', $kolektif->id)
             ->with('success', 'Dispensasi kolektif untuk '.count($idSiswaList).' siswa berhasil disimpan beserta tanda tangan digital masing-masing siswa.');
+    }
+
+    /**
+     * KIRIM ULANG notifikasi WhatsApp pengajuan dispensasi (individu) ke Waka
+     * Kesiswaan — dipakai tombol "WA ke Waka" pada daftar dispensasi.
+     *
+     * Notifikasi otomatis sudah terkirim saat surat dibuat; action ini hanya
+     * mengirim ulang apabila Waka belum menerima / belum sempat membuka link.
+     */
+    public function kirimWaWaka($id)
+    {
+        $user = Auth::user();
+        abort_unless($user instanceof User, 403, 'Silakan login terlebih dahulu.');
+
+        $dispensasi = $this->findDispensasiForView((int) $id);
+
+        $this->authorizeDispensasiPiket($dispensasi);
+
+        return $this->kirimWaWakaResponse(
+            DispensasiWaService::notifyWakaKesiswaan($dispensasi->load('siswa.kelas'), 'kirim ulang'),
+            $dispensasi->nomor_surat
+        );
+    }
+
+    /**
+     * KIRIM ULANG notifikasi WhatsApp dispensasi kolektif (rombongan) ke Waka
+     * Kesiswaan. Satu pesan untuk satu EVEN, mencakup seluruh siswa.
+     */
+    public function kirimWaWakaKolektif($id)
+    {
+        $user = Auth::user();
+        abort_unless($user instanceof User, 403, 'Silakan login terlebih dahulu.');
+
+        $kolektif = $this->findKolektifForView((int) $id);
+
+        $allowed = $user->isPiketHariIni()
+            || $user->isPetugasIt()
+            || (int) $kolektif->approved_by === (int) $user->id
+            || (int) $kolektif->id_guru_piket === (int) $user->id;
+
+        abort_unless($allowed, 403, 'Akses ditolak. Anda tidak berwenang mengirim notifikasi WA untuk surat ini.');
+
+        return $this->kirimWaWakaResponse(
+            DispensasiWaService::notifyWakaKesiswaan($kolektif->load('siswaItems.siswa.kelas'), 'kirim ulang'),
+            $kolektif->nomor_surat
+        );
+    }
+
+    /**
+     * Umpan balik (flash message) hasil pengiriman ulang notifikasi WA.
+     *
+     * Alert sukses HANYA muncul bila Fonnte benar-benar mengonfirmasi kiriman
+     * (status=true). Bila gagal, pesan error memuat alasan PERSIS dari Fonnte
+     * (mis. "token invalid", "insufficient quota", "target invalid") atau
+     * kondisi internal (nomor Waka belum valid, layanan dimatikan) — bukan
+     * lagi pesan generik yang menyesatkan.
+     */
+    protected function kirimWaWakaResponse(DispensasiWaResult $hasil, string $nomorSurat)
+    {
+        if ($hasil->sukses()) {
+            return back()->with(
+                'success',
+                'Notifikasi WhatsApp untuk surat '.$nomorSurat.' berhasil dikirim ke Waka Kesiswaan'
+                .($hasil->terkirim > 1 ? ' ('.$hasil->terkirim.' nomor).' : '.')
+            );
+        }
+
+        return back()->with(
+            'error',
+            'Notifikasi WhatsApp untuk surat '.$nomorSurat.' GAGAL dikirim. '
+            .'Alasan: '.$hasil->alasanGagal()
+        );
+    }
+
+    /**
+     * Otorisasi aksi operasional atas satu surat dispensasi: Guru Piket yang
+     * bertugas hari ini, Petugas IT/QA, pembuat surat, atau penyetuju saat
+     * surat diterbitkan.
+     */
+    protected function authorizeDispensasiPiket(DispensasiSiswa $dispensasi): void
+    {
+        $user = Auth::user();
+
+        $allowed = $user->isPiketHariIni()
+            || $user->isPetugasIt()
+            || (int) $dispensasi->approved_by === (int) $user->id
+            || (int) $dispensasi->id_guru_piket === (int) $user->id;
+
+        abort_unless($allowed, 403, 'Akses ditolak. Anda tidak berwenang mengirim notifikasi WA untuk surat ini.');
     }
 
     /**

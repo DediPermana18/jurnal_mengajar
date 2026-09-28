@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\SecurityDevice;
 use App\Models\SecurityLog;
 use App\Models\User;
 use App\Services\SecurityAuditService;
@@ -349,6 +350,48 @@ class SecurityAuditTrailTest extends TestCase
         $this->post(route('login.post'), $this->loginPayload())->assertRedirect();
 
         Http::assertNothingSent();
+    }
+
+    public function test_login_notifikasi_menampilkan_nama_kustom_perangkat_jika_ada(): void
+    {
+        config()->set('security.notifications.telegram_bot_token', 'BOT:test-token');
+        config()->set('security.notifications.telegram_chat_id', '987654321');
+        Http::fake();
+
+        $user = $this->createUser();
+
+        // Cari fingerprint dari request default
+        $sig = app(\App\Services\DeviceSignatureService::class)->fromRequest(request());
+        $deviceFingerprint = (string) $sig['device_fingerprint'];
+
+        SecurityDevice::create([
+            'user_id' => $user->id,
+            'fingerprint' => $deviceFingerprint,
+            'name' => 'my arch',
+        ]);
+
+        $this->post(route('login.post'), $this->loginPayload())->assertRedirect();
+
+        Http::assertSent(function ($request) {
+            return str_contains($request['text'], 'Perangkat : my arch (')
+                && str_contains($request['text'], 'Login Baru');
+        });
+    }
+
+    public function test_login_notifikasi_fallback_ke_device_name_jika_nama_kustom_kosong(): void
+    {
+        config()->set('security.notifications.telegram_bot_token', 'BOT:test-token');
+        config()->set('security.notifications.telegram_chat_id', '987654321');
+        Http::fake();
+
+        $this->createUser();
+        $this->post(route('login.post'), $this->loginPayload())->assertRedirect();
+
+        Http::assertSent(function ($request) {
+            return !str_contains($request['text'], 'my arch')
+                && str_contains($request['text'], 'Perangkat : ')
+                && str_contains($request['text'], 'Login Baru');
+        });
     }
 
     // ================= UTILITAS PARSING DEVICE =================

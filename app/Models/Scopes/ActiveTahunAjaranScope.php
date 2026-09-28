@@ -37,8 +37,6 @@ class ActiveTahunAjaranScope implements Scope
 
     protected function activeTahunAjaranId(): ?int
     {
-        return TahunAjaran::query()
-            ->where('is_active', true)
-            ->value('id');
+        return TahunAjaran::aktifId();
     }
 }

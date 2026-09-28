@@ -42,19 +42,24 @@ class Kelas extends Model
         'is_testing_data' => 'boolean',
     ];
 
+    /**
+     * Nama kelas ringkas beserta tingkat (mis. "XI RPL 2", "X TJKT 1").
+     */
+    public function getNamaKelasLengkapAttribute(): string
+    {
+        return $this->nama_lengkap;
+    }
+
+    /**
+     * Nama kelas lengkap dengan tingkat (mis. "XI RPL 2").
+     */
     public function getNamaLengkapAttribute(): string
     {
         $label = trim((string) $this->nama_kelas);
         $tingkat = trim((string) $this->tingkat);
 
-        // Tambahkan tingkat (X/XI/XII) bila nama_kelas belum memuatnya — mis. "PSPT 1" → "XII PSPT 1".
-        if ($tingkat !== '' && ! str_starts_with($label, $tingkat.' ')) {
-            $label = $tingkat.' '.$label;
-        }
-
-        // Lampirkan nama panjang jurusan — mis. "XII PSPT 1 (Produksi Siaran dan Program Televisi)".
-        if ($namaJurusan = $this->jurusan?->nama_jurusan) {
-            $label .= ' ('.$namaJurusan.')';
+        if ($tingkat !== '' && ! str_starts_with(strtolower($label), strtolower($tingkat).' ')) {
+            $label = "{$tingkat} {$label}";
         }
 
         return trim($label);

@@ -113,45 +113,50 @@
                 {{-- CARD SAKELAR HARI SENIN --}}
                 <div class="card border-0 rounded-4 shadow-sm overflow-hidden"
                      style="background: {{ $isSeninTanpaUpacara ? 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)' : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)' }}; border: 1.5px solid {{ $isSeninTanpaUpacara ? '#fed7aa' : '#bbf7d0' }} !important;">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
-                            <div class="d-flex align-items-center gap-3">
-                                <div class="rounded-3 d-flex align-items-center justify-content-center text-white flex-shrink-0"
-                                     style="width: 48px; height: 48px; background: {{ $isSeninTanpaUpacara ? 'linear-gradient(135deg, #ea580c, #c2410c)' : 'linear-gradient(135deg, #16a34a, #15803d)' }};">
-                                    <i class="bi {{ $isSeninTanpaUpacara ? 'bi-lightning-charge-fill' : 'bi-flag-fill' }} fs-4"></i>
+                    <div class="card-body p-5">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+
+                            {{-- Sisi Kiri: Ikon + Teks (Badge, Judul, Deskripsi) --}}
+                            <div class="flex items-start gap-4">
+                                <div class="rounded-3 flex items-center justify-center text-white shrink-0"
+                                     style="width: 44px; height: 44px; background: {{ $isSeninTanpaUpacara ? 'linear-gradient(135deg, #ea580c, #c2410c)' : 'linear-gradient(135deg, #16a34a, #15803d)' }};">
+                                    <i class="bi {{ $isSeninTanpaUpacara ? 'bi-lightning-charge-fill' : 'bi-flag-fill' }} fs-5"></i>
                                 </div>
                                 <div>
-                                    <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
-                                        <h5 class="fw-bold mb-0 text-dark" style="font-size: 1.05rem;">
+                                    <div class="flex flex-wrap items-center gap-2 mb-1">
+                                        <h6 class="text-base font-bold text-gray-900 mb-0">
                                             Sakelar Khusus Hari Senin: Upacara Ditiadakan
-                                        </h5>
+                                        </h6>
                                         @if($isSeninTanpaUpacara)
-                                            <span class="badge bg-warning text-dark border border-warning-subtle rounded-pill px-3 py-1 fw-bold" style="font-size: 0.78rem;">
+                                            <span class="badge bg-warning text-dark border border-warning-subtle rounded-pill px-2.5 py-1 fw-bold" style="font-size: 0.72rem;">
                                                 <i class="bi bi-clock-history me-1"></i>Mode Maju 1 JP
                                             </span>
                                         @else
-                                            <span class="badge bg-success text-white border border-success-subtle rounded-pill px-3 py-1 fw-bold" style="font-size: 0.78rem;">
+                                            <span class="badge bg-success text-white border border-success-subtle rounded-pill px-2.5 py-1 fw-bold" style="font-size: 0.72rem;">
                                                 <i class="bi bi-check-circle-fill me-1"></i>Senin Normal (Ada Upacara)
                                             </span>
                                         @endif
                                     </div>
-                                    <div class="text-muted" style="font-size: 0.85rem;">
-                                        Aktifkan jika Upacara Bendera ditiadakan. Seluruh jam KBM dimajukan 1 JP & siswa/guru pulang 1 JP lebih awal.
-                                    </div>
+                                    <p class="text-xs text-gray-500 mb-0 max-w-2xl">
+                                        Aktifkan jika Upacara Bendera ditiadakan. Seluruh jam KBM dimajukan 1 JP &amp; siswa/guru pulang 1 JP lebih awal.
+                                    </p>
                                 </div>
                             </div>
 
-                            <form method="POST" action="{{ route('admin.toggle-senin-tanpa-upacara') }}" id="formToggleSeninShift">
-                                @csrf
-                                <div class="form-check form-switch mb-0">
-                                    <input class="form-check-input" type="checkbox" role="switch" id="toggleSeninShift" name="senin_tanpa_upacara" value="1"
-                                           {{ $isSeninTanpaUpacara ? 'checked' : '' }}
-                                           onchange="this.form.submit()" style="cursor: pointer; width: 3em; height: 1.5em;">
-                                    <label class="form-check-label fw-bold text-dark ms-2" for="toggleSeninShift" style="font-size: 0.85rem; cursor: pointer;">
-                                        {{ $isSeninTanpaUpacara ? 'KBM Dimajukan (Tanpa Upacara)' : 'Senin Normal (Ada Upacara)' }}
-                                    </label>
-                                </div>
-                            </form>
+                            {{-- Sisi Kanan: Toggle Sakelar --}}
+                            <div class="shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-gray-100 flex items-center gap-3">
+                                <form method="POST" action="{{ route('admin.toggle-senin-tanpa-upacara') }}" id="formToggleSeninShift">
+                                    @csrf
+                                    <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="toggleSeninShift" name="senin_tanpa_upacara" value="1"
+                                               {{ $isSeninTanpaUpacara ? 'checked' : '' }}
+                                               onchange="this.form.submit()" style="cursor: pointer; width: 2.75em; height: 1.4em; flex-shrink: 0;">
+                                        <label class="form-check-label fw-semibold text-dark cursor-pointer" for="toggleSeninShift" style="font-size: 0.85rem;">
+                                            {{ $isSeninTanpaUpacara ? 'KBM Dimajukan' : 'Normal (Ada Upacara)' }}
+                                        </label>
+                                    </div>
+                                </form>
+                            </div>
 
                         </div>
                     </div>
@@ -161,31 +166,33 @@
                 {{-- CARD SAKELAR HARI JUMAT --}}
                 <div class="card border-0 rounded-4 shadow-sm overflow-hidden"
                      style="background: {{ $isJumatTanpaPembiasaan ? 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)' : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)' }}; border: 1.5px solid {{ $isJumatTanpaPembiasaan ? '#fed7aa' : '#bbf7d0' }} !important;">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
-                            <div class="d-flex align-items-center gap-3">
-                                <div class="rounded-3 d-flex align-items-center justify-content-center text-white flex-shrink-0"
-                                     style="width: 48px; height: 48px; background: {{ $isJumatTanpaPembiasaan ? 'linear-gradient(135deg, #ea580c, #c2410c)' : 'linear-gradient(135deg, #0284c7, #0369a1)' }};">
-                                    <i class="bi {{ $isJumatTanpaPembiasaan ? 'bi-lightning-charge-fill' : 'bi-heart-pulse-fill' }} fs-4"></i>
+                    <div class="card-body p-5">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+
+                            {{-- Sisi Kiri: Ikon + Teks (Badge, Judul, Deskripsi) --}}
+                            <div class="flex items-start gap-4">
+                                <div class="rounded-3 flex items-center justify-center text-white shrink-0"
+                                     style="width: 44px; height: 44px; background: {{ $isJumatTanpaPembiasaan ? 'linear-gradient(135deg, #ea580c, #c2410c)' : 'linear-gradient(135deg, #0284c7, #0369a1)' }};">
+                                    <i class="bi {{ $isJumatTanpaPembiasaan ? 'bi-lightning-charge-fill' : 'bi-heart-pulse-fill' }} fs-5"></i>
                                 </div>
                                 <div>
-                                    <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
-                                        <h5 class="fw-bold mb-0 text-dark" style="font-size: 1.05rem;">
+                                    <div class="flex flex-wrap items-center gap-2 mb-1">
+                                        <h6 class="text-base font-bold text-gray-900 mb-0">
                                             Sakelar Khusus Hari Jumat: Pembiasaan Ditiadakan
-                                        </h5>
+                                        </h6>
                                         @if($isJumatTanpaPembiasaan)
-                                            <span class="badge bg-warning text-dark border border-warning-subtle rounded-pill px-3 py-1 fw-bold" style="font-size: 0.78rem;">
+                                            <span class="badge bg-warning text-dark border border-warning-subtle rounded-pill px-2.5 py-1 fw-bold" style="font-size: 0.72rem;">
                                                 <i class="bi bi-clock-history me-1"></i>Mode Maju 1 JP
                                             </span>
                                         @else
-                                            <span class="badge bg-success text-white border border-success-subtle rounded-pill px-3 py-1 fw-bold" style="font-size: 0.78rem;">
+                                            <span class="badge bg-success text-white border border-success-subtle rounded-pill px-2.5 py-1 fw-bold" style="font-size: 0.72rem;">
                                                 <i class="bi bi-check-circle-fill me-1"></i>Jumat Normal (Ada Pembiasaan)
                                             </span>
                                         @endif
                                     </div>
-                                    <div class="text-muted" style="font-size: 0.85rem;">
-                                        Aktifkan jika Kegiatan Pembiasaan Jumat ditiadakan. Seluruh jam KBM dimajukan 1 JP & KBM dimulai lebih awal.
-                                    </div>
+                                    <p class="text-xs text-gray-500 mb-0 max-w-2xl">
+                                        Aktifkan jika Kegiatan Pembiasaan Jumat ditiadakan. Seluruh jam KBM dimajukan 1 JP &amp; KBM dimulai lebih awal.
+                                    </p>
                                 </div>
                             </div>
 

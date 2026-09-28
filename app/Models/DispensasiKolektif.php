@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasTestingData;
+use App\Services\DispensasiWaService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -177,6 +178,18 @@ class DispensasiKolektif extends Model
     public function getJumlahSiswaAttribute(): int
     {
         return $this->siswaItems->count();
+    }
+
+    /**
+     * Direct link approval publik Waka Kesiswaan untuk satu pengajuan —
+     * satu link menandatangani seluruh siswa rombongan.
+     *
+     * Berbasis domain aplikasi `config('app.url')`; null bila approval_token
+     * belum dibuat.
+     */
+    public function getApprovalUrlAttribute(): ?string
+    {
+        return DispensasiWaService::approvalUrl($this);
     }
 
     /**

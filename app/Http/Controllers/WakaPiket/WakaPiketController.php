@@ -128,7 +128,7 @@ class WakaPiketController extends Controller
             default => $hariIniStr,
         };
 
-        $tahunAktif = TahunAjaran::where('is_active', true)->first() ?? TahunAjaran::first();
+        $tahunAktif = TahunAjaran::aktif() ?? TahunAjaran::first();
 
         // === 1. Stat Kehadiran Guru Hari Ini (Hadir/Izin/Sakit/Dinas Luar/Alpa) ===
         $idGuruTerjadwal = JadwalPelajaran::where('hari', $hariAktif)

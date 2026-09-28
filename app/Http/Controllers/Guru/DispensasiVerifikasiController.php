@@ -152,7 +152,7 @@ class DispensasiVerifikasiController extends Controller
 
         if ($isTipeMasuk && $isHariIni && $isApproved && ! $isSelesai && $siswa?->id_kelas) {
             $hari = $this->hariDariTanggal($dispen->tanggal);
-            $tahunAktif = TahunAjaran::where('is_active', true)->first();
+            $tahunAktif = TahunAjaran::aktif();
             $jamMasuk = (int) ($dispen->jam_masuk_jp ?? 0);
 
             if ($jamMasuk > 0 && $tahunAktif) {

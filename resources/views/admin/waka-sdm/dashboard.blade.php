@@ -338,7 +338,7 @@
                                         </div>
                                     </td>
                                     <td class="px-4 py-3">
-                                        <div class="font-bold text-slate-800">{{ $item->kelas?->nama_kelas ?? '-' }}</div>
+                                        <div class="font-bold text-slate-800">{{ $item->kelas?->nama_kelas_lengkap ?? $item->kelas?->nama_kelas ?? '-' }}</div>
                                         <div class="text-xs text-slate-500 truncate max-w-[140px]" title="{{ $item->mapel?->nama_mapel }}">
                                             {{ $item->mapel?->nama_mapel ?? '-' }}
                                         </div>
@@ -436,7 +436,7 @@
                                     {{ $item->jam ? \Carbon\Carbon::parse($item->jam->jam_mulai)->format('H:i') . ' - ' . \Carbon\Carbon::parse($item->jam->jam_selesai)->format('H:i') : '' }}
                                 </div>
                             </td>
-                            <td class="px-4 py-3 font-bold text-slate-800">{{ $item->kelas?->nama_kelas ?? '-' }}</td>
+                            <td class="px-4 py-3 font-bold text-slate-800">{{ $item->kelas?->nama_kelas_lengkap ?? $item->kelas?->nama_kelas ?? '-' }}</td>
                             <td class="px-4 py-3">
                                 <div class="font-semibold text-slate-700 truncate max-w-[160px]" title="{{ $item->mapel?->nama_mapel }}">
                                     {{ $item->mapel?->nama_mapel ?? '-' }}

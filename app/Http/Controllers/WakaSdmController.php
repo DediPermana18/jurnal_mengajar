@@ -89,7 +89,7 @@ class WakaSdmController extends Controller
         $todayStr = $now->toDateString();
         $hariIniStr = $this->getHariIndonesia($now);
 
-        $tahunAktif = TahunAjaran::where('is_active', true)->first() ?? TahunAjaran::first();
+        $tahunAktif = TahunAjaran::aktif() ?? TahunAjaran::first();
 
         // 1. Total Guru Aktif di database
         $totalGuruAktif = User::where('role', User::ROLE_GURU)
@@ -441,7 +441,7 @@ class WakaSdmController extends Controller
         $startOfMonth = Carbon::createFromDate($tahun, $bulan, 1)->startOfMonth();
         $endOfMonth = Carbon::createFromDate($tahun, $bulan, 1)->endOfMonth();
 
-        $tahunAktif = TahunAjaran::where('is_active', true)->first() ?? TahunAjaran::first();
+        $tahunAktif = TahunAjaran::aktif() ?? TahunAjaran::first();
 
         // Hitung frekuensi tiap hari sekolah (Senin - Jumat) dalam bulan tersebut
         $dayOccurrences = [

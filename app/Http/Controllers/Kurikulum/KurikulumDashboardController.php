@@ -59,7 +59,7 @@ class KurikulumDashboardController extends Controller
         $totalMapel = MataPelajaran::count();
 
         // 3. Stat Card 3: Total Plotting Jadwal KBM
-        $tahunAktif = TahunAjaran::where('is_active', true)->first() ?? TahunAjaran::first();
+        $tahunAktif = TahunAjaran::aktif() ?? TahunAjaran::first();
 
         $totalJadwalPelajaran = JadwalPelajaran::when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))->count();
 
