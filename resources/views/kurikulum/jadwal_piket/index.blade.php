@@ -79,6 +79,15 @@
         </div>
     @endif
 
+    @if(session('info'))
+        <div class="alert alert-info alert-dismissible fade show rounded-3 border-0 shadow-sm mb-4 d-flex align-items-center gap-2" role="alert"
+             style="background: #eff6ff; color: #1e40af; font-size: 0.9rem;">
+            <i class="bi bi-info-circle-fill text-info fs-5"></i>
+            <div>{{ session('info') }}</div>
+            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
     @if(isset($errors) && $errors->any())
         <div class="alert alert-danger alert-dismissible fade show rounded-3 border-0 shadow-sm mb-4 d-flex align-items-center gap-2" role="alert"
              style="background: #fef2f2; color: #991b1b; font-size: 0.9rem;">
@@ -236,12 +245,34 @@
                     </div>
 
                     @if($canManage)
-                    <a href="{{ route('kurikulum.jadwal-piket.create', ['hari' => $hari, 'minggu_ke' => $mingguKe]) }}"
-                       class="btn btn-sm btn-light border rounded-3 d-inline-flex align-items-center gap-1 px-3 shadow-none"
-                       title="Kelola Guru Piket Hari {{ $hari }}">
-                        <i class="bi bi-pencil-fill text-primary" style="font-size: 0.8rem;"></i>
-                        <span class="small fw-semibold">Kelola</span>
-                    </a>
+                    <div class="d-flex align-items-center gap-2">
+                        <a href="{{ route('kurikulum.jadwal-piket.create', ['hari' => $hari, 'minggu_ke' => $mingguKe]) }}"
+                           class="btn btn-sm btn-light border rounded-3 d-inline-flex align-items-center gap-1 px-3 shadow-none"
+                           title="Kelola Guru Piket Hari {{ $hari }}">
+                            <i class="bi bi-pencil-fill text-primary" style="font-size: 0.8rem;"></i>
+                            <span class="small fw-semibold">Kelola</span>
+                        </a>
+
+                        {{-- Kosongkan seluruh penugasan piket hari ini (Minggu ke-{{ $mingguKe }}) --}}
+                        @if($petugasHariIni->isNotEmpty())
+                        <form action="{{ route('kurikulum.jadwal-piket.clear-day', ['hari' => $hari, 'minggu_ke' => $mingguKe]) }}"
+                              method="POST"
+                              class="d-inline"
+                              data-clear-day-form
+                              data-hari="{{ $hari }}"
+                              data-minggu="{{ $mingguKe }}"
+                              data-jumlah="{{ $petugasHariIni->count() }}">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit"
+                                    class="btn btn-sm btn-outline-danger border rounded-3 d-inline-flex align-items-center gap-1 px-3 shadow-none"
+                                    title="Kosongkan seluruh jadwal piket hari {{ $hari }}">
+                                <i class="bi bi-trash3 text-danger" style="font-size: 0.8rem;"></i>
+                                <span class="small fw-semibold text-danger">Kosongkan</span>
+                            </button>
+                        </form>
+                        @endif
+                    </div>
                     @endif
                 </div>
 
@@ -534,6 +565,26 @@
         if (shiftModalEl && reopen) {
             bootstrap.Modal.getOrCreateInstance(shiftModalEl).show();
         }
+    });
+
+    // Konfirmasi "Kosongkan Jadwal" per hari (event delegation, sekali pasang).
+    // Pesan menyebutkan nama hari & jumlah penugasan agar tidak salah hapus hari.
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('form[data-clear-day-form]').forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                var hari    = form.dataset.hari || '';
+                var minggu  = form.dataset.minggu || '';
+                var jumlah  = form.dataset.jumlah || '0';
+
+                var pesan = 'Apakah Anda yakin ingin mengosongkan seluruh jadwal piket untuk hari ' + hari + '?\n\n'
+                    + jumlah + ' penugasan (Minggu ke-' + minggu + ') akan dihapus permanen. '
+                    + 'Tindakan ini tidak dapat dibatalkan.';
+
+                if (! window.confirm(pesan)) {
+                    event.preventDefault();
+                }
+            });
+        });
     });
 </script>
 @endpush

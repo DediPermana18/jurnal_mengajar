@@ -172,6 +172,52 @@ class UserController extends Controller
         ]);
     }
 
+    /**
+     * Endpoint polling real-time: status online/offline user.
+     *
+     * GET /admin/users/online-status?ids[]=1&ids[]=2
+     *
+     * Mengembalikan JSON array [{id, is_online}]. Status dihitung dari
+     * `last_active_at` (User::isOnline(), jendela 5 menit) — sumber yang SAMA
+     * dengan badge saat halaman pertama dirender, sehingga tidak ada perbedaan
+     * antara hasil server-render dan hasil polling.
+     *
+     * Aturan visibilitas SAMA dengan halaman index: akun guru dikecualikan dan
+     * akun internal/istimewa disembunyikan dari Petugas TU (lihat
+     * applyInternalAccountVisibility). Bila parameter `ids` dikirim, hasil
+     * dibatasi ke id tersebut (baris yang sedang tampil di tabel) agar halaman
+     * besar tetap hemat query.
+     */
+    public function onlineStatus(Request $request)
+    {
+        $this->authorizePetugasTU();
+
+        $query = User::query()
+            ->where('role', '!=', User::ROLE_GURU);
+
+        $this->applyInternalAccountVisibility($query);
+
+        $ids = collect($request->input('ids', []))
+            ->filter(fn ($id) => is_numeric($id))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->take(500)
+            ->values();
+
+        if ($ids->isNotEmpty()) {
+            $query->whereIn('id', $ids);
+        }
+
+        $statuses = $query->get(['id', 'last_active_at'])
+            ->map(fn (User $user) => [
+                'id' => (int) $user->id,
+                'is_online' => $user->isOnline(),
+            ])
+            ->values();
+
+        return response()->json($statuses);
+    }
+
     public function create()
     {
         $this->authorizePetugasTU();

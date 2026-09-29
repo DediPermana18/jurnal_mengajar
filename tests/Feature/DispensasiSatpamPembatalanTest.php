@@ -208,6 +208,10 @@ class DispensasiSatpamPembatalanTest extends TestCase
 
         $dispen->refresh();
         $this->assertEquals(DispensasiSiswa::STATUS_DIBATALKAN, $dispen->status);
+        $this->assertDatabaseHas('dispensasi_siswa', [
+            'id' => $dispen->id,
+            'status' => DispensasiSiswa::STATUS_DIBATALKAN,
+        ]);
         $this->assertEquals('Dibatalkan', $dispen->status_label);
         $this->assertNotNull($dispen->ttd_pembatalan);
         $this->assertEquals($piket->id, $dispen->dibatalkan_by);

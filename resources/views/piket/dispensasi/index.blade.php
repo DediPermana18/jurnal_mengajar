@@ -24,7 +24,7 @@
                        max="{{ $today }}"
                        class="form-control form-control-sm rounded-3"
                        style="width: auto;"
-                       >
+                       onchange="this.form.submit()">
             </form>
             <a href="{{ route('piket.dispensasi.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm">
                 <i class="bi bi-plus-lg me-1"></i> Buat Dispen
@@ -105,6 +105,16 @@
                             $dispen = $isKolektif ? null : $row['dispen'];
                             $kolektif = $isKolektif ? $row['kolektif'] : null;
                             $jamModel = $isKolektif ? $kolektif : $dispen;
+                            $statusTerminal = in_array($jamModel->status, [
+                                \App\Models\DispensasiSiswa::STATUS_DIBATALKAN,
+                                \App\Models\DispensasiSiswa::STATUS_DITOLAK,
+                            ], true);
+                            $statusLabelTampilan = (!$isKolektif && !$statusTerminal)
+                                ? $jamModel->status_guru_piket_label
+                                : $jamModel->status_label;
+                            $statusBadgeTampilan = (!$isKolektif && !$statusTerminal)
+                                ? $jamModel->status_guru_piket_badge
+                                : $jamModel->status_badge;
                         @endphp
                         <tr>
                             <td class="whitespace-nowrap">{{ $loop->iteration }}</td>
@@ -154,7 +164,7 @@
                                 @endif
                             </td>
                             <td style="max-width: 260px;"><span class="text-wrap">{{ $jamModel->alasan }}</span></td>
-                            <td><span class="badge {{ $jamModel->status_guru_piket_badge }} rounded-pill px-2 py-2 whitespace-nowrap">{{ $jamModel->status_guru_piket_label }}</span></td>
+                            <td><span class="badge {{ $statusBadgeTampilan }} rounded-pill px-2 py-2 whitespace-nowrap">{{ $statusLabelTampilan }}</span></td>
                             <td class="text-end whitespace-nowrap">
                                 <div class="d-flex justify-content-end align-items-center gap-1 flex-wrap">
                                     <a href="{{ $isKolektif ? route('piket.dispensasi.kolektif.surat', $kolektif->id) : route('piket.dispensasi.surat', $dispen->id) }}"
@@ -164,11 +174,20 @@
                                     @php
                                         $aksiId = $isKolektif ? $kolektif->id : $dispen->id;
                                         $aksiPrefix = $isKolektif ? 'kolektif' : 'dispen';
-                                        $aksiToken = $isKolektif ? $kolektif->approval_token : $dispen->approval_token;
                                         $aksiNomorSurat = $isKolektif ? $kolektif->nomor_surat : $dispen->nomor_surat;
                                         $aksiApprovalLink = $isKolektif ? $kolektif->approval_url : $dispen->approval_url;
-                                        $aksiQrSvg = $aksiApprovalLink ? \App\Support\QrCodeHelper::svg($aksiApprovalLink, 6) : null;
-                                        $aksiWaText = $aksiApprovalLink ? 'Halo Waka Kesiswaan, mohon tandatangani surat dispensasi berikut: '.$aksiApprovalLink : null;
+                                        $aksiStatus = $isKolektif ? $kolektif->status : $dispen->status;
+                                        $aksiBisaApproval = $aksiApprovalLink
+                                            && in_array($aksiStatus, [
+                                                \App\Models\DispensasiSiswa::STATUS_PENDING,
+                                                \App\Models\DispensasiSiswa::STATUS_PENDING_WAKA,
+                                                \App\Models\DispensasiSiswa::STATUS_DISETUJUI,
+                                                \App\Models\DispensasiSiswa::STATUS_APPROVED,
+                                                \App\Models\DispensasiSiswa::STATUS_FINAL,
+                                            ], true)
+                                            && ($isKolektif || (! $dispen->keluar_gerbang_at && ! $dispen->kembali_at));
+                                        $aksiQrSvg = $aksiBisaApproval ? \App\Support\QrCodeHelper::svg($aksiApprovalLink, 6) : null;
+                                        $aksiWaText = $aksiBisaApproval ? 'Halo Waka Kesiswaan, mohon tandatangani surat dispensasi berikut: '.$aksiApprovalLink : null;
                                         $aksiWaRoute = $isKolektif
                                             ? route('piket.dispensasi.kolektif.kirim-wa', $kolektif->id)
                                             : route('piket.dispensasi.kirim-wa', $dispen->id);
@@ -179,7 +198,7 @@
                                             'popperConfig' => ['strategy' => 'fixed'],
                                             'boundary' => 'viewport',
                                         ], JSON_UNESCAPED_SLASHES);
-                                        $showDrowpdown = (bool) $aksiToken
+                                        $showDrowpdown = (bool) $aksiBisaApproval
                                             || (!$isKolektif && (($dispen->isApproved() && !$dispen->has_ttd) || $dispen->isBisaDibatalkan()));
                                     @endphp
                                     @if($showDrowpdown)
@@ -195,7 +214,7 @@
                                                 <i class="bi bi-three-dots-vertical"></i>
                                             </button>
                                             <ul class="dropdown-menu dropdown-menu-end shadow-sm rounded-3">
-                                                @if($aksiApprovalLink)
+                                                @if($aksiBisaApproval)
                                                     <li>
                                                         <form method="POST" action="{{ $aksiWaRoute }}" class="m-0" data-wa-resend>
                                                             @csrf
@@ -227,7 +246,7 @@
                                                     @if($dispen->isBisaDibatalkan())
                                                         <li>
                                                             <button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#batalkanDispen{{ $dispen->id }}">
-                                                                <i class="bi bi-x-circle me-2"></i>Batalkan
+                                                                <i class="bi bi-x-circle me-2"></i>Batalkan Surat
                                                             </button>
                                                         </li>
                                                     @endif
@@ -235,7 +254,7 @@
                                             </ul>
                                         </div>
                                     @endif
-                                    @if($aksiApprovalLink)
+                                    @if($aksiBisaApproval)
                                         <div class="modal fade" id="qr{{ ucfirst($aksiPrefix) }}{{ $aksiId }}" tabindex="-1" aria-hidden="true">
                                             <div class="modal-dialog modal-sm modal-dialog-centered">
                                                 <div class="modal-content rounded-4 border-0 shadow-lg">

@@ -153,12 +153,21 @@ Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
     Route::post('admin/import/jadwal', [DataImportController::class, 'importJadwal'])->name('import.jadwal');
     Route::post('admin/import/reset-jadwal', [DataImportController::class, 'resetJadwal'])->name('import.reset-jadwal');
     Route::get('admin/siswa/export', [SiswaController::class, 'export'])->name('siswa.export');
-    Route::delete('admin/siswa/delete-all', [SiswaController::class, 'deleteAll'])->name('siswa.delete-all');
+    // Catatan: tidak ada route `siswa.delete-all`. Penghapusan massal data siswa
+    // SENGAJA hanya tersedia di menu Import Data (Zona Berbahaya) lewat
+    // `import.reset-siswa` di atas — endpoint itu ter-scope partisi testing,
+    // membersihkan tabel dependensi, dan dibungkus transaksi.
     Route::resource('admin/siswa', SiswaController::class);
     Route::get('admin/kelas/export', [KelasController::class, 'export'])->name('kelas.export');
     // Tambah/Edit kelas memakai modal (store/update), bukan halaman create/edit terpisah.
     Route::resource('admin/kelas', KelasController::class)->except(['create', 'edit']);
 
+    // Endpoint polling status online/offline user (Kelola User).
+    // HARUS didaftarkan SEBELUM resource agar tidak tertutup oleh pola
+    // `admin/users/{...}` lain (resource ini tidak punya route `show`, tetapi
+    // penempatan awal menjaga urutan tetap eksplisit & aman).
+    Route::get('/admin/users/online-status', [UserController::class, 'onlineStatus'])
+        ->name('admin.users.online-status');
     Route::resource('admin/users', UserController::class)
         ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
         ->names('admin.users');
@@ -407,6 +416,10 @@ Route::prefix('kurikulum')->middleware(['auth'])->group(function () {
     Route::get('/jadwal-piket/create', [JadwalPiketController::class, 'create'])->name('kurikulum.jadwal-piket.create');
     Route::get('/jadwal-piket/{hari}/edit', [JadwalPiketController::class, 'edit'])->name('kurikulum.jadwal-piket.edit');
     Route::post('/jadwal-piket', [JadwalPiketController::class, 'store'])->name('kurikulum.jadwal-piket.store');
+    // Kosongkan SELURUH penugasan piket satu hari (Minggu ke terpilih).
+    // Ditaruh SEBELUM route `{id}` agar tidak pernah tertangkap route hapus per-guru.
+    Route::delete('/jadwal-piket/clear-day/{hari}', [JadwalPiketController::class, 'clearDay'])
+        ->name('kurikulum.jadwal-piket.clear-day');
     Route::delete('/jadwal-piket/{id}', [JadwalPiketController::class, 'destroy'])->name('kurikulum.jadwal-piket.destroy');
 
     Route::get('/approval-dispensasi', [DispensasiController::class, 'indexApproval'])->name('kurikulum.dispensasi.approval.index');

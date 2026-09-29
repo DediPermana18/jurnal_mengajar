@@ -504,60 +504,6 @@
             background-color: #cbd5e1;
         }
 
-        .user-dropdown-btn {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            background: transparent;
-            border: none;
-            padding: 0.25rem 0.5rem;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: background 0.2s ease;
-            text-decoration: none;
-        }
-
-        .user-dropdown-btn:hover {
-            background-color: rgba(255, 255, 255, 0.4);
-        }
-
-        .user-avatar {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-
-        .user-meta {
-            text-align: left;
-            line-height: 1.2;
-            min-width: 0;
-            max-width: 160px;
-        }
-
-        .user-name {
-            font-size: 0.875rem;
-            font-weight: 800;
-            color: #0f172a;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .user-role {
-            font-size: 0.75rem;
-            color: #64748b;
-            font-weight: 500;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .user-chevron {
-            font-size: 0.75rem;
-            color: #64748b;
-        }
-
         /* Page Content Area — padding diserahkan ke utility Tailwind px-3 sm:px-6 py-4
            pada elemen <main class="page-content"> (lebih tipis di layar mobile). */
         .page-content {
@@ -1726,9 +1672,14 @@
                     </div>
                 </div>
             @endif
-            {{-- Recycle Bin: khusus Super Admin / Petugas IT (kecuali IT dalam mode
-                 langsung — IT mode langsung sudah punya menu ini di navigasi IT-nya). --}}
-            @if(($isSuperAdmin || ($user && $user->isPetugasIt())) && !$isPetugasItRole)
+            {{-- Recycle Bin: khusus Super Admin / Petugas IT / QA Tester.
+                 Menu ini TIDAK dikecualikan untuk Petugas IT mode langsung: navigasi
+                 bagian "QA / PETUGAS IT" memang tidak memuat tautan trash, sehingga
+                 tanpa kondisi di bawah ini akun Petugas IT/QA tidak punya JALAN APATUN
+                 membuka /admin/trash dari sidebar (BUG: menu hilang total).
+                 Penempatan di blok bawah ini konsisten dengan "Pengaturan" & "Bantuan"
+                 yang juga dirender tanpa syarat role. --}}
+            @if($isSuperAdmin || ($user && $user->isPetugasIt()))
                 <div class="nav-item-container">
                     <a href="{{ route('admin.trash.index') }}" class="nav-btn px-2 {{ request()->routeIs('admin.trash.*') ? 'active' : '' }}" title="Kelola data terhapus: pulihkan (restore) atau hapus permanen (force delete)">
                         <span class="btn-left">
@@ -1837,8 +1788,13 @@
                 <div class="topbar-divider"></div>
 
                 <!-- Profile Dropdown -->
-                <div class="dropdown">
-                    <div class="user-dropdown-btn" data-bs-toggle="dropdown" aria-expanded="false">
+                <div class="dropdown relative flex items-center">
+                    <button type="button"
+                            class="flex items-center gap-3 p-1.5 rounded-lg hover:bg-slate-100 transition-colors focus:outline-none"
+                            id="user-menu-button"
+                            data-bs-toggle="dropdown"
+                            aria-haspopup="true"
+                            aria-expanded="false">
                         @php
                             $navUser          = auth()->user();
                             $defaultNavAvatar = 'https://ui-avatars.com/api/?name=' . urlencode($navUser?->nama ?? 'User') . '&background=1677ff&color=fff&size=128&bold=true';
@@ -1846,14 +1802,19 @@
                                 ? asset('storage/' . $navUser->foto_profil)
                                 : $defaultNavAvatar;
                         @endphp
-                        <img src="{{ $navAvatar }}" alt="Avatar" class="user-avatar"
-                             onerror="this.onerror=null;this.src='{{ $defaultNavAvatar }}';">
-                        <div class="user-meta">
-                            <div class="user-name" title="{{ $navUser?->nama ?? 'Admin Utama' }}">{{ $navUser?->nama ?? 'Admin Utama' }}</div>
-                            <div class="user-role">{{ $navUser?->role_label ?? 'Administrator' }}</div>
+                        <div class="relative w-9 h-9 min-w-[36px] min-h-[36px] rounded-full overflow-hidden shrink-0 aspect-square">
+                            <img src="{{ $navAvatar }}" alt="{{ $navUser?->name ?? 'User' }}"
+                                 class="w-full h-full object-cover object-center rounded-full block"
+                                 onerror="this.onerror=null;this.src='{{ $defaultNavAvatar }}';">
                         </div>
-                        <i class="bi bi-chevron-down user-chevron"></i>
-                    </div>
+                        <div class="hidden md:flex flex-col text-left leading-tight">
+                            <span class="text-sm font-semibold text-slate-800 tracking-tight">{{ $navUser?->name ?? 'User' }}</span>
+                            <span class="text-xs text-slate-500 font-normal capitalize">{{ $navUser?->role_label ?? 'Admin' }}</span>
+                        </div>
+                        <svg class="w-4 h-4 text-slate-400 shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
 
                     <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-4 mt-2">
                         <li><a class="dropdown-item py-2" href="{{ route('profil.index') }}"><i class="bi bi-person me-2 text-primary"></i> Profil & Akun</a></li>

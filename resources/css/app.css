@@ -7,3 +7,39 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+/* Scrollbar tipis untuk container tabel dengan scroll internal
+   (mis. card "Pantauan Kelas Kosong" pada Dashboard Waka SDM). */
+@utility custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-slate-300) transparent;
+
+    &::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background-color: var(--color-slate-300);
+        border-radius: 9999px;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+        background-color: var(--color-slate-400);
+    }
+}
+
+/* Input type="search" punya tombol clear bawaan browser (WebKit/Blink) yang
+   tumpang tindih dengan tombol clear custom di card "Pantau Kelas Kosong".
+   Disembunyikan supaya hanya ada satu affordance. */
+@utility search-clean {
+    &::-webkit-search-cancel-button,
+    &::-webkit-search-decoration {
+        -webkit-appearance: none;
+        appearance: none;
+    }
+}

@@ -194,11 +194,14 @@
     {{-- ============================================================== --}}
     {{-- 4. MAIN CONTENT GRID (WIDGETS MONITORING)                     --}}
     {{-- ============================================================== --}}
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    {{-- Stacked full-width (1 kolom): "Guru Tidak Hadir" di atas, "Pantau
+         Kelas Kosong" di bawahnya. Leaktrasi tinggi otomatis per card karena
+         tiap baris grid hanya berisi 1 card. --}}
+    <div class="grid grid-cols-1 w-full gap-6 mb-6">
 
-        {{-- Widget Kiri: Guru Tidak Hadir / Izin Hari Ini --}}
-        <div class="bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden flex flex-col">
-            <div class="flex items-center justify-between flex-wrap gap-2 px-5 py-4 border-b border-slate-100">
+        {{-- Widget Atas: Guru Tidak Hadir / Izin Hari Ini (full-width) --}}
+        <div class="w-full bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden flex flex-col h-auto">
+            <div class="shrink-0 flex items-center justify-between flex-wrap gap-2 px-5 py-4 border-b border-slate-100">
                 <div>
                     <div class="flex items-center gap-2">
                         <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-50 text-amber-600">
@@ -214,7 +217,7 @@
             </div>
 
             @if($guruIzinHariIniList->isEmpty())
-                <div class="flex flex-col items-center justify-center text-center py-6 sm:py-8 px-4">
+                <div class="flex-1 flex flex-col items-center justify-center text-center py-6 px-4">
                     <div class="flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 mb-3">
                         <i class="bi bi-check2-circle text-xl"></i>
                     </div>
@@ -222,9 +225,12 @@
                     <p class="text-xs text-slate-500 mb-0">Tidak ada pengajuan izin, sakit, atau dinas luar yang aktif untuk hari ini.</p>
                 </div>
             @else
-                <div class="overflow-x-auto">
+                {{-- Daftar izin bisa panjang. min-h-0 + overflow-auto TIDAK membuat
+                     card ikut memendek karena tinggi baris grid ditentukan oleh isi;
+                     ini hanya jaring pengaman bila list-grow sangat panjang. --}}
+                <div class="flex-1 min-h-0 overflow-auto custom-scrollbar">
                     <table class="w-full text-sm">
-                        <thead>
+                        <thead class="sticky top-0 z-10">
                             <tr class="bg-slate-50 text-left">
                                 <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Nama Guru</th>
                                 <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Status</th>
@@ -282,7 +288,7 @@
                 </div>
             @endif
 
-            <div class="flex items-center justify-between text-xs border-t border-slate-100 pt-3 mt-auto px-5 pb-4">
+            <div class="shrink-0 flex items-center justify-between text-xs border-t border-slate-100 pt-3 mt-auto px-5 pb-4">
                 <span class="text-slate-500 text-[11px] sm:text-xs truncate pr-2">Diperbarui real-time dari database izin</span>
                 <a href="{{ route('waka-sdm.rekap-izin') }}" class="font-semibold text-sky-600 transition-colors hover:text-sky-700 shrink-0 whitespace-nowrap">
                     Kelola Rekap Izin &rarr;
@@ -290,83 +296,185 @@
             </div>
         </div>
 
-        {{-- Widget Kanan: Pantauan Kelas Kosong (Jam Ini) --}}
-        <div class="bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden flex flex-col">
-            <div class="flex items-center justify-between flex-wrap gap-2 px-5 py-4 border-b border-slate-100">
-                <div>
+        {{-- Widget Bawah: Pantauan Kelas Kosong (Jam Ini) — full-width.
+             Paginasi 5 data/halaman lewat mini arrow di header (query param
+             `page`) supaya card tidak memanjang terlalu jauh ke bawah. --}}
+        <div class="w-full bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden flex flex-col h-auto">
+            <div class="shrink-0 flex items-center justify-between flex-wrap gap-2 px-5 py-4 border-b border-slate-100">
+                <div class="min-w-0">
                     <div class="flex items-center gap-2">
                         <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-50 text-red-600">
                             <i class="bi bi-door-closed text-base"></i>
                         </span>
                         <h5 class="text-base font-bold text-slate-800">Pantauan Kelas Kosong (Jam Ini)</h5>
+
+                        {{-- ============ PENCARIAN (query param `q`) ============
+                             Form GET ke route yang sama, sengaja TIDAK membawa
+                             `page` supaya tiap pencarian baru kembali ke halaman 1. --}}
+                        <form method="GET" action="{{ route('waka-sdm.dashboard') }}" role="search" class="relative shrink-0">
+                            <i class="bi bi-search absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+
+                            <input type="search"
+                                   name="q"
+                                   value="{{ $kelasKosongSearch }}"
+                                   placeholder="Cari guru / kelas..."
+                                   aria-label="Cari sesi kelas kosong berdasarkan nama guru, kelas, atau mata pelajaran"
+                                   class="search-clean w-44 sm:w-60 pl-7 pr-7 py-1.5 text-xs rounded-lg border border-slate-200 bg-white text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-400 transition-colors">
+                            <noscript>
+                                <button type="submit" class="sr-only">Cari</button>
+                            </noscript>
+
+                            @if($kelasKosongSearch !== '')
+                                <a href="{{ route('waka-sdm.dashboard') }}"
+                                   class="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-4 h-4 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                                   title="Hapus pencarian" aria-label="Hapus pencarian">
+                                    <i class="bi bi-x-lg text-[10px]"></i>
+                                </a>
+                            @endif
+                        </form>
+
+                        {{-- Mini navigasi halaman: query param `page`, tanpa full reload
+                             karena hanya mengganti angka pada URL. --}}
+                        @if($kelasKosongHariIniList->hasPages())
+                            <span class="inline-flex items-center gap-1">
+                                @if($kelasKosongHariIniList->onFirstPage())
+                                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-md border border-slate-200 text-slate-300 text-[11px] cursor-not-allowed"
+                                          title="Sudah di halaman pertama" aria-disabled="true">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </span>
+                                @else
+                                    <a href="{{ $kelasKosongHariIniList->previousPageUrl() }}"
+                                       class="inline-flex items-center justify-center w-6 h-6 rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-sky-600 transition-colors"
+                                       title="Halaman sebelumnya" aria-label="Halaman sebelumnya">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </a>
+                                @endif
+
+                                <span class="text-[11px] font-semibold text-slate-500 tabular-nums px-1 whitespace-nowrap">
+                                    {{ $kelasKosongHariIniList->currentPage() }}/{{ $kelasKosongHariIniList->lastPage() }}
+                                </span>
+
+                                @if($kelasKosongHariIniList->hasMorePages())
+                                    <a href="{{ $kelasKosongHariIniList->nextPageUrl() }}"
+                                       class="inline-flex items-center justify-center w-6 h-6 rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-sky-600 transition-colors"
+                                       title="Halaman berikutnya" aria-label="Halaman berikutnya">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </a>
+                                @else
+                                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-md border border-slate-200 text-slate-300 text-[11px] cursor-not-allowed"
+                                          title="Sudah di halaman terakhir" aria-disabled="true">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </span>
+                                @endif
+                            </span>
+                        @endif
                     </div>
-                    <p class="text-xs text-slate-500 mt-1">Sesi KBM yang sedang berlangsung/terjadwal tapi Jurnal KBM-nya belum diisi guru.</p>
+                    <p class="text-xs text-slate-500 mt-1">
+                        Sesi KBM yang sedang berlangsung/terjadwal tapi Jurnal KBM-nya belum diisi guru.
+                        @if($kelasKosongJumlahBaris < $kelasKosongSesiTersaring)
+                            <span class="text-slate-400">&middot; {{ $kelasKosongSesiTersaring }} sesi diringkas jadi {{ $kelasKosongJumlahBaris }} baris.</span>
+                        @endif
+                    </p>
                 </div>
-                <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold border {{ $kelasKosongHariIniList->count() > 0 ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200' }}">
-                    {{ $kelasKosongHariIniList->count() }} Sesi Belum Diisi
+                {{-- Badge menghitung SESI (JP), bukan baris: grouping hanya
+                     meringkas tampilan, angka total tidak boleh ikut menyusut. --}}
+                <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold border {{ $kelasKosongSearch !== '' ? 'bg-sky-50 text-sky-700 border-sky-200' : ($kelasKosongTotal > 0 ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200') }}">
+                    @if($kelasKosongSearch !== '')
+                        {{ $kelasKosongSesiTersaring }} dari {{ $kelasKosongTotal }} Sesi Belum Diisi
+                    @else
+                        {{ $kelasKosongTotal }} Sesi Belum Diisi
+                    @endif
                 </span>
             </div>
 
-            @if($kelasKosongHariIniList->isEmpty())
-                <div class="flex flex-col items-center justify-center text-center py-6 sm:py-8 px-4">
-                    <div class="flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 mb-3">
-                        <i class="bi bi-check2-all text-xl"></i>
-                    </div>
-                    <h6 class="text-sm font-bold text-slate-800 mb-1">Semua sesi KBM hari ini sudah terisi dengan baik.</h6>
-                    <p class="text-xs text-slate-500 mb-0">Tidak ada kelas kosong atau jurnal mengajar yang terlewatkan hari ini.</p>
+            @if($kelasKosongHariIniList->total() === 0)
+                <div class="flex-1 flex flex-col items-center justify-center text-center py-6 px-4">
+                    @if($kelasKosongSearch !== '')
+                        {{-- Hasil filter kosong. WAJIB dibedakan dari "tidak ada kelas
+                             kosong sama sekali" — kalau tidak, user dikira diberi tahu
+                             semua sesi terisi padahal masih ada yang kosong. --}}
+                        <div class="flex items-center justify-center w-12 h-12 rounded-full bg-sky-50 text-sky-600 mb-3">
+                            <i class="bi bi-search text-xl"></i>
+                        </div>
+                        <h6 class="text-sm font-bold text-slate-800 mb-1">Tidak ada sesi yang cocok dengan &ldquo;{{ $kelasKosongSearch }}&rdquo;.</h6>
+                        <p class="text-xs text-slate-500 mb-0">
+                            Dari {{ $kelasKosongTotal }} sesi belum diisi hari ini, tidak ada yang cocok.
+                            <a href="{{ route('waka-sdm.dashboard', $kelasKosongLinkParams) }}" class="text-sky-600 font-semibold hover:underline">Hapus pencarian</a>
+                        </p>
+                    @else
+                        <div class="flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 mb-3">
+                            <i class="bi bi-check2-all text-xl"></i>
+                        </div>
+                        <h6 class="text-sm font-bold text-slate-800 mb-1">Semua sesi KBM hari ini sudah terisi dengan baik.</h6>
+                        <p class="text-xs text-slate-500 mb-0">Tidak ada kelas kosong atau jurnal mengajar yang terlewatkan hari ini.</p>
+                    @endif
                 </div>
             @else
+                {{-- Full-width: plenty ruang per kolom, jadi sel bisa lega dan
+                     teks tetap satu baris (whitespace-nowrap) tanpa dipotong.
+                     Batas panjang card tetap dijaga paginasi 5 data/halaman. --}}
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="bg-slate-50 text-left">
-                                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Jam / Sesi</th>
-                                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Kelas & Mapel</th>
-                                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Guru Pengajar</th>
-                                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Aksi Cepat</th>
+                                <th class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Jam / Sesi</th>
+                                <th class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-500">Kelas &amp; Mapel</th>
+                                <th class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-500">Guru Pengajar</th>
+                                <th class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-500 text-right whitespace-nowrap">Aksi Cepat</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
                             @foreach($kelasKosongHariIniList as $item)
                                 <tr class="transition-colors hover:bg-slate-50/60">
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-2.5 whitespace-nowrap">
                                         <span class="inline-flex items-center rounded-lg bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 text-xs font-bold">
-                                            Jam Ke-{{ $item->jam?->jam_ke ?? '-' }}
+                                            {{ $item->jam_ke_label }}
                                         </span>
-                                        <div class="text-xs text-slate-400 mt-0.5">
-                                            {{ $item->jam ? \Carbon\Carbon::parse($item->jam->jam_mulai)->format('H:i') . ' - ' . \Carbon\Carbon::parse($item->jam->jam_selesai)->format('H:i') : '' }}
+                                        <div class="text-xs text-slate-400 tabular-nums mt-0.5">
+                                            {{ $item->waktu_label }}
                                         </div>
+                                        @if($item->jumlah_sesi > 1)
+                                            <div class="text-[10px] text-slate-400 mt-0.5">
+                                                {{ $item->jumlah_sesi }} sesi digabung
+                                            </div>
+                                        @endif
                                     </td>
-                                    <td class="px-4 py-3">
-                                        <div class="font-bold text-slate-800">{{ $item->kelas?->nama_kelas_lengkap ?? $item->kelas?->nama_kelas ?? '-' }}</div>
-                                        <div class="text-xs text-slate-500 truncate max-w-[140px]" title="{{ $item->mapel?->nama_mapel }}">
+                                    <td class="px-4 py-2.5">
+                                        <div class="font-bold text-sm text-slate-800 whitespace-nowrap">{{ $item->kelas?->nama_kelas_lengkap ?? $item->kelas?->nama_kelas ?? '-' }}</div>
+                                        <div class="text-xs text-slate-500 whitespace-nowrap" title="{{ $item->mapel?->nama_mapel }}">
                                             {{ $item->mapel?->nama_mapel ?? '-' }}
                                         </div>
                                     </td>
-                                    <td class="px-4 py-3">
-                                        <div class="text-xs font-semibold text-slate-700">{{ $item->guru?->nama ?? 'Guru Tidak Ditemukan' }}</div>
+                                    <td class="px-4 py-2.5">
+                                        <div class="text-sm font-semibold text-slate-700 whitespace-nowrap" title="{{ $item->guru?->nama ?? 'Guru Tidak Ditemukan' }}">
+                                            {{ $item->guru?->nama ?? 'Guru Tidak Ditemukan' }}
+                                        </div>
                                         @if($item->izin)
-                                            <span class="inline-flex items-center rounded-full bg-amber-50 text-amber-600 border border-amber-200 mt-0.5 px-1.5 py-0.5 text-[11px] font-semibold">
+                                            <span class="inline-flex items-center rounded-full bg-amber-50 text-amber-600 border border-amber-200 mt-0.5 px-2 py-0.5 text-xs font-semibold whitespace-nowrap">
                                                 <i class="bi bi-exclamation-triangle mr-0.5"></i> Izin
                                             </span>
                                         @else
-                                            <span class="inline-flex items-center rounded-full bg-red-50 text-red-600 border border-red-200 mt-0.5 px-1.5 py-0.5 text-[11px] font-semibold">
+                                            <span class="inline-flex items-center rounded-full bg-red-50 text-red-600 border border-red-200 mt-0.5 px-2 py-0.5 text-xs font-semibold whitespace-nowrap">
                                                 Belum Hadir
                                             </span>
                                         @endif
                                     </td>
-                                    <td class="px-4 py-3 text-right">
+                                    {{-- Aksi: tombol ringkas w-7 h-7 dengan tooltip title,
+                                         tetap hemat tempat meski kolom ini lega. --}}
+                                    <td class="px-4 py-2.5 text-right whitespace-nowrap">
                                         @if($item->waUrl)
-                                            <a href="{{ $item->waUrl }}" target="_blank"
-                                               class="inline-flex items-center gap-1 rounded-full bg-emerald-500 text-white px-2.5 py-1 text-xs font-semibold shadow-sm transition-colors hover:bg-emerald-600"
-                                               title="Kirim pesan WhatsApp pengingat">
-                                                <i class="bi bi-whatsapp"></i> Ingatkan
+                                            <a href="{{ $item->waUrl }}" target="_blank" rel="noopener"
+                                               class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-emerald-500 text-white shadow-sm transition-colors hover:bg-emerald-600"
+                                               title="Ingatkan {{ $item->guru?->nama ?? 'guru' }} via WhatsApp"
+                                               aria-label="Ingatkan {{ $item->guru?->nama ?? 'guru' }} via WhatsApp">
+                                                <i class="bi bi-whatsapp text-sm"></i>
                                             </a>
                                         @else
                                             <a href="{{ route('waka-sdm.rekap-izin') }}"
-                                               class="inline-flex items-center gap-1 rounded-full bg-white border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-50"
-                                               title="Buka manajemen izin / piket">
-                                                <i class="bi bi-shield-fill-exclamation text-amber-500"></i> Hubungi Piket
+                                               class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-white border border-slate-200 text-amber-500 transition-colors hover:bg-amber-50"
+                                               title="Hubungi Piket (Belum ada nomor WA)"
+                                               aria-label="Hubungi Piket">
+                                                <i class="bi bi-telephone-fill text-sm"></i>
                                             </a>
                                         @endif
                                     </td>
@@ -377,133 +485,17 @@
                 </div>
             @endif
 
-            <div class="flex items-center justify-between text-xs border-t border-slate-100 pt-3 mt-auto px-5 pb-4">
+            <div class="shrink-0 flex items-center justify-between text-xs border-t border-slate-100 pt-3 mt-auto px-5 pb-4">
                 <span class="text-slate-500 text-[11px] sm:text-xs truncate pr-2">Kirim pengingat atau koordinasikan dengan Tim Piket</span>
-                <a href="#tabelMonitoringLengkap" class="font-semibold text-sky-600 transition-colors hover:text-sky-700 shrink-0 whitespace-nowrap">
-                    Lihat Semua Sesi &darr;
+                <a href="{{ route('kurikulum.laporan.index') }}" class="font-semibold text-sky-600 transition-colors hover:text-sky-700 shrink-0 whitespace-nowrap">
+                    Lihat Semua Sesi &rarr;
                 </a>
             </div>
         </div>
     </div>
 
     {{-- ============================================================== --}}
-    {{-- 5. TABLE SECTION: MONITORING STATUS KBM & GURU HARI INI       --}}
-    {{-- ============================================================== --}}
-    <div id="tabelMonitoringLengkap" class="w-full bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
-        <div class="flex items-center justify-between flex-wrap gap-2 px-5 py-3.5 border-b border-slate-100">
-            <div>
-                <h5 class="text-base font-bold text-slate-800">
-                    <i class="bi bi-broadcast text-red-500 mr-1.5"></i> Monitoring Status KBM & Guru Hari Ini
-                </h5>
-                <p class="text-xs text-slate-500 mt-0.5">Pelacakan sesi jadwal KBM, keterisian jurnal mengajar, dan penugasan guru pengganti hari ini.</p>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-                <span class="inline-flex items-center rounded-lg bg-slate-100 text-slate-600 border border-slate-200 px-2.5 py-1 text-xs font-semibold">
-                    Total: {{ $monitoringKbmHariIni->count() }} Sesi
-                </span>
-                <span class="inline-flex items-center rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 px-2.5 py-1 text-xs font-semibold">
-                    {{ $sesiTerisiHariIni }} Terisi
-                </span>
-                <span class="inline-flex items-center rounded-lg bg-red-50 text-red-600 border border-red-200 px-2.5 py-1 text-xs font-semibold">
-                    {{ $sesiKosongHariIni }} Belum Terisi
-                </span>
-            </div>
-        </div>
-
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="bg-slate-50/80 border-y border-slate-200/80 text-left">
-                        <th class="px-4 py-3 text-[11px] font-semibold tracking-wider text-slate-500 uppercase text-center w-12">No</th>
-                        <th class="px-4 py-3 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Jam / Waktu</th>
-                        <th class="px-4 py-3 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Kelas</th>
-                        <th class="px-4 py-3 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Mata Pelajaran</th>
-                        <th class="px-4 py-3 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Guru Pengajar</th>
-                        <th class="px-4 py-3 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Status Guru</th>
-                        <th class="px-4 py-3 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Status Jurnal</th>
-                        <th class="px-4 py-3 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Guru Pengganti</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                    @forelse($monitoringKbmHariIni as $index => $item)
-                        <tr class="transition-colors hover:bg-slate-50/60">
-                            <td class="px-4 py-3 text-center text-slate-500 font-semibold">{{ $index + 1 }}</td>
-                            <td class="px-4 py-3">
-                                <span class="inline-flex items-center rounded-lg bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 text-xs font-bold">
-                                    Jam Ke-{{ $item->jam?->jam_ke ?? '-' }}
-                                </span>
-                                <div class="text-xs text-slate-400 mt-0.5">
-                                    {{ $item->jam ? \Carbon\Carbon::parse($item->jam->jam_mulai)->format('H:i') . ' - ' . \Carbon\Carbon::parse($item->jam->jam_selesai)->format('H:i') : '' }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 font-bold text-slate-800">{{ $item->kelas?->nama_kelas_lengkap ?? $item->kelas?->nama_kelas ?? '-' }}</td>
-                            <td class="px-4 py-3">
-                                <div class="font-semibold text-slate-700 truncate max-w-[160px]" title="{{ $item->mapel?->nama_mapel }}">
-                                    {{ $item->mapel?->nama_mapel ?? '-' }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3">
-                                <div class="flex items-center gap-2">
-                                    <div class="flex items-center justify-center w-8 h-8 rounded-full bg-sky-50 text-sky-600 text-xs font-bold">
-                                        {{ strtoupper(substr($item->guru?->nama ?? 'G', 0, 1)) }}
-                                    </div>
-                                    <div class="min-w-0">
-                                        <div class="font-semibold text-slate-800 truncate max-w-[150px]" title="{{ $item->guru?->nama }}">
-                                            {{ $item->guru?->nama ?? 'Belum Ditentukan' }}
-                                        </div>
-                                        <div class="text-xs text-slate-400">{{ $item->guru?->nip ? 'NIP: ' . $item->guru->nip : 'Non-NIP' }}</div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="px-4 py-3">
-                                @if($item->izin)
-                                    <span class="inline-flex items-center rounded-full bg-amber-50 text-amber-600 border border-amber-200 px-2 py-1 text-xs font-semibold">
-                                        <i class="bi bi-exclamation-triangle mr-1"></i> Izin ({{ $item->izin->kategori_izin_label ?? 'Izin' }})
-                                    </span>
-                                @elseif($item->statusKehadiran === 'Hadir')
-                                    <span class="inline-flex items-center rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 px-2 py-1 text-xs font-semibold">
-                                        <i class="bi bi-check-circle mr-1"></i> Hadir
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center rounded-full bg-slate-100 text-slate-600 border border-slate-200 px-2 py-1 text-xs font-semibold">
-                                        {{ $item->statusKehadiran }}
-                                    </span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3">
-                                <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold border {{ $twBadgeClass($item->statusInfo['badge_class'] ?? '') }}">
-                                    <i class="bi {{ $item->statusInfo['icon'] ?? 'bi-circle' }} mr-1"></i>
-                                    {{ $item->statusInfo['label'] ?? 'Belum Terisi' }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3">
-                                @if($item->guruPengganti)
-                                    <span class="inline-flex items-center rounded-lg bg-sky-50 text-sky-600 border border-sky-200 px-2 py-1 text-xs font-semibold">
-                                        <i class="bi bi-person-fill-gear mr-1"></i> {{ $item->guruPengganti->nama }}
-                                    </span>
-                                @else
-                                    <span class="text-xs text-slate-400">-</span>
-                                @endif
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="8" class="px-4 py-8 text-center text-slate-500">
-                                <div class="flex flex-col items-center justify-center">
-                                    <i class="bi bi-calendar-x text-2xl text-slate-300 mb-1.5"></i>
-                                    <p class="text-xs text-slate-500 font-medium mb-0.5">Tidak ada jadwal KBM yang aktif untuk hari ini.</p>
-                                    <p class="text-[11px] text-slate-400 mb-0">Semua agenda KBM pada hari {{ $hariIniStr }} akan tampil di tabel ini.</p>
-                                </div>
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    {{-- ============================================================== --}}
-    {{-- 6. TABLE SECTION: PENGAJUAN IZIN & CUTI GURU TERBARU         --}}
+    {{-- 5. TABLE SECTION: PENGAJUAN IZIN & CUTI GURU TERBARU         --}}
     {{-- ============================================================== --}}
     <div class="w-full bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="flex items-center justify-between flex-wrap gap-2 px-5 py-3.5 border-b border-slate-100">

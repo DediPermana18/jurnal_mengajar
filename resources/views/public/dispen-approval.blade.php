@@ -82,8 +82,8 @@
             @if($invalid ?? false)
                 <div class="card border-0 bg-light rounded-4 text-center py-5">
                     <i class="bi bi-link-45deg fs-1 text-muted"></i>
-                    <h5 class="fw-bold mt-3 mb-2">Tautan Tidak Valid</h5>
-                    <p class="text-muted mb-0 small">Token approval dispensasi tidak ditemukan atau sudah tidak berlaku.</p>
+                    <h5 class="fw-bold mt-3 mb-2">{{ isset($invalidMessage) ? 'Pengajuan Tidak Aktif' : 'Tautan Tidak Valid' }}</h5>
+                    <p class="text-muted mb-0 small">{{ $invalidMessage ?? 'Token approval dispensasi tidak ditemukan atau sudah tidak berlaku.' }}</p>
                 </div>
             @elseif($alreadySigned ?? false)
                 <div class="card border-0 bg-success-subtle rounded-4 text-center py-4">

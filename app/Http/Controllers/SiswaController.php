@@ -7,7 +7,6 @@ use App\Exports\SiswaFlatExport;
 use App\Models\Jurusan;
 use App\Models\Kelas;
 use App\Models\Siswa;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Excel as ExcelFormat;
 use Maatwebsite\Excel\Facades\Excel;
@@ -236,35 +235,5 @@ class SiswaController extends Controller
         $siswa->delete();
 
         return redirect()->route('siswa.index')->with('success', 'Data siswa berhasil dihapus!');
-    }
-
-    /**
-     * Menghapus SELURUH data siswa secara permanen (hard delete).
-     * Hanya dapat diakses oleh Admin / TU.
-     */
-    public function deleteAll(Request $request)
-    {
-        // ── Otorisasi: hanya role admin ──────────────────────────────
-        /** @var User $user */
-        $user = auth()->user();
-        if (! $user || ! $user->isAdmin()) {
-            abort(403, 'Akses ditolak. Hanya Admin / TU yang dapat menghapus semua data siswa.');
-        }
-
-        // ── Validasi kata konfirmasi ─────────────────────────────────
-        $request->validate([
-            'konfirmasi' => ['required', 'in:HAPUS'],
-        ], [
-            'konfirmasi.required' => 'Kata konfirmasi wajib diisi.',
-            'konfirmasi.in' => 'Konfirmasi tidak valid. Ketik tepat: HAPUS',
-        ]);
-
-        // ── Hapus permanen semua siswa (hard delete) ────────────────
-        // forceDelete() menghapus baris dari tabel (termasuk yang punya
-        // deleted_at), bukan sekadar mengisi timestamp soft-delete.
-        Siswa::withTrashed()->forceDelete();
-
-        return redirect()->route('siswa.index')
-            ->with('success', 'Semua data siswa berhasil dihapus permanen.');
     }
 }

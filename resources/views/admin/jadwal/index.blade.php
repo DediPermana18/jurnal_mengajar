@@ -255,6 +255,45 @@
             </div>
         @endif
 
+        {{-- Peringatan: jadwal "gantung" (id_jam tidak tertaut master jam aktif).
+             Muncul ketika master jam dihapus-dibuat ulang sehingga ID bergeser.
+             Jadwal tetap di-heal otomatis bila slot dengan jam_ke-nya masih ada. --}}
+        @if(isset($jadwalGantung) && $jadwalGantung->isNotEmpty())
+            <div class="alert alert-warning border-0 rounded-4 shadow-sm d-flex align-items-start gap-3 mb-3"
+                 role="alert" style="font-size: 0.85rem;">
+                <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1" style="font-size: 1.1rem;"></i>
+                <div>
+                    <div class="fw-bold mb-1">
+                        <i class="bi bi-link-45deg me-1"></i>{{ $jadwalGantung->count() }} jadwal tidak tertaut ke slot jam master
+                    </div>
+                    <div class="text-muted mb-2">
+                        Jadwal berikut masih menunjuk <code>id_jam</code> lama karena master jam pelajaran pernah
+                        dihapus &amp; dibuat ulang (nomor ID otomatis berubah). Slot jam yang masih ada sudah dipulihkan
+                        otomatis, namun slot di bawah tidak punya padanan <code>jam_ke</code> yang aktif — silakan
+                        plot ulang pada slot yang tersedia.
+                    </div>
+                    <ul class="mb-2 ps-3" style="font-size: 0.82rem;">
+                        @foreach($jadwalGantung->take(8) as $j)
+                            <li>
+                                {{ $j->mataPelajaran?->nama_mapel ?? 'Mapel terhapus' }}
+                                &mdash; {{ $j->guru?->nama ?? 'Guru terhapus' }}
+                                <span class="text-muted">(referensi <code>id_jam</code> {{ $j->id_jam ?? 'kosong' }})</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                    @if($jadwalGantung->count() > 8)
+                        <div class="text-muted fst-italic" style="font-size: 0.8rem;">
+                            ...dan {{ $jadwalGantung->count() - 8 }} jadwal lainnya.
+                        </div>
+                    @endif
+                    <a href="{{ route('admin.jam-pelajaran.index', ['tab' => ($selectedHari === 'Jumat' ? 'Jumat' : 'Senin-Kamis')]) }}"
+                       class="btn btn-sm btn-warning rounded-3 px-3 fw-semibold">
+                        <i class="bi bi-gear me-1"></i> Periksa Master Jam Pelajaran
+                    </a>
+                </div>
+            </div>
+        @endif
+
         {{-- Tabel Matriks Jadwal Kelas --}}
         <div class="card border-0 rounded-4 shadow-sm bg-white overflow-hidden">
             <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
@@ -929,24 +968,30 @@
 
     function preparePlotModalEdit(groupId, idKelas, idMapel, idGuru, idRuangan, idJam, jamKeSlot) {
         // Mode Edit: rentang jam diambil dari seluruh slot yang memiliki group_id sama.
-        // jamKeSlot = jam_ke baris jadwal yang diklik (dipakai sebagai fallback bila rentang
-        // grup tidak dapat ditentukan, mis. data lama tanpa group_id).
+        // PENCOCOKAN BERJALAN BERDASARKAN `jam_ke` (nomor slot ke-N), BUKAN `id_jam`:
+        // `jam_pelajaran.id` bersifat auto-increment dan bergeser setiap master jam
+        // dihapus-dibuat ulang, sedangkan `jam_ke` selalu merepresentasikan posisi
+        // slot yang sama. `id_jam` hanya dipakai sebagai fallback terakhir.
         plotEditExemptJamKe = new Set();
 
-        const grupSlots = groupId
+        const ke = (v) => parseInt(v, 10);
+        const samakanJamKe = (a, b) => ke(a) === ke(b);
+
+        let grupSlots = groupId
             ? allSlots.filter(s => s.group_id === groupId)
-            : allSlots.filter(s => s.id === idJam);
+            : [];
 
-        if (grupSlots.length === 0 && groupId) {
-            // Fallback: data lama tanpa group_id, gunakan satu slot yang diklik
-            const single = allSlots.find(s => s.id === idJam);
-            if (single) grupSlots.push(single);
-        }
-
-        // Fallback terakhir: gunakan jam_ke baris jadwal yang diklik (id_jam lama/testing tak cocok)
+        // Prioritas 1: grup (kalau ada).
+        // Prioritas 2: slot dengan jam_ke yang sama dengan baris yang diklik.
+        //   Ini yang membuat form tetap benar walau id_jam pada record sudah basi.
         if (grupSlots.length === 0 && jamKeSlot) {
-            const byJamKe = allSlots.find(s => parseInt(s.jam_ke, 10) === parseInt(jamKeSlot, 10));
-            if (byJamKe) grupSlots.push(byJamKe);
+            const byJamKe = allSlots.find(s => s.jam_ke !== null && samakanJamKe(s.jam_ke, jamKeSlot));
+            if (byJamKe) grupSlots = [byJamKe];
+        }
+        // Prioritas 3 (fallback terakhir): cocokkan id_jam langsung.
+        if (grupSlots.length === 0 && idJam) {
+            const byId = allSlots.find(s => s.id === idJam);
+            if (byId) grupSlots = [byId];
         }
         if (grupSlots.length === 0) return;
 

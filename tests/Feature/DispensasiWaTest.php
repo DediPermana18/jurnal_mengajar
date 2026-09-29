@@ -75,6 +75,60 @@ class DispensasiWaTest extends TestCase
             ->assertSee(route('piket.dispensasi.surat', $dispen->id));
     }
 
+    public function test_filter_tanggal_mengatur_data_total_dan_banner(): void
+    {
+        $piket = $this->makeUser('guru');
+        JadwalPiket::create(['hari' => 'Senin', 'user_id' => $piket->id]);
+
+        $kelas = Kelas::create(['nama_kelas' => 'X IPA 6', 'tingkat' => 'X']);
+        $siswaTerpilih = Siswa::create([
+            'nama' => 'Siswa Tanggal Filter',
+            'nisn' => '3344556601',
+            'nis' => '33451',
+            'jenis_kelamin' => 'L',
+            'id_kelas' => $kelas->id,
+            'status_siswa' => 'Aktif',
+        ]);
+        $siswaHariIni = Siswa::create([
+            'nama' => 'Siswa Hari Ini',
+            'nisn' => '3344556602',
+            'nis' => '33452',
+            'jenis_kelamin' => 'P',
+            'id_kelas' => $kelas->id,
+            'status_siswa' => 'Aktif',
+        ]);
+
+        DispensasiSiswa::create([
+            'id_siswa' => $siswaTerpilih->id,
+            'id_guru_piket' => $piket->id,
+            'tanggal' => '2026-08-30',
+            'jam_ke' => '2',
+            'alasan' => 'Tanggal terpilih',
+            'status' => DispensasiSiswa::STATUS_PENDING,
+        ]);
+        DispensasiSiswa::create([
+            'id_siswa' => $siswaHariIni->id,
+            'id_guru_piket' => $piket->id,
+            'tanggal' => '2026-08-31',
+            'jam_ke' => '3',
+            'alasan' => 'Hari ini',
+            'status' => DispensasiSiswa::STATUS_PENDING,
+        ]);
+
+        $response = $this->actingAs($piket)
+            ->get(route('piket.dispensasi.index', ['tanggal' => '2026-08-30']))
+            ->assertOk()
+            ->assertSee('onchange="this.form.submit()"', false)
+            ->assertSee('Siswa Tanggal Filter')
+            ->assertDontSee('Siswa Hari Ini')
+            ->assertSee('Sunday, 30 August 2026')
+            ->assertSee('Total <strong>1</strong> surat dispensasi pada tanggal ini.', false);
+
+        $this->assertSame('2026-08-30', $response->viewData('tanggal'));
+        $this->assertCount(1, $response->viewData('dataGabungan'));
+        $this->assertSame(1, $response->viewData('totalHariIni'));
+    }
+
     public function test_waka_can_approve_pending_dispensasi_with_signature(): void
     {
         $piket = $this->makeUser('guru');
@@ -165,6 +219,47 @@ class DispensasiWaTest extends TestCase
         $this->assertNotNull($dispen->ttd_waka);
         $this->assertEquals($waka->id, $dispen->waka_kesiswaan_id);
         $this->assertEquals($waka->id, $dispen->approved_by);
+    }
+
+    public function test_public_approval_link_rejects_cancelled_or_rejected_dispensations(): void
+    {
+        $piket = $this->makeUser('guru');
+        $kelas = Kelas::create(['nama_kelas' => 'X IPA 5', 'tingkat' => 'X']);
+
+        foreach ([DispensasiSiswa::STATUS_DIBATALKAN, DispensasiSiswa::STATUS_DITOLAK] as $index => $status) {
+            $siswa = Siswa::create([
+                'nama' => 'Siswa Terminal '.$index,
+                'nisn' => '99887766'.$index,
+                'nis' => '9988'.$index,
+                'jenis_kelamin' => 'L',
+                'id_kelas' => $kelas->id,
+                'status_siswa' => 'Aktif',
+            ]);
+            $dispen = DispensasiSiswa::create([
+                'id_siswa' => $siswa->id,
+                'id_guru_piket' => $piket->id,
+                'tanggal' => now()->toDateString(),
+                'jam_ke' => '2',
+                'alasan' => 'Urusan keluarga',
+                'status' => $status,
+                'approval_token' => 'token-public-terminal-'.$index,
+            ]);
+
+            $this->get(route('dispen.approval.show', $dispen->approval_token))
+                ->assertOk()
+                ->assertSee('Pengajuan Tidak Aktif')
+                ->assertSee('Pengajuan dispensasi ini sudah dibatalkan/ditolak.')
+                ->assertDontSee('id="approvalForm"', false);
+
+            $this->post(route('dispen.approval.store', $dispen->approval_token), [
+                'ttd_waka' => 'data:image/png;base64,DDDD',
+                'waka_kesiswaan_id' => $piket->id,
+            ])
+                ->assertRedirect(route('dispen.approval.show', $dispen->approval_token))
+                ->assertSessionHas('error', 'Pengajuan dispensasi ini sudah dibatalkan/ditolak.');
+
+            $this->assertNull($dispen->fresh()->ttd_waka);
+        }
     }
 
     public function test_public_approval_auto_detects_logged_in_waka_kesiswaan(): void

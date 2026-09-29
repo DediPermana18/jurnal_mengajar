@@ -147,42 +147,145 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($jadwalHariIni as $item)
-                        @php
-                            $sudahTerisi = $item->sudah_terisi;
-                            $jurnalSesi  = $item->jurnal_sesi;
-                        @endphp
-                        <tr>
-                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm"><strong>{{ $item->jam_ke_tampilan }}</strong></td>
-                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $item->waktu_tampilan }}</td>
-                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm"><span class="badge bg-light text-dark border text-xs md:text-sm">{{ $item->kelas?->nama_kelas_lengkap ?? '-' }}</span></td>
-                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $item->mapel?->nama_mapel ?? '-' }}</td>
-                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">
-                                @if($sudahTerisi)
-                                    <span class="status-badge-terisi text-xs md:text-sm"><i class="bi bi-check-circle-fill"></i> Sudah Terisi</span>
-                                @else
-                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2.5 py-1.5 text-xs md:text-sm">
-                                        <i class="bi bi-clock-history me-1"></i> Belum Terisi
-                                    </span>
-                                @endif
-                            </td>
-                            <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm text-end">
-                                <div class="flex items-center justify-center gap-2 whitespace-nowrap">
-                                @if($sudahTerisi && $jurnalSesi)
-                                    <a href="{{ route('guru.jurnal.show', $jurnalSesi->id) }}" class="btn btn-sm btn-outline-secondary rounded-2 text-xs md:text-sm">Lihat</a>
-                                @else
-                                    <a href="{{ route('guru.jurnal.form', $item->id) }}" class="btn btn-sm btn-primary rounded-2 text-xs md:text-sm">Isi Jurnal</a>
-                                @endif
-                                </div>
-                            </td>
-                        </tr>
+                    @php
+                        // Logika pengelompokan jadwal konsekutif
+                        $grupJadwal = [];
+                        $sekarang = null;
+
+                        foreach ($jadwalHariIni as $item) {
+                            $jamKe = $item->jam_ke ?? 0;
+                            $hari    = $item->hari;
+                            $kelas   = $item->kelas?->id;
+                            $mapel   = $item->mapel?->id;
+                            $guru    = $item->guru?->id;
+
+                            // Cek apakah bisa gabung ke grup saat ini
+                            if ($sekarang !== null
+                                && $sekarang['hari'] === $hari
+                                && $sekarang['kelas'] === $kelas
+                                && $sekarang['mapel'] === $mapel
+                                && $sekarang['guru'] === $guru
+                                && $jamKe == $sekarang['jam_ke_akhir'] + 1) {
+                                // Tambah ke grup saat ini
+                                $sekarang['jam_ke_akhir'] = $jamKe;
+                            } else {
+                                // Simpan grup sebelumnya jika ada
+                                if ($sekarang !== null) {
+                                    $grupJadwal[] = $sekarang;
+                                }
+                                $sekarang = [
+                                    'jam_ke_awal'  => $jamKe,
+                                    'jam_ke_akhir' => $jamKe,
+                                    'hari'         => $hari,
+                                    'kelas'        => $kelas,
+                                    'mapel'        => $mapel,
+                                    'guru'         => $guru,
+                                    'item'         => $item,
+                                ];
+                            }
+                        }
+                        // Simpan grup terakhir
+                        if ($sekarang !== null) {
+                            $grupJadwal[] = $sekarang;
+                        }
+                    @endphp
+
+                    @foreach($grupJadwal as $grup)
+                        $item  = $grup['item'];
+                        $sudahTerisi = in_array($item->id, $jurnalFilledIds, true);
+                        $jurnalSesi  = $jurnalHariIniMap->get($item->id);
+                        $jamP        = $item->jamPelajaran;
+                        $waktuStr    = ($jamP && $jamP->jam_mulai && $jamP->jam_selesai)
+                            ? \Carbon\Carbon::parse($jamP->jam_mulai)->format('H:i') . ' - ' . \Carbon\Carbon::parse($jamP->jam_selesai)->format('H:i')
+                            : '-';
+
+                        // Hitung rentang jam_ke dan waktu untuk grup ini
+                        $jamRange = $grup['jam_ke_awal'] . ' - ' . $grup['jam_ke_akhir'];
+                        $waktuRange = ($grup['waktu_mulai'] ?? '-') . ' - ' . ($grup['waktu_selesai'] ?? '-');
+
+                        $kelasNama = $item->kelas?->nama_kelas_lengkap ?? '-';
+                        $mapelNama = $item->mapel?->nama_mapel ?? '-';
+                        $guruNama  = $item->guru?->nama ?? '-';
+                    @endforeach
+                    <tr>
+                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm"><strong>{{ $jamRange }}</strong></td>
+                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $waktuRange }}</td>
+                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm"><span class="badge bg-light text-dark border text-xs md:text-sm">{{ $kelasNama }}</span></td>
+                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $mapelNama }}</td>
+                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">
+                            @if($sudahTerisi)
+                                <span class="status-badge-terisi text-xs md:text-sm"><i class="bi bi-check-circle-fill"></i> Sudah Terisi</span>
+                            @else
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2.5 py-1.5 text-xs md:text-sm">
+                                    <i class="bi bi-clock-history me-1"></i> Belum Terisi
+                                </span>
+                            @endif
+                        </td>
+                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm text-end">
+                            <div class="flex items-center justify-center gap-2 whitespace-nowrap">
+                            @if($sudahTerisi && $jurnalSesi)
+                                <a href="{{ route('guru.jurnal.show', $jurnalSesi->id) }}" class="btn btn-sm btn-outline-secondary rounded-2 text-xs md:text-sm">Lihat</a>
+                            @else
+                                <a href="{{ route('guru.jurnal.form', $item->id) }}" class="btn btn-sm btn-primary rounded-2 text-xs md:text-sm">Isi Jurnal</a>
+                            @endif
+                            </div>
+                        </td>
+                    </tr>
+                    @endforeach
                     @empty
                         <tr>
                             <td colspan="6" class="text-center text-muted py-4 whitespace-nowrap px-3 py-2 text-xs md:text-sm">
                                 Tidak ada jadwal mengajar hari ini ({{ $hari }}).
                             </td>
                         </tr>
-                    @endforelse
+                    @endforeach
+                        $sudahTerisi = in_array($item->id, $jurnalFilledIds, true);
+                        $jurnalSesi  = $jurnalHariIniMap->get($item->id);
+                        $jamP        = $item->jamPelajaran;
+                        $waktuStr    = ($jamP && $jamP->jam_mulai && $jamP->jam_selesai)
+                            ? \Carbon\Carbon::parse($jamP->jam_mulai)->format('H:i') . ' - ' . \Carbon\Carbon::parse($jamP->jam_selesai)->format('H:i')
+                            : '-';
+
+                        // Hitung rentang jam_ke dan waktu untuk grup ini
+                        $jamRange = $grup['jam_ke_awal'] . ' - ' . $grup['jam_ke_akhir'];
+                        $waktuRange = ($grup['waktu_mulai'] ?? '-') . ' - ' . ($grup['waktu_selesai'] ?? '-');
+
+                        $kelasNama = $item->kelas?->nama_kelas_lengkap ?? '-';
+                        $mapelNama = $item->mapel?->nama_mapel ?? '-';
+                        $guruNama  = $item->guru?->nama ?? '-';
+                    @endforeach
+                    <tr>
+                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm"><strong>{{ $jamRange }}</strong></td>
+                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $waktuRange }}</td>
+                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm"><span class="badge bg-light text-dark border text-xs md:text-sm">{{ $kelasNama }}</span></td>
+                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">{{ $mapelNama }}</td>
+                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm">
+                            @if($sudahTerisi)
+                                <span class="status-badge-terisi text-xs md:text-sm"><i class="bi bi-check-circle-fill"></i> Sudah Terisi</span>
+                            @else
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2.5 py-1.5 text-xs md:text-sm">
+                                    <i class="bi bi-clock-history me-1"></i> Belum Terisi
+                                </span>
+                            @endif
+                        </td>
+                        <td class="whitespace-nowrap px-3 py-2 text-xs md:text-sm text-end">
+                            <div class="flex items-center justify-center gap-2 whitespace-nowrap">
+                            @if($sudahTerisi && $jurnalSesi)
+                                <a href="{{ route('guru.jurnal.show', $jurnalSesi->id) }}" class="btn btn-sm btn-outline-secondary rounded-2 text-xs md:text-sm">Lihat</a>
+                            @else
+                                <a href="{{ route('guru.jurnal.form', $item->id) }}" class="btn btn-sm btn-primary rounded-2 text-xs md:text-sm">Isi Jurnal</a>
+                            @endif
+                            </div>
+                        </td>
+                    </tr>
+                    @endforeach
+                    @empty
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4 whitespace-nowrap px-3 py-2 text-xs md:text-sm">
+                                Tidak ada jadwal mengajar hari ini ({{ $hari }}).
+                            </td>
+                        </tr>
+                    @endforeach
                 </tbody>
             </table>
         </div>

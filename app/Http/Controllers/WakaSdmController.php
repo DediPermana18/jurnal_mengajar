@@ -13,6 +13,8 @@ use App\Services\NotificationService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
@@ -210,20 +212,10 @@ class WakaSdmController extends Controller
             $jurnal = $jurnalHariIni->get($jadwal->id);
             $izin = $daftarIzinHariIni->firstWhere('user_id', $jadwal->id_guru);
 
-            $waUrl = null;
-            if (! empty($jadwal->guru?->no_hp)) {
-                $cleanPhone = preg_replace('/[^0-9]/', '', $jadwal->guru->no_hp);
-                if (str_starts_with($cleanPhone, '0')) {
-                    $cleanPhone = '62'.substr($cleanPhone, 1);
-                }
-                $guruName = $jadwal->guru->nama ?? 'Bapak/Ibu Guru';
-                $kelasName = $jadwal->kelas->nama_kelas ?? 'Kelas';
-                $mapelName = $jadwal->mapel->nama_mapel ?? 'Mata Pelajaran';
-                $jamKe = $jadwal->jamPelajaran->jam_ke ?? '-';
-                $msg = "Halo {$guruName}, kami dari Waka SDM mengingatkan untuk pengisian Jurnal KBM pada {$kelasName} - {$mapelName} (Jam ke-{$jamKe}). Terima kasih.";
-                $waUrl = 'https://wa.me/'.$cleanPhone.'?text='.urlencode($msg);
-            }
-
+            // `waUrl` sengaja TIDAK dibuat di sini: baris yang dirender ke user
+            // adalah hasil GROUPING (lihat groupKelasKosongBerurutan), bukan
+            // sesi tunggal. Membentuk URL per sesi berarti membangun N URL lalu
+            // membuang N-1-nya.
             return (object) [
                 'jadwal' => $jadwal,
                 'jurnal' => $jurnal,
@@ -232,11 +224,59 @@ class WakaSdmController extends Controller
                 'kelas' => $jadwal->kelas,
                 'mapel' => $jadwal->mapel,
                 'jam' => $jadwal->jamPelajaran,
-                'waUrl' => $waUrl,
             ];
         })->sortBy(function ($item) {
             return $item->jam?->jam_ke ?? 99;
         })->values();
+
+        // 8b. Grouping: satu guru yang mengajar kelas + mapel yang sama pada
+        // jam-jam BERUNTUN digabung jadi satu baris (mis. Jam Ke-1..4 ->
+        // "Jam Ke-1 - 4"). Sesi yang diselingi sesi milik guru lain tetap
+        // dipisah — kalau digabung, label rentangnya mengesankan guru
+        // mengajar kelas itu penuh di jam-jam yang sebenarnya milik orang lain.
+        $kelasKosongHariIniList = $this->groupKelasKosongByGuruKelasMapel($kelasKosongHariIniList);
+
+        // Card mini: 5 sesi per halaman TANPA scrollbar internal, jadi tinggi card
+        // adjusts mengikuti 5 baris itu. Jangan diubah tanpa adjusting card.
+        $kelasKosongPerPage = 5;
+
+        // Pencarian card "Pantau Kelas Kosong": query param `q`, dicocokkan ke
+        // nama guru / nama kelas / nama mapel. Sumbernya collection in-memory
+        // $jadwalHariIni (bukan query builder), jadi filtering dilakukan di PHP
+        // SEBELUM paginasi — vital, kalau tidak `total()` dan `forPage()`
+        // ikut menghitung data yang tidak lolos filter dan pagination jadi
+        // tidak presisi.
+        $kelasKosongSearch = trim((string) $request->query('q', ''));
+
+        // Disimpan untuk badge "X dari Y Sesi" di header card. Yang dihitung
+        // adalah JUMLAH SESI (JP), bukan jumlah baris — grouping hanya
+        // meringkas tampilan, tidak boleh mengikis angka total.
+        $kelasKosongTotal = $kelasKosongHariIniList->sum('jumlah_sesi');
+
+        // Pencarian menyaring baris hasil grouping. Field yang dicari
+        // (guru / kelas / mapel) identik untuk semua sesi dalam satu grup, jadi
+        // urutan "grouping lalu filter" menghasilkan hasil yang sama dengan
+        // "filter lalu grouping" — tapi lebih murah karena yang difilter
+        // lebih sedikit baris.
+        if ($kelasKosongSearch !== '') {
+            $kelasKosongHariIniList = $kelasKosongHariIniList
+                ->filter(fn ($row) => $this->cocokKataKunciKelasKosong($row, $kelasKosongSearch))
+                ->values();
+        }
+
+        $kelasKosongSesiTersaring = $kelasKosongHariIniList->sum('jumlah_sesi');
+        $kelasKosongJumlahBaris = $kelasKosongHariIniList->count();
+
+        $kelasKosongHariIniList = new LengthAwarePaginator(
+            $kelasKosongHariIniList->forPage(LengthAwarePaginator::resolveCurrentPage(), $kelasKosongPerPage)->values(),
+            $kelasKosongJumlahBaris,
+            $kelasKosongPerPage,
+            LengthAwarePaginator::resolveCurrentPage(),
+            [
+                'path' => LengthAwarePaginator::resolveCurrentPath(),
+                'query' => request()->query(),
+            ]
+        );
 
         // 9. Recent Izin Guru (10 Terakhir untuk riwayat bawah)
         $recentIzin = IzinGuru::with('user')
@@ -244,31 +284,6 @@ class WakaSdmController extends Controller
             ->orderBy('id', 'desc')
             ->take(10)
             ->get();
-
-        // 10. Live Status Monitoring KBM Hari Ini (Semua Sesi Jadwal)
-        $monitoringKbmHariIni = $jadwalHariIni->map(function ($jadwal) use ($jurnalHariIni, $todayStr, $daftarIzinHariIni) {
-            $jurnal = $jurnalHariIni->get($jadwal->id);
-            $izin = $daftarIzinHariIni->firstWhere('user_id', $jadwal->id_guru);
-
-            $statusInfo = Jurnal::hitungStatusPengisian(
-                $jurnal,
-                $todayStr,
-                $jadwal->jamPelajaran?->jam_selesai
-            );
-
-            return (object) [
-                'jadwal' => $jadwal,
-                'jurnal' => $jurnal,
-                'izin' => $izin,
-                'statusInfo' => $statusInfo,
-                'guru' => $jadwal->guru,
-                'kelas' => $jadwal->kelas,
-                'mapel' => $jadwal->mapel,
-                'jam' => $jadwal->jamPelajaran,
-                'guruPengganti' => $jurnal?->guruPengganti,
-                'statusKehadiran' => $jurnal?->status_kehadiran ?? ($izin ? 'Izin' : 'Belum Absen'),
-            ];
-        });
 
         return view('admin.waka-sdm.dashboard', compact(
             'todayStr',
@@ -284,9 +299,138 @@ class WakaSdmController extends Controller
             'persentaseKehadiranBulanIni',
             'guruIzinHariIniList',
             'kelasKosongHariIniList',
-            'recentIzin',
-            'monitoringKbmHariIni'
+            'kelasKosongSearch',
+            'kelasKosongTotal',
+            'kelasKosongSesiTersaring',
+            'kelasKosongJumlahBaris',
+            'recentIzin'
         ));
+    }
+
+    /**
+     * Gabungkan seluruh sesi kosong dengan guru, kelas, dan mapel yang sama.
+     *
+     * @param  Collection<int, object>  $items  Sesi kelas kosong.
+     * @return Collection<int, object> Baris hasil grouping.
+     */
+    private function groupKelasKosongByGuruKelasMapel(Collection $items): Collection
+    {
+        return $items
+            ->groupBy(function ($item) {
+                $jadwal = $item->jadwal;
+
+                return implode('-', [
+                    $jadwal->id_guru,
+                    $jadwal->id_kelas,
+                    $jadwal->id_mapel,
+                ]);
+            })
+            ->map(fn (Collection $group) => $this->rakitBarisKelasKosong(
+                $group->sortBy(fn ($item) => $item->jam?->jam_ke ?? 99)->values()->all()
+            ))
+            ->values();
+    }
+
+    /**
+    * Rakit satu baris tabel dari kumpulan sesi dengan identitas yang sama.
+     *
+     * @param  array<int, object>  $rows
+     */
+    private function rakitBarisKelasKosong(array $rows): object
+    {
+        $awal = $rows[0];
+        $akhir = $rows[count($rows) - 1];
+
+        $jamAwal = $awal->jam;
+        $jamAkhir = $akhir->jam;
+
+        $jamKeAwal = $jamAwal?->jam_ke;
+        $jamKeAkhir = $jamAkhir?->jam_ke;
+        $jumlahSesi = count($rows);
+        $labelJam = $jumlahSesi > 1
+            ? 'Jam Ke-'.($jamKeAwal ?? '-').' - '.($jamKeAkhir ?? '-')
+            : 'Jam Ke-'.($jamKeAwal ?? '-');
+        $waktuMulai = $jamAwal?->jam_mulai;
+        $waktuSelesai = $jamAkhir?->jam_selesai;
+        $waktuLabel = $waktuMulai && $waktuSelesai
+            ? substr((string) $waktuMulai, 0, 5).' - '.substr((string) $waktuSelesai, 0, 5)
+            : '';
+
+        return (object) [
+            'id' => $awal->jadwal->id,
+            'rows' => $rows,
+            'jumlah_sesi' => $jumlahSesi,
+            'total_jp' => $jumlahSesi,
+            'guru' => $awal->guru,
+            'kelas' => $awal->kelas,
+            'mapel' => $awal->mapel,
+            'mataPelajaran' => $awal->mapel,
+            'izin' => $awal->izin,
+            'jam_ke_awal' => $jamKeAwal,
+            'jam_ke_akhir' => $jamKeAkhir,
+            'jam_ke_label' => $labelJam,
+            'waktu_mulai' => $waktuMulai ? substr((string) $waktuMulai, 0, 5) : '',
+            'waktu_selesai' => $waktuSelesai ? substr((string) $waktuSelesai, 0, 5) : '',
+            'waktu_label' => $waktuLabel,
+            'waUrl' => $this->buatUrlWhatsappKelasKosong($awal, $labelJam),
+        ];
+    }
+
+    /**
+     * Susun URL WhatsApp pengingat untuk satu baris "kelas kosong".
+     *
+    * `labelJam` sudah diringkas oleh rakitBarisKelasKosong().
+     */
+    private function buatUrlWhatsappKelasKosong(object $row, string $labelJam): ?string
+    {
+        if (empty($row->guru?->no_hp)) {
+            return null;
+        }
+
+        $cleanPhone = preg_replace('/[^0-9]/', '', $row->guru->no_hp);
+        if (str_starts_with($cleanPhone, '0')) {
+            $cleanPhone = '62'.substr($cleanPhone, 1);
+        }
+
+        $guruName = $row->guru->nama ?? 'Bapak/Ibu Guru';
+        $kelasName = $row->kelas->nama_kelas ?? 'Kelas';
+        $mapelName = $row->mapel->nama_mapel ?? 'Mata Pelajaran';
+        $msg = "Halo {$guruName}, kami dari Waka SDM mengingatkan untuk pengisian Jurnal KBM pada {$kelasName} - {$mapelName} ({$labelJam}). Terima kasih.";
+
+        return 'https://wa.me/'.$cleanPhone.'?text='.urlencode($msg);
+    }
+
+    /**
+     * Cocokkan satu item "Kelas Kosong" dengan kata kunci pencarian.
+     *
+     * Pencarian bersifat case-insensitive substring. Field yang dicocokkan:
+     * nama guru, nama kelas, dan nama mata pelajaran.
+     *
+     * `nama_kelas` juga dicocokkan lewat `nama_kelas_lengkap` ("XI RPL 2")
+     * karena itulah nilai yang tampil di tabel — sedangkan `nama_kelas` hanya
+     * menyimpan bagian ringkas ("2"). Tanpa ini user tidak bisa mencari teks
+     * yang justru dia lihat di layar.
+     *
+     * @param  object  $item  Baris hasil mapping/grouping di WakaSdmController::dashboard().
+     */
+    private function cocokKataKunciKelasKosong(object $item, string $kataKunci): bool
+    {
+        $needle = mb_strtolower($kataKunci);
+
+        $kandidat = [
+            $item->guru?->nama,
+            $item->kelas?->nama_kelas,
+            $item->kelas?->nama_kelas_lengkap,
+            $item->mapel?->nama_mapel,
+        ];
+
+        foreach ($kandidat as $teks) {
+            if ($teks !== null && $teks !== '' && str_contains(mb_strtolower((string) $teks), $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -67,7 +67,7 @@ class DispensasiController extends Controller
         DispensasiSiswa::refreshAutoMangkir();
 
         $today = now()->toDateString();
-        $tanggal = $request->get('tanggal', $today);
+        $tanggal = $request->input('tanggal') ?: $today;
 
         $dataDispensasi = DispensasiSiswa::with(['siswa.kelas', 'guruPiket'])
             ->whereDate('tanggal', $tanggal)
@@ -820,6 +820,10 @@ class DispensasiController extends Controller
 
         $this->authorizeDispensasiPiket($dispensasi);
 
+        if ($this->statusDispensasiDitutup($dispensasi->status)) {
+            return back()->with('error', 'Pengajuan dispensasi ini sudah dibatalkan/ditolak.');
+        }
+
         return $this->kirimWaWakaResponse(
             DispensasiWaService::notifyWakaKesiswaan($dispensasi->load('siswa.kelas'), 'kirim ulang'),
             $dispensasi->nomor_surat
@@ -843,6 +847,10 @@ class DispensasiController extends Controller
             || (int) $kolektif->id_guru_piket === (int) $user->id;
 
         abort_unless($allowed, 403, 'Akses ditolak. Anda tidak berwenang mengirim notifikasi WA untuk surat ini.');
+
+        if ($this->statusDispensasiDitutup($kolektif->status)) {
+            return back()->with('error', 'Pengajuan dispensasi ini sudah dibatalkan/ditolak.');
+        }
 
         return $this->kirimWaWakaResponse(
             DispensasiWaService::notifyWakaKesiswaan($kolektif->load('siswaItems.siswa.kelas'), 'kirim ulang'),
@@ -891,6 +899,14 @@ class DispensasiController extends Controller
             || (int) $dispensasi->id_guru_piket === (int) $user->id;
 
         abort_unless($allowed, 403, 'Akses ditolak. Anda tidak berwenang mengirim notifikasi WA untuk surat ini.');
+    }
+
+    protected function statusDispensasiDitutup(?string $status): bool
+    {
+        return in_array($status, [
+            DispensasiSiswa::STATUS_DIBATALKAN,
+            DispensasiSiswa::STATUS_DITOLAK,
+        ], true);
     }
 
     /**
@@ -1329,6 +1345,14 @@ class DispensasiController extends Controller
             ]));
         }
 
+        if ($this->statusDispensasiDitutup($kolektif?->status ?? $dispensasi->status)) {
+            return view('public.dispen-approval', array_merge($data, [
+                'dispensasi' => $dispensasi,
+                'invalid' => true,
+                'invalidMessage' => 'Pengajuan dispensasi ini sudah dibatalkan/ditolak.',
+            ]));
+        }
+
         if ($dispensasi->sudahDitandatanganiWaka()) {
             return view('public.dispen-approval', array_merge($data, [
                 'dispensasi' => $dispensasi,
@@ -1361,6 +1385,11 @@ if (! $dispensasi) {
             return redirect()->route('dispen.approval.show', $token)
                 ->with('error', 'Token approval dispensasi tidak valid atau sudah kedaluwarsa.');
         }
+
+    if ($this->statusDispensasiDitutup($kolektif?->status ?? $dispensasi->status)) {
+        return redirect()->route('dispen.approval.show', $token)
+        ->with('error', 'Pengajuan dispensasi ini sudah dibatalkan/ditolak.');
+    }
 
         // Guard: surat data testing tidak dapat ditandatangani oleh non-IT.
         $this->authorizeTestingMutation($dispensasi);

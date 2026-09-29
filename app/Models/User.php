@@ -463,6 +463,25 @@ class User extends Authenticatable
     }
 
     /**
+     * Jendela waktu (menit) sebuah akun dianggap masih ONLINE.
+     */
+    public const ONLINE_WINDOW_MINUTES = 5;
+
+    /**
+     * Apakah user sedang ONLINE — ada aktivitas dalam 5 menit terakhir?
+     *
+     * Murni membaca `last_active_at`, yang disegarkan oleh middleware
+     * UpdateUserLastActive pada tiap request terautentikasi (dan oleh heartbeat
+     * idleTracker). Kolom `is_idle` sengaja TIDAK dipakai di sini agar indikator
+     * "Online" tetap sederhana & mudah diprediksi.
+     */
+    public function isOnline(): bool
+    {
+        return $this->last_active_at !== null
+            && $this->last_active_at->gt(now()->subMinutes(self::ONLINE_WINDOW_MINUTES));
+    }
+
+    /**
      * Apakah user ini adalah Satpam / Petugas Keamanan?
      * Diidentifikasi dari role 'admin' + sub_role 'satpam' (skema baru)
      * atau role lama 'piket_satpam'.

@@ -137,7 +137,9 @@
                                 'admin' => 'bg-dark-subtle text-dark',
                             ][$roleValue] ?? 'bg-secondary-subtle text-secondary';
                         @endphp
-                        <tr class="{{ $isCurrentUser ? 'table-info' : '' }}">
+                        {{-- data-user-id: target baris untuk polling AJAX status
+                             online/offline (lihat script di @push('scripts')). --}}
+                        <tr class="{{ $isCurrentUser ? 'table-info' : '' }}" data-user-id="{{ $user->id }}">
                             <td class="whitespace-nowrap ps-3">{{ $dataUsers->firstItem() + $loop->index }}</td>
                             <td class="fw-semibold text-dark">
                                 {{ $user->nama }}
@@ -169,11 +171,31 @@
                             <td class="text-end whitespace-nowrap">
                                 <div class="flex items-center justify-center gap-2 whitespace-nowrap">
                                 @if($isCurrentUser)
-                                    {{-- Akun Anda saat ini: tombol Edit/Detail profil diizinkan, tombol Suspend/Hapus disembunyikan. --}}
+                                    {{-- Baris akun milik user yang sedang login.
+                                         Ditampilkan: badge indikator "Akun Anda (Online)" +
+                                         tombol Suspend Darurat (kill-switch keamanan bila akun
+                                         ini dibobol) dalam kondisi NONAKTIF.
+                                         Disembunyikan: Detail, Edit, Nonaktifkan, dan Hapus.
+
+                                         Tombol Suspend sengaja dikunci (disabled): guard backend
+                                         `abortIfCurrentUser` pada UserController@toggleSuspend
+                                         menolak suspend akun sendiri dengan HTTP 403. Tanpa
+                                         penguncian ini, tombol akan memunculkan halaman error.
+                                         Kill-switch tetap dijalankan oleh rekan Petugas TU /
+                                         Admin lain terhadap baris ini. --}}
                                     <div class="d-inline-flex align-items-center gap-2">
-                                        <a href="{{ route('admin.users.edit', $user->id) }}" class="btn btn-sm btn-outline-warning rounded-3" title="Edit Profil / Data Saya">
-                                            <i class="bi bi-pencil-square me-1"></i> Edit Profil
-                                        </a>
+                                        <span class="badge bg-primary rounded-pill px-3 py-2" style="font-size: 0.68rem;"
+                                              title="Ini adalah akun yang sedang Anda gunakan">
+                                            <i class="bi bi-person-check me-1"></i>Akun Anda (Online)
+                                        </span>
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger fw-semibold rounded-3 disabled"
+                                                style="cursor: not-allowed;"
+                                                disabled
+                                                aria-disabled="true"
+                                                title="Kill-switch bila akun ini dibobol. Hanya dapat dijalankan rekan Petugas TU / Admin lain — sistem menolak suspend atas akun sendiri.">
+                                            <i class="bi bi-shield-x me-1"></i> Suspend Darurat
+                                        </button>
                                     </div>
                                 @elseif($isProtectedHiddenActions)
                                     {{-- Akun Super Admin / Admin dilindungi: tidak ada tombol
@@ -185,6 +207,21 @@
                                     </span>
                                 @else
                                 <div class="d-inline-flex align-items-center gap-2">
+                                    {{-- Badge status online/offline.
+                                         Nilai awal dirender server (tidak ada F5/flash),
+                                         lalu DIUPDATE real-time oleh polling AJAX
+                                         (endpoint admin.users.online-status) melalui
+                                         kelas `js-online-badge` — tanpa perlu refresh. --}}
+                                    @php
+                                        $rowIsOnline = $user->isOnline();
+                                        $window = \App\Models\User::ONLINE_WINDOW_MINUTES;
+                                    @endphp
+                                    <span class="badge js-online-badge rounded-pill px-3 py-2 {{ $rowIsOnline ? 'bg-success' : 'bg-secondary-subtle text-secondary' }}"
+                                          style="font-size: 0.68rem;"
+                                          data-online="{{ $rowIsOnline ? '1' : '0' }}"
+                                          title="{{ $rowIsOnline ? 'Aktif dalam ' . $window . ' menit terakhir' : 'Tidak ada aktivitas dalam ' . $window . ' menit terakhir' }}">
+                                        <i class="bi {{ $rowIsOnline ? 'bi-circle-fill' : 'bi-circle' }} me-1" style="font-size: 0.5rem;"></i><span class="js-online-label">{{ $rowIsOnline ? 'Online' : 'Offline' }}</span>
+                                    </span>
                                     <a href="{{ route('admin.users.edit', $user->id) }}" class="btn btn-sm btn-outline-info rounded-3" title="Lihat detail user">
                                         <i class="bi bi-eye"></i>
                                     </a>
@@ -198,7 +235,16 @@
                                                 <i class="bi {{ $user->is_active ? 'bi-slash-circle' : 'bi-check-circle' }}"></i>
                                             </button>
                                         </form>
-                                        <form action="{{ route('admin.users.destroy', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus user ini? Data yang di-soft delete akan disembunyikan dari sistem.')">
+                                        {{-- Hapus hanya relevan untuk akun OFFLINE: akun yang
+                                             sedang online tidak boleh terhapus tidak sengaja.
+                                             Form tetap DI-RENDER (disembunyikan lewat `d-none`
+                                             saat online) karena polling AJAX harus bisa
+                                             menampilkan/menyembunyikannya secara dinamis tanpa
+                                             perlu reload halaman. Otorisasi tetap ditegakkan
+                                             backend saat submit. --}}
+                                        <form action="{{ route('admin.users.destroy', $user->id) }}" method="POST"
+                                              class="d-inline js-delete-action{{ $rowIsOnline ? ' d-none' : '' }}"
+                                              onsubmit="return confirm('Hapus user ini? Data yang di-soft delete akan disembunyikan dari sistem.')">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="btn btn-sm btn-outline-danger rounded-3" title="Hapus user"><i class="bi bi-trash"></i></button>
@@ -322,6 +368,127 @@
             }
         });
     });
+</script>
+@endpush
+
+{{-- ================= REAL-TIME STATUS ONLINE/OFFLINE (polling AJAX) =================
+     Menampilkan & memperbarui badge status + tombol "Hapus" setiap 10 detik
+     tanpa perlu refresh (F5).
+
+     Catatan arsitektur:
+     - Script ini DIAMANKAN di `@stack('scripts')` yang berada DI DALAM
+       `#page-content`, jadi ikut terbawa saat navigasi SPA (Unpoly) dan
+       dieksekusi ulang. Karena itu TIDAK dibungkus `DOMContentLoaded`
+       (event itu hanya tetap berlaku untuk full page load pertama).
+     - Singleton lewat `window.__usersOnlinePoller`: fragmen bisa di-swap
+       berulang (pindah menu → kembali), sehingga interval lama dibersihkan
+       dulu agar tidak menumpuk.
+     - Harga server: satu request ringan per 10 detik, HANYA saat tabel
+       Kelola User benar-benar ada di DOM. Di halaman lain, polling berhenti
+       sendiri (tick berikutnya melihat tabel tidak ada lalu skip).
+--}}
+@push('scripts')
+<script>
+    (function () {
+        'use strict';
+
+        var ENDPOINT = @json(route('admin.users.online-status'));
+        var POLL_MS = 10000;
+        var TABLE_ID = 'tableManageUsers';
+
+        /** Kumpulkan id user pada baris tabel yang sedang tampil. */
+        function collectIds() {
+            var table = document.getElementById(TABLE_ID);
+            if (!table) return [];
+
+            return Array.prototype.slice
+                .call(table.querySelectorAll('tr[data-user-id]'))
+                .map(function (tr) { return tr.getAttribute('data-user-id'); })
+                .filter(function (id) { return id !== null && id !== ''; });
+        }
+
+        /**
+         * Terapkan status online dari server ke baris terkait.
+         * - Badge: tukar warna + ikon + teks (Online / Offline).
+         * - Tombol Hapus: disembunyikan saat online, dimunculkan saat offline.
+         */
+        function applyStatus(id, isOnline) {
+            var row = document.querySelector('tr[data-user-id="' + id + '"]');
+            if (!row) return;
+
+            var badge = row.querySelector('.js-online-badge');
+            if (badge) {
+                badge.classList.toggle('bg-success', isOnline);
+                badge.classList.toggle('bg-secondary-subtle', !isOnline);
+                badge.classList.toggle('text-secondary', !isOnline);
+                badge.setAttribute('data-online', isOnline ? '1' : '0');
+                badge.setAttribute(
+                    'title',
+                    isOnline
+                        ? 'Aktif dalam 5 menit terakhir'
+                        : 'Tidak ada aktivitas dalam 5 menit terakhir'
+                );
+
+                var icon = badge.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('bi-circle-fill', isOnline);
+                    icon.classList.toggle('bi-circle', !isOnline);
+                }
+
+                var label = badge.querySelector('.js-online-label');
+                if (label) {
+                    label.textContent = isOnline ? 'Online' : 'Offline';
+                }
+            }
+
+            // Akun yang sedang online tidak boleh terhapus → sembunyikan Hapus.
+            var deleteAction = row.querySelector('.js-delete-action');
+            if (deleteAction) {
+                deleteAction.classList.toggle('d-none', isOnline);
+            }
+        }
+
+        function tick() {
+            var ids = collectIds();
+            if (ids.length === 0) return; // bukan halaman Kelola User
+
+            var url = new URL(ENDPOINT, window.location.origin);
+            ids.forEach(function (id) { url.searchParams.append('ids[]', id); });
+
+            fetch(url.toString(), {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+                cache: 'no-store',
+            })
+                .then(function (res) {
+                    return res.ok ? res.json() : Promise.reject(res);
+                })
+                .then(function (data) {
+                    if (!Array.isArray(data)) return;
+                    data.forEach(function (item) {
+                        if (!item) return;
+                        applyStatus(String(item.id), Boolean(item.is_online));
+                    });
+                })
+                .catch(function () {
+                    // Offline / sesi ter-kick (middleware redirect ke /login) /
+                    // error sementara → abaikan; tick berikutnya menggantikan.
+                });
+        }
+
+        // Singleton: bersihkan interval lama (kalau halaman diakses lagi via SPA).
+        if (window.__usersOnlinePoller) {
+            window.clearInterval(window.__usersOnlinePoller);
+        }
+        window.__usersOnlinePoller = window.setInterval(tick, POLL_MS);
+
+        // Segera sinkronkan begitu halaman tampil (tunggu sedikit agar DOM
+        // desert dari fragment swap benar-benar terpasang).
+        window.setTimeout(tick, 300);
+    })();
 </script>
 @endpush
 

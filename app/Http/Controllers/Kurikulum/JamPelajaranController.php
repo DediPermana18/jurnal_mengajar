@@ -8,8 +8,8 @@ use App\Models\AppSetting;
 use App\Models\JadwalPelajaran;
 use App\Models\JamPelajaran;
 use App\Models\JamPulang;
-use App\Models\ShiftPelajaran;
 use App\Models\Scopes\ActiveTahunAjaranScope;
+use App\Models\ShiftPelajaran;
 use App\Models\TahunAjaran;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -60,8 +60,8 @@ class JamPelajaranController extends Controller
         $hasCopySource = false;
         if ($previousTahunAjaran) {
             $hasCopySource = JamPelajaran::withoutGlobalScope(ActiveTahunAjaranScope::class)
-                    ->ofTahunAjaran($previousTahunAjaran->id, (bool) $previousTahunAjaran->is_active)
-                    ->exists()
+                ->ofTahunAjaran($previousTahunAjaran->id, (bool) $previousTahunAjaran->is_active)
+                ->exists()
                 || JamPelajaran::withoutGlobalScope(ActiveTahunAjaranScope::class)
                     ->whereNull('tahun_ajaran_id')
                     ->exists();
@@ -100,14 +100,15 @@ class JamPelajaranController extends Controller
             $this->syncJamKe($h, $selectedTahunAjaranId, $selectedTahunAjaranIsActive);
         }
 
-        // Tampilan perwakilan tab "Senin-Kamis" menggunakan hari 'Senin'
+        // Tampilan perwakilan tab "Senin-Kamis" menggunakan hari 'Senin'.
+        // Urutan KRONOLOGIS (jam_mulai) — lihat JamPelajaran::scopeUrutkanWaktu().
         $seninKamis = $shiftModeEmpty
             ? collect()
             : JamPelajaran::withoutGlobalScope(ActiveTahunAjaranScope::class)
                 ->where('hari', 'Senin')
                 ->ofShift($selectedShiftId)
                 ->ofTahunAjaran($selectedTahunAjaranId, $selectedTahunAjaranIsActive)
-                ->orderBy('jam_mulai')
+                ->urutkanWaktu()
                 ->get();
 
         $jumat = $shiftModeEmpty
@@ -116,7 +117,7 @@ class JamPelajaranController extends Controller
                 ->where('hari', 'Jumat')
                 ->ofShift($selectedShiftId)
                 ->ofTahunAjaran($selectedTahunAjaranId, $selectedTahunAjaranIsActive)
-                ->orderBy('jam_mulai')
+                ->urutkanWaktu()
                 ->get();
 
         // Flag apakah sudah ada data jam pelajaran per kategori (untuk kontrol tombol preset)
@@ -162,8 +163,7 @@ class JamPelajaranController extends Controller
                 ->whereNotNull('jam_ke')
                 ->ofShift($selectedShiftId)
                 ->ofTahunAjaran($selectedTahunAjaranId, $selectedTahunAjaranIsActive)
-                ->orderBy('jam_ke')
-                ->orderBy('jam_mulai')
+                ->urutkanWaktu()
                 ->get();
 
         $jamOptionsJumat = $shiftModeEmpty
@@ -174,8 +174,7 @@ class JamPelajaranController extends Controller
                 ->whereNotNull('jam_ke')
                 ->ofShift($selectedShiftId)
                 ->ofTahunAjaran($selectedTahunAjaranId, $selectedTahunAjaranIsActive)
-                ->orderBy('jam_ke')
-                ->orderBy('jam_mulai')
+                ->urutkanWaktu()
                 ->get();
 
         // Auto-suggest jam mulai pada modal tambah: jam_selesai dari slot terakhir per kategori
@@ -587,7 +586,7 @@ class JamPelajaranController extends Controller
             ->ofTahunAjaran($taId, $taLegacy)
             ->where('jenis', 'kbm')
             ->where('jam_ke', '>', $jumlahJp)
-            ->orderBy('jam_ke')
+            ->urutkanWaktu()
             ->get()
             ->map(fn ($slot) => [
                 'jam_ke' => $slot->jam_ke,

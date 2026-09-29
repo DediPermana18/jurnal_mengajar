@@ -7,7 +7,11 @@ use App\Models\JadwalPiket;
 use App\Models\ShiftPiket;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class JadwalPiketController extends Controller
 {
@@ -289,7 +293,7 @@ class JadwalPiketController extends Controller
 
         // Validasi mutual exclusion: satu guru tidak boleh di shift Pagi & Siang.
         if (! empty(array_intersect($pagiIds, $siangIds))) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'petugas_pagi_user_id' => 'Guru yang sama tidak dapat bertugas di shift Pagi dan Siang bersamaan.',
             ]);
         }
@@ -302,7 +306,7 @@ class JadwalPiketController extends Controller
         ])));
 
         if (! empty($koordinatorIds) && ! empty(array_intersect(array_merge($pagiIds, $siangIds), $koordinatorIds))) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'koordinator_pagi_user_id' => 'Guru yang menjadi Koordinator Piket tidak dapat dipilih sebagai Petugas Piket biasa.',
             ]);
         }
@@ -316,7 +320,7 @@ class JadwalPiketController extends Controller
                 || ! empty($wakaId) || ! empty($koordinatorPagiId) || ! empty($koordinatorSiangId);
 
             if (! $adaPenugasan) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'petugas_pagi_user_id' => 'Pilih minimal satu guru pada salah satu shift.',
                 ]);
             }
@@ -340,7 +344,7 @@ class JadwalPiketController extends Controller
                 $selectedSiang = array_values(array_unique(array_filter((array) ($shiftUsers[$shiftSiangId] ?? []))));
 
                 if (! empty(array_intersect($selectedPagi, $selectedSiang))) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
+                    throw ValidationException::withMessages([
                         'shift_users' => 'Guru yang sama tidak dapat bertugas di shift Pagi dan Siang bersamaan.',
                     ]);
                 }
@@ -350,14 +354,14 @@ class JadwalPiketController extends Controller
             // menjadi Petugas Piket biasa (format shift dinamis).
             $petugasShiftIds = $shiftUsers->flatten()->values()->all();
             if (! empty($koordinatorIds) && ! empty(array_intersect($petugasShiftIds, $koordinatorIds))) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'koordinator_pagi_user_id' => 'Guru yang menjadi Koordinator Piket tidak dapat dipilih sebagai Petugas Piket biasa.',
                 ]);
             }
 
             if ($shiftUsers->isEmpty() && empty($guruIds)) {
                 $errorKey = $request->hasAny(['guru_ids', 'user_ids', 'user_id']) ? 'guru_ids' : 'shift_users';
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     $errorKey => 'Pilih minimal satu guru pada salah satu shift.',
                 ]);
             }
@@ -469,6 +473,7 @@ class JadwalPiketController extends Controller
     protected function mingguKe(Request $request): int
     {
         $now = Carbon::now();
+
         return max(1, min(4, (int) $request->input('minggu_ke', ceil($now->day / 7))));
     }
 
@@ -543,5 +548,77 @@ class JadwalPiketController extends Controller
 
         return redirect()->route('kurikulum.jadwal-piket.index')
             ->with('success', "Penugasan piket {$namaGuru} pada hari {$hari} berhasil dihapus.");
+    }
+
+    /**
+     * Mengosongkan SELURUH jadwal piket untuk satu hari (Minggu ke terpilih).
+     *
+     * Dipakai tombol "Kosongkan" pada header card hari di halaman Jadwal Piket
+     * Guru. Menghapus semua baris `jadwal_piket` untuk hari tersebut pada minggu
+     * aktif — termasuk Waka Piket, Koordinator Pagi/Siang, dan Petugas Pagi/Siang
+     * (format SK maupun format shift dinamis), karena semuanya berupa baris di
+     * tabel yang sama.
+     *
+     * Dibatasi per (hari, minggu_ke) agar menghapus jadwal hari Rabu tidak ikut
+     * menghapus jadwal Rabu di minggu lain.
+     *
+     * @return RedirectResponse|JsonResponse
+     */
+    public function clearDay(Request $request, string $hari)
+    {
+        $this->authorizeManage();
+
+        $hariList = JadwalPiket::HARI_LIST;
+        abort_unless(in_array($hari, $hariList, true), 404, 'Hari piket tidak valid.');
+
+        $mingguKe = $this->mingguKe($request);
+
+        // Query dasar dibangun ulang tiap kali dipakai (bukan variabel Builder
+        // yang di-mutate) agar tidak ada state order/limit yang bocor ke delete.
+        $query = fn (): Builder => JadwalPiket::where('hari', $hari)
+            ->where('minggu_ke', $mingguKe);
+
+        $jumlah = $query()->count();
+
+        if ($jumlah === 0) {
+            $pesan = "Jadwal piket hari {$hari} (Minggu ke-{$mingguKe}) sudah kosong.";
+
+            return $this->respondClearDay($request, $hari, $mingguKe, 0, $pesan, 'info');
+        }
+
+        // Guard: hanya IT/QA yang dapat mengosongkan jadwal piket data testing.
+        $this->authorizeTestingBatch($query()->where('is_testing_data', true));
+
+        $deleted = $query()->delete();
+
+        $pesan = $deleted > 0
+            ? "Seluruh jadwal piket hari {$hari} (Minggu ke-{$mingguKe}) berhasil dikosongkan. {$deleted} penugasan dihapus."
+            : "Jadwal piket hari {$hari} (Minggu ke-{$mingguKe}) sudah kosong.";
+
+        return $this->respondClearDay($request, $hari, $mingguKe, $deleted, $pesan, 'success');
+    }
+
+    /**
+     * Balikan endpoint clearDay: JSON bila klien meminta JSON, selain itu redirect
+     * ke daftar jadwal (konteks minggu dipertahankan agar tidak lompat minggu).
+     *
+     * @return RedirectResponse|JsonResponse
+     */
+    protected function respondClearDay(Request $request, string $hari, int $mingguKe, int $deleted, string $pesan, string $level)
+    {
+        $url = route('kurikulum.jadwal-piket.index', ['minggu_ke' => $mingguKe]);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => $level === 'success',
+                'message' => $pesan,
+                'deleted' => $deleted,
+                'hari' => $hari,
+                'minggu_ke' => $mingguKe,
+                'redirect' => $url,
+            ]);
+        }
+
+        return redirect($url)->with($level, $pesan);
     }
 }

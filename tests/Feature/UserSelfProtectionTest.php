@@ -328,35 +328,134 @@ class UserSelfProtectionTest extends TestCase
             ->assertDontSee('AKT-SECRET99');
     }
 
-    public function test_index_marks_current_user_row_shows_edit_profile_and_hides_destructive_action_buttons(): void
+    public function test_index_menandai_akun_sendiri_dengan_badge_akun_online(): void
     {
         $tu = $this->makeTu();
         $other = $this->makeUser('waka_kurikulum');
 
-        $response = $this->actingAs($tu)
+        $html = $this->actingAs($tu)
             ->get(route('admin.users.index'))
-            ->assertOk();
+            ->assertOk()
+            ->getContent();
 
-        // (1) Baris akun sendiri ditandai badge "Akun Anda Saat Ini".
-        $response->assertSee('Akun Anda Saat Ini')
-            ->assertSee('person-check-fill');
+        // (1) Baris akun sendiri ditandai badge "Akun Anda (Online)" pada kolom AKSI
+        //     (indikator online) + badge "Akun Anda Saat Ini" pada kolom NAMA.
+        $this->assertStringContainsString('Akun Anda (Online)', $html);
+        $this->assertStringContainsString('bg-primary', $html);
+        $this->assertStringContainsString('bi-person-check', $html);
+        $this->assertStringContainsString('Akun Anda Saat Ini', $html);
 
-        // (2) Kolom AKSI untuk diri sendiri menampilkan tombol "Edit Profil", dan menyembunyikan aksi destruktif.
-        $response->assertSee('Edit Profil')
-            ->assertSee(route('admin.users.edit', $tu->id))
-            ->assertDontSee(route('admin.users.toggle-status', $tu->id))
-            ->assertDontSee(route('admin.users.destroy', $tu->id));
+        // (2) Aksi kelola untuk akun sendiri DISEMBUNYIKAN: Edit (mata + pensil),
+        //     Nonaktifkan, dan Hapus tidak boleh muncul untuk id sendiri.
+        $this->assertStringNotContainsString(route('admin.users.edit', $tu->id), $html);
+        $this->assertStringNotContainsString(route('admin.users.toggle-status', $tu->id), $html);
+        $this->assertStringNotContainsString(route('admin.users.destroy', $tu->id), $html);
+        $this->assertStringNotContainsString('Edit Profil', $html);
 
-        // (3) Untuk TU, akun admin lain tersedia tombol ikon [Lihat Detail]
+        // (3) Tombol "Suspend Darurat" (kill-switch) TETAP ADA di baris sendiri,
+        //     tetapi NONAKTIF karena guard backend `abortIfCurrentUser`
+        //     (UserController@toggleSuspend) menolak suspend akun sendiri (403).
+        //     Karena tidak ada form/action, route toggle-suspend pun tidak
+        //     bocor ke baris ini — sehingga klik tidak menghasilkan halaman error.
+        $this->assertMatchesRegularExpression(
+            '/<button[^>]*disabled[^>]*>.*?Suspend Darurat/s',
+            $html
+        );
+        $this->assertStringNotContainsString(route('admin.users.toggle-suspend', $tu->id), $html);
+
+        // (4) Untuk TU, akun admin lain tersedia tombol ikon [Lihat Detail]
         //     (mata) yang membuka mode lihat saja; tombol Edit/Toggle/Hapus
         //     disembunyikan. Badge "Dikelola Petugas IT" dihapus. Tombol
-        //     [Suspend Darurat] tetap tersedia (jalur respons keamanan).
-        $response->assertSee(route('admin.users.edit', $other->id))
-            ->assertSee('bi-eye')
-            ->assertDontSee('Dikelola Petugas IT')
-            ->assertDontSee('bi-trash')
-            ->assertDontSee('bi-slash-circle')
-            ->assertSee(route('admin.users.toggle-suspend', $other->id), false);
+        //     [Suspend Darurat] tetap aktif (jalur respons keamanan).
+        $this->assertStringContainsString(route('admin.users.edit', $other->id), $html);
+        $this->assertStringContainsString('bi-eye', $html);
+        $this->assertStringNotContainsString('Dikelola Petugas IT', $html);
+        $this->assertStringNotContainsString('bi-trash', $html);
+        $this->assertStringNotContainsString('bi-slash-circle', $html);
+        $this->assertStringContainsString(route('admin.users.toggle-suspend', $other->id), $html);
+    }
+
+    public function test_index_menampilkan_badge_online_dan_menyembunyikan_hapus_untuk_user_aktif(): void
+    {
+        // Privilege manager (role 'admin' + sub_role null): boleh mengedit user
+        // lain dan melihat seluruh partisi (bukan Petugas IT yang ter-scope testing).
+        $viewer = User::create([
+            'nama' => 'Super Admin',
+            'username' => 'sa_'.Str::random(6),
+            'password' => 'password123',
+            'role' => 'admin',
+            'sub_role' => null,
+            'is_active' => true,
+        ]);
+
+        // Target "sedang online": ada jejak aktivitas < 5 menit yang lalu.
+        $online = User::create([
+            'nama' => 'Waka Online',
+            'username' => 'waka_online_'.Str::random(4),
+            'password' => 'password123',
+            'role' => 'admin',
+            'sub_role' => 'waka_kurikulum',
+            'is_active' => true,
+            'last_active_at' => now(),
+        ]);
+
+        $html = $this->actingAs($viewer)
+            ->get(route('admin.users.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertTrue($online->fresh()->isOnline());
+
+        // (1) Badge "Online" (titik hijau) tampil untuk baris user aktif.
+        $this->assertStringContainsString('bi-circle-fill', $html);
+        $this->assertStringContainsString('Aktif dalam '.User::ONLINE_WINDOW_MINUTES.' menit terakhir', $html);
+
+        // (2) Edit & Suspend Darurat TETAP tersedia untuk user online.
+        $this->assertStringContainsString(route('admin.users.edit', $online->id), $html);
+        $this->assertStringContainsString(route('admin.users.toggle-suspend', $online->id), $html);
+
+        // (3) Hapus disembunyikan selama akun online. Form tetap dirender agar
+        //     polling AJAX bisa menampilkannya lagi secara dinamis; statusnya
+        //     ditunjukkan lewat kelas `d-none` (bukan ketiadaan form).
+        $this->assertStringContainsString('action="'.route('admin.users.destroy', $online->id).'"', $html);
+        $this->assertStringContainsString('js-delete-action d-none', $html);
+    }
+
+    public function test_index_menampilkan_tombol_hapus_untuk_user_offline(): void
+    {
+        $viewer = User::create([
+            'nama' => 'Super Admin',
+            'username' => 'sa_'.Str::random(6),
+            'password' => 'password123',
+            'role' => 'admin',
+            'sub_role' => null,
+            'is_active' => true,
+        ]);
+
+        $offline = User::create([
+            'nama' => 'Waka Offline',
+            'username' => 'waka_offline_'.Str::random(4),
+            'password' => 'password123',
+            'role' => 'admin',
+            'sub_role' => 'waka_kurikulum',
+            'is_active' => true,
+            'last_active_at' => now()->subMinutes(User::ONLINE_WINDOW_MINUTES + 5),
+        ]);
+
+        $html = $this->actingAs($viewer)
+            ->get(route('admin.users.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertFalse($offline->fresh()->isOnline());
+
+        // Tanpa badge Online, tombol aksi lengkap — termasuk Hapus (tanpa `d-none`).
+        // Cek marker spesifik badge offline (diluar `bi-circle-fill` yang muncul
+        // di bagian lain halaman). Kita pastikan badge kelas js-online-badge,
+        // data-online="0", serta label Offline hadir.
+        $this->assertStringContainsString('js-online-badge', $html);
+        $this->assertStringContainsString('data-online="0"', $html);
+        $this->assertStringContainsString('js-online-label">Offline', $html);
     }
 
     public function test_index_tu_hanya_melihat_detail_untuk_akun_legacy(): void

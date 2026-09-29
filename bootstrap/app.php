@@ -7,6 +7,7 @@ use App\Http\Middleware\EnsureKoordinatorPiket;
 use App\Http\Middleware\EnsureWakaKesiswaan;
 use App\Http\Middleware\EnsureWakaPiket;
 use App\Http\Middleware\SingleDeviceSession;
+use App\Http\Middleware\UpdateUserLastActive;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -36,6 +37,10 @@ return Application::configure(basePath: dirname(__DIR__))
             // Validasi sesi perangkat tunggal (menjalankan pengecekan "kicked"
             // pada setiap request terautentikasi, kecuali endpoint heartbeat).
             SingleDeviceSession::class,
+            // Jejak aktivitas real-time untuk status "Online" di Kelola User.
+            // Sengaja SETELAH SingleDeviceSession: user yang di-kick / suspen /
+            // nonaktif tidak boleh menyegarkan last_active_at (tetap offline).
+            UpdateUserLastActive::class,
             // Undang Client Hints high-entropy (model perangkat) dari browser.
             ConfigureClientHints::class,
         ]);

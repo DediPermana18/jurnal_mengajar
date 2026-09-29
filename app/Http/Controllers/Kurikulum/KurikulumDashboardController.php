@@ -72,10 +72,14 @@ class KurikulumDashboardController extends Controller
         $totalGuru = User::where('role', 'guru')->count();
 
         // 5. Daftar Jadwal KBM Hari Ini
+        //    Diurutkan berdasarkan slot jam yang nyata (jam_pelajaran.jam_ke lewat
+        //    LEFT JOIN), BUKAN `id_jam` — ID jam bersifat auto-increment dan
+        //    bergeser setiap master jam dihapus-dibuat ulang.
         $jadwalKbmHariIni = JadwalPelajaran::with(['guru', 'kelas', 'mapel', 'jamPelajaran'])
+            ->withSlot()
             ->where('hari', $hariIniStr)
             ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
-            ->orderBy('id_jam')
+            ->urutkanSlot()
             ->take(10)
             ->get();
 

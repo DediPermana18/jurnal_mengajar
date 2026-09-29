@@ -189,6 +189,32 @@ class DispensasiWaNotificationTest extends TestCase
             && ! str_contains((string) $req['message'], $dispen->approval_url));
     }
 
+    public function test_kirim_ulang_ditolak_untuk_pengajuan_dibatalkan_atau_ditolak(): void
+    {
+        $piket = $this->makeUser('guru', 'guru', '081300000001');
+        JadwalPiket::create(['hari' => 'Senin', 'user_id' => $piket->id]);
+        [$kelas, $siswa] = $this->buatKelasDanSiswa(2);
+
+        foreach ([DispensasiSiswa::STATUS_DIBATALKAN, DispensasiSiswa::STATUS_DITOLAK] as $index => $status) {
+            $dispen = DispensasiSiswa::create([
+                'id_siswa' => $siswa[$index]->id,
+                'id_guru_piket' => $piket->id,
+                'tanggal' => now()->toDateString(),
+                'tipe_dispen' => DispensasiSiswa::TIPE_KELUAR,
+                'jam_ke' => '3',
+                'alasan' => 'Urusan keluarga',
+                'status' => $status,
+                'approval_token' => 'token-terminal-'.$index,
+            ]);
+
+            $this->actingAs($piket)
+                ->from(route('piket.dispensasi.index'))
+                ->post(route('piket.dispensasi.kirim-wa', $dispen->id))
+                ->assertRedirect(route('piket.dispensasi.index'))
+                ->assertSessionHas('error', 'Pengajuan dispensasi ini sudah dibatalkan/ditolak.');
+        }
+    }
+
     public function test_kirim_ulang_ditolak_untuk_guru_biasa(): void
     {
         $piket = $this->makeUser('guru');
@@ -342,6 +368,36 @@ class DispensasiWaNotificationTest extends TestCase
             ->assertOk()
             ->assertSee('WA ke Waka (Kirim Ulang)')
             ->assertSee(route('piket.dispensasi.kirim-wa', $dispen->id), false);
+    }
+
+    public function test_dropdown_terminal_hanya_menyisakan_detail_surat(): void
+    {
+        $piket = $this->makeUser('guru', 'guru', '081300000001');
+        JadwalPiket::create(['hari' => 'Senin', 'user_id' => $piket->id]);
+        [$kelas, $siswa] = $this->buatKelasDanSiswa(2);
+
+        foreach ([DispensasiSiswa::STATUS_DIBATALKAN, DispensasiSiswa::STATUS_DITOLAK] as $index => $status) {
+            DispensasiSiswa::create([
+                'id_siswa' => $siswa[$index]->id,
+                'id_guru_piket' => $piket->id,
+                'tanggal' => now()->toDateString(),
+                'tipe_dispen' => DispensasiSiswa::TIPE_KELUAR,
+                'jam_ke' => '3',
+                'alasan' => 'Urusan keluarga',
+                'status' => $status,
+                'approval_token' => 'token-ui-terminal-'.$index,
+            ]);
+        }
+
+        $this->actingAs($piket)
+            ->get(route('piket.dispensasi.index'))
+            ->assertOk()
+            ->assertSee('Surat / Detail')
+            ->assertSee('Dibatalkan')
+            ->assertSee('Ditolak')
+            ->assertDontSee('WA ke Waka (Kirim Ulang)')
+            ->assertDontSee('Share Link Manual')
+            ->assertDontSee('QR Approval');
     }
 
     public function test_dropdown_aksi_tidak_terpotong_oleh_overflow_x_tabel(): void
