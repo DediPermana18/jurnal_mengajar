@@ -36,7 +36,7 @@ class KepsekDashboardFilterTest extends TestCase
         ]);
     }
 
-    public function test_kepsek_dashboard_defaults_to_pending_kepsek_filter(): void
+    public function test_kepsek_dashboard_displays_all_records_by_default_without_status_filter(): void
     {
         $kepsek = $this->makeKepsek();
         $guru = $this->makeGuru();
@@ -63,7 +63,7 @@ class KepsekDashboardFilterTest extends TestCase
         $response->assertOk();
         $response->assertSee('Menunggu Kepsek');
         $response->assertSee('AlasanIzinPendingKepsekUnik');
-        $response->assertDontSee('AlasanIzinDisetujuiUnik');
+        $response->assertSee('AlasanIzinDisetujuiUnik');
 
         $this->assertEquals('Menunggu Kepsek', $pendingItem->status_label);
         $this->assertStringContainsString('bg-warning-subtle', $pendingItem->status_badge);
@@ -95,5 +95,11 @@ class KepsekDashboardFilterTest extends TestCase
         $response->assertOk();
         $response->assertSee('AlasanIzinDisetujuiUnik');
         $response->assertDontSee('AlasanIzinPendingKepsekUnik');
+
+        // Menguji alias status 'disetujui_final'
+        $responseAlias = $this->actingAs($kepsek)->get(route('kepsek.rekap-izin', ['status' => 'disetujui_final']));
+        $responseAlias->assertOk();
+        $responseAlias->assertSee('AlasanIzinDisetujuiUnik');
+        $responseAlias->assertDontSee('AlasanIzinPendingKepsekUnik');
     }
 }

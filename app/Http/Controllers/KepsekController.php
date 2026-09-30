@@ -139,13 +139,11 @@ class KepsekController extends Controller
         $query = IzinGuru::with(['user', 'approverPiket', 'approverWaka', 'approverKepsek'])
             ->latest('tanggal');
 
-        if ($request->has('status')) {
-            $statusInput = $request->input('status');
-            if ($statusInput !== '' && $statusInput !== null) {
-                $query->where('status', $statusInput);
-            }
-        } else {
-            $query->where('status', IzinGuru::STATUS_PENDING_KEPSEK);
+        $statusInput = $request->input('status');
+        $mappedStatus = $this->mapStatusFilter($statusInput);
+
+        if ($mappedStatus !== null) {
+            $query->where('status', $mappedStatus);
         }
 
         if ($request->filled('tanggal')) {
@@ -181,6 +179,41 @@ class KepsekController extends Controller
             'daftarKepsek',
             'isKepsekAuth'
         ));
+    }
+
+    protected function mapStatusFilter(?string $status): ?string
+    {
+        if ($status === null || trim((string) $status) === '') {
+            return null;
+        }
+
+        $s = strtolower(trim((string) $status));
+
+        if (in_array($s, ['disetujui', 'approved', 'disetujui_final', 'disetujui final', 'approve', 'acc'], true)) {
+            return IzinGuru::STATUS_DISETUJUI;
+        }
+
+        if (in_array($s, ['ditolak', 'rejected', 'reject', 'tolak'], true)) {
+            return IzinGuru::STATUS_DITOLAK;
+        }
+
+        if (in_array($s, ['pending_kepsek', 'pending', 'menunggu_kepsek', 'menunggu kepsek', 'pending kepsek', 'menunggu'], true)) {
+            return IzinGuru::STATUS_PENDING_KEPSEK;
+        }
+
+        if (in_array($s, ['pending_waka', 'menunggu_waka', 'menunggu waka sdm', 'menunggu waka'], true)) {
+            return IzinGuru::STATUS_PENDING_WAKA;
+        }
+
+        if (in_array($s, ['pending_piket', 'menunggu_piket', 'menunggu piket'], true)) {
+            return IzinGuru::STATUS_PENDING_PIKET;
+        }
+
+        if (in_array($s, IzinGuru::STATUSES, true)) {
+            return $s;
+        }
+
+        return null;
     }
 
     public function approveIzinSignature(Request $request, $id)

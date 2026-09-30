@@ -24,35 +24,29 @@
             <table class="table table-custom align-middle min-w-full">
                 <thead>
                     <tr>
-                        <th class="text-center whitespace-nowrap" style="width: 60px;">No</th>
-                        <th>NIS/NISN</th>
-                        <th>Nama Siswa</th>
-                        <th class="text-center">Hadir</th>
-                        <th class="text-center">Izin</th>
-                        <th class="text-center">Sakit</th>
-                        <th class="text-center text-danger">Alpha</th>
-                        <th class="text-center">Persentase</th>
+                        <th class="text-center whitespace-nowrap py-3 px-3" style="width: 60px;">No</th>
+                        <th class="py-3 px-4 whitespace-nowrap" style="width: 140px;">NIS/NISN</th>
+                        <th class="py-3 px-4">Nama Siswa</th>
+                        <th class="text-center py-3 px-4" style="width: 100px;">Hadir</th>
+                        <th class="text-center py-3 px-4" style="width: 100px;">Izin</th>
+                        <th class="text-center py-3 px-4" style="width: 100px;">Sakit</th>
+                        <th class="text-center text-danger py-3 px-4" style="width: 100px;">Alpha</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($rekapAbsen as $r)
                         <tr>
-                            <td class="text-center text-muted whitespace-nowrap">{{ $loop->iteration }}</td>
-                            <td>{{ $r['siswa']->nisn ?? $r['siswa']->nis ?? '-' }}</td>
-                            <td><strong>{{ $r['siswa']->nama }}</strong></td>
-                            <td class="text-center text-success fw-bold">{{ $r['hadir'] }}</td>
-                            <td class="text-center">{{ $r['izin'] }}</td>
-                            <td class="text-center">{{ $r['sakit'] }}</td>
-                            <td class="text-center text-danger fw-bold">{{ $r['alpha'] }}</td>
-                            <td class="text-center whitespace-nowrap">
-                                <span class="badge {{ $r['persentase'] >= 90 ? 'bg-success-subtle text-success' : ($r['persentase'] >= 75 ? 'bg-warning-subtle text-warning' : 'bg-danger-subtle text-danger') }} border rounded-pill">
-                                    {{ number_format($r['persentase'], 1) }}%
-                                </span>
-                            </td>
+                            <td class="text-center text-muted whitespace-nowrap py-3 px-3">{{ $loop->iteration }}</td>
+                            <td class="py-3 px-4 whitespace-nowrap">{{ $r['siswa']->nisn ?? $r['siswa']->nis ?? '-' }}</td>
+                            <td class="py-3 px-4"><strong>{{ $r['siswa']->nama }}</strong></td>
+                            <td class="text-center text-success fw-bold py-3 px-4">{{ $r['hadir'] }}</td>
+                            <td class="text-center py-3 px-4">{{ $r['izin'] }}</td>
+                            <td class="text-center py-3 px-4">{{ $r['sakit'] }}</td>
+                            <td class="text-center text-danger fw-bold py-3 px-4">{{ $r['alpha'] }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="text-center py-5 text-muted">
+                            <td colspan="7" class="text-center py-5 text-muted">
                                 <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                 Belum ada data presensi untuk kelas bimbingan Anda.
                             </td>

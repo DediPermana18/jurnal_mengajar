@@ -725,4 +725,79 @@ class JadwalPiketTest extends TestCase
             ->assertOk()
             ->assertDontSee('var reopen = true');
     }
+
+    public function test_auto_save_status_aktif_shift_via_ajax(): void
+    {
+        $admin = User::create([
+            'nama' => 'Admin Kurikulum',
+            'username' => 'admin_ajax_shift',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+
+        $shiftSore = ShiftPiket::create([
+            'nama' => 'Sore',
+            'jam_mulai' => '15:00',
+            'jam_selesai' => '18:00',
+            'maksimal_petugas' => 3,
+            'urutan' => 3,
+            'is_active' => false,
+        ]);
+
+        // Kirim request AJAX update is_active ke true
+        $response = $this->actingAs($admin)
+            ->putJson(route('kurikulum.jadwal-piket.shifts.update', $shiftSore), [
+                'is_active' => 1,
+                'toggle_active_only' => 1,
+            ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'is_active' => true,
+            ]);
+
+        $this->assertDatabaseHas('shift_piket', [
+            'id' => $shiftSore->id,
+            'nama' => 'Sore',
+            'is_active' => 1,
+        ]);
+    }
+
+    public function test_form_tambah_piket_menampilkan_shift_aktif_termasuk_sore_secara_dinamis(): void
+    {
+        $admin = User::create([
+            'nama' => 'Admin Kurikulum',
+            'username' => 'admin_create_shift',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+
+        $shiftMalam = ShiftPiket::create([
+            'nama' => 'Malam Non-Aktif',
+            'jam_mulai' => '19:00',
+            'jam_selesai' => '22:00',
+            'maksimal_petugas' => 2,
+            'urutan' => 4,
+            'is_active' => false,
+        ]);
+
+        $shiftSore = ShiftPiket::create([
+            'nama' => 'Sore',
+            'jam_mulai' => '15:00',
+            'jam_selesai' => '18:00',
+            'maksimal_petugas' => 3,
+            'urutan' => 3,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->get(route('kurikulum.jadwal-piket.create'));
+
+        $response->assertOk()
+            ->assertSee('SORE')
+            ->assertDontSee('Malam Non-Aktif');
+    }
 }

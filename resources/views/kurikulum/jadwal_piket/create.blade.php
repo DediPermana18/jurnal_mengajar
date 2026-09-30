@@ -328,10 +328,10 @@
                 @php
                     $sesiNama = strtolower($shift->nama);
                     $sesi = str_starts_with($sesiNama, 'pagi') ? 'pagi' : (str_starts_with($sesiNama, 'siang') ? 'siang' : null);
-                    $kolomKoordinator = $sesi === 'pagi' ? 'koordinator_pagi_user_id' : ($sesi === 'siang' ? 'koordinator_siang_user_id' : null);
-                    $assignedKoordinator = $kolomKoordinator === 'koordinator_pagi_user_id'
+                    $legacyVal = str_starts_with($sesiNama, 'pagi')
                         ? ($assignedKoordinatorPagiIds[0] ?? null)
-                        : ($kolomKoordinator === 'koordinator_siang_user_id' ? ($assignedKoordinatorSiangIds[0] ?? null) : null);
+                        : (str_starts_with($sesiNama, 'siang') ? ($assignedKoordinatorSiangIds[0] ?? null) : null);
+                    $valKoordinator = old('koordinator.' . $shift->id, $assignedKoordinatorByShift[$shift->id] ?? $legacyVal);
                     $selectedUsers = old('shift_users.' . $shift->id, $assignedByShift[$shift->id] ?? []);
                 @endphp
                 <div class="shift-panel w-100 bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
@@ -339,17 +339,15 @@
                         <span class="shift-title">{{ strtoupper($shift->nama) }} ({{ $shift->jam_label }})</span>
                         <span class="shift-count" data-quota="{{ $shift->maksimal_petugas }}">Maks. {{ $shift->maksimal_petugas }} petugas</span>
                     </div>
-                    @if($kolomKoordinator)
                     <div>
                         <label class="form-label fw-bold text-dark small">Koordinator Piket {{ ucfirst($shift->nama) }}</label>
-                        <select name="{{ $kolomKoordinator }}" class="form-select rounded-3" style="font-size: 0.875rem;">
+                        <select name="koordinator[{{ $shift->id }}]" class="form-select rounded-3" style="font-size: 0.875rem;">
                             <option value="">-- Pilih Koordinator Piket {{ ucfirst($shift->nama) }} --</option>
                             @foreach($guruList as $guru)
-                                <option value="{{ $guru->id }}" {{ old($kolomKoordinator, $assignedKoordinator) == $guru->id ? 'selected' : '' }}>{{ $guru->nama }}</option>
+                                <option value="{{ $guru->id }}" {{ $valKoordinator == $guru->id ? 'selected' : '' }}>{{ $guru->nama }}</option>
                             @endforeach
                         </select>
                     </div>
-                    @endif
                     <div>
                         <label class="form-label fw-bold text-dark small">Petugas {{ $shift->nama }}</label>
                         <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 mb-2">
@@ -414,7 +412,7 @@
         // ID guru yang sedang terpilih sebagai Koordinator Piket Pagi/Siang.
         function koordinatorTerpilih() {
             var ids = [];
-            document.querySelectorAll('select[name="koordinator_pagi_user_id"], select[name="koordinator_siang_user_id"]').forEach(function (sel) {
+            document.querySelectorAll('select[name^="koordinator"]').forEach(function (sel) {
                 if (sel.value) ids.push(sel.value);
             });
             return new Set(ids);
@@ -497,7 +495,7 @@
         if (!pagi.length && !siang.length) return;
 
         var koordSelects = Array.prototype.slice.call(document.querySelectorAll(
-            'select[name="koordinator_pagi_user_id"], select[name="koordinator_siang_user_id"]'
+            'select[name^="koordinator"]'
         ));
 
         // Perbarui badge counter shift (tanpa memicu confirm kuota).

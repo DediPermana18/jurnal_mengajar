@@ -314,33 +314,19 @@ class WaliKelasRiwayatJurnalDetailTest extends TestCase
             $rujukan = $jurnal;
         }
 
-        // "Semua JP": absensi antar-jam digabung per siswa unik (prefer non-Hadir).
+        // Sesi KBM multi-jam: absensi antar-jam digabung per siswa unik (prefer non-Hadir).
         $content = $this->actingAs($wali)
             ->get(route('walikelas.riwayat-jurnal.show', $rujukan->id))
             ->assertOk()
-            // Tab multi-jam terbentuk dari grouping sesi
-            ->assertSee('Semua JP')
-            ->assertSee('Jam ke-1')
-            ->assertSee('Jam ke-2')
+            ->assertSee('Sesi KBM: Jam Ke-1 - 2')
+            ->assertDontSee('Semua JP')
             ->assertSee('Sakit perut')
             ->assertSee('Budi Santoso')
             ->getContent();
 
         // Absensi digabung per siswa → hanya Andi yang sakit (1 badge Sakit),
         // Budi hadir; tidak ada duplikasi walau 2 record jurnal di DB.
-        $this->assertSame(1, substr_count($content, 'Sakit (S)'), 'Badge Sakit (S) harus muncul tepat 1x pada mode Semua JP (absensi digabung).');
-
-        // Tab Jam ke-2 → hanya jurnal jam 2 (Andi sakit).
-        $this->get(route('walikelas.riwayat-jurnal.show', $rujukan->id).'?jp=2')
-            ->assertOk()
-            ->assertSee('Sakit (S)')
-            ->assertSee('Sakit perut');
-
-        // Tab Jam ke-1 → hanya jurnal jam 1 (semua hadir).
-        $this->get(route('walikelas.riwayat-jurnal.show', $rujukan->id).'?jp=1')
-            ->assertOk()
-            ->assertDontSee('Sakit (S)')
-            ->assertDontSee('Sakit perut');
+        $this->assertSame(1, substr_count($content, 'Sakit (S)'), 'Badge Sakit (S) harus muncul tepat 1x pada absensi digabung.');
     }
 
     // ─── Mode QA / Impersonasi Petugas IT ─────────────────────────────────────

@@ -122,11 +122,16 @@ use App\Http\Controllers\JurusanController;
 use App\Http\Controllers\KelasController;
 use App\Http\Controllers\UserController;
 
-// Route Data Master (Admin / Petugas TU)
-Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
-    // Route Data Master Guru
+// Route Data Master Guru — view-only (Waka SDM juga diizinkan membaca).
+// Authorization mutasi tetap dilakukan di dalam controller (authorizeAdmin/authorizePetugasTU).
+Route::middleware(['auth'])->group(function () {
     Route::get('/admin/guru', [GuruController::class, 'index'])->name('guru.index');
     Route::get('/admin/guru/export', [GuruController::class, 'export'])->name('guru.export');
+});
+
+// Route Data Master (Admin / Petugas TU)
+Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
+    // Route Mutasi Data Guru (hanya Admin/Petugas TU)
     Route::get('/admin/guru/create', [GuruController::class, 'create'])->name('admin.guru.create');
     Route::post('/admin/guru', [GuruController::class, 'store'])->name('guru.store');
     Route::get('/admin/guru/{id}/edit', [GuruController::class, 'edit'])->name('admin.guru.edit');

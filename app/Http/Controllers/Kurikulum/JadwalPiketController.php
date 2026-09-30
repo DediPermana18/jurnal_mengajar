@@ -113,7 +113,7 @@ class JadwalPiketController extends Controller
             ->orderBy('nama', 'asc')
             ->get();
 
-        $shiftList = ShiftPiket::where('is_active', true)->orderBy('urutan')->orderBy('id')->get();
+        $shiftList = ShiftPiket::where('is_active', true)->orderBy('urutan')->get();
 
         $jadwalHariIni = JadwalPiket::where('hari', $selectedHari)
             ->where('minggu_ke', $mingguKe);
@@ -153,9 +153,27 @@ class JadwalPiketController extends Controller
             ->filter()
             ->toArray();
 
+        $assignedKoordinatorByShift = [];
+        foreach ($shiftList as $sObj) {
+            $sNama = strtolower($sObj->nama);
+            if (str_starts_with($sNama, 'pagi') && ! empty($assignedKoordinatorPagiIds[0])) {
+                $assignedKoordinatorByShift[$sObj->id] = $assignedKoordinatorPagiIds[0];
+            } elseif (str_starts_with($sNama, 'siang') && ! empty($assignedKoordinatorSiangIds[0])) {
+                $assignedKoordinatorByShift[$sObj->id] = $assignedKoordinatorSiangIds[0];
+            } else {
+                $assignedKoorId = (clone $jadwalHariIni)
+                    ->where('shift_id', $sObj->id)
+                    ->pluck('user_id')
+                    ->first();
+                if ($assignedKoorId) {
+                    $assignedKoordinatorByShift[$sObj->id] = $assignedKoorId;
+                }
+            }
+        }
+
         return view('kurikulum.jadwal_piket.create', compact(
             'hariList', 'selectedHari', 'guruList', 'wakaList',
-            'shiftList', 'assignedByShift',
+            'shiftList', 'assignedByShift', 'assignedKoordinatorByShift',
             'mingguKe',
             'assignedGuruIds', 'assignedWakaId',
             'assignedKoordinatorPagiIds', 'assignedPetugasPagiIds',
@@ -195,7 +213,7 @@ class JadwalPiketController extends Controller
             ->orderBy('nama', 'asc')
             ->get();
 
-        $shiftList = ShiftPiket::where('is_active', true)->orderBy('urutan')->orderBy('id')->get();
+        $shiftList = ShiftPiket::where('is_active', true)->orderBy('urutan')->get();
 
         $jadwalHariIni = JadwalPiket::where('hari', $selectedHari)
             ->where('minggu_ke', $mingguKe);
@@ -220,9 +238,27 @@ class JadwalPiketController extends Controller
         $assignedKoordinatorSiangIds = (clone $jadwalHariIni)->pluck('koordinator_siang_user_id')->filter()->values()->all();
         $assignedPetugasSiangIds = (clone $jadwalHariIni)->pluck('petugas_siang_user_id')->filter()->values()->all();
 
+        $assignedKoordinatorByShift = [];
+        foreach ($shiftList as $sObj) {
+            $sNama = strtolower($sObj->nama);
+            if (str_starts_with($sNama, 'pagi') && ! empty($assignedKoordinatorPagiIds[0])) {
+                $assignedKoordinatorByShift[$sObj->id] = $assignedKoordinatorPagiIds[0];
+            } elseif (str_starts_with($sNama, 'siang') && ! empty($assignedKoordinatorSiangIds[0])) {
+                $assignedKoordinatorByShift[$sObj->id] = $assignedKoordinatorSiangIds[0];
+            } else {
+                $assignedKoorId = (clone $jadwalHariIni)
+                    ->where('shift_id', $sObj->id)
+                    ->pluck('user_id')
+                    ->first();
+                if ($assignedKoorId) {
+                    $assignedKoordinatorByShift[$sObj->id] = $assignedKoorId;
+                }
+            }
+        }
+
         return view('kurikulum.jadwal_piket.edit', compact(
             'hariList', 'selectedHari', 'mingguKe', 'guruList', 'wakaList', 'shiftList',
-            'assignedGuruIds', 'assignedWakaId', 'assignedByShift',
+            'assignedGuruIds', 'assignedWakaId', 'assignedByShift', 'assignedKoordinatorByShift',
             'assignedKoordinatorPagiIds', 'assignedPetugasPagiIds',
             'assignedKoordinatorSiangIds', 'assignedPetugasSiangIds'
         ));
@@ -262,6 +298,8 @@ class JadwalPiketController extends Controller
             'shift_users' => 'nullable|array',
             'shift_users.*' => 'array',
             'shift_users.*.*' => 'exists:users,id',
+            'koordinator' => 'nullable|array',
+            'koordinator.*' => 'nullable|exists:users,id',
             'guru_ids' => 'nullable|array|min:1',
             'guru_ids.*' => 'exists:users,id',
             'koordinator_pagi_user_id' => 'nullable|exists:users,id',
@@ -298,12 +336,12 @@ class JadwalPiketController extends Controller
             ]);
         }
 
-        // Validasi mutual exclusion: Koordinator Piket (Pagi/Siang) tidak boleh
-        // merangkap menjadi Petugas Piket biasa (fallback server untuk JS form).
-        $koordinatorIds = array_values(array_unique(array_filter([
+        // Validasi mutual exclusion: Koordinator Piket tidak boleh
+        // merangkap menjadi Petugas Piket biasa.
+        $koordinatorIds = array_values(array_unique(array_filter(array_merge([
             $request->input('koordinator_pagi_user_id'),
             $request->input('koordinator_siang_user_id'),
-        ])));
+        ], array_values((array) $request->input('koordinator', []))))));
 
         if (! empty($koordinatorIds) && ! empty(array_intersect(array_merge($pagiIds, $siangIds), $koordinatorIds))) {
             throw ValidationException::withMessages([
@@ -417,17 +455,34 @@ class JadwalPiketController extends Controller
                 }
             }
 
-            // Koordinator Piket (Pagi/Siang) — format SK: simpan sebagai baris
-            // terpisah dengan kolom koordinator_* terisi agar turut menerima
-            // notifikasi WA tahap pengajuan izin.
-            $koordinatorPagiId = $request->input('koordinator_pagi_user_id');
-            $koordinatorSiangId = $request->input('koordinator_siang_user_id');
+            // Koordinator Piket (Pagi/Siang/Sore/dst): simpan sebagai baris terpisah
+            $koordinatorInputs = array_filter((array) $request->input('koordinator', []));
+            if (! empty($koordinatorInputs)) {
+                $shiftsForKoor = ShiftPiket::whereIn('id', array_keys($koordinatorInputs))->get();
+                foreach ($koordinatorInputs as $sId => $kUserId) {
+                    if (! $kUserId) {
+                        continue;
+                    }
+                    $sObj = $shiftsForKoor->firstWhere('id', $sId);
+                    $sNama = $sObj ? strtolower($sObj->nama) : '';
+                    if (str_starts_with($sNama, 'pagi')) {
+                        $this->buatBarisJadwal($hari, $mingguKe, $bulan, $tahun, (int) $kUserId, ['koordinator_pagi_user_id' => (int) $kUserId, 'shift_id' => $sId]);
+                    } elseif (str_starts_with($sNama, 'siang')) {
+                        $this->buatBarisJadwal($hari, $mingguKe, $bulan, $tahun, (int) $kUserId, ['koordinator_siang_user_id' => (int) $kUserId, 'shift_id' => $sId]);
+                    } else {
+                        $this->buatBarisJadwal($hari, $mingguKe, $bulan, $tahun, (int) $kUserId, ['shift_id' => $sId]);
+                    }
+                }
+            } else {
+                $koordinatorPagiId = $request->input('koordinator_pagi_user_id');
+                $koordinatorSiangId = $request->input('koordinator_siang_user_id');
 
-            if ($koordinatorPagiId) {
-                $this->buatBarisJadwal($hari, $mingguKe, $bulan, $tahun, (int) $koordinatorPagiId, ['koordinator_pagi_user_id' => (int) $koordinatorPagiId]);
-            }
-            if ($koordinatorSiangId) {
-                $this->buatBarisJadwal($hari, $mingguKe, $bulan, $tahun, (int) $koordinatorSiangId, ['koordinator_siang_user_id' => (int) $koordinatorSiangId]);
+                if ($koordinatorPagiId) {
+                    $this->buatBarisJadwal($hari, $mingguKe, $bulan, $tahun, (int) $koordinatorPagiId, ['koordinator_pagi_user_id' => (int) $koordinatorPagiId]);
+                }
+                if ($koordinatorSiangId) {
+                    $this->buatBarisJadwal($hari, $mingguKe, $bulan, $tahun, (int) $koordinatorSiangId, ['koordinator_siang_user_id' => (int) $koordinatorSiangId]);
+                }
             }
         } else {
             foreach ($guruIds as $userId) {
@@ -501,6 +556,20 @@ class JadwalPiketController extends Controller
     public function updateShift(Request $request, ShiftPiket $shift)
     {
         $this->authorizeManage();
+
+        // Support AJAX auto-save / toggle is_active status
+        if ($request->wantsJson() || $request->ajax() || $request->has('toggle_active_only')) {
+            $shift->update([
+                'is_active' => $request->boolean('is_active'),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Status aktif shift berhasil diperbarui.',
+                'is_active' => (bool) $shift->is_active,
+            ]);
+        }
+
         $data = $request->validate([
             'nama' => 'required|string|max:100',
             'jam_mulai' => 'required|date_format:H:i',

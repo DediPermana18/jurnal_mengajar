@@ -33,6 +33,23 @@ class GuruController extends Controller
     }
 
     /**
+     * Proteksi view-only: Admin/Petugas TU DAN Waka SDM dapat melihat Data Guru.
+     *
+     * Waka SDM perlu akses baca untuk keperluan kepegawaian (lihat daftar guru,
+     * cek status aktif, ekspor data). Operasi mutasi (tambah/edit/hapus) tetap
+     * dibatasi oleh authorizeAdmin() / authorizePetugasTU().
+     */
+    protected function authorizeAdminOrWakaSdm()
+    {
+        $user = auth()->user();
+        abort_unless(
+            $user && ($this->isAuthorizedAdminArea() || $user->isWakaSdm() || $user->isPetugasIt()),
+            403,
+            'Akses ditolak. Anda tidak memiliki izin untuk melihat Data Guru.'
+        );
+    }
+
+    /**
      * Proteksi untuk operasi store & update: Semua user dengan role admin diizinkan
      */
     protected function authorizePetugasTU()
@@ -49,7 +66,7 @@ class GuruController extends Controller
      */
     public function index(Request $request)
     {
-        $this->authorizeAdmin();
+        $this->authorizeAdminOrWakaSdm();
 
         $query = Guru::query();
 
@@ -117,7 +134,7 @@ class GuruController extends Controller
      */
     public function export(Request $request)
     {
-        $this->authorizePetugasTU();
+        $this->authorizeAdminOrWakaSdm();
 
         $format = $request->input('format', 'xlsx');
         $filename = 'data_guru_'.date('Y-m-d_His');

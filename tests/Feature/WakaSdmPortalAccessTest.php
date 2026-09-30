@@ -106,4 +106,35 @@ class WakaSdmPortalAccessTest extends TestCase
             ->assertOk()
             ->assertSee('Portal Waka SDM');
     }
+
+    public function test_waka_sdm_dapat_mengakses_halaman_data_guru(): void
+    {
+        $variants = [
+            $this->mkUser('ws1', User::ROLE_ADMIN, 'waka_sdm'),
+            $this->mkUser('ws2', User::ROLE_ADMIN, 'sdm'),
+            $this->mkUser('ws3', 'sdm'),
+            $this->mkUser('ws4', 'admin_sdm'),
+        ];
+
+        foreach ($variants as $user) {
+            $this->actingAs($user)
+                ->get(route('guru.index'))
+                ->assertOk();
+        }
+    }
+
+    public function test_guru_biasa_tidak_dapat_mengakses_halaman_data_guru(): void
+    {
+        $guru = User::create([
+            'username'  => 'guru_test_403',
+            'nama'      => 'Guru Test',
+            'password'  => 'secret',
+            'role'      => 'guru',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($guru)
+            ->get(route('guru.index'))
+            ->assertForbidden();
+    }
 }

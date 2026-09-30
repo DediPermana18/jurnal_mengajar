@@ -128,24 +128,68 @@
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-3 p-md-4">
             <form method="GET" action="{{ route('kepsek.rekap-izin') }}">
-                <div class="row g-3 align-items-center">
-                    <div class="col-12 col-md-5">
-                        <div class="position-relative">
-                            <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.85rem;"></i>
-                            <input type="text" name="search" class="form-control bg-light rounded-3 ps-5 text-xs" placeholder="Cari nama guru atau NIP..." value="{{ request('search') }}">
-                        </div>
+                <div class="d-flex flex-wrap align-items-center gap-3">
+
+                    {{-- Search Input --}}
+                    <div class="position-relative flex-grow-1" style="min-width: 200px; max-width: 340px;">
+                        <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.8rem; pointer-events: none;"></i>
+                        <input
+                            type="text"
+                            name="search"
+                            class="form-control border-secondary-subtle"
+                            style="height: 40px; padding-left: 2.25rem; font-size: 0.8125rem; border-radius: 0.5rem; background: #f8fafc;"
+                            placeholder="Cari nama guru atau NIP..."
+                            value="{{ request('search') }}"
+                        >
                     </div>
-                    <div class="col-6 col-md-3">
-                        <input type="date" name="tanggal" class="form-control bg-light rounded-3 text-xs" value="{{ request('tanggal') }}" title="Filter Tanggal">
-                    </div>
-                    <div class="col-6 col-md-4">
-                        <select name="status" class="form-select bg-light rounded-3 text-xs">
-                            <option value="">Semua Status</option>
-                            <option value="{{ \App\Models\IzinGuru::STATUS_PENDING_KEPSEK }}" {{ (request('status') ?? \App\Models\IzinGuru::STATUS_PENDING_KEPSEK) === \App\Models\IzinGuru::STATUS_PENDING_KEPSEK ? 'selected' : '' }}>Menunggu Kepsek</option>
-                            <option value="{{ \App\Models\IzinGuru::STATUS_DISETUJUI }}" {{ request('status') === \App\Models\IzinGuru::STATUS_DISETUJUI ? 'selected' : '' }}>Disetujui</option>
-                            <option value="{{ \App\Models\IzinGuru::STATUS_DITOLAK }}" {{ request('status') === \App\Models\IzinGuru::STATUS_DITOLAK ? 'selected' : '' }}>Ditolak</option>
-                        </select>
-                    </div>
+
+                    {{-- Date Input --}}
+                    <input
+                        type="date"
+                        name="tanggal"
+                        class="form-control border-secondary-subtle"
+                        style="height: 40px; font-size: 0.8125rem; border-radius: 0.5rem; background: #f8fafc; width: auto; min-width: 155px;"
+                        value="{{ request('tanggal') }}"
+                        title="Filter Tanggal"
+                        onchange="this.form.submit()"
+                    >
+
+                    {{-- Status Select --}}
+                    <select
+                        name="status"
+                        class="form-select border-secondary-subtle"
+                        style="height: 40px; font-size: 0.8125rem; border-radius: 0.5rem; background: #f8fafc; width: auto; min-width: 170px;"
+                        onchange="this.form.submit()"
+                    >
+                        <option value="" {{ request('status') === null || request('status') === '' ? 'selected' : '' }}>Semua Status</option>
+                        <option value="{{ \App\Models\IzinGuru::STATUS_PENDING_KEPSEK }}" {{ request('status') === \App\Models\IzinGuru::STATUS_PENDING_KEPSEK ? 'selected' : '' }}>Menunggu Kepsek</option>
+                        <option value="{{ \App\Models\IzinGuru::STATUS_DISETUJUI }}" {{ request('status') === \App\Models\IzinGuru::STATUS_DISETUJUI ? 'selected' : '' }}>Disetujui</option>
+                        <option value="{{ \App\Models\IzinGuru::STATUS_DITOLAK }}" {{ request('status') === \App\Models\IzinGuru::STATUS_DITOLAK ? 'selected' : '' }}>Ditolak</option>
+                    </select>
+
+                    {{-- Tombol Filter --}}
+                    <button
+                        type="submit"
+                        style="height: 40px; padding: 0 1.1rem; background: #2563eb; color: #fff; font-size: 0.8125rem; font-weight: 600; border-radius: 0.5rem; border: none; display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; transition: background 0.15s; box-shadow: 0 1px 3px rgba(37,99,235,0.15);"
+                        onmouseover="this.style.background='#1d4ed8'"
+                        onmouseout="this.style.background='#2563eb'"
+                    >
+                        <i class="bi bi-search" style="font-size: 0.8rem; flex-shrink: 0;"></i>
+                        Filter
+                    </button>
+
+                    {{-- Tombol Reset Filter --}}
+                    <a
+                        href="{{ route('kepsek.rekap-izin') }}"
+                        title="Reset Filter"
+                        style="height: 40px; padding: 0 1.1rem; background: #fff; color: #374151; font-size: 0.8125rem; font-weight: 600; border-radius: 0.5rem; border: 1px solid #d1d5db; display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; text-decoration: none; transition: background 0.15s;"
+                        onmouseover="this.style.background='#f1f5f9'"
+                        onmouseout="this.style.background='#fff'"
+                    >
+                        <i class="bi bi-arrow-counterclockwise" style="font-size: 0.8rem; flex-shrink: 0;"></i>
+                        Reset Filter
+                    </a>
+
                 </div>
             </form>
         </div>

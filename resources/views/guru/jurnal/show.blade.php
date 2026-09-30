@@ -42,6 +42,17 @@
     $jurnalShowUrl = $jurnalShowUrl ?? route('guru.jurnal.show', $jurnal->id);
     $backUrl = $backUrl ?? route('guru.jurnal');
     $backLabel = $backLabel ?? 'Kembali ke Daftar Jurnal';
+
+    $jamKeList = collect($jpOptions ?? [])->pluck('jam_ke')->filter()->sort()->values();
+    $minJam = $jamKeList->first();
+    $maxJam = $jamKeList->last();
+    if ($minJam && $maxJam) {
+        $jamLabel = ($minJam == $maxJam) ? "Jam Ke-{$minJam}" : "Jam Ke-{$minJam} - {$maxJam}";
+        $jamLabelHeader = ($minJam == $maxJam) ? "Jam {$minJam}" : "Jam {$minJam} - {$maxJam}";
+    } else {
+        $jamLabel = "Jam " . ($jadwal->jamPelajaran?->jam_ke ?? '-');
+        $jamLabelHeader = "Jam " . ($jadwal->jamPelajaran?->jam_ke ?? '-');
+    }
 @endphp
 <div class="container-fluid px-0">
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
@@ -50,7 +61,7 @@
                 Detail Jurnal Mengajar
             </h2>
             <p class="text-muted mb-0" style="font-size: 0.9rem;">
-                Jam {{ $jadwal->jamPelajaran?->jam_ke ?? '-' }} &bull; {{ $waktu }} &bull; {{ \Carbon\Carbon::parse($jurnal->tanggal)->translatedFormat('d F Y') }}
+                {{ $jamLabelHeader }} &bull; {{ $waktu }} &bull; {{ \Carbon\Carbon::parse($jurnal->tanggal)->translatedFormat('d F Y') }}
                 <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill ms-2">Read-Only</span>
             </p>
         </div>
@@ -165,19 +176,14 @@
 
     {{-- Presensi Siswa --}}
     <div class="form-section-card mb-4">
-        @if(isset($jpOptions) && count($jpOptions) > 0)
-            <div class="d-flex gap-2 flex-wrap mb-3" role="tablist" aria-label="Pilih Jam Pelajaran">
-                <a href="{{ $jurnalShowUrl }}" class="btn btn-sm {{ $selectedJamKe === null ? 'btn-primary' : 'btn-outline-primary' }} rounded-pill">Semua JP</a>
-                @foreach($jpOptions as $jp)
-                    <a href="{{ $jurnalShowUrl }}?jp={{ $jp['jam_ke'] }}" class="btn btn-sm {{ $selectedJamKe === (int) $jp['jam_ke'] ? 'btn-primary' : 'btn-outline-primary' }} rounded-pill">
-                        Jam ke-{{ $jp['jam_ke'] }}
-                    </a>
-                @endforeach
-            </div>
-        @endif
-        <h5 class="fw-bold text-dark mb-3">
-            <i class="bi bi-people-fill text-primary me-2"></i> Rekap Presensi Siswa Kelas {{ $jadwal->kelas?->nama_kelas_lengkap ?? $jadwal->kelas?->nama_kelas }}
-        </h5>
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+            <h5 class="fw-bold text-dark mb-0">
+                <i class="bi bi-people-fill text-primary me-2"></i> Rekap Presensi Siswa Kelas {{ $jadwal->kelas?->nama_kelas_lengkap ?? $jadwal->kelas?->nama_kelas }}
+            </h5>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fw-semibold" style="font-size: 0.85rem;">
+                <i class="bi bi-clock-history me-1"></i> Sesi KBM: {{ $jamLabel }} ({{ $waktu }})
+            </span>
+        </div>
 
         <div class="table-responsive w-full overflow-x-auto">
             <table class="table table-custom align-middle mb-0 min-w-full">
