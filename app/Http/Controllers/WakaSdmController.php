@@ -580,7 +580,7 @@ class WakaSdmController extends Controller
     /**
      * Helper to compute teacher performance statistics for a given month/year
      */
-    protected function hitungPerformaGuruBulanan(int $bulan, int $tahun, ?int $idGuru = null): array
+    protected function hitungPerformaGuruBulanan(int $bulan, int $tahun, ?int $idGuru = null, ?int $perPage = null, ?string $search = null): array
     {
         $startOfMonth = Carbon::createFromDate($tahun, $bulan, 1)->startOfMonth();
         $endOfMonth = Carbon::createFromDate($tahun, $bulan, 1)->endOfMonth();
@@ -619,15 +619,96 @@ class WakaSdmController extends Controller
             $guruQuery->where('id', $idGuru);
         }
 
-        $gurus = $guruQuery->get();
+        if ($search) {
+            $guruQuery->where(function ($q) use ($search) {
+                $q->where('nama', 'like', "%{$search}%")
+                    ->orWhere('nip', 'like', "%{$search}%");
+            });
+        }
 
-        $dataRekap = [];
+        $allGurus = (clone $guruQuery)->get();
+        $gurus = $perPage ? $guruQuery->paginate($perPage)->withQueryString() : $allGurus;
+
+        // Hitung Grand Total dari seluruh guru yang cocok ($allGurus)
         $grandTotalJpWajib = 0;
         $grandTotalJpTerealisasi = 0;
         $grandTotalJpCover = 0;
         $grandTotalJpIzin = 0;
         $grandTotalJpAlpha = 0;
+        $totalPersentaseAll = 0;
 
+        foreach ($allGurus as $guru) {
+            $jadwals = $guru->jadwalPelajaran;
+            $jpWajib = 0;
+            $jadwalPerHari = [];
+            foreach ($jadwals as $jdw) {
+                $jpWajib += ($dayOccurrences[$jdw->hari] ?? 0);
+                $jadwalPerHari[$jdw->hari] = ($jadwalPerHari[$jdw->hari] ?? 0) + 1;
+            }
+
+            $jurnalList = Jurnal::with('guruPengganti')
+                ->whereBetween('tanggal', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
+                ->where(function ($q) use ($guru) {
+                    $q->where('id_guru', $guru->id)
+                        ->orWhereHas('jadwalPelajaran', fn ($j) => $j->where('id_guru', $guru->id));
+                })
+                ->get();
+
+            $jpTerealisasi = 0;
+            $jpCover = 0;
+            $jpIzinJurnal = 0;
+
+            foreach ($jurnalList as $jurn) {
+                $isOriginalGuru = ($jurn->id_guru == $guru->id);
+                $hasCover = ! empty($jurn->id_guru_pengganti) && $jurn->id_guru_pengganti != $guru->id;
+
+                if ($jurn->status_kehadiran === 'Hadir' && ! empty($jurn->materi)) {
+                    if ($hasCover && ! $isOriginalGuru) {
+                        $jpCover++;
+                    } else {
+                        $jpTerealisasi++;
+                    }
+                } elseif (in_array($jurn->status_kehadiran, ['Izin', 'Sakit', 'Disposisi'])) {
+                    $jpIzinJurnal++;
+                    if ($hasCover) {
+                        $jpCover++;
+                    }
+                }
+            }
+
+            $izinList = IzinGuru::where('user_id', $guru->id)
+                ->whereBetween('tanggal', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
+                ->where('status', IzinGuru::STATUS_DISETUJUI)
+                ->get();
+
+            $jpIzinResmi = 0;
+            foreach ($izinList as $iz) {
+                $hariIz = $this->getHariIndonesia($iz->tanggal);
+                $jpIzinResmi += ($jadwalPerHari[$hariIz] ?? 0);
+            }
+
+            $jpIzin = max($jpIzinJurnal, $jpIzinResmi);
+            $jpTerpenuhi = $jpTerealisasi + $jpCover;
+            $jpAlpha = max(0, $jpWajib - ($jpTerpenuhi + $jpIzin));
+
+            $persentase = $jpWajib > 0
+                ? min(100, round(($jpTerpenuhi / $jpWajib) * 100, 1))
+                : 100;
+
+            $grandTotalJpWajib += $jpWajib;
+            $grandTotalJpTerealisasi += $jpTerealisasi;
+            $grandTotalJpCover += $jpCover;
+            $grandTotalJpIzin += $jpIzin;
+            $grandTotalJpAlpha += $jpAlpha;
+            $totalPersentaseAll += $persentase;
+        }
+
+        $rataRataKedisiplinan = $allGurus->count() > 0
+            ? round($totalPersentaseAll / $allGurus->count(), 1)
+            : 0;
+
+        // Data rekap untuk baris tabel yang ditampilkan (sesuai paginasi $gurus)
+        $dataRekap = [];
         foreach ($gurus as $guru) {
             // 1. Hitung JP Wajib berdasarkan plotting jadwal mingguan * frekuensi hari di bulan tsb
             $jadwals = $guru->jadwalPelajaran;
@@ -651,7 +732,6 @@ class WakaSdmController extends Controller
             $jpTerealisasi = 0;
             $jpCover = 0;
             $jpIzinJurnal = 0;
-            $jpTerlambat = 0;
 
             foreach ($jurnalList as $jurn) {
                 $isOriginalGuru = ($jurn->id_guru == $guru->id);
@@ -719,20 +799,12 @@ class WakaSdmController extends Controller
                 'kategoriKinerja' => $kategoriKinerja,
                 'badgeClass' => $badgeClass,
             ];
-
-            $grandTotalJpWajib += $jpWajib;
-            $grandTotalJpTerealisasi += $jpTerealisasi;
-            $grandTotalJpCover += $jpCover;
-            $grandTotalJpIzin += $jpIzin;
-            $grandTotalJpAlpha += $jpAlpha;
         }
 
-        $rataRataKedisiplinan = count($dataRekap) > 0
-            ? round(collect($dataRekap)->avg('persentase'), 1)
-            : 0;
-
         return [
+            'gurus' => $gurus,
             'dataRekap' => $dataRekap,
+            'totalGuru' => $allGurus->count(),
             'grandTotalJpWajib' => $grandTotalJpWajib,
             'grandTotalJpTerealisasi' => $grandTotalJpTerealisasi,
             'grandTotalJpCover' => $grandTotalJpCover,
@@ -756,8 +828,9 @@ class WakaSdmController extends Controller
         $bulan = (int) $request->input('bulan', Carbon::now()->month);
         $tahun = (int) $request->input('tahun', Carbon::now()->year);
         $idGuru = $request->filled('id_guru') ? (int) $request->input('id_guru') : null;
+        $search = $request->input('search');
 
-        $stats = $this->hitungPerformaGuruBulanan($bulan, $tahun, $idGuru);
+        $stats = $this->hitungPerformaGuruBulanan($bulan, $tahun, $idGuru, 10, $search);
         $guruList = User::where('role', User::ROLE_GURU)->orderBy('nama')->get();
 
         return view('admin.waka-sdm.rekap-presensi-guru', array_merge($stats, [
@@ -776,8 +849,9 @@ class WakaSdmController extends Controller
         $bulan = (int) $request->input('bulan', Carbon::now()->month);
         $tahun = (int) $request->input('tahun', Carbon::now()->year);
         $idGuru = $request->filled('id_guru') ? (int) $request->input('id_guru') : null;
+        $search = $request->input('search');
 
-        $stats = $this->hitungPerformaGuruBulanan($bulan, $tahun, $idGuru);
+        $stats = $this->hitungPerformaGuruBulanan($bulan, $tahun, $idGuru, null, $search);
 
         $html = "\xEF\xBB\xBF".view('admin.waka-sdm.excel-presensi-guru', $stats)->render();
 
@@ -799,8 +873,9 @@ class WakaSdmController extends Controller
         $bulan = (int) $request->input('bulan', Carbon::now()->month);
         $tahun = (int) $request->input('tahun', Carbon::now()->year);
         $idGuru = $request->filled('id_guru') ? (int) $request->input('id_guru') : null;
+        $search = $request->input('search');
 
-        $stats = $this->hitungPerformaGuruBulanan($bulan, $tahun, $idGuru);
+        $stats = $this->hitungPerformaGuruBulanan($bulan, $tahun, $idGuru, null, $search);
 
         $kepsek = User::where('role', 'kepala_sekolah')
             ->orWhere('sub_role', 'kepala_sekolah')

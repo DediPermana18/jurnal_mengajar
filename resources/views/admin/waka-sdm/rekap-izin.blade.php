@@ -31,10 +31,10 @@
 @endpush
 
 @section('content')
-<div class="container-fluid px-0">
+<div class="container-fluid p-4">
 
     {{-- Page Header --}}
-    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3 pt-1">
         <div>
             <div class="d-flex align-items-center gap-2 mb-1">
                 <a href="{{ route('waka-sdm.dashboard') }}" class="text-decoration-none text-muted text-xs d-flex align-items-center gap-1">
@@ -202,8 +202,8 @@
                                 {{ ($daftarIzin->currentPage() - 1) * $daftarIzin->perPage() + $idx + 1 }}
                             </td>
                             <td>
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center fw-bold" style="width: 34px; height: 34px; font-size: 0.8rem;">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm shrink-0">
                                         {{ strtoupper(substr($izin->user?->nama ?? 'G', 0, 1)) }}
                                     </div>
                                     <div>

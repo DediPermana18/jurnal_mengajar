@@ -176,7 +176,10 @@
                     </ul>
                 </div>
 
-                <a href="{{ route('admin.guru.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm w-full sm:w-auto text-center"><i class="bi bi-plus-lg me-1"></i> Tambah Guru</a>
+                @if(in_array(auth()->user()->sub_role, ['super_admin', 'petugas_tu']))
+                    {{-- Tombol Tambah Guru (Hanya untuk sub_role: super_admin dan petugas_tu) --}}
+                    <a href="{{ route('admin.guru.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm w-full sm:w-auto text-center"><i class="bi bi-plus-lg me-1"></i> Tambah Guru</a>
+                @endif
             </div>
         @endif
     </div>

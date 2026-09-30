@@ -61,7 +61,7 @@
 @endpush
 
 @section('content')
-<div class="container-fluid px-0">
+<div class="container-fluid p-4">
 
     {{-- Header Section --}}
     <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
@@ -256,75 +256,79 @@
     </div>
 
     {{-- ============================================================== --}}
-    {{-- 2. ANTREAN PERSETUJUAN KEPALA SEKOLAH                          --}}
+    {{-- 2. ANTREAN PERSETUJUAN & AKTIVITAS IZIN TERBARU                --}}
     {{-- ============================================================== --}}
-    <div class="row g-3 mb-4">
-        <div class="col-12 col-xl-7">
-            <div class="actionable-card-kepsek h-100 d-flex flex-column">
-                <div class="card-header bg-white border-bottom py-3 px-3.5 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <div>
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-circle p-1 d-inline-flex">
-                                <i class="bi bi-hourglass-split fs-6"></i>
-                            </span>
-                            <h5 class="fw-bold text-dark mb-0" style="font-size: 1rem;">
+    <div class="row g-3 mb-4 align-items-stretch">
+        
+        {{-- CARD 1: ANTREAN PERSETUJUAN --}}
+        <div class="col-12 col-lg-6 d-flex">
+            <div class="card border-0 rounded-4 shadow-sm w-100 p-3.5 d-flex flex-column" style="min-height: 250px; background: #ffffff;">
+                {{-- Header Card --}}
+                <div class="d-flex align-items-center justify-content-between pb-3 mb-3 border-bottom gap-2">
+                    <div class="d-flex align-items-center gap-2.5">
+                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-3 p-2 d-inline-flex flex-shrink-0">
+                            <i class="bi bi-hourglass-split fs-6"></i>
+                        </span>
+                        <div>
+                            <div class="fw-bold text-dark" style="font-size: 0.95rem; line-height: 1.25;">
                                 Antrean Persetujuan Terbaru
-                            </h5>
+                            </div>
+                            <div class="text-muted" style="font-size: 0.75rem;">
+                                Pengajuan izin guru yang menunggu keputusan & tanda tangan Anda.
+                            </div>
                         </div>
-                        <p class="text-muted mb-0 text-xs mt-1">
-                            Pengajuan izin terbaru yang menunggu keputusan & tanda tangan Anda.
-                        </p>
                     </div>
-                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill text-xs px-2.5 py-1">
+                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2.5 py-1 text-xs flex-shrink-0">
                         {{ $antreanKepsek->count() }} Menunggu
                     </span>
                 </div>
 
-                <div class="card-body p-0 flex-grow-1">
+                {{-- Body Card --}}
+                <div class="flex-grow-1 d-flex flex-column justify-content-center">
                     @if($antreanKepsek->isEmpty())
-                        <div class="text-center py-5 px-3">
-                            <div class="rounded-circle bg-success-subtle text-success d-inline-flex align-items-center justify-content-center mb-2" style="width: 46px; height: 46px;">
-                                <i class="bi bi-check2-all fs-4"></i>
+                        <div class="text-center py-4 px-3 my-auto">
+                            <div class="rounded-circle bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center justify-content-center mb-2" style="width: 38px; height: 38px; font-size: 1.1rem;">
+                                <i class="bi bi-check2"></i>
                             </div>
-                            <h6 class="fw-bold text-dark mb-1">Tidak ada antrean persetujuan.</h6>
-                            <p class="text-muted text-xs mb-0">Semua pengajuan izin guru sudah diproses.</p>
+                            <div class="fw-semibold text-dark mb-0.5" style="font-size: 0.875rem;">Tidak ada antrean persetujuan.</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">Semua pengajuan izin guru sudah diproses.</div>
                         </div>
                     @else
                         <div class="table-responsive">
-                            <table class="table table-dashboard-kepsek table-hover align-middle mb-0">
-                                <thead>
+                            <table class="table table-hover align-middle mb-0" style="font-size: 0.82rem;">
+                                <thead class="bg-light text-muted fw-semibold text-uppercase" style="font-size: 0.7rem;">
                                     <tr>
-                                        <th>Nama Guru</th>
-                                        <th>Tanggal & Kategori</th>
-                                        <th>Alasan</th>
-                                        <th>Status</th>
+                                        <th class="py-2 px-2.5">Nama Guru</th>
+                                        <th class="py-2 px-2.5">Tanggal & Kategori</th>
+                                        <th class="py-2 px-2.5">Alasan</th>
+                                        <th class="py-2 px-2.5 text-center">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach($antreanKepsek as $izin)
                                         <tr>
-                                            <td>
+                                            <td class="py-2 px-2.5">
                                                 <div class="d-flex align-items-center gap-2">
-                                                    <div class="rounded-circle bg-warning-subtle text-warning-emphasis d-flex align-items-center justify-content-center fw-bold" style="width: 32px; height: 32px; font-size: 0.78rem;">
+                                                    <div class="rounded-circle bg-warning-subtle text-warning-emphasis d-flex align-items-center justify-content-center fw-bold flex-shrink-0" style="width: 28px; height: 28px; font-size: 0.75rem;">
                                                         {{ strtoupper(substr($izin->user?->nama ?? 'G', 0, 1)) }}
                                                     </div>
                                                     <div>
-                                                        <div class="fw-semibold text-dark">{{ $izin->user?->nama ?? 'Guru Tidak Ditemukan' }}</div>
+                                                        <div class="fw-semibold text-dark" style="font-size: 0.83rem;">{{ $izin->user?->nama ?? 'Guru Tidak Ditemukan' }}</div>
                                                         <div class="text-muted text-2xs">{{ $izin->user?->nip ? 'NIP: ' . $izin->user->nip : 'Non-NIP' }}</div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td>
-                                                <span class="fw-semibold text-dark text-xs">{{ $izin->tanggal->translatedFormat('d F Y') }}</span>
+                                            <td class="py-2 px-2.5">
+                                                <span class="fw-semibold text-dark">{{ $izin->tanggal->translatedFormat('d F Y') }}</span>
                                                 <div class="text-muted text-2xs">{{ $izin->kategori_izin_label }}</div>
                                             </td>
-                                            <td>
-                                                <div class="text-truncate text-dark text-xs" style="max-width: 170px;" title="{{ $izin->alasan }}">
+                                            <td class="py-2 px-2.5">
+                                                <div class="text-truncate text-muted" style="max-width: 140px;" title="{{ $izin->alasan }}">
                                                     {{ $izin->alasan ?? '-' }}
                                                 </div>
                                             </td>
-                                            <td>
-                                                <span class="badge {{ $izin->status_badge }} px-2.5 py-1 rounded-pill text-xs">
+                                            <td class="py-2 px-2.5 text-center">
+                                                <span class="badge {{ $izin->status_badge }} px-2 py-0.5 rounded-pill text-2xs">
                                                     {{ $izin->status_label }}
                                                 </span>
                                             </td>
@@ -336,70 +340,70 @@
                     @endif
                 </div>
 
-                <div class="card-footer bg-white border-top py-2.5 px-3.5 d-flex align-items-center justify-content-between text-xs">
-                    <span class="text-muted">Klik untuk membuka modul persetujuan & tanda tangan digital</span>
-                    <a href="{{ route('kepsek.rekap-izin', ['status' => \App\Models\IzinGuru::STATUS_PENDING_KEPSEK]) }}" class="btn btn-sm btn-primary rounded-3 text-xs fw-semibold">
+                {{-- Footer Card --}}
+                <div class="mt-auto pt-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-2" style="font-size: 0.75rem;">
+                    <span class="text-muted">Klik untuk membuka modul persetujuan & tanda tangan</span>
+                    <a href="{{ route('kepsek.rekap-izin', ['status' => \App\Models\IzinGuru::STATUS_PENDING_KEPSEK]) }}" class="btn btn-sm btn-primary rounded-3 text-xs fw-semibold px-3 py-1.5 shadow-sm">
                         <i class="bi bi-pencil-square me-1"></i> Tinjau & Tanda Tangan
                     </a>
                 </div>
             </div>
         </div>
 
-        {{-- ============================================================== --}}
-        {{-- 3. AKTIVITAS IZIN TERBARU                                      --}}
-        {{-- ============================================================== --}}
-        <div class="col-12 col-xl-5">
-            <div class="actionable-card-kepsek h-100 d-flex flex-column">
-                <div class="card-header bg-white border-bottom py-3 px-3.5 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <div>
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-circle p-1 d-inline-flex">
-                                <i class="bi bi-activity fs-6"></i>
-                            </span>
-                            <h5 class="fw-bold text-dark mb-0" style="font-size: 1rem;">
+        {{-- CARD 2: AKTIVITAS IZIN TERBARU --}}
+        <div class="col-12 col-lg-6 d-flex">
+            <div class="card border-0 rounded-4 shadow-sm w-100 p-3.5 d-flex flex-column" style="min-height: 250px; background: #ffffff;">
+                {{-- Header Card --}}
+                <div class="d-flex align-items-center justify-content-between pb-3 mb-3 border-bottom gap-2">
+                    <div class="d-flex align-items-center gap-2.5">
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-3 p-2 d-inline-flex flex-shrink-0">
+                            <i class="bi bi-activity fs-6"></i>
+                        </span>
+                        <div>
+                            <div class="fw-bold text-dark" style="font-size: 0.95rem; line-height: 1.25;">
                                 Aktivitas Izin Terbaru
-                            </h5>
+                            </div>
+                            <div class="text-muted" style="font-size: 0.75rem;">
+                                Pengajuan izin guru terbaru di semua tahap persetujuan.
+                            </div>
                         </div>
-                        <p class="text-muted mb-0 text-xs mt-1">
-                            Pengajuan izin guru terbaru di semua tahap persetujuan.
-                        </p>
                     </div>
                 </div>
 
-                <div class="card-body p-0 flex-grow-1">
+                {{-- Body Card --}}
+                <div class="flex-grow-1 d-flex flex-column justify-content-center">
                     @if($aktivitasTerbaru->isEmpty())
-                        <div class="text-center py-5 px-3">
-                            <div class="rounded-circle bg-secondary-subtle text-secondary d-inline-flex align-items-center justify-content-center mb-2" style="width: 46px; height: 46px;">
-                                <i class="bi bi-inbox fs-4"></i>
+                        <div class="text-center py-4 px-3 my-auto">
+                            <div class="rounded-circle bg-secondary-subtle text-secondary border border-secondary-subtle d-inline-flex align-items-center justify-content-center mb-2" style="width: 38px; height: 38px; font-size: 1.1rem;">
+                                <i class="bi bi-inbox"></i>
                             </div>
-                            <h6 class="fw-bold text-dark mb-1">Belum ada aktivitas izin guru.</h6>
-                            <p class="text-muted text-xs mb-0">Riwayat pengajuan izin akan tampil di sini.</p>
+                            <div class="fw-semibold text-dark mb-0.5" style="font-size: 0.875rem;">Belum ada aktivitas izin guru.</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">Riwayat pengajuan izin akan tampil di sini.</div>
                         </div>
                     @else
-                        <ul class="list-group list-group-flush">
+                        <div class="d-flex flex-column gap-2">
                             @foreach($aktivitasTerbaru as $izin)
-                                <li class="list-group-item px-3.5 py-3">
-                                    <div class="d-flex align-items-start gap-2">
-                                        <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0 {{ in_array($izin->status, [\App\Models\IzinGuru::STATUS_DISETUJUI]) ? 'bg-success-subtle text-success' : (in_array($izin->status, [\App\Models\IzinGuru::STATUS_DITOLAK]) ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning-emphasis') }}" style="width: 34px; height: 34px; font-size: 0.78rem;">
-                                            {{ strtoupper(substr($izin->user?->nama ?? 'G', 0, 1)) }}
+                                <div class="p-2 rounded-3 bg-light d-flex align-items-center gap-2.5">
+                                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0 {{ in_array($izin->status, [\App\Models\IzinGuru::STATUS_DISETUJUI]) ? 'bg-success-subtle text-success' : (in_array($izin->status, [\App\Models\IzinGuru::STATUS_DITOLAK]) ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning-emphasis') }}" style="width: 30px; height: 30px; font-size: 0.75rem;">
+                                        {{ strtoupper(substr($izin->user?->nama ?? 'G', 0, 1)) }}
+                                    </div>
+                                    <div class="flex-grow-1 min-w-0">
+                                        <div class="d-flex align-items-center justify-content-between gap-2">
+                                            <span class="fw-semibold text-dark text-truncate" style="font-size: 0.83rem;">{{ $izin->user?->nama ?? 'Guru Tidak Ditemukan' }}</span>
+                                            <span class="badge {{ $izin->status_badge }} px-2 py-0.5 rounded-pill text-2xs flex-shrink-0">{{ $izin->status_label }}</span>
                                         </div>
-                                        <div class="flex-grow-1 min-w-0">
-                                            <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                                                <span class="fw-semibold text-dark text-xs">{{ $izin->user?->nama ?? 'Guru Tidak Ditemukan' }}</span>
-                                                <span class="badge {{ $izin->status_badge }} px-2 py-1 rounded-pill text-2xs">{{ $izin->status_label }}</span>
-                                            </div>
-                                            <div class="text-muted text-2xs mt-1">
-                                                {{ $izin->tanggal->translatedFormat('d F Y') }} &bull; {{ $izin->kategori_izin_label }}
-                                            </div>
+                                        <div class="text-muted text-2xs">
+                                            {{ $izin->tanggal->translatedFormat('d F Y') }} &bull; {{ $izin->kategori_izin_label }}
                                         </div>
                                     </div>
-                                </li>
+                                </div>
                             @endforeach
-                        </ul>
+                        </div>
                     @endif
                 </div>
 
-                <div class="card-footer bg-white border-top py-2.5 px-3.5 d-flex align-items-center justify-content-between text-xs">
+                {{-- Footer Card --}}
+                <div class="mt-auto pt-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-2" style="font-size: 0.75rem;">
                     <span class="text-muted">Lihat detail lengkap & filter di modul rekap</span>
                     <a href="{{ route('kepsek.rekap-izin') }}" class="text-primary text-decoration-none fw-semibold">
                         Buka Rekap Izin &rarr;

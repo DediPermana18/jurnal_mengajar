@@ -98,17 +98,20 @@
                         </td>
                         <td class="whitespace-nowrap"><span class="badge {{ $guru->is_active ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis' }} rounded-pill px-3 py-2">{{ $guru->is_active ? 'Aktif' : 'Nonaktif' }}</span></td>
                         <td class="text-end whitespace-nowrap">
-                            @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
+                            @if(in_array(auth()->user()->sub_role, ['super_admin', 'petugas_tu']))
+                                {{-- Render tombol Edit, Reset Password, Disable, Hapus (Hanya untuk sub_role: super_admin dan petugas_tu) --}}
                                 <div class="flex items-center justify-center gap-2 whitespace-nowrap">
-                                <a href="{{ route('admin.guru.edit', $guru->id) }}" class="btn btn-sm btn-outline-warning rounded-3" title="Edit guru"><i class="bi bi-pencil-square"></i></a>
-                                <form action="{{ route('guru.reset-password', $guru->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Reset password guru ini ke password default?')">@csrf<button type="submit" class="btn btn-sm btn-outline-info rounded-3" title="Reset password"><i class="bi bi-key"></i></button></form>
-                                @if(!$guru->is_active)
-                                    <form action="{{ route('guru.approve', $guru->id) }}" method="POST" class="d-inline">@csrf<button type="submit" class="btn btn-sm btn-outline-success rounded-3" title="Aktifkan guru"><i class="bi bi-check-circle"></i></button></form>
-                                @else
-                                    <form action="{{ route('guru.toggle-status', $guru->id) }}" method="POST" class="d-inline">@csrf<button type="submit" class="btn btn-sm btn-outline-secondary rounded-3" title="Nonaktifkan guru"><i class="bi bi-slash-circle"></i></button></form>
-                                @endif
-                                <form action="{{ route('guru.destroy', $guru->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus data guru ini?')">@csrf @method('DELETE')<button type="submit" class="btn btn-sm btn-outline-danger rounded-3" title="Hapus guru"><i class="bi bi-trash"></i></button></form>
+                                    <a href="{{ route('admin.guru.edit', $guru->id) }}" class="btn btn-sm btn-outline-warning rounded-3" title="Edit guru"><i class="bi bi-pencil-square"></i></a>
+                                    <form action="{{ route('guru.reset-password', $guru->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Reset password guru ini ke password default?')">@csrf<button type="submit" class="btn btn-sm btn-outline-info rounded-3" title="Reset password"><i class="bi bi-key"></i></button></form>
+                                    @if(!$guru->is_active)
+                                        <form action="{{ route('guru.approve', $guru->id) }}" method="POST" class="d-inline">@csrf<button type="submit" class="btn btn-sm btn-outline-success rounded-3" title="Aktifkan guru"><i class="bi bi-check-circle"></i></button></form>
+                                    @else
+                                        <form action="{{ route('guru.toggle-status', $guru->id) }}" method="POST" class="d-inline">@csrf<button type="submit" class="btn btn-sm btn-outline-secondary rounded-3" title="Nonaktifkan guru"><i class="bi bi-slash-circle"></i></button></form>
+                                    @endif
+                                    <form action="{{ route('guru.destroy', $guru->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus data guru ini?')">@csrf @method('DELETE')<button type="submit" class="btn btn-sm btn-outline-danger rounded-3" title="Hapus guru"><i class="bi bi-trash"></i></button></form>
                                 </div>
+                            @else
+                                <span class="text-xs text-slate-400 italic">Read Only</span>
                             @endif
                         </td>
                     </tr>
@@ -187,7 +190,8 @@
                 </div>
 
                 {{-- Footer Card / Aksi --}}
-                @if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
+                @if(in_array(auth()->user()->sub_role, ['super_admin', 'petugas_tu']))
+                    {{-- Render tombol Edit, Reset Password, Disable, Hapus (Hanya untuk sub_role: super_admin dan petugas_tu) --}}
                     <div class="d-flex flex-wrap gap-2 pt-3 mt-3 border-top">
                         <a href="{{ route('admin.guru.edit', $guru->id) }}" class="btn btn-sm btn-outline-warning rounded-3 flex-fill" title="Edit guru"><i class="bi bi-pencil-square me-1"></i> Edit</a>
                         <form action="{{ route('guru.reset-password', $guru->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Reset password guru ini ke password default?')">@csrf<button type="submit" class="btn btn-sm btn-outline-info rounded-3" title="Reset password"><i class="bi bi-key"></i></button></form>
@@ -197,6 +201,10 @@
                             <form action="{{ route('guru.toggle-status', $guru->id) }}" method="POST" class="d-inline">@csrf<button type="submit" class="btn btn-sm btn-outline-secondary rounded-3" title="Nonaktifkan guru"><i class="bi bi-slash-circle"></i></button></form>
                         @endif
                         <form action="{{ route('guru.destroy', $guru->id) }}" method="POST" class="d-inline flex-fill" onsubmit="return confirm('Hapus data guru ini?')">@csrf @method('DELETE')<button type="submit" class="btn btn-sm btn-outline-danger rounded-3 w-100" title="Hapus guru"><i class="bi bi-trash me-1"></i> Hapus</button></form>
+                    </div>
+                @else
+                    <div class="pt-3 mt-3 border-top">
+                        <span class="text-xs text-slate-400 italic">Read Only</span>
                     </div>
                 @endif
             </div>

@@ -31,10 +31,10 @@
 @endpush
 
 @section('content')
-<div class="container-fluid px-0">
+<div class="container-fluid p-4">
 
     {{-- Page Header --}}
-    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3 pt-1">
         <div>
             <div class="d-flex align-items-center gap-2 mb-1">
                 <a href="{{ route('waka-sdm.dashboard') }}" class="text-decoration-none text-muted text-xs d-flex align-items-center gap-1">
@@ -183,7 +183,7 @@
             </div>
             <div class="d-flex align-items-center gap-2 text-xs">
                 <span class="badge bg-light text-dark border">
-                    Total: {{ count($dataRekap) }} Guru Terdaftar
+                    Total: {{ (isset($gurus) && $gurus instanceof \Illuminate\Pagination\LengthAwarePaginator) ? $gurus->total() : count($dataRekap) }} Guru Terdaftar
                 </span>
             </div>
         </div>
@@ -207,10 +207,10 @@
                 <tbody>
                     @forelse($dataRekap as $index => $item)
                         <tr>
-                            <td class="text-center text-muted fw-semibold">{{ $index + 1 }}</td>
+                            <td class="text-center text-muted fw-semibold">{{ (isset($gurus) && $gurus instanceof \Illuminate\Pagination\LengthAwarePaginator && $gurus->firstItem()) ? ($loop->iteration + $gurus->firstItem() - 1) : ($index + 1) }}</td>
                             <td>
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center fw-bold" style="width: 32px; height: 32px; font-size: 0.75rem;">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm shrink-0">
                                         {{ strtoupper(substr($item->guru->nama, 0, 1)) }}
                                     </div>
                                     <div>
@@ -311,6 +311,17 @@
                 @endif
             </table>
         </div>
+
+        @if(isset($gurus) && $gurus instanceof \Illuminate\Pagination\LengthAwarePaginator && $gurus->hasPages())
+            <div class="card-footer bg-white border-top py-3 px-3.5 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="text-xs text-muted">
+                    Menampilkan <strong>{{ $gurus->firstItem() }}</strong> - <strong>{{ $gurus->lastItem() }}</strong> dari <strong>{{ $gurus->total() }}</strong> Guru
+                </div>
+                <div>
+                    {{ $gurus->links() }}
+                </div>
+            </div>
+        @endif
     </div>
 
 </div>
