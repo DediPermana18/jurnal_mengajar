@@ -179,8 +179,9 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse($daftarJurnal as $idx => $jurnal)
+                @forelse($daftarJurnal as $idx => $item)
                     @php
+                        $jurnal = $item->jurnal;
                         $jadwal = $jurnal->jadwalPelajaran;
                     @endphp
                     <tr>
@@ -189,7 +190,7 @@
                             {{ $jurnal->tanggal->translatedFormat('d/m/Y') }}
                             <div class="text-muted" style="font-size:9px;">{{ $jurnal->tanggal->translatedFormat('l') }}</div>
                         </td>
-                        <td class="text-center">ke-{{ $jadwal?->jam?->jam_ke ?? '-' }}</td>
+                        <td class="text-center">{{ $item->label_jam }}</td>
                         <td>{{ $jadwal?->kelas?->nama_kelas_lengkap ?? $jadwal?->kelas?->nama_kelas ?? '-' }}</td>
                         <td>
                             {{ $jurnal->guru?->nama ?? $jadwal?->guru?->nama ?? '-' }}

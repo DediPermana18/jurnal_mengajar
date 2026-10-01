@@ -9,17 +9,23 @@ class NotificationController extends Controller
 {
     /**
      * Daftar notifikasi untuk user yang sedang login (terbaru dulu).
+     * Notifikasi difilter berdasarkan role/jabatan user (misal: Waka Kesiswaan tidak melihat notifikasi izin guru).
      */
     public function index()
     {
-        $notifications = Auth::user()
-            ->notifications()
+        $user = Auth::user();
+        if (! $user) {
+            return response()->json(['notifications' => [], 'unread_count' => 0]);
+        }
+
+        $notifications = $user
+            ->scopedNotifications()
             ->latest()
             ->limit(50)
             ->get();
 
-        $unreadCount = Auth::user()
-            ->unreadNotifications()
+        $unreadCount = $user
+            ->scopedUnreadNotifications()
             ->count();
 
         if (request()->wantsJson()) {
@@ -46,8 +52,9 @@ class NotificationController extends Controller
      */
     public function markRead(Request $request, $id)
     {
-        $notification = Auth::user()
-            ->notifications()
+        $user = Auth::user();
+        $notification = $user
+            ?->scopedNotifications()
             ->where('id', $id)
             ->first();
 
@@ -67,7 +74,10 @@ class NotificationController extends Controller
      */
     public function markAllRead()
     {
-        Auth::user()->unreadNotifications->markAsRead();
+        $user = Auth::user();
+        if ($user) {
+            $user->scopedUnreadNotifications()->get()->markAsRead();
+        }
 
         if (request()->wantsJson()) {
             return response()->json(['success' => true, 'unread_count' => 0]);
@@ -81,7 +91,8 @@ class NotificationController extends Controller
      */
     public function unreadCount()
     {
-        $count = Auth::user()->unreadNotifications()->count();
+        $user = Auth::user();
+        $count = $user ? $user->scopedUnreadNotifications()->count() : 0;
 
         return response()->json(['unread_count' => $count]);
     }

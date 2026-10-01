@@ -121,6 +121,67 @@ class WaliKelasRekapRiwayatTest extends TestCase
             ->assertSee('X IPA 1');
     }
 
+    public function test_rekap_absen_mengakumulasi_terlambat_ke_kolom_hadir_dan_menampilkan_badge(): void
+    {
+        $wali = $this->makeWaliKelas();
+
+        $kelas = Kelas::create([
+            'nama_kelas' => 'X IPA 1',
+            'tingkat' => 'X',
+            'id_wali_kelas' => $wali->id,
+        ]);
+
+        $siswa = Siswa::create([
+            'nisn' => '0000000999',
+            'nis' => '23999',
+            'nama' => 'Siswa Terlambat Test',
+            'jenis_kelamin' => 'L',
+            'id_kelas' => $kelas->id,
+        ]);
+
+        $guru = User::create([
+            'nama' => 'Guru Mapel',
+            'username' => 'gurumapel'.Str::random(4),
+            'password' => bcrypt('password'),
+            'role' => 'guru',
+            'is_active' => true,
+        ]);
+
+        [$jadwal] = $this->makeJadwal($wali, $guru, $kelas);
+
+        $jurnal1 = Jurnal::create([
+            'id_jadwal' => $jadwal->id,
+            'tanggal' => '2026-08-10',
+            'materi' => 'Matriks 1',
+            'id_guru' => $guru->id,
+            'status_kehadiran' => 'Hadir',
+        ]);
+        $jurnal2 = Jurnal::create([
+            'id_jadwal' => $jadwal->id,
+            'tanggal' => '2026-08-11',
+            'materi' => 'Matriks 2',
+            'id_guru' => $guru->id,
+            'status_kehadiran' => 'Hadir',
+        ]);
+
+        // 1 Hadir murni, 1 Terlambat -> Total HADIR harus 2, Terlambat 1
+        AbsensiJurnal::create(['id_jurnal' => $jurnal1->id, 'id_siswa' => $siswa->id, 'status' => 'Hadir']);
+        AbsensiJurnal::create(['id_jurnal' => $jurnal2->id, 'id_siswa' => $siswa->id, 'status' => 'Terlambat']);
+
+        $response = $this->actingAs($wali)
+            ->get(route('walikelas.rekap-absen'));
+
+        $response->assertOk()
+            ->assertSee('Siswa Terlambat Test')
+            ->assertSee('1 Terlambat');
+
+        $rekapAbsen = $response->viewData('rekapAbsen');
+        $row = $rekapAbsen->firstWhere('siswa.id', $siswa->id);
+
+        $this->assertEquals(2, $row['hadir']);
+        $this->assertEquals(1, $row['terlambat']);
+    }
+
     protected function siswaLain(Kelas $kelas): int
     {
         $s = Siswa::create([

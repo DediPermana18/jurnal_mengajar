@@ -4,25 +4,60 @@
 
 @push('styles')
 <style>
-    /* Layout vertikal: 1 hari = 1 card full-width, berurutan Senin-Jumat */
-    .jadwal-piket-stack {
-        display: flex;
-        flex-direction: column;
-        gap: 1.25rem;
+    /* Sub-Tab Hari Nav Pills Styling */
+    .piket-day-pill {
+        color: #475569;
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        font-size: 0.875rem;
+        transition: all 0.2s ease-in-out;
+    }
+    .piket-day-pill:hover {
+        color: #0f172a;
+        background-color: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+    .piket-day-pill.active {
+        color: #ffffff !important;
+        background-color: #2563eb !important;
+        border-color: #2563eb !important;
+        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25), 0 2px 4px -2px rgba(37, 99, 235, 0.15);
+    }
+    .piket-day-pill .badge-count {
+        background-color: #e2e8f0;
+        color: #475569;
+    }
+    .piket-day-pill.active .badge-count {
+        background-color: rgba(255, 255, 255, 0.25);
+        color: #ffffff;
     }
 
-    /* Highlight card hari ini */
-    .ring-active {
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.55);
+    /* Badge HARI INI: Kontras tinggi saat aktif (amber/slate) dan subtle saat tidak aktif (blue-100/700) */
+    .piket-day-pill .badge-hari-ini {
+        background-color: #dbeafe !important;
+        color: #1d4ed8 !important;
+        font-weight: 700;
+        font-size: 0.65rem;
+        padding: 0.2rem 0.45rem;
+        border-radius: 0.375rem;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        line-height: 1;
+    }
+    .piket-day-pill.active .badge-hari-ini {
+        background-color: #fbbf24 !important;
+        color: #0f172a !important;
+        font-weight: 800;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     /* Style dasar badge kategori / grup shift */
     .shift-badge {
-        font-size: 0.7rem;
-        padding: 0.3rem 0.65rem;
+        font-size: 0.725rem;
+        padding: 0.35rem 0.75rem;
         border-radius: 999px;
-        font-weight: 700;
-        letter-spacing: 0.02em;
+        font-weight: 600;
+        letter-spacing: 0.01em;
         white-space: nowrap;
     }
 </style>
@@ -103,31 +138,68 @@
         </div>
     @endif
 
-    {{-- Daftar Jadwal Hari (Senin - Jumat) — Layout Vertikal 1 Kolom --}}
-    <div class="jadwal-piket-stack mb-4">
-        @php
-            $dayColors = [
-                'Senin'  => ['bg' => '#eff6ff', 'border' => '#bfdbfe', 'icon' => 'bi-calendar-event'],
-                'Selasa' => ['bg' => '#f0fdf4', 'border' => '#bbf7d0', 'icon' => 'bi-calendar-event'],
-                'Rabu'   => ['bg' => '#fefce8', 'border' => '#fef08a', 'icon' => 'bi-calendar-event'],
-                'Kamis'  => ['bg' => '#faf5ff', 'border' => '#e9d5ff', 'icon' => 'bi-calendar-event'],
-                'Jumat'  => ['bg' => '#ecfeff', 'border' => '#a5f3fc', 'icon' => 'bi-calendar-event'],
-            ];
+    @php
+        $dayColors = [
+            'Senin'  => ['bg' => '#eff6ff', 'border' => '#bfdbfe', 'icon' => 'bi-calendar-event'],
+            'Selasa' => ['bg' => '#f0fdf4', 'border' => '#bbf7d0', 'icon' => 'bi-calendar-event'],
+            'Rabu'   => ['bg' => '#fefce8', 'border' => '#fef08a', 'icon' => 'bi-calendar-event'],
+            'Kamis'  => ['bg' => '#faf5ff', 'border' => '#e9d5ff', 'icon' => 'bi-calendar-event'],
+            'Jumat'  => ['bg' => '#ecfeff', 'border' => '#a5f3fc', 'icon' => 'bi-calendar-event'],
+        ];
 
-            // Cek hari ini
-            $mapHariIni = [
-                'Monday'    => 'Senin',
-                'Tuesday'   => 'Selasa',
-                'Wednesday' => 'Rabu',
-                'Thursday'  => 'Kamis',
-                'Friday'    => 'Jumat',
-                'Sunday'    => 'Minggu',
-            ];
-            $hariIni = $mapHariIni[\Carbon\Carbon::now()->format('l')] ?? '';
-        @endphp
+        // Cek hari ini
+        $mapHariIni = [
+            'Monday'    => 'Senin',
+            'Tuesday'   => 'Selasa',
+            'Wednesday' => 'Rabu',
+            'Thursday'  => 'Kamis',
+            'Friday'    => 'Jumat',
+        ];
+        $hariIni = $mapHariIni[\Carbon\Carbon::now()->format('l')] ?? '';
+        $hariArray = is_array($hariList) ? $hariList : $hariList->toArray();
+        $defaultActiveHari = in_array($hariIni, $hariArray) ? $hariIni : ($hariArray[0] ?? 'Senin');
+    @endphp
 
+    {{-- Sub-Tab Nav Pills Hari (Senin - Jumat) --}}
+    <div class="card border-0 shadow-sm rounded-4 p-2 mb-4 bg-white">
+        <ul class="nav nav-pills nav-fill flex-wrap gap-2" id="piketHariTab" role="tablist">
+            @foreach($hariList as $hari)
+                @php
+                    $isActive = ($hari === $defaultActiveHari);
+                    $isToday = ($hari === $hariIni);
+                    $countPetugas = ($jadwalByHari[$hari] ?? collect())->count();
+                    $slugHari = strtolower($hari);
+                @endphp
+                <li class="nav-item flex-grow-1" role="presentation">
+                    <button class="nav-link w-100 rounded-3 py-2.5 px-3 font-semibold d-flex align-items-center justify-content-center gap-1.5 piket-day-pill {{ $isActive ? 'active' : '' }}"
+                            id="tab-{{ $slugHari }}"
+                            data-bs-toggle="pill"
+                            data-bs-target="#content-{{ $slugHari }}"
+                            type="button"
+                            role="tab"
+                            aria-controls="content-{{ $slugHari }}"
+                            aria-selected="{{ $isActive ? 'true' : 'false' }}">
+                        <span>{{ $hari }}</span>
+                        @if($isToday)
+                            <span class="badge badge-hari-ini">
+                                HARI INI
+                            </span>
+                        @endif
+                        <span class="badge badge-count rounded-pill" style="font-size: 0.72rem;">
+                            {{ $countPetugas }}
+                        </span>
+                    </button>
+                </li>
+            @endforeach
+        </ul>
+    </div>
+
+    {{-- Tab Content Hari --}}
+    <div class="tab-content jadwal-piket-stack mb-4" id="piketHariTabContent">
         @foreach($hariList as $hari)
             @php
+                $isActive = ($hari === $defaultActiveHari);
+                $slugHari = strtolower($hari);
                 $petugasHariIni = $jadwalByHari[$hari] ?? collect();
                 $color = $dayColors[$hari] ?? ['bg' => '#f8fafc', 'border' => '#e2e8f0', 'icon' => 'bi-calendar-event'];
                 $isToday = ($hari === $hariIni);
@@ -135,14 +207,31 @@
                 // ===== Pengelompokan data per kategori (format SK + shift dinamis) =====
                 $wakaHariIni       = $petugasHariIni->whereNotNull('waka_user_id');
                 $koorPagiHariIni   = $petugasHariIni->whereNotNull('koordinator_pagi_user_id');
-                $petugasPagiSk     = $petugasHariIni->whereNotNull('petugas_pagi_user_id');
                 $koorSiangHariIni  = $petugasHariIni->whereNotNull('koordinator_siang_user_id');
-                $petugasSiangSk    = $petugasHariIni->whereNotNull('petugas_siang_user_id');
 
-                // Petugas berbasis shift (user_id + shift_id)
+                // Kumpulkan ID koordinator pagi & siang agar bisa dikecualikan
+                // dari daftar petugas — mencegah nama koordinator muncul dua kali.
+                $koorPagiIds  = $koorPagiHariIni->pluck('koordinator_pagi_user_id')->filter()->unique()->values()->all();
+                $koorSiangIds = $koorSiangHariIni->pluck('koordinator_siang_user_id')->filter()->unique()->values()->all();
+
+                // Petugas SK (format kolom dedikasi), dikecualikan koordinator.
+                $petugasPagiSk  = $petugasHariIni
+                    ->whereNotNull('petugas_pagi_user_id')
+                    ->filter(fn ($r) => ! in_array($r->petugas_pagi_user_id, $koorPagiIds, true));
+                $petugasSiangSk = $petugasHariIni
+                    ->whereNotNull('petugas_siang_user_id')
+                    ->filter(fn ($r) => ! in_array($r->petugas_siang_user_id, $koorSiangIds, true));
+
+                // Petugas berbasis shift (user_id + shift_id),
+                // dikecualikan juga bila user adalah koordinator pagi/siang.
+                $allKoorIds = array_unique(array_merge($koorPagiIds, $koorSiangIds));
                 $shiftRows = $petugasHariIni->whereNotNull('shift_id');
-                $petugasPagiShift = $shiftRows->filter(fn ($r) => str_starts_with(strtolower((string) optional($r->shift)->nama), 'pagi'));
-                $petugasSiangShift = $shiftRows->filter(fn ($r) => str_starts_with(strtolower((string) optional($r->shift)->nama), 'siang'));
+                $petugasPagiShift  = $shiftRows
+                    ->filter(fn ($r) => str_starts_with(strtolower((string) optional($r->shift)->nama), 'pagi')
+                        && ! in_array($r->user_id, $allKoorIds, true));
+                $petugasSiangShift = $shiftRows
+                    ->filter(fn ($r) => str_starts_with(strtolower((string) optional($r->shift)->nama), 'siang')
+                        && ! in_array($r->user_id, $allKoorIds, true));
 
                 // Shift di luar Pagi/Siang (jika sekolah punya shift lain)
                 $rowsShiftLain = $shiftRows
@@ -150,27 +239,25 @@
                         || str_starts_with(strtolower((string) optional($r->shift)->nama), 'siang'))
                     ->groupBy(fn ($r) => optional($r->shift)->nama ?? 'Lainnya');
 
-                // ===== Pengelompokan visual: Grup Pagi (cerah/hangat) vs Grup Siang (redup/gelap) =====
-                // Kontras warna sengaja dibuat berbeda: Pagi memakai aksen terang/hangat
-                // (amber/sky), Siang memakai aksen lebih gelap/redup (indigo/slate).
+                // ===== Pengelompokan visual: Grup Pagi vs Grup Siang (Soft Badges & Clean Spacing) =====
                 $groups = collect([
                     [
                         'title'    => 'SHIFT PAGI',
                         'icon'     => 'bi-sun-fill',
-                        'header'   => 'bg-amber-500 text-white',
-                        'wrapper'  => 'bg-amber-50/50 border-amber-300',
+                        'header'   => 'bg-amber-100/80 text-amber-800 border border-amber-200/80',
+                        'wrapper'  => 'bg-amber-50/20 border border-amber-200/60',
                         'sections' => collect([
                             [
                                 'label'  => 'Koordinator Pagi',
                                 'icon'   => 'bi-flag-fill',
-                                'badge'  => 'bg-sky-600 text-white',
+                                'badge'  => 'bg-sky-50 text-sky-700 border border-sky-200/80',
                                 'rows'   => $koorPagiHariIni,
                                 'person' => fn ($row) => $row->koordinatorPagi,
                             ],
                             [
                                 'label'  => 'Petugas Pagi',
                                 'icon'   => 'bi-sun-fill',
-                                'badge'  => 'bg-sky-500 text-white',
+                                'badge'  => 'bg-blue-50 text-blue-700 border border-blue-200/80',
                                 'rows'   => $petugasPagiSk->merge($petugasPagiShift),
                                 'person' => fn ($row) => $row->petugas_pagi_user_id ? $row->petugasPagi : $row->user,
                             ],
@@ -179,20 +266,20 @@
                     [
                         'title'    => 'SHIFT SIANG',
                         'icon'     => 'bi-moon-stars-fill',
-                        'header'   => 'bg-slate-700 text-slate-200',
-                        'wrapper'  => 'bg-slate-50 border-slate-300',
+                        'header'   => 'bg-indigo-100/80 text-indigo-800 border border-indigo-200/80',
+                        'wrapper'  => 'bg-indigo-50/20 border border-indigo-200/60',
                         'sections' => collect([
                             [
                                 'label'  => 'Koordinator Siang',
                                 'icon'   => 'bi-moon-stars-fill',
-                                'badge'  => 'bg-indigo-900 text-slate-200',
+                                'badge'  => 'bg-indigo-50 text-indigo-700 border border-indigo-200/80',
                                 'rows'   => $koorSiangHariIni,
                                 'person' => fn ($row) => $row->koordinatorSiang,
                             ],
                             [
                                 'label'  => 'Petugas Siang',
                                 'icon'   => 'bi-moon-fill',
-                                'badge'  => 'bg-slate-700 text-slate-200',
+                                'badge'  => 'bg-slate-100 text-slate-700 border border-slate-200/80',
                                 'rows'   => $petugasSiangSk->merge($petugasSiangShift),
                                 'person' => fn ($row) => $row->petugas_siang_user_id ? $row->petugasSiang : $row->user,
                             ],
@@ -205,12 +292,12 @@
                     $groups->push([
                         'title'    => 'SHIFT LAINNYA',
                         'icon'     => 'bi-people-fill',
-                        'header'   => 'bg-slate-500 text-white',
-                        'wrapper'  => 'bg-gray-50 border-gray-200',
+                        'header'   => 'bg-gray-100 text-gray-700 border border-gray-200',
+                        'wrapper'  => 'bg-gray-50/40 border border-gray-200',
                         'sections' => collect($rowsShiftLain->map(fn ($groupRows, $namaShift) => [
                             'label'  => 'Petugas '.$namaShift,
                             'icon'   => 'bi-people-fill',
-                            'badge'  => 'bg-slate-400 text-white',
+                            'badge'  => 'bg-gray-100 text-gray-700 border border-gray-200',
                             'rows'   => $groupRows,
                             'person' => fn ($row) => $row->user,
                         ])->values()),
@@ -218,227 +305,237 @@
                 }
             @endphp
 
-            {{-- Card Hari — Full Width --}}
-            <div class="card w-100 border-0 shadow-sm rounded-4 overflow-hidden {{ $isToday ? 'ring-active' : '' }}"
-                 style="background: #ffffff; border: 1px solid {{ $isToday ? '#3b82f6' : '#e2e8f0' }} !important;">
+            <div class="tab-pane fade {{ $isActive ? 'show active' : '' }}"
+                 id="content-{{ $slugHari }}"
+                 role="tabpanel"
+                 aria-labelledby="tab-{{ $slugHari }}">
 
-                {{-- Card Header: Hari di kiri, Aksi Edit/Kelola di kanan --}}
-                <div class="card-header border-0 pb-0 pt-4 px-4 bg-transparent d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="rounded-3 d-flex align-items-center justify-content-center"
-                             style="width: 40px; height: 40px; background: {{ $color['bg'] }}; color: #334155; border: 1px solid {{ $color['border'] }};">
-                            <i class="bi {{ $color['icon'] }} fs-5"></i>
-                        </div>
-                        <div>
-                            <div class="d-flex align-items-center gap-2">
-                                <h5 class="fw-bold mb-0 text-dark">{{ $hari }}</h5>
-                                @if($isToday)
-                                    <span class="badge bg-primary rounded-pill px-2 py-1" style="font-size: 0.68rem;">
-                                        <i class="bi bi-clock-history me-1"></i>HARI INI
-                                    </span>
-                                @endif
+                {{-- Card Hari --}}
+                <div class="card w-100 border-0 shadow-sm rounded-4 overflow-hidden"
+                     style="background: #ffffff; border: 1px solid #e2e8f0 !important;">
+
+                    {{-- Card Header: Hari di kiri, Aksi Edit/Kelola di kanan --}}
+                    <div class="card-header border-0 pb-0 pt-4 px-4 bg-transparent d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="rounded-3 d-flex align-items-center justify-content-center"
+                                 style="width: 40px; height: 40px; background: {{ $color['bg'] }}; color: #334155; border: 1px solid {{ $color['border'] }};">
+                                <i class="bi {{ $color['icon'] }} fs-5"></i>
                             </div>
-                            <span class="text-muted" style="font-size: 0.78rem;">
-                                {{ $petugasHariIni->count() }} Guru Bertugas &bull; Minggu ke-{{ $mingguKe }}
-                            </span>
+                            <div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <h5 class="fw-bold mb-0 text-dark">{{ $hari }}</h5>
+                                    @if($isToday)
+                                        <span class="badge bg-primary rounded-pill px-2 py-1" style="font-size: 0.68rem;">
+                                            <i class="bi bi-clock-history me-1"></i>HARI INI
+                                        </span>
+                                    @endif
+                                </div>
+                                <span class="text-muted" style="font-size: 0.78rem;">
+                                    {{ $petugasHariIni->count() }} Guru Bertugas &bull; Minggu ke-{{ $mingguKe }}
+                                </span>
+                            </div>
                         </div>
-                    </div>
 
-                    @if($canManage)
-                    <div class="d-flex align-items-center gap-2">
-                        <a href="{{ route('kurikulum.jadwal-piket.create', ['hari' => $hari, 'minggu_ke' => $mingguKe]) }}"
-                           class="btn btn-sm btn-light border rounded-3 d-inline-flex align-items-center gap-1 px-3 shadow-none"
-                           title="Kelola Guru Piket Hari {{ $hari }}">
-                            <i class="bi bi-pencil-fill text-primary" style="font-size: 0.8rem;"></i>
-                            <span class="small fw-semibold">Kelola</span>
-                        </a>
+                        @if($canManage)
+                        <div class="d-flex align-items-center gap-2">
+                            <a href="{{ route('kurikulum.jadwal-piket.create', ['hari' => $hari, 'minggu_ke' => $mingguKe]) }}"
+                               class="btn btn-sm btn-light border rounded-3 d-inline-flex align-items-center gap-1 px-3 shadow-none"
+                               title="Kelola Guru Piket Hari {{ $hari }}">
+                                <i class="bi bi-pencil-fill text-primary" style="font-size: 0.8rem;"></i>
+                                <span class="small fw-semibold">Kelola</span>
+                            </a>
 
-                        {{-- Kosongkan seluruh penugasan piket hari ini (Minggu ke-{{ $mingguKe }}) --}}
-                        @if($petugasHariIni->isNotEmpty())
-                        <form action="{{ route('kurikulum.jadwal-piket.clear-day', ['hari' => $hari, 'minggu_ke' => $mingguKe]) }}"
-                              method="POST"
-                              class="d-inline"
-                              data-clear-day-form
-                              data-hari="{{ $hari }}"
-                              data-minggu="{{ $mingguKe }}"
-                              data-jumlah="{{ $petugasHariIni->count() }}">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit"
-                                    class="btn btn-sm btn-outline-danger border rounded-3 d-inline-flex align-items-center gap-1 px-3 shadow-none"
-                                    title="Kosongkan seluruh jadwal piket hari {{ $hari }}">
-                                <i class="bi bi-trash3 text-danger" style="font-size: 0.8rem;"></i>
-                                <span class="small fw-semibold text-danger">Kosongkan</span>
-                            </button>
-                        </form>
+                            {{-- Kosongkan seluruh penugasan piket hari ini (Minggu ke-{{ $mingguKe }}) --}}
+                            @if($petugasHariIni->isNotEmpty())
+                            <form action="{{ route('kurikulum.jadwal-piket.clear-day', ['hari' => $hari, 'minggu_ke' => $mingguKe]) }}"
+                                  method="POST"
+                                  class="d-inline"
+                                  data-clear-day-form
+                                  data-hari="{{ $hari }}"
+                                  data-minggu="{{ $mingguKe }}"
+                                  data-jumlah="{{ $petugasHariIni->count() }}">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit"
+                                        class="btn btn-sm btn-outline-danger border rounded-3 d-inline-flex align-items-center gap-1 px-3 shadow-none"
+                                        title="Kosongkan seluruh jadwal piket hari {{ $hari }}">
+                                    <i class="bi bi-trash3 text-danger" style="font-size: 0.8rem;"></i>
+                                    <span class="small fw-semibold text-danger">Kosongkan</span>
+                                </button>
+                            </form>
+                            @endif
+                        </div>
                         @endif
                     </div>
-                    @endif
-                </div>
 
-                {{-- Card Body: Kolom Informasi Petugas --}}
-                <div class="card-body px-4 py-3">
-                    @if($petugasHariIni->isEmpty())
-                        {{-- Empty State Hari (belum ada petugas sama sekali) --}}
-                        <div class="d-flex align-items-center justify-content-center text-center py-4 px-3 rounded-3"
-                             style="border: 1.5px dashed #e2e8f0; background: #fafbfc;">
-                            <div class="d-flex align-items-center gap-3 flex-wrap justify-content-center">
-                                <div class="rounded-circle bg-white border d-flex align-items-center justify-content-center flex-shrink-0"
-                                     style="width: 48px; height: 48px;">
-                                    <i class="bi bi-calendar2-x text-secondary" style="font-size: 1.4rem;"></i>
-                                </div>
-                                <div class="text-center text-sm-start">
-                                    <div class="fw-semibold text-secondary" style="font-size: 0.9rem;">
-                                        Belum ada penugasan piket hari {{ $hari }}
+                    {{-- Card Body: Kolom Informasi Petugas --}}
+                    <div class="card-body px-4 py-4">
+                        @if($petugasHariIni->isEmpty())
+                            {{-- Empty State Hari (belum ada petugas sama sekali) --}}
+                            <div class="d-flex align-items-center justify-content-center text-center py-5 px-3 rounded-4"
+                                 style="border: 1.5px dashed #e2e8f0; background: #fafbfc;">
+                                <div class="d-flex flex-column align-items-center gap-2 justify-content-center">
+                                    <div class="rounded-circle bg-white border d-flex align-items-center justify-content-center flex-shrink-0 mb-1"
+                                         style="width: 52px; height: 52px;">
+                                        <i class="bi bi-calendar2-x text-secondary" style="font-size: 1.5rem;"></i>
                                     </div>
-                                    @if($canManage)
-                                    <a href="{{ route('kurikulum.jadwal-piket.create', ['hari' => $hari, 'minggu_ke' => $mingguKe]) }}"
-                                       class="btn btn-sm btn-primary rounded-3 mt-1">
-                                        <i class="bi bi-plus-lg me-1"></i>Tambah Petugas Piket
-                                    </a>
-                                    @else
-                                    <div class="text-muted small">Belum ada guru piket yang ditugaskan.</div>
-                                    @endif
+                                    <div class="text-center">
+                                        <div class="fw-bold text-dark" style="font-size: 0.95rem;">
+                                            Belum ada penugasan piket hari {{ $hari }}
+                                        </div>
+                                        @if($canManage)
+                                        <p class="text-muted small mb-3">Tambahkan waka, koordinator, atau petugas piket untuk hari {{ $hari }}.</p>
+                                        <a href="{{ route('kurikulum.jadwal-piket.create', ['hari' => $hari, 'minggu_ke' => $mingguKe]) }}"
+                                           class="btn btn-sm btn-primary rounded-3 px-3 py-2">
+                                            <i class="bi bi-plus-lg me-1"></i>Tambah Petugas Piket
+                                        </a>
+                                        @else
+                                        <div class="text-muted small">Belum ada guru piket yang ditugaskan.</div>
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    @else
-                        {{-- Kolom info: Waka Piket (global/harian) + Grup Pagi & Siang (kontras visual) --}}
-                        <div class="d-flex flex-column gap-3">
-                            {{-- Waka Piket: penanggung jawab harian (global), DI LUAR container shift --}}
-                            @php
-                                $wakaRows    = $wakaHariIni->values();
-                                $wakaPerson  = fn ($row) => $row->waka;
-                            @endphp
-                            <div class="rounded-3 border p-3 bg-gray-100 border-gray-200">
-                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                                    <span class="shift-badge bg-amber-500 text-white d-inline-flex align-items-center gap-1">
-                                        <i class="bi bi-person-badge-fill"></i>Waka Piket
-                                    </span>
-                                    <span class="text-muted" style="font-size: 0.75rem;">
-                                        Penanggung jawab harian piket
-                                    </span>
-                                    @if($wakaRows->isNotEmpty())
-                                        <span class="text-muted ms-auto" style="font-size: 0.75rem;">{{ $wakaRows->count() }} orang</span>
-                                    @endif
-                                </div>
-
-                                @if($wakaRows->isNotEmpty())
-                                    <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2">
-                                        @foreach($wakaRows as $row)
-                                            @php
-                                                $u = $wakaPerson($row);
-                                            @endphp
-                                            <div class="d-flex align-items-center gap-2 bg-white border rounded-3 p-1.5 pe-2 min-w-0">
-                                                <span class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                                                      style="width: 32px; height: 32px; font-size: 0.68rem; font-weight: 700; color: #334155; background: #f1f5f9; border: 1px solid #e2e8f0;">
-                                                    {{ $u ? strtoupper(substr($u->nama, 0, 2)) : '?' }}
-                                                </span>
-                                                <span class="overflow-hidden flex-grow-1 min-w-0">
-                                                    <span class="d-block fw-semibold text-dark text-truncate" style="font-size: 0.78rem;"
-                                                          title="{{ $u->nama ?? '-' }}">
-                                                        {{ $u->nama ?? 'Data guru tidak ditemukan' }}
-                                                    </span>
-                                                    @if($u)
-                                                        <span class="d-block text-muted text-truncate" style="font-size: 0.68rem;">
-                                                            NIP: {{ $u->nip ?? '-' }}
-                                                        </span>
-                                                    @endif
-                                                </span>
-                                                @if($canManage)
-                                                <form action="{{ route('kurikulum.jadwal-piket.destroy', $row->id) }}" method="POST"
-                                                      onsubmit="return confirm('Hapus penugasan {{ $u->nama ?? 'guru ini' }} pada hari {{ $hari }}?')">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit"
-                                                            class="btn btn-sm btn-outline-danger border-0 rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0"
-                                                            style="width: 24px; height: 24px;" title="Hapus Penugasan">
-                                                        <i class="bi bi-x-lg" style="font-size: 0.7rem;"></i>
-                                                    </button>
-                                                </form>
-                                                @endif
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                @else
-                                    <span class="text-muted small" style="padding: 0.4rem 0;">Belum diisi</span>
-                                @endif
-                            </div>
-
-                            @foreach($groups as $group)
+                        @else
+                            {{-- Kolom info: Waka Piket (global/harian) + Grup Pagi & Siang --}}
+                            <div class="d-flex flex-column gap-4">
+                                {{-- Waka Piket: penanggung jawab harian (global) --}}
                                 @php
-                                    $groupSections = $group['sections']->values();
+                                    $wakaRows    = $wakaHariIni->values();
+                                    $wakaPerson  = fn ($row) => $row->waka;
                                 @endphp
-                                <div class="rounded-3 border p-3 {{ $group['wrapper'] }}">
+                                <div class="rounded-4 border p-3.5 bg-amber-50/40 border-amber-200/80">
                                     <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-                                        <span class="shift-badge {{ $group['header'] }} d-inline-flex align-items-center gap-1">
-                                            <i class="bi {{ $group['icon'] }}"></i>{{ $group['title'] }}
+                                        <span class="shift-badge bg-amber-50 text-amber-700 border border-amber-200/80 d-inline-flex align-items-center gap-1.5">
+                                            <i class="bi bi-person-badge-fill"></i>Waka Piket
                                         </span>
                                         <span class="text-muted" style="font-size: 0.75rem;">
-                                            {{ $group['sections']->sum(fn ($s) => $s['rows']->count()) }} guru bertugas
+                                            Penanggung jawab harian piket
                                         </span>
+                                        @if($wakaRows->isNotEmpty())
+                                            <span class="text-muted ms-auto" style="font-size: 0.75rem;">{{ $wakaRows->count() }} orang</span>
+                                        @endif
                                     </div>
 
-                                    @foreach($groupSections as $sec)
-                                        @php
-                                            $secRows = $sec['rows']->values();
-                                            $person = $sec['person'];
-                                        @endphp
-                                        <div class="{{ $loop->last ? '' : 'mb-3' }}">
-                                            <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                                                <span class="shift-badge {{ $sec['badge'] }} d-inline-flex align-items-center gap-1">
-                                                    <i class="bi {{ $sec['icon'] }}"></i>{{ $sec['label'] }}
-                                                </span>
-                                                @if($secRows->isNotEmpty())
-                                                    <span class="text-muted" style="font-size: 0.75rem;">{{ $secRows->count() }} orang</span>
-                                                @endif
-                                            </div>
-
-                                            @if($secRows->isNotEmpty())
-                                                {{-- Grid kartu guru: 2 kolom di mobile agar tidak memanjang ke bawah --}}
-                                                <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2">
-                                                    @foreach($secRows as $row)
-                                                        @php($u = $person($row))
-                                                        <div class="d-flex align-items-center gap-2 bg-white border rounded-3 p-1.5 pe-2 min-w-0">
-                                                            <span class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                                                                  style="width: 32px; height: 32px; font-size: 0.68rem; font-weight: 700; color: #334155; background: #f1f5f9; border: 1px solid #e2e8f0;">
-                                                                {{ $u ? strtoupper(substr($u->nama, 0, 2)) : '?' }}
+                                    @if($wakaRows->isNotEmpty())
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                            @foreach($wakaRows as $row)
+                                                @php
+                                                    $u = $wakaPerson($row);
+                                                @endphp
+                                                <div class="d-flex align-items-center gap-2.5 bg-white border border-gray-200/80 rounded-3 p-2 pe-2.5 min-w-0 shadow-sm" style="min-width: 0;">
+                                                    <span class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                                          style="width: 34px; height: 34px; font-size: 0.72rem; font-weight: 700; color: #334155; background: #f1f5f9; border: 1px solid #e2e8f0;">
+                                                        {{ $u ? strtoupper(substr($u->nama, 0, 2)) : '?' }}
+                                                    </span>
+                                                    <span class="overflow-hidden flex-grow-1 min-w-0" style="min-width: 0;">
+                                                        <span class="d-block fw-semibold text-dark text-truncate" style="font-size: 0.8rem;"
+                                                              title="{{ $u->nama ?? '-' }}">
+                                                            {{ $u->nama ?? 'Data guru tidak ditemukan' }}
+                                                        </span>
+                                                        @if($u)
+                                                            <span class="d-block text-muted text-truncate" style="font-size: 0.7rem;">
+                                                                NIP: {{ $u->nip ?? '-' }}
                                                             </span>
-                                                            <span class="overflow-hidden flex-grow-1 min-w-0">
-                                                                <span class="d-block fw-semibold text-dark text-truncate" style="font-size: 0.78rem;"
-                                                                      title="{{ $u->nama ?? '-' }}">
-                                                                    {{ $u->nama ?? 'Data guru tidak ditemukan' }}
-                                                                </span>
-                                                                @if($u)
-                                                                    <span class="d-block text-muted text-truncate" style="font-size: 0.68rem;">
-                                                                        NIP: {{ $u->nip ?? '-' }}
-                                                                    </span>
-                                                                @endif
-                                                            </span>
-                                                            @if($canManage)
-                                                            <form action="{{ route('kurikulum.jadwal-piket.destroy', $row->id) }}" method="POST"
-                                                                  onsubmit="return confirm('Hapus penugasan {{ $u->nama ?? 'guru ini' }} pada hari {{ $hari }}?')">
-                                                                @csrf
-                                                                @method('DELETE')
-                                                                <button type="submit"
-                                                                        class="btn btn-sm btn-outline-danger border-0 rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0"
-                                                                        style="width: 24px; height: 24px;" title="Hapus Penugasan">
-                                                                    <i class="bi bi-x-lg" style="font-size: 0.7rem;"></i>
-                                                                </button>
-                                                            </form>
-                                                            @endif
-                                                        </div>
-                                                    @endforeach
+                                                        @endif
+                                                    </span>
+                                                    @if($canManage)
+                                                    <form action="{{ route('kurikulum.jadwal-piket.destroy', $row->id) }}" method="POST"
+                                                          onsubmit="return confirm('Hapus penugasan {{ $u->nama ?? 'guru ini' }} pada hari {{ $hari }}?')">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit"
+                                                                class="btn btn-sm btn-outline-danger border-0 rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0"
+                                                                style="width: 26px; height: 26px;" title="Hapus Penugasan">
+                                                            <i class="bi bi-x-lg" style="font-size: 0.7rem;"></i>
+                                                        </button>
+                                                    </form>
+                                                    @endif
                                                 </div>
-                                            @else
-                                                <span class="text-muted small" style="padding: 0.4rem 0;">Belum diisi</span>
-                                            @endif
+                                            @endforeach
                                         </div>
-                                    @endforeach
+                                    @else
+                                        <span class="text-muted small" style="padding: 0.4rem 0;">Belum diisi</span>
+                                    @endif
                                 </div>
-                            @endforeach
-                        </div>
-                    @endif
+
+                                {{-- Shift Groups (Pagi & Siang) --}}
+                                @foreach($groups as $group)
+                                    @php
+                                        $groupSections = $group['sections']->values();
+                                    @endphp
+                                    <div class="rounded-4 border p-3.5 {{ $group['wrapper'] }}">
+                                        <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+                                            <span class="shift-badge {{ $group['header'] }} d-inline-flex align-items-center gap-1.5 fw-bold">
+                                                <i class="bi {{ $group['icon'] }}"></i>{{ $group['title'] }}
+                                            </span>
+                                            <span class="text-muted" style="font-size: 0.75rem;">
+                                                {{ $group['sections']->sum(fn ($s) => $s['rows']->count()) }} guru bertugas
+                                            </span>
+                                        </div>
+
+                                        <div class="d-flex flex-column gap-3">
+                                            @foreach($groupSections as $sec)
+                                                @php
+                                                    $secRows = $sec['rows']->values();
+                                                    $person = $sec['person'];
+                                                @endphp
+                                                <div>
+                                                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                                        <span class="shift-badge {{ $sec['badge'] }} d-inline-flex align-items-center gap-1">
+                                                            <i class="bi {{ $sec['icon'] }}"></i>{{ $sec['label'] }}
+                                                        </span>
+                                                        @if($secRows->isNotEmpty())
+                                                            <span class="text-muted" style="font-size: 0.75rem;">{{ $secRows->count() }} orang</span>
+                                                        @endif
+                                                    </div>
+
+                                                    @if($secRows->isNotEmpty())
+                                                        {{-- Responsive Grid Card Guru --}}
+                                                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                                            @foreach($secRows as $row)
+                                                                @php($u = $person($row))
+                                                                <div class="d-flex align-items-center gap-2.5 bg-white border border-gray-200/80 rounded-3 p-2 pe-2.5 min-w-0 shadow-sm" style="min-width: 0;">
+                                                                    <span class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                                                          style="width: 34px; height: 34px; font-size: 0.72rem; font-weight: 700; color: #334155; background: #f1f5f9; border: 1px solid #e2e8f0;">
+                                                                        {{ $u ? strtoupper(substr($u->nama, 0, 2)) : '?' }}
+                                                                    </span>
+                                                                    <span class="overflow-hidden flex-grow-1 min-w-0" style="min-width: 0;">
+                                                                        <span class="d-block fw-semibold text-dark text-truncate" style="font-size: 0.8rem;"
+                                                                              title="{{ $u->nama ?? '-' }}">
+                                                                            {{ $u->nama ?? 'Data guru tidak ditemukan' }}
+                                                                        </span>
+                                                                        @if($u)
+                                                                            <span class="d-block text-muted text-truncate" style="font-size: 0.7rem;">
+                                                                                NIP: {{ $u->nip ?? '-' }}
+                                                                            </span>
+                                                                        @endif
+                                                                    </span>
+                                                                    @if($canManage)
+                                                                    <form action="{{ route('kurikulum.jadwal-piket.destroy', $row->id) }}" method="POST"
+                                                                          onsubmit="return confirm('Hapus penugasan {{ $u->nama ?? 'guru ini' }} pada hari {{ $hari }}?')">
+                                                                        @csrf
+                                                                        @method('DELETE')
+                                                                        <button type="submit"
+                                                                                class="btn btn-sm btn-outline-danger border-0 rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0"
+                                                                                style="width: 26px; height: 26px;" title="Hapus Penugasan">
+                                                                            <i class="bi bi-x-lg" style="font-size: 0.7rem;"></i>
+                                                                        </button>
+                                                                    </form>
+                                                                    @endif
+                                                                </div>
+                                                            @endforeach
+                                                        </div>
+                                                    @else
+                                                        <span class="text-muted small" style="padding: 0.4rem 0;">Belum diisi</span>
+                                                    @endif
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
                 </div>
             </div>
         @endforeach

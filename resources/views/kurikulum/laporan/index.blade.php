@@ -142,7 +142,7 @@
     <div class="table-card-custom mb-4">
         <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
             <h5 class="fw-bold text-dark mb-0">Rekapitulasi KBM</h5>
-            <span class="text-muted small">Menampilkan {{ $daftarJurnal->total() }} sesi jurnal</span>
+            <span class="text-muted small">Menampilkan {{ $daftarJurnal->total() }} baris rekapitulasi (Total {{ number_format($totalJamKBM) }} sesi jam KBM)</span>
         </div>
         <div class="table-responsive w-full overflow-x-auto">
             <table class="table table-custom align-middle mb-0 min-w-full">
@@ -158,8 +158,9 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($daftarJurnal as $jurnal)
+                    @forelse($daftarJurnal as $item)
                         @php
+                            $jurnal = $item->jurnal;
                             $jadwal = $jurnal->jadwalPelajaran;
                             $statusClass = match($jurnal->status_kehadiran) {
                                 'Izin'       => 'bg-warning-subtle text-warning-emphasis border-warning-subtle',
@@ -174,12 +175,17 @@
                                 <small class="text-muted">{{ $jurnal->tanggal->translatedFormat('l') }}</small>
                             </td>
                             <td class="text-nowrap">
-                                @if($jadwal?->jam)
-                                    <span class="fw-semibold text-dark">Jam ke-{{ $jadwal->jam->jam_ke ?? '-' }}</span>
-                                    <div><small class="text-muted">{{ $jadwal->jam->rentang_waktu }}</small></div>
-                                @else
-                                    <span class="text-muted">-</span>
-                                @endif
+                                <div class="flex flex-col items-start gap-1">
+                                    <span class="font-semibold text-slate-800 text-sm">{{ $item->label_jam_ke }}</span>
+                                    @if($item->rentang_waktu)
+                                        <span class="text-xs text-slate-500">{{ $item->rentang_waktu }}</span>
+                                    @endif
+                                    @if($item->total_jam > 1)
+                                        <span class="inline-flex items-center bg-blue-50 text-blue-700 font-semibold border border-blue-200/80 px-2 py-0.5 rounded-full text-xs">
+                                            {{ $item->total_jam }} Jam KBM
+                                        </span>
+                                    @endif
+                                </div>
                             </td>
                             <td>
                                 <span class="fw-semibold text-dark">{{ $jadwal?->kelas?->nama_kelas_lengkap ?? $jadwal?->kelas?->nama_kelas ?? '-' }}</span>
@@ -227,7 +233,7 @@
         @if($daftarJurnal->hasPages())
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-4 pt-3 border-top">
                 <div class="text-muted small mb-3 mb-md-0">
-                    Menampilkan <strong>{{ $daftarJurnal->firstItem() ?? 0 }}</strong>-<strong>{{ $daftarJurnal->lastItem() ?? 0 }}</strong> dari <strong>{{ $daftarJurnal->total() }}</strong> sesi
+                    Menampilkan <strong>{{ $daftarJurnal->firstItem() ?? 0 }}</strong>-<strong>{{ $daftarJurnal->lastItem() ?? 0 }}</strong> dari <strong>{{ $daftarJurnal->total() }}</strong> baris rekapitulasi (Total {{ number_format($totalJamKBM) }} sesi jam KBM)
                 </div>
                 {{ $daftarJurnal->links() }}
             </div>

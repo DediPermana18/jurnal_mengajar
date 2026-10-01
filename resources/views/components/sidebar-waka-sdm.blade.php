@@ -5,7 +5,7 @@
     $isDataGuruActive  = request()->routeIs('guru.*') || request()->routeIs('admin.guru.*');
     $isRekapIzinActive = request()->routeIs('waka-sdm.rekap-izin*');
     $isPresensiActive  = request()->routeIs('waka-sdm.rekap-presensi-guru*') || request()->routeIs('waka-sdm.export-excel') || request()->routeIs('waka-sdm.print-presensi');
-    $isLaporanActive   = request()->routeIs('kurikulum.laporan.*') || request()->routeIs('laporan.*');
+    $isLaporanActive   = request()->is('kurikulum/laporan*') || request()->routeIs('*.laporan.*') || request()->routeIs('kurikulum.laporan*') || request()->routeIs('laporan.*');
 @endphp
 
 <!-- ================= NAVIGASI WAKA SDM ================= -->

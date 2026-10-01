@@ -127,17 +127,207 @@ class KurikulumLaporanController extends Controller
     }
 
     /**
+     * Grouping sesi KBM berturut-turut yang memiliki data identik:
+     * tanggal, kelas, guru, guru_pengganti, mapel, materi, catatan_kejadian, status_kehadiran.
+     */
+    public function groupJurnalSessions($jurnalCollection)
+    {
+        if ($jurnalCollection->isEmpty()) {
+            return collect();
+        }
+
+        // Urutkan data secara teratur berdasarkan tanggal (desc), kelas, guru, mapel, dan jam_ke (asc)
+        $sorted = $jurnalCollection->sortBy([
+            ['tanggal', 'desc'],
+            function ($a, $b) {
+                $kelasA = $a->jadwalPelajaran?->id_kelas ?? 0;
+                $kelasB = $b->jadwalPelajaran?->id_kelas ?? 0;
+                if ($kelasA !== $kelasB) {
+                    return $kelasA <=> $kelasB;
+                }
+
+                $guruA = $a->id_guru ?? $a->jadwalPelajaran?->id_guru ?? 0;
+                $guruB = $b->id_guru ?? $b->jadwalPelajaran?->id_guru ?? 0;
+                if ($guruA !== $guruB) {
+                    return $guruA <=> $guruB;
+                }
+
+                $mapelA = $a->jadwalPelajaran?->id_mapel ?? 0;
+                $mapelB = $b->jadwalPelajaran?->id_mapel ?? 0;
+                if ($mapelA !== $mapelB) {
+                    return $mapelA <=> $mapelB;
+                }
+
+                $jamA = $a->jadwalPelajaran?->jam?->jam_ke ?? 0;
+                $jamB = $b->jadwalPelajaran?->jam?->jam_ke ?? 0;
+
+                return $jamA <=> $jamB;
+            },
+        ]);
+
+        $grouped = collect();
+        $currentGroup = null;
+
+        foreach ($sorted as $jurnal) {
+            $jadwal = $jurnal->jadwalPelajaran;
+            $jam = $jadwal?->jam;
+
+            $tanggal = $jurnal->tanggal ? $jurnal->tanggal->format('Y-m-d') : '';
+            $kelasId = $jadwal?->id_kelas ?? 0;
+            $guruId = $jurnal->id_guru ?? $jadwal?->id_guru ?? 0;
+            $guruPenggantiId = $jurnal->id_guru_pengganti ?? 0;
+            $mapelId = $jadwal?->id_mapel ?? 0;
+            $materi = trim((string) $jurnal->materi);
+            $catatan = trim((string) $jurnal->catatan_kejadian);
+            $status = trim((string) $jurnal->status_kehadiran);
+            $jamKe = $jam?->jam_ke !== null ? (int) $jam->jam_ke : null;
+
+            if ($currentGroup === null) {
+                $currentGroup = [
+                    'jurnal' => $jurnal,
+                    'items' => collect([$jurnal]),
+                    'tanggal' => $tanggal,
+                    'kelas_id' => $kelasId,
+                    'guru_id' => $guruId,
+                    'guru_pengganti_id' => $guruPenggantiId,
+                    'mapel_id' => $mapelId,
+                    'materi' => $materi,
+                    'catatan' => $catatan,
+                    'status' => $status,
+                    'last_jam_ke' => $jamKe,
+                    'jam_kes' => $jamKe !== null ? [$jamKe] : [],
+                ];
+                continue;
+            }
+
+            $isSameGroup = ($currentGroup['tanggal'] === $tanggal)
+                && ($currentGroup['kelas_id'] === $kelasId)
+                && ($currentGroup['guru_id'] === $guruId)
+                && ($currentGroup['guru_pengganti_id'] === $guruPenggantiId)
+                && ($currentGroup['mapel_id'] === $mapelId)
+                && ($currentGroup['materi'] === $materi)
+                && ($currentGroup['catatan'] === $catatan)
+                && ($currentGroup['status'] === $status);
+
+            $isConsecutive = false;
+            if ($isSameGroup) {
+                if ($currentGroup['last_jam_ke'] !== null && $jamKe !== null) {
+                    if ($jamKe === $currentGroup['last_jam_ke'] + 1 || $jamKe === $currentGroup['last_jam_ke']) {
+                        $isConsecutive = true;
+                    }
+                } elseif ($currentGroup['last_jam_ke'] === null && $jamKe === null) {
+                    $isConsecutive = true;
+                }
+            }
+
+            if ($isSameGroup && $isConsecutive) {
+                $currentGroup['items']->push($jurnal);
+                $currentGroup['last_jam_ke'] = $jamKe;
+                if ($jamKe !== null && ! in_array($jamKe, $currentGroup['jam_kes'], true)) {
+                    $currentGroup['jam_kes'][] = $jamKe;
+                }
+            } else {
+                $grouped->push($this->formatGroupedRow($currentGroup));
+                $currentGroup = [
+                    'jurnal' => $jurnal,
+                    'items' => collect([$jurnal]),
+                    'tanggal' => $tanggal,
+                    'kelas_id' => $kelasId,
+                    'guru_id' => $guruId,
+                    'guru_pengganti_id' => $guruPenggantiId,
+                    'mapel_id' => $mapelId,
+                    'materi' => $materi,
+                    'catatan' => $catatan,
+                    'status' => $status,
+                    'last_jam_ke' => $jamKe,
+                    'jam_kes' => $jamKe !== null ? [$jamKe] : [],
+                ];
+            }
+        }
+
+        if ($currentGroup !== null) {
+            $grouped->push($this->formatGroupedRow($currentGroup));
+        }
+
+        return $grouped;
+    }
+
+    /**
+     * Format objek hasil grouping untuk dikirim ke view/export.
+     */
+    protected function formatGroupedRow(array $group): object
+    {
+        $items = $group['items'];
+        $first = $items->first();
+        $last = $items->last();
+
+        $firstJam = $first->jadwalPelajaran?->jam;
+        $lastJam = $last->jadwalPelajaran?->jam;
+
+        $jamMulaiStr = $firstJam?->jam_mulai ? str_replace(':', '.', substr($firstJam->jam_mulai, 0, 5)) : '';
+        $jamSelesaiStr = $lastJam?->jam_selesai ? str_replace(':', '.', substr($lastJam->jam_selesai, 0, 5)) : '';
+
+        $rentangWaktu = ($jamMulaiStr && $jamSelesaiStr) ? "({$jamMulaiStr} - {$jamSelesaiStr})" : '';
+
+        $jamKes = array_filter($group['jam_kes'], fn ($val) => $val !== null);
+        $minJamKe = ! empty($jamKes) ? min($jamKes) : null;
+        $maxJamKe = ! empty($jamKes) ? max($jamKes) : null;
+
+        $labelJamKe = '-';
+        if ($minJamKe !== null && $maxJamKe !== null) {
+            if ($minJamKe === $maxJamKe) {
+                $labelJamKe = "Jam ke-{$minJamKe}";
+            } else {
+                $labelJamKe = "Jam ke {$minJamKe} - {$maxJamKe}";
+            }
+        }
+
+        if ($labelJamKe !== '-' && $rentangWaktu !== '') {
+            $labelJam = "{$labelJamKe} {$rentangWaktu}";
+        } elseif ($labelJamKe !== '-') {
+            $labelJam = $labelJamKe;
+        } elseif ($rentangWaktu !== '') {
+            $labelJam = $rentangWaktu;
+        } else {
+            $labelJam = '-';
+        }
+
+        return (object) [
+            'jurnal' => $first,
+            'total_jam' => $items->count(),
+            'jam_ke_min' => $minJamKe,
+            'jam_ke_max' => $maxJamKe,
+            'label_jam' => $labelJam,
+            'label_jam_ke' => $labelJamKe,
+            'rentang_waktu' => $rentangWaktu,
+            'items' => $items,
+        ];
+    }
+
+    /**
      * Halaman utama Laporan KBM (rekap + ringkasan + filter).
      */
     public function index(Request $request)
     {
         [$query, $mulai, $selesai] = $this->buatQuery($request);
 
-        $daftarJurnal = (clone $query)
-            ->latest('tanggal')
-            ->latest('id')
-            ->paginate(15)
-            ->withQueryString();
+        $allJurnal = (clone $query)->latest('tanggal')->latest('id')->get();
+        $groupedCollection = $this->groupJurnalSessions($allJurnal);
+
+        $perPage = 15;
+        $currentPage = \Illuminate\Pagination\Paginator::resolveCurrentPage() ?: 1;
+        $currentItems = $groupedCollection->slice(($currentPage - 1) * $perPage, $perPage)->values();
+
+        $daftarJurnal = new \Illuminate\Pagination\LengthAwarePaginator(
+            $currentItems,
+            $groupedCollection->count(),
+            $perPage,
+            $currentPage,
+            [
+                'path' => \Illuminate\Pagination\Paginator::resolveCurrentPath(),
+                'query' => $request->query(),
+            ]
+        );
 
         $tahunAjaran = TahunAjaran::aktif();
 
@@ -155,10 +345,8 @@ class KurikulumLaporanController extends Controller
     {
         [$query, $mulai, $selesai] = $this->buatQuery($request);
 
-        $daftarJurnal = (clone $query)
-            ->latest('tanggal')
-            ->latest('id')
-            ->get();
+        $allJurnal = (clone $query)->latest('tanggal')->latest('id')->get();
+        $daftarJurnal = $this->groupJurnalSessions($allJurnal);
 
         $ringkasan = $this->hitungRingkasan($query, $mulai, $selesai);
         $tahunAjaran = TahunAjaran::aktif();
@@ -184,10 +372,8 @@ class KurikulumLaporanController extends Controller
     {
         [$query, $mulai, $selesai] = $this->buatQuery($request);
 
-        $daftarJurnal = (clone $query)
-            ->latest('tanggal')
-            ->latest('id')
-            ->get();
+        $allJurnal = (clone $query)->latest('tanggal')->latest('id')->get();
+        $daftarJurnal = $this->groupJurnalSessions($allJurnal);
 
         $ringkasan = $this->hitungRingkasan($query, $mulai, $selesai);
         $tahunAjaran = TahunAjaran::aktif();

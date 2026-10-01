@@ -64,7 +64,9 @@ function bestSidebarLink(path) {
 
         const matches = hrefPath === '/'
             ? path === '/'
-            : path === hrefPath || path.startsWith(hrefPath + '/');
+            : (path === hrefPath || path.startsWith(hrefPath + '/'))
+              || (hrefPath === '/admin/laporan' && path.startsWith('/kurikulum/laporan'))
+              || (hrefPath === '/kurikulum/laporan' && path.startsWith('/admin/laporan'));
         if (!matches) return;
 
         const isExact = path === hrefPath;

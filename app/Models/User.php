@@ -261,6 +261,41 @@ class User extends Authenticatable
     }
 
     /**
+     * Scope query database notifications yang disesuaikan dengan wewenang/role user.
+     * Waka Kesiswaan tidak membaca/menerima notifikasi pengajuan izin guru (izin_baru / izin_status).
+     */
+    public function scopedNotifications()
+    {
+        $query = $this->notifications();
+
+        if ($this->isWakaKesiswaan()) {
+            $query->where(function ($q) {
+                $q->whereNull('data->category')
+                  ->orWhereNotIn('data->category', ['izin_baru', 'izin_status']);
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Scope query database unread notifications yang disesuaikan dengan wewenang/role user.
+     */
+    public function scopedUnreadNotifications()
+    {
+        $query = $this->unreadNotifications();
+
+        if ($this->isWakaKesiswaan()) {
+            $query->where(function ($q) {
+                $q->whereNull('data->category')
+                  ->orWhereNotIn('data->category', ['izin_baru', 'izin_status']);
+            });
+        }
+
+        return $query;
+    }
+
+    /**
      * Daftar semua user yang berjabatan Waka Piket (sub-role 'waka_piket'),
      * urut nama. Waka Piket merupakan garda verifikasi tahap "Menunggu Piket"
      * bersama Guru Piket yang bertugas; ikut menerima broadcast WA quick-approve.

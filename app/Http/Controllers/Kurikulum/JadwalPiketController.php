@@ -118,8 +118,14 @@ class JadwalPiketController extends Controller
         $jadwalHariIni = JadwalPiket::where('hari', $selectedHari)
             ->where('minggu_ke', $mingguKe);
 
+        // Hanya ambil baris PETUGAS (bukan koordinator) untuk $assignedByShift.
+        // Baris koordinator juga menyimpan shift_id + user_id (via buatBarisJadwal),
+        // sehingga tanpa filter ini user_id koordinator ikut masuk ke daftar petugas
+        // dan checkbox koordinator menjadi ter-check di form.
         $assignedByShift = (clone $jadwalHariIni)
             ->whereNotNull('shift_id')
+            ->whereNull('koordinator_pagi_user_id')
+            ->whereNull('koordinator_siang_user_id')
             ->get()
             ->groupBy('shift_id')
             ->map(fn ($items) => $items->pluck('user_id')->filter()->values()->all())
@@ -153,6 +159,12 @@ class JadwalPiketController extends Controller
             ->filter()
             ->toArray();
 
+        // Pastikan koordinator tidak ikut masuk ke daftar petugas saat render form
+        // (perlindungan terhadap data lama yang tidak bersih di DB).
+        $allKoordinatorIds = array_unique(array_merge($assignedKoordinatorPagiIds, $assignedKoordinatorSiangIds));
+        $assignedPetugasPagiIds  = array_values(array_diff($assignedPetugasPagiIds, $allKoordinatorIds));
+        $assignedPetugasSiangIds = array_values(array_diff($assignedPetugasSiangIds, $allKoordinatorIds));
+
         $assignedKoordinatorByShift = [];
         foreach ($shiftList as $sObj) {
             $sNama = strtolower($sObj->nama);
@@ -161,10 +173,19 @@ class JadwalPiketController extends Controller
             } elseif (str_starts_with($sNama, 'siang') && ! empty($assignedKoordinatorSiangIds[0])) {
                 $assignedKoordinatorByShift[$sObj->id] = $assignedKoordinatorSiangIds[0];
             } else {
-                $assignedKoorId = (clone $jadwalHariIni)
+                // Untuk shift selain Pagi/Siang: cari baris yang secara eksplisit
+                // menyimpan koordinator (kolom koordinator_*_user_id), bukan sekadar
+                // user_id pertama yang bisa saja milik petugas biasa.
+                $koorRow = (clone $jadwalHariIni)
                     ->where('shift_id', $sObj->id)
-                    ->pluck('user_id')
+                    ->where(function ($q) {
+                        $q->whereNotNull('koordinator_pagi_user_id')
+                          ->orWhereNotNull('koordinator_siang_user_id');
+                    })
                     ->first();
+                $assignedKoorId = $koorRow
+                    ? ($koorRow->koordinator_pagi_user_id ?? $koorRow->koordinator_siang_user_id)
+                    : null;
                 if ($assignedKoorId) {
                     $assignedKoordinatorByShift[$sObj->id] = $assignedKoorId;
                 }
@@ -218,8 +239,14 @@ class JadwalPiketController extends Controller
         $jadwalHariIni = JadwalPiket::where('hari', $selectedHari)
             ->where('minggu_ke', $mingguKe);
 
+        // Hanya ambil baris PETUGAS (bukan koordinator) untuk $assignedByShift.
+        // Baris koordinator juga menyimpan shift_id + user_id (via buatBarisJadwal),
+        // sehingga tanpa filter ini user_id koordinator ikut masuk ke daftar petugas
+        // dan checkbox koordinator menjadi ter-check di form edit.
         $assignedByShift = (clone $jadwalHariIni)
             ->whereNotNull('shift_id')
+            ->whereNull('koordinator_pagi_user_id')
+            ->whereNull('koordinator_siang_user_id')
             ->get()
             ->groupBy('shift_id')
             ->map(fn ($items) => $items->pluck('user_id')->filter()->values()->all())
@@ -233,10 +260,16 @@ class JadwalPiketController extends Controller
 
         $assignedWakaId = (clone $jadwalHariIni)->pluck('waka_user_id')->filter()->first();
 
-        $assignedKoordinatorPagiIds = (clone $jadwalHariIni)->pluck('koordinator_pagi_user_id')->filter()->values()->all();
-        $assignedPetugasPagiIds = (clone $jadwalHariIni)->pluck('petugas_pagi_user_id')->filter()->values()->all();
+        $assignedKoordinatorPagiIds  = (clone $jadwalHariIni)->pluck('koordinator_pagi_user_id')->filter()->values()->all();
+        $assignedPetugasPagiIds      = (clone $jadwalHariIni)->pluck('petugas_pagi_user_id')->filter()->values()->all();
         $assignedKoordinatorSiangIds = (clone $jadwalHariIni)->pluck('koordinator_siang_user_id')->filter()->values()->all();
-        $assignedPetugasSiangIds = (clone $jadwalHariIni)->pluck('petugas_siang_user_id')->filter()->values()->all();
+        $assignedPetugasSiangIds     = (clone $jadwalHariIni)->pluck('petugas_siang_user_id')->filter()->values()->all();
+
+        // Pastikan koordinator tidak ikut masuk ke daftar petugas saat render form edit
+        // (perlindungan terhadap data lama yang tidak bersih di DB).
+        $allKoordinatorIds       = array_unique(array_merge($assignedKoordinatorPagiIds, $assignedKoordinatorSiangIds));
+        $assignedPetugasPagiIds  = array_values(array_diff($assignedPetugasPagiIds, $allKoordinatorIds));
+        $assignedPetugasSiangIds = array_values(array_diff($assignedPetugasSiangIds, $allKoordinatorIds));
 
         $assignedKoordinatorByShift = [];
         foreach ($shiftList as $sObj) {
@@ -246,10 +279,19 @@ class JadwalPiketController extends Controller
             } elseif (str_starts_with($sNama, 'siang') && ! empty($assignedKoordinatorSiangIds[0])) {
                 $assignedKoordinatorByShift[$sObj->id] = $assignedKoordinatorSiangIds[0];
             } else {
-                $assignedKoorId = (clone $jadwalHariIni)
+                // Untuk shift selain Pagi/Siang: cari baris yang secara eksplisit
+                // menyimpan koordinator (kolom koordinator_*_user_id), bukan sekadar
+                // user_id pertama yang bisa saja milik petugas biasa.
+                $koorRow = (clone $jadwalHariIni)
                     ->where('shift_id', $sObj->id)
-                    ->pluck('user_id')
+                    ->where(function ($q) {
+                        $q->whereNotNull('koordinator_pagi_user_id')
+                          ->orWhereNotNull('koordinator_siang_user_id');
+                    })
                     ->first();
+                $assignedKoorId = $koorRow
+                    ? ($koorRow->koordinator_pagi_user_id ?? $koorRow->koordinator_siang_user_id)
+                    : null;
                 if ($assignedKoorId) {
                     $assignedKoordinatorByShift[$sObj->id] = $assignedKoorId;
                 }
@@ -329,6 +371,19 @@ class JadwalPiketController extends Controller
         $pagiIds = array_values(array_unique(array_filter((array) $request->input('petugas_pagi_user_id', []))));
         $siangIds = array_values(array_unique(array_filter((array) $request->input('petugas_siang_user_id', []))));
 
+        // Kumpulkan ID koordinator terlebih dahulu (sebelum validasi),
+        // agar bisa dipakai untuk filter AND validasi.
+        $koordinatorIds = array_values(array_unique(array_filter(array_merge([
+            $request->input('koordinator_pagi_user_id'),
+            $request->input('koordinator_siang_user_id'),
+        ], array_values((array) $request->input('koordinator', []))))));
+
+        // --- FILTER: pastikan koordinator tidak ikut masuk ke daftar petugas ---
+        // Ini adalah perlindungan server-side; tidak bergantung pada validasi JS
+        // di sisi klien yang bisa dilewati atau terlambat di-trigger.
+        $pagiIds  = array_values(array_diff($pagiIds, $koordinatorIds));
+        $siangIds = array_values(array_diff($siangIds, $koordinatorIds));
+
         // Validasi mutual exclusion: satu guru tidak boleh di shift Pagi & Siang.
         if (! empty(array_intersect($pagiIds, $siangIds))) {
             throw ValidationException::withMessages([
@@ -337,11 +392,8 @@ class JadwalPiketController extends Controller
         }
 
         // Validasi mutual exclusion: Koordinator Piket tidak boleh
-        // merangkap menjadi Petugas Piket biasa.
-        $koordinatorIds = array_values(array_unique(array_filter(array_merge([
-            $request->input('koordinator_pagi_user_id'),
-            $request->input('koordinator_siang_user_id'),
-        ], array_values((array) $request->input('koordinator', []))))));
+        // merangkap menjadi Petugas Piket biasa (setelah filter, seharusnya sudah bersih,
+        // tapi biarkan sebagai guard terakhir untuk kasus edge di format shift dinamis).
 
         if (! empty($koordinatorIds) && ! empty(array_intersect(array_merge($pagiIds, $siangIds), $koordinatorIds))) {
             throw ValidationException::withMessages([

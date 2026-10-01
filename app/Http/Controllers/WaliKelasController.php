@@ -141,17 +141,37 @@ class WaliKelasController extends Controller
                 ->groupBy('status')
                 ->pluck('jumlah', 'status');
 
-            $hadir = (int) $statusCounts->get('Hadir', 0);
-            $izin = (int) $statusCounts->get('Izin', 0);
-            $sakit = (int) $statusCounts->get('Sakit', 0);
-            $alpha = (int) $statusCounts->get('Alpa', 0) + (int) $statusCounts->get('Alpha', 0);
+            $hadirMurni = 0;
+            $terlambat = 0;
+            $izin = 0;
+            $sakit = 0;
+            $alpha = 0;
 
+            foreach ($statusCounts as $statusKey => $count) {
+                $statusLower = strtolower(trim((string) $statusKey));
+                $countInt = (int) $count;
+                if ($statusLower === 'hadir') {
+                    $hadirMurni += $countInt;
+                } elseif ($statusLower === 'terlambat' || $statusLower === 'telat') {
+                    $terlambat += $countInt;
+                } elseif ($statusLower === 'izin') {
+                    $izin += $countInt;
+                } elseif ($statusLower === 'sakit') {
+                    $sakit += $countInt;
+                } elseif ($statusLower === 'alpa' || $statusLower === 'alpha') {
+                    $alpha += $countInt;
+                }
+            }
+
+            // Siswa terlambat secara sistem sekolah tetap terhitung HADIR di kelas.
+            $hadir = $hadirMurni + $terlambat;
             $total = $hadir + $izin + $sakit + $alpha;
             $persen = $total > 0 ? round(($hadir / $total) * 100, 1) : 100.0;
 
             $rekapAbsen[] = [
                 'siswa' => $siswa,
                 'hadir' => $hadir,
+                'terlambat' => $terlambat,
                 'izin' => $izin,
                 'sakit' => $sakit,
                 'alpha' => $alpha,

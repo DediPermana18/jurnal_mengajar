@@ -61,6 +61,27 @@ class NotificationTest extends TestCase
         $this->assertEquals('Pengajuan Izin Baru', $first->data['title'] ?? '');
     }
 
+    public function test_waka_kesiswaan_tidak_menerima_dan_tidak_melihat_notifikasi_izin_guru(): void
+    {
+        $guru = $this->makeUser('guru', 'guru_mapel', 'guru_pemohon');
+        $wakaSdm = $this->makeUser('admin', 'waka_sdm', 'waka_sdm_user');
+        $wakaKesiswaan = $this->makeUser('admin', 'waka_kesiswaan', 'waka_kesiswaan_user');
+
+        $this->actingAs($guru)
+            ->post(route('guru.izin.store'), [
+                'tanggal' => '2026-08-11',
+                'kategori_izin' => 'sakit',
+                'alasan' => 'Sakit',
+                'lampiran' => null,
+                'tugas_siswa' => null,
+                'ttd_guru' => null,
+            ]);
+
+        $this->assertSame(1, $wakaSdm->unreadNotifications()->count());
+        $this->assertSame(0, $wakaKesiswaan->unreadNotifications()->count());
+        $this->assertSame(0, $wakaKesiswaan->scopedUnreadNotifications()->count());
+    }
+
     public function test_notification_controller_index_unread_count_dan_mark_read(): void
     {
         $waka = $this->makeUser('admin', 'waka_kurikulum', 'waka2');

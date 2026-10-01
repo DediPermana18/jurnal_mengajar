@@ -177,8 +177,13 @@
 
         .nav-btn.active {
             background-color: var(--primary-blue);
-            color: #ffffff;
+            color: #ffffff !important;
             box-shadow: 0 4px 14px rgba(22, 119, 255, 0.3);
+        }
+
+        .nav-btn.active i,
+        .nav-btn.active span {
+            color: #ffffff !important;
         }
 
         .nav-btn .btn-left {
@@ -1636,7 +1641,10 @@
                             </div>
                         </div>
                         <div class="nav-item-container">
-                            <a href="{{ route('laporan.index') }}" class="nav-btn {{ request()->routeIs('laporan.*', 'kurikulum.laporan.*') ? 'active' : '' }}">
+                            @php
+                                $isLaporanActiveSuperAdmin = request()->is('kurikulum/laporan*') || request()->routeIs('*.laporan.*') || request()->routeIs('kurikulum.laporan*') || request()->routeIs('laporan.*');
+                            @endphp
+                            <a href="{{ route('kurikulum.laporan.index') }}" class="nav-btn {{ $isLaporanActiveSuperAdmin ? 'active' : '' }}">
                                 <span class="btn-left">
                                     <i class="bi bi-file-earmark-text"></i>
                                     <span>Laporan KBM</span>
@@ -1732,8 +1740,8 @@
             <div class="topbar-actions">
                 <!-- Notifications -->
                 @php
-                    $navUnreadNotifs = auth()->user()?->unreadNotifications()->latest()->limit(5)->get() ?? collect();
-                    $navUnreadCount  = $navUnreadNotifs->count();
+                    $navUnreadNotifs = auth()->user()?->scopedUnreadNotifications()->latest()->limit(5)->get() ?? collect();
+                    $navUnreadCount  = auth()->user()?->scopedUnreadNotifications()->count() ?? 0;
                 @endphp
                 <div class="dropdown">
                     <button class="notif-bell-btn position-relative" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="position:relative;">

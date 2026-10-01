@@ -39,7 +39,16 @@
                             <td class="text-center text-muted whitespace-nowrap py-3 px-3">{{ $loop->iteration }}</td>
                             <td class="py-3 px-4 whitespace-nowrap">{{ $r['siswa']->nisn ?? $r['siswa']->nis ?? '-' }}</td>
                             <td class="py-3 px-4"><strong>{{ $r['siswa']->nama }}</strong></td>
-                            <td class="text-center text-success fw-bold py-3 px-4">{{ $r['hadir'] }}</td>
+                            <td class="text-center text-success fw-bold py-3 px-4">
+                                <div>{{ $r['hadir'] }}</div>
+                                @if(($r['terlambat'] ?? 0) > 0)
+                                    <div class="mt-1">
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-0.5 fw-semibold" style="font-size: 0.7rem;">
+                                            <i class="bi bi-clock-history me-1"></i>{{ $r['terlambat'] }} Terlambat
+                                        </span>
+                                    </div>
+                                @endif
+                            </td>
                             <td class="text-center py-3 px-4">{{ $r['izin'] }}</td>
                             <td class="text-center py-3 px-4">{{ $r['sakit'] }}</td>
                             <td class="text-center text-danger fw-bold py-3 px-4">{{ $r['alpha'] }}</td>

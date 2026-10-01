@@ -41,13 +41,17 @@ class NotificationService
     }
 
     /**
-     * Waka Kurikulum / SDM (role waka/waka_sdm atau role admin + sub_role waka*).
+     * Waka Kurikulum / SDM (role waka/waka_sdm/waka_kurikulum atau role admin + sub_role waka*).
+     * PERBAIKAN: Waka Kesiswaan TIDAK dimasukkan ke penerima notifikasi izin guru.
      */
     public static function wakaRecipients(): Collection
     {
-        return User::whereIn('role', ['waka', 'waka_sdm'])
-            ->orWhere(fn ($q) => $q->where('role', 'admin')->where('sub_role', 'like', 'waka%'))
-            ->get();
+        return User::where(function ($q) {
+            $q->whereIn('role', ['waka', 'waka_sdm', 'waka_kurikulum'])
+                ->orWhere(fn ($sub) => $sub->where('role', 'admin')->where('sub_role', 'like', 'waka%'));
+        })
+        ->get()
+        ->filter(fn (User $u) => ! $u->isWakaKesiswaan());
     }
 
     /**
@@ -80,7 +84,8 @@ class NotificationService
     }
 
     /**
-     * Notifikasi "pengajuan izin baru" ke Guru Piket, Waka, dan Kepsek.
+     * Notifikasi "pengajuan izin baru" ke Guru Piket, Waka SDM / Kurikulum, dan Kepsek.
+     * Waka Kesiswaan DENGAN TEGAS TIDAK menerima notifikasi izin guru.
      */
     public static function izinBaruDiajukan(IzinGuru $izin): void
     {
@@ -101,7 +106,7 @@ class NotificationService
             ->unique('id');
 
         foreach ($recipients as $recipient) {
-            if ($recipient->id !== $izin->user_id) {
+            if ($recipient->id !== $izin->user_id && ! $recipient->isWakaKesiswaan()) {
                 $recipient->notify(new IzinBaruNotification($payload));
             }
         }

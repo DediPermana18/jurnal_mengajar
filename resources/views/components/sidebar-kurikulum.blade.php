@@ -1,11 +1,11 @@
 @props(['pendingIzinCount' => 0])
 
 @php
-    // State penanda active route (berdasarkan route name, bukan URL)
-    $isDashboardActive      = request()->routeIs('kurikulum.dashboard*');
-    $isJadwalPiketActive    = request()->routeIs('kurikulum.jadwal-piket.*');
-    $isMapelActive          = request()->routeIs('mapel.*');
-    $isLaporanActive        = request()->routeIs('kurikulum.laporan.*');
+    // State penanda active route
+    $isDashboardActive      = request()->routeIs('kurikulum.dashboard*') || request()->is('kurikulum/dashboard*');
+    $isJadwalPiketActive    = request()->routeIs('kurikulum.jadwal-piket.*') || request()->is('*jadwal-piket*');
+    $isMapelActive          = request()->routeIs('mapel.*') || request()->is('*mapel*');
+    $isLaporanActive        = request()->is('kurikulum/laporan*') || request()->routeIs('*.laporan.*') || request()->routeIs('kurikulum.laporan*') || request()->routeIs('laporan.*');
 @endphp
 
 {{-- Komponen ini HANYA dirender ketika @if($isKurikulumRole) di layouts/app.blade.php terpenuhi --}}

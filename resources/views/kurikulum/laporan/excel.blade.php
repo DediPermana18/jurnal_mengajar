@@ -50,12 +50,15 @@
             </tr>
         </thead>
         <tbody>
-            @forelse($daftarJurnal as $idx => $jurnal)
-                @php $jadwal = $jurnal->jadwalPelajaran; @endphp
+            @forelse($daftarJurnal as $idx => $item)
+                @php
+                    $jurnal = $item->jurnal;
+                    $jadwal = $jurnal->jadwalPelajaran;
+                @endphp
                 <tr>
                     <td>{{ $idx + 1 }}</td>
                     <td>{{ $jurnal->tanggal->translatedFormat('d/m/Y') }}</td>
-                    <td>{{ $jadwal?->jam?->jam_ke ?? '-' }}</td>
+                    <td>{{ $item->label_jam }}</td>
                     <td>{{ $jadwal?->kelas?->nama_kelas_lengkap ?? $jadwal?->kelas?->nama_kelas ?? '-' }}</td>
                     <td>{{ $jurnal->guru?->nama ?? $jadwal?->guru?->nama ?? '-' }}</td>
                     <td>{{ $jurnal->guruPengganti?->nama ?? '-' }}</td>

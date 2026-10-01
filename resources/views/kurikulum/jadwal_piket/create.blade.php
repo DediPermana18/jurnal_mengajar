@@ -332,7 +332,13 @@
                         ? ($assignedKoordinatorPagiIds[0] ?? null)
                         : (str_starts_with($sesiNama, 'siang') ? ($assignedKoordinatorSiangIds[0] ?? null) : null);
                     $valKoordinator = old('koordinator.' . $shift->id, $assignedKoordinatorByShift[$shift->id] ?? $legacyVal);
-                    $selectedUsers = old('shift_users.' . $shift->id, $assignedByShift[$shift->id] ?? []);
+                    // Filter koordinator dari daftar petugas (lapisan ke-2 di sisi view).
+                    // Koordinator tidak boleh ter-check di checkbox petugas meskipun
+                    // $assignedByShift mengandung ID koordinator (mis. dari data lama).
+                    $selectedUsers = array_values(array_filter(
+                        old('shift_users.' . $shift->id, $assignedByShift[$shift->id] ?? []),
+                        fn ($id) => (string) $id !== (string) $valKoordinator
+                    ));
                 @endphp
                 <div class="shift-panel w-100 bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
                     <div class="shift-header">
