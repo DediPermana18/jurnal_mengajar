@@ -162,14 +162,25 @@ class DispensasiSuratScopeTest extends TestCase
         JadwalPiket::create(['hari' => 'Senin', 'user_id' => $piket->id]);
 
         $siswa = $this->buatSiswa('Andi Wijaya', '5566778899');
-        $dispen = $this->buatDispensasi($siswa, $piket);
+        $dispen = $this->buatDispensasi($siswa, $piket, ['approval_token' => 'approval-andi-test']);
 
         $this->actingAs($piket);
 
         // Wali/approver berbeda -> hanya bisa karena id_guru_piket == user.
         $this->get(route('piket.dispensasi.surat', $dispen->id))
             ->assertOk()
-            ->assertSee('Andi Wijaya');
+            ->assertSee('Andi Wijaya')
+            ->assertSee('data-copy-url="'.route('dispen.approval.show', $dispen->approval_token).'"', false)
+            ->assertSee('Kirim WA ke Waka', false)
+            ->assertSee('Salin Link TTD Waka', false)
+            ->assertSee('text='.rawurlencode(
+                "Yth. Bapak/Ibu Waka Kesiswaan,\n\n"
+                ."Mohon berkenan untuk memberikan persetujuan & tanda tangan digital untuk Surat Dispensasi Siswa:\n"
+                ."• Nama: *Andi Wijaya*\n"
+                ."• Kelas: XII IPA 1\n"
+                ."• Alasan: Alasan dispensasi\n\n"
+                ."Silakan klik link berikut untuk melakukan tanda tangan:\n".route('dispen.approval.show', $dispen->approval_token)
+            ), false);
     }
 
     public function test_waka_asli_bisa_lihat_surat(): void

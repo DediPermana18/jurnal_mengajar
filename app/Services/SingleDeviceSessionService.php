@@ -123,6 +123,7 @@ class SingleDeviceSessionService
         // sesi dikeluarkan; frontend menampilkan batas waktu suspend.
         if ($user->isCurrentlySuspended()) {
             if (Auth::id() === (int) $user->id) {
+                $user->markOffline();
                 Auth::logout();
             }
 
@@ -138,6 +139,7 @@ class SingleDeviceSessionService
         // oleh penghapusan baris tabel `sessions`).
         if (! $user->is_active) {
             if (Auth::id() === (int) $user->id) {
+                $user->markOffline();
                 Auth::logout();
             }
 
@@ -154,6 +156,7 @@ class SingleDeviceSessionService
         if ($kicked) {
             // Sesi ini bukan lagi owner → keluarkan user dari sesi server.
             if (Auth::id() === (int) $user->id) {
+                $user->markOffline();
                 Auth::logout();
             }
 

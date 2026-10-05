@@ -13,6 +13,7 @@ use App\Models\PresensiSiswa;
 use App\Models\Siswa;
 use App\Models\TahunAjaran;
 use App\Models\User;
+use App\Support\JamSlotResolver;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -251,6 +252,7 @@ class GuruPiketController extends Controller
         $today = now()->toDateString();
         $tanggal = $request->get('tanggal', $today);
         $idKelas = $request->get('id_kelas');
+        $kelasTerpilih = $idKelas ? Kelas::find($idKelas) : null;
 
         // Restriksi hari tugas (guru piket non-IT hanya pada tanggal jadwalnya)
         $this->authorizeHariTugas($tanggal);
@@ -273,12 +275,9 @@ class GuruPiketController extends Controller
 
         $dataSiswa = $siswaQuery->get();
 
-        // JP aktif dari master data jam_pelajaran sesuai kategori hari (senin-kamis/jumat)
-        $kategoriHari = Carbon::parse($tanggal)->isFriday() ? 'Jumat' : 'Senin-Kamis';
-        $jamPelajaranList = JamPelajaran::where('kategori_hari', $kategoriHari)
-            ->where('jenis', 'kbm')
-            ->orderBy('jam_ke')
-            ->get();
+        // JP aktif hanya dari master data untuk hari pada tanggal terpilih.
+        $hari = Carbon::parse($tanggal)->locale('id')->translatedFormat('l');
+        $jamPelajaranList = $this->jamPelajaranUntukPresensi($hari, $kelasTerpilih);
 
         // JP yang dipilih (default: JP pertama). Fallback bila param `jp` tidak valid.
         $selectedJpId = (int) $request->integer('jp');
@@ -315,8 +314,36 @@ class GuruPiketController extends Controller
             'selectedJp',
             'selectedJpId',
             'jumlahSiswaTerisiPerJp',
-            'kategoriHari'
+            'hari'
         ));
+    }
+
+    /**
+     * Slot KBM presensi untuk shift efektif kelas, dengan fallback ke master
+     * global hanya bila kelas tidak punya slot khusus shift pada hari tersebut.
+     */
+    protected function jamPelajaranUntukPresensi(string $hari, ?Kelas $kelas)
+    {
+        $shiftId = JamSlotResolver::shiftUntukKelas($kelas, TahunAjaran::aktif());
+        $query = JamPelajaran::where('hari', $hari)
+            ->where('jenis', 'kbm')
+            ->whereNotNull('jam_ke');
+
+        if ($shiftId) {
+            $slotShift = (clone $query)->where('shift_id', $shiftId);
+            $query = $slotShift->exists()
+                ? $slotShift
+                : $query->whereNull('shift_id');
+        } else {
+            $query->whereNull('shift_id');
+        }
+
+        return $query->urutkanWaktu()
+            ->get()
+            ->sortByDesc('id')
+            ->unique('jam_ke')
+            ->sortBy('jam_mulai')
+            ->values();
     }
 
     /**
@@ -340,12 +367,11 @@ class GuruPiketController extends Controller
         // Restriksi hari tugas : guru piket non-IT hanya pada tanggal jadwalnya
         $this->authorizeHariTugas($validated['tanggal']);
 
-        // Master JP: hanya JP KBM sesuai kategori hari dari tanggal terpilih yang sah.
-        $kategoriHari = Carbon::parse($validated['tanggal'])->isFriday() ? 'Jumat' : 'Senin-Kamis';
-        $jamPelajaran = JamPelajaran::where('id', (int) $request->integer('jp'))
-            ->where('kategori_hari', $kategoriHari)
-            ->where('jenis', 'kbm')
-            ->first();
+        // Master JP: hanya JP yang tersedia untuk hari & shift kelas yang sah.
+        $hari = Carbon::parse($validated['tanggal'])->locale('id')->translatedFormat('l');
+        $kelasTerpilih = Kelas::findOrFail($validated['id_kelas']);
+        $jamPelajaran = $this->jamPelajaranUntukPresensi($hari, $kelasTerpilih)
+            ->firstWhere('id', (int) $request->integer('jp'));
 
         abort_unless(
             $jamPelajaran,

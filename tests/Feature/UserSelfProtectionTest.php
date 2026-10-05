@@ -17,7 +17,8 @@ use Tests\TestCase;
  *    tetapi SELURUH field form terkunci readonly — perubahan data/kredensial
  *    (edit, toggle status, hapus) hanya dikelola Petugas IT / QA Tester.
  *  - Badge "Dikelola Petugas IT" dihapus; tombol ikon [Lihat Detail] (mata)
- *    ditampilkan kembali untuk TU, [Suspend Darurat] tetap tersedia.
+ *    ditampilkan kembali untuk TU, [Suspend Darurat] hanya tersedia untuk
+ *    akun lain.
  *  - Quick Reset Password langsung (reset ke username) TIDAK ADA lagi:
  *    tombol & route dihapus; seluruh reset lewat menu Pengajuan Reset
  *    Password (approve oleh TU).
@@ -86,6 +87,93 @@ class UserSelfProtectionTest extends TestCase
             ->assertForbidden();
 
         $this->assertDatabaseHas('users', ['id' => $admin->id]);
+    }
+
+    public function test_user_cannot_suspend_own_account_through_either_suspend_endpoint(): void
+    {
+        $admin = $this->makeTu();
+
+        $this->actingAs($admin)
+            ->post(route('admin.users.toggle-suspend', $admin->id))
+            ->assertForbidden();
+
+        $this->postJson(route('users.emergency-suspend', $admin->id))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('users', [
+            'id' => $admin->id,
+            'is_active' => true,
+            'suspended_until' => null,
+        ]);
+    }
+
+    public function test_status_nonaktif_diaktifkan_dengan_flash_aktivasi_biasa(): void
+    {
+        $it = $this->makeIt();
+        $target = $this->makeUser('waka_kurikulum', false, true);
+
+        $html = $this->actingAs($it)
+            ->get(route('admin.users.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString(route('admin.users.toggle-status', $target->id), $html);
+        $this->assertStringContainsString('bi-check-circle', $html);
+        $this->assertStringNotContainsString(
+            'data-suspend-url="'.route('admin.users.toggle-suspend', $target->id).'"',
+            $html
+        );
+        $this->assertStringNotContainsString(
+            'action="'.route('admin.users.toggle-suspend', $target->id).'"',
+            $html
+        );
+
+        $this->post(route('admin.users.toggle-status', $target->id))
+            ->assertRedirect(route('admin.users.index'))
+            ->assertSessionHas('success', 'Akun berhasil diaktifkan kembali.');
+
+        $this->assertDatabaseHas('users', ['id' => $target->id, 'is_active' => true]);
+
+        $this->post(route('admin.users.toggle-status', $target->id))
+            ->assertRedirect(route('admin.users.index'))
+            ->assertSessionHas('success', 'Akun berhasil dinonaktifkan.');
+
+        $this->assertDatabaseHas('users', ['id' => $target->id, 'is_active' => false]);
+    }
+
+    public function test_status_suspend_tidak_bisa_diubah_dengan_toggle_status(): void
+    {
+        $it = $this->makeIt();
+        $target = $this->makeUser('waka_kurikulum', true, true);
+        $target->update(['suspended_until' => now()->addHour()]);
+
+        $this->actingAs($it)
+            ->post(route('admin.users.toggle-status', $target->id))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('users', ['id' => $target->id, 'is_active' => true]);
+    }
+
+    public function test_status_suspend_menampilkan_unsuspend_tanpa_toggle_status(): void
+    {
+        $it = $this->makeIt();
+        $target = $this->makeUser('waka_kurikulum', true, true);
+        $target->update(['suspended_until' => now()->addHour()]);
+
+        $html = $this->actingAs($it)
+            ->get(route('admin.users.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Di-Suspend', $html);
+        $this->assertStringContainsString(
+            'action="'.route('admin.users.toggle-suspend', $target->id).'"',
+            $html
+        );
+        $this->assertStringNotContainsString(
+            'action="'.route('admin.users.toggle-status', $target->id).'"',
+            $html
+        );
     }
 
     public function test_user_can_open_own_edit_page_and_update_profile(): void
@@ -352,16 +440,12 @@ class UserSelfProtectionTest extends TestCase
         $this->assertStringNotContainsString(route('admin.users.destroy', $tu->id), $html);
         $this->assertStringNotContainsString('Edit Profil', $html);
 
-        // (3) Tombol "Suspend Darurat" (kill-switch) TETAP ADA di baris sendiri,
-        //     tetapi NONAKTIF karena guard backend `abortIfCurrentUser`
-        //     (UserController@toggleSuspend) menolak suspend akun sendiri (403).
-        //     Karena tidak ada form/action, route toggle-suspend pun tidak
-        //     bocor ke baris ini — sehingga klik tidak menghasilkan halaman error.
-        $this->assertMatchesRegularExpression(
+        // (3) Suspend Darurat juga sepenuhnya disembunyikan dari baris sendiri.
+        $this->assertStringNotContainsString(route('admin.users.toggle-suspend', $tu->id), $html);
+        $this->assertDoesNotMatchRegularExpression(
             '/<button[^>]*disabled[^>]*>.*?Suspend Darurat/s',
             $html
         );
-        $this->assertStringNotContainsString(route('admin.users.toggle-suspend', $tu->id), $html);
 
         // (4) Untuk TU, akun admin lain tersedia tombol ikon [Lihat Detail]
         //     (mata) yang membuka mode lihat saja; tombol Edit/Toggle/Hapus
@@ -470,7 +554,7 @@ class UserSelfProtectionTest extends TestCase
             'is_active' => true,
         ]);
 
-        // Akun legacy pun hanya tampil tombol [Lihat Detail] + [Suspend Darurat].
+        // Akun legacy lain pun hanya tampil tombol [Lihat Detail] + [Suspend Darurat].
         $this->actingAs($tu)
             ->get(route('admin.users.index'))
             ->assertOk()

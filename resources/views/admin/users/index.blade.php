@@ -115,9 +115,8 @@
                             // Petugas TU biasa — hanya privilege manager (IT / Super Admin).
                             $isProtectedAccount = $user->isProtectedAccount();
                             $isProtectedHiddenActions = $isProtectedAccount && ! $viewerIsPrivileged;
-                            // State suspend terpadu untuk tombol aksi: suspend sementara
-                            // (suspended_until > now) ATAU nonaktif permanen (is_active=false).
-                            $isRowSuspended = $user->isCurrentlySuspended() || ! $user->is_active;
+                            // Status suspend sementara terpisah dari status aktif/nonaktif.
+                            $isRowSuspended = $user->isCurrentlySuspended();
                             $roleValue = $user->sub_role ?: 'petugas_tu';
                             $roleLabel = $subRoleLabels[$roleValue] ?? $user->role_label;
                             $isPrimaryAdmin = strtolower((string) $user->username) === 'admin';
@@ -162,7 +161,7 @@
                                 @if($user->isCurrentlySuspended())
                                     <span class="badge bg-danger-subtle text-danger px-2 py-2 rounded-3"
                                           title="Suspend sementara aktif sampai {{ $user->suspended_until?->format('d M Y H:i') }}">
-                                        <i class="bi bi-shield-x me-1"></i> Suspended (s/d {{ $user->suspended_until?->format('H:i') }})
+                                        <i class="bi bi-shield-x me-1"></i> Di-Suspend (s/d {{ $user->suspended_until?->format('H:i') }})
                                     </span>
                                 @else
                                     <span class="badge {{ $user->is_active ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }} px-2 py-2 rounded-3">{{ $user->is_active ? 'Aktif' : 'Nonaktif' }}</span>
@@ -172,31 +171,13 @@
                                 <div class="flex items-center justify-center gap-2 whitespace-nowrap">
                                 @if($isCurrentUser)
                                     {{-- Baris akun milik user yang sedang login.
-                                         Ditampilkan: badge indikator "Akun Anda (Online)" +
-                                         tombol Suspend Darurat (kill-switch keamanan bila akun
-                                         ini dibobol) dalam kondisi NONAKTIF.
-                                         Disembunyikan: Detail, Edit, Nonaktifkan, dan Hapus.
-
-                                         Tombol Suspend sengaja dikunci (disabled): guard backend
-                                         `abortIfCurrentUser` pada UserController@toggleSuspend
-                                         menolak suspend akun sendiri dengan HTTP 403. Tanpa
-                                         penguncian ini, tombol akan memunculkan halaman error.
-                                         Kill-switch tetap dijalankan oleh rekan Petugas TU /
-                                         Admin lain terhadap baris ini. --}}
-                                    <div class="d-inline-flex align-items-center gap-2">
-                                        <span class="badge bg-primary rounded-pill px-3 py-2" style="font-size: 0.68rem;"
-                                              title="Ini adalah akun yang sedang Anda gunakan">
-                                            <i class="bi bi-person-check me-1"></i>Akun Anda (Online)
-                                        </span>
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-danger fw-semibold rounded-3 disabled"
-                                                style="cursor: not-allowed;"
-                                                disabled
-                                                aria-disabled="true"
-                                                title="Kill-switch bila akun ini dibobol. Hanya dapat dijalankan rekan Petugas TU / Admin lain — sistem menolak suspend atas akun sendiri.">
-                                            <i class="bi bi-shield-x me-1"></i> Suspend Darurat
-                                        </button>
-                                    </div>
+                                         Hanya badge identitas yang ditampilkan. Semua aksi
+                                         suspend, nonaktifkan, dan hapus hanya tersedia untuk
+                                         akun lain; backend juga menolak self-action. --}}
+                                    <span class="badge bg-primary rounded-pill px-3 py-2" style="font-size: 0.68rem;"
+                                          title="Ini adalah akun yang sedang Anda gunakan">
+                                        <i class="bi bi-person-check me-1"></i>Akun Anda (Online)
+                                    </span>
                                 @elseif($isProtectedHiddenActions)
                                     {{-- Akun Super Admin / Admin dilindungi: tidak ada tombol
                                          Edit/Delete/Suspend untuk Petugas TU biasa. --}}
@@ -229,12 +210,14 @@
                                         <a href="{{ route('admin.users.edit', $user->id) }}" class="btn btn-sm btn-outline-warning rounded-3" title="Edit user">
                                             <i class="bi bi-pencil-square"></i>
                                         </a>
-                                        <form action="{{ route('admin.users.toggle-status', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Ubah status aktif user ini?')">
-                                            @csrf
-                                            <button type="submit" class="btn btn-sm {{ $user->is_active ? 'btn-outline-secondary' : 'btn-outline-success' }} rounded-3" title="{{ $user->is_active ? 'Nonaktifkan user' : 'Aktifkan user' }}">
-                                                <i class="bi {{ $user->is_active ? 'bi-slash-circle' : 'bi-check-circle' }}"></i>
-                                            </button>
-                                        </form>
+                                        @unless($isRowSuspended)
+                                            <form action="{{ route('admin.users.toggle-status', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('{{ $user->is_active ? 'Nonaktifkan' : 'Aktifkan kembali' }} akun ini?')">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm {{ $user->is_active ? 'btn-outline-secondary' : 'btn-outline-success' }} rounded-3" title="{{ $user->is_active ? 'Nonaktifkan user' : 'Aktifkan kembali user' }}">
+                                                    <i class="bi {{ $user->is_active ? 'bi-slash-circle' : 'bi-check-circle' }}"></i>
+                                                </button>
+                                            </form>
+                                        @endunless
                                         {{-- Hapus hanya relevan untuk akun OFFLINE: akun yang
                                              sedang online tidak boleh terhapus tidak sengaja.
                                              Form tetap DI-RENDER (disembunyikan lewat `d-none`
@@ -268,10 +251,10 @@
                                                 <i class="bi bi-shield-check me-1"></i> Unsuspend
                                             </button>
                                         </form>
-                                    @else
+                                    @elseif($user->is_active)
                                         <button type="button"
                                                 class="btn btn-sm btn-outline-danger fw-semibold rounded-3"
-                                                title="Suspend darurat — ubah status aktif akun"
+                                                title="Suspend darurat"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#emergencySuspendModal"
                                                 data-suspend-nama="{{ $user->nama }}"
@@ -491,4 +474,3 @@
     })();
 </script>
 @endpush
-

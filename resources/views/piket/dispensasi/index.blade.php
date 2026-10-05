@@ -175,7 +175,10 @@
                                         $aksiId = $isKolektif ? $kolektif->id : $dispen->id;
                                         $aksiPrefix = $isKolektif ? 'kolektif' : 'dispen';
                                         $aksiNomorSurat = $isKolektif ? $kolektif->nomor_surat : $dispen->nomor_surat;
-                                        $aksiApprovalLink = $isKolektif ? $kolektif->approval_url : $dispen->approval_url;
+                                        $aksiApprovalToken = $isKolektif ? $kolektif->approval_token : $dispen->approval_token;
+                                        $aksiApprovalLink = $aksiApprovalToken
+                                            ? route('dispen.approval.show', $aksiApprovalToken)
+                                            : null;
                                         $aksiStatus = $isKolektif ? $kolektif->status : $dispen->status;
                                         $aksiBisaApproval = $aksiApprovalLink
                                             && in_array($aksiStatus, [
@@ -186,6 +189,25 @@
                                                 \App\Models\DispensasiSiswa::STATUS_FINAL,
                                             ], true)
                                             && ($isKolektif || (! $dispen->keluar_gerbang_at && ! $dispen->kembali_at));
+                                        if ($isKolektif) {
+                                            $aksiApprovalNama = $kolektif->siswaItems
+                                                ->map(fn ($item) => $item->siswa->nama ?? 'Siswa')
+                                                ->implode(', ');
+                                            $aksiApprovalKelas = $kolektif->siswaItems
+                                                ->map(fn ($item) => $item->siswa?->kelas?->nama_lengkap ?? $item->siswa?->kelas?->nama_kelas)
+                                                ->filter()
+                                                ->unique()
+                                                ->implode(', ');
+                                        } else {
+                                            $aksiApprovalNama = $dispen->siswa->nama ?? 'Siswa';
+                                            $aksiApprovalKelas = $dispen->siswa?->kelas?->nama_lengkap ?? $dispen->siswa?->kelas?->nama_kelas ?? '-';
+                                        }
+                                        $aksiApprovalWaText = "Yth. Bapak/Ibu Waka Kesiswaan,\n\n"
+                                            ."Mohon berkenan untuk memberikan persetujuan & tanda tangan digital untuk Surat Dispensasi Siswa:\n"
+                                            ."• Nama: *".$aksiApprovalNama."*\n"
+                                            ."• Kelas: ".$aksiApprovalKelas."\n"
+                                            ."• Alasan: ".$jamModel->alasan."\n\n"
+                                            ."Silakan klik link berikut untuk melakukan tanda tangan:\n".$aksiApprovalLink;
                                         $aksiQrSvg = $aksiBisaApproval ? \App\Support\QrCodeHelper::svg($aksiApprovalLink, 6) : null;
                                         $aksiWaText = $aksiBisaApproval ? 'Halo Waka Kesiswaan, mohon tandatangani surat dispensasi berikut: '.$aksiApprovalLink : null;
                                         $aksiWaRoute = $isKolektif
@@ -201,6 +223,19 @@
                                         $showDrowpdown = (bool) $aksiBisaApproval
                                             || (!$isKolektif && (($dispen->isApproved() && !$dispen->has_ttd) || $dispen->isBisaDibatalkan()));
                                     @endphp
+                                    @if($aksiBisaApproval)
+                                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-3"
+                                                data-copy-url="{{ $aksiApprovalLink }}" title="Salin Link TTD Waka"
+                                                aria-label="Salin Link TTD Waka">
+                                            <i class="bi bi-clipboard-check"></i>
+                                        </button>
+                                        <a href="https://api.whatsapp.com/send?text={{ rawurlencode($aksiApprovalWaText) }}"
+                                           target="_blank" rel="noopener noreferrer"
+                                           class="btn btn-sm btn-success rounded-3" title="Kirim WA ke Waka"
+                                           aria-label="Kirim WA ke Waka">
+                                            <i class="bi bi-whatsapp"></i>
+                                        </a>
+                                    @endif
                                     @if($showDrowpdown)
                                         {{-- Wrapper tabel memakai overflow-x (scroll horizontal), sehingga dropdown
                                              di dalam <td> ikut ter-clip. Solusinya: Popper memakai strategy
@@ -293,8 +328,16 @@
                         </tr>
                     @endforelse
                 </tbody>
-            </table>
-        </div>
+                    </table>
+                </div>
+    </div>
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1090;">
+                <div id="copy-link-feedback" class="toast text-bg-success border-0" role="status" aria-live="polite" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">Link berhasil disalin!</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Tutup"></button>
+                    </div>
+                </div>
     </div>
 
     {{-- Modal Pembatalan Dispensasi (wajib TTD siswa) --}}
@@ -499,7 +542,7 @@
         });
     });
 
-    // Salin Link Approval (tombol di modal QR)
+    // Salin link surat atau approval.
     function fallbackCopyUrl(text) {
         const ta = document.createElement('textarea');
         ta.value = text;
@@ -508,34 +551,42 @@
         ta.style.opacity = '0';
         document.body.appendChild(ta);
         ta.select();
+        let copied = false;
         try {
-            document.execCommand('copy');
-        } catch (e) {
+            copied = document.execCommand('copy');
+        } catch (error) {
+            copied = false;
+        } finally {
+            document.body.removeChild(ta);
         }
-        document.body.removeChild(ta);
+
+        return copied;
     }
 
     document.querySelectorAll('[data-copy-url]').forEach((button) => {
         button.addEventListener('click', function () {
             const url = this.getAttribute('data-copy-url');
-            const original = this.innerHTML;
-            const flashCopied = () => {
-                this.innerHTML = '<i class="bi bi-check-lg me-1"></i>Tersalin';
+            const showCopied = () => {
+                const toastElement = document.getElementById('copy-link-feedback');
+                if (toastElement && window.bootstrap && bootstrap.Toast) {
+                    bootstrap.Toast.getOrCreateInstance(toastElement).show();
+                    return;
+                }
+                this.title = 'Link berhasil disalin!';
                 setTimeout(() => {
-                    this.innerHTML = original;
+                    this.title = 'Salin link';
                 }, 1600);
             };
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(url)
-                    .then(flashCopied)
-                    .catch(() => {
-                        fallbackCopyUrl(url);
-                        flashCopied();
-                    });
-            } else {
-                fallbackCopyUrl(url);
-                flashCopied();
-            }
+            const copyPromise = navigator.clipboard && navigator.clipboard.writeText
+                ? navigator.clipboard.writeText(url)
+                : Promise.reject(new Error('Clipboard API tidak tersedia.'));
+            copyPromise.then(showCopied).catch(() => {
+                if (fallbackCopyUrl(url)) {
+                    showCopied();
+                } else {
+                    alert('Gagal menyalin link. Silakan salin URL secara manual.');
+                }
+            });
         });
     });
 </script>

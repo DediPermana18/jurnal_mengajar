@@ -150,6 +150,9 @@ class DispensasiKolektifTest extends TestCase
             ->assertSee('Siswa Kolektif 1')
             ->assertSee('Siswa Kolektif 2')
             ->assertSee('XI IPA 1')
+            ->assertSee('data-copy-url="'.$kolektif->approval_url.'"', false)
+            ->assertSee('Kirim WA ke Waka', false)
+            ->assertSee('Salin Link TTD Waka', false)
             ->assertSee('TTS_SISWA_1')
             ->assertSee('TTS_SISWA_2');
     }
@@ -317,6 +320,31 @@ class DispensasiKolektifTest extends TestCase
             ->assertSee('qr-svg')
             ->assertSee('width="200" height="200"', false)
             ->assertSee('data-copy-url=', false);
+        $response
+            ->assertDontSee('data-copy-url="'.route('piket.dispensasi.surat', $individu->id).'"', false)
+            ->assertDontSee('data-copy-url="'.route('piket.dispensasi.kolektif.surat', $kolektif->id).'"', false)
+            ->assertSee('data-copy-url="'.route('dispen.approval.show', $individu->approval_token).'"', false)
+            ->assertSee('data-copy-url="'.route('dispen.approval.show', $kolektif->approval_token).'"', false)
+            ->assertSee('bi-whatsapp', false)
+            ->assertSee('Link berhasil disalin!', false);
+        $response
+            ->assertSee('text='.rawurlencode(
+                "Yth. Bapak/Ibu Waka Kesiswaan,\n\n"
+                ."Mohon berkenan untuk memberikan persetujuan & tanda tangan digital untuk Surat Dispensasi Siswa:\n"
+                ."• Nama: *Siswa Kolektif 1*\n"
+                ."• Kelas: XI IPA 1\n"
+                ."• Alasan: Urusan keluarga\n\n"
+                ."Silakan klik link berikut untuk melakukan tanda tangan:\n".route('dispen.approval.show', $individu->approval_token)
+            ), false)
+            ->assertSee('text='.rawurlencode(
+                "Yth. Bapak/Ibu Waka Kesiswaan,\n\n"
+                ."Mohon berkenan untuk memberikan persetujuan & tanda tangan digital untuk Surat Dispensasi Siswa:\n"
+                ."• Nama: *Siswa Kolektif 1, Siswa Kolektif 2, Siswa Kolektif 3*\n"
+                ."• Kelas: XI IPA 1\n"
+                ."• Alasan: Mengikuti kegiatan ekstrakurikuler\n\n"
+                ."Silakan klik link berikut untuk melakukan tanda tangan:\n".route('dispen.approval.show', $kolektif->approval_token)
+            ), false)
+            ->assertSee('Kirim WA ke Waka', false);
 
         // Individu (lebih baru) tampil lebih dulu sebelum baris kolektif pada 1 tabel.
         $response->assertSeeInOrder(['Siswa Kolektif 1', '3 Siswa']);

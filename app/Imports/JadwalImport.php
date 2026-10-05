@@ -45,6 +45,8 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
     /** Tahun ajaran aktif — diambil sekali saat pertama kali dibutuhkan. */
     protected ?TahunAjaran $tahunAjaran = null;
 
+    protected ?int $targetTahunAjaranId;
+
     /**
      * Nilai MataPelajaran yang dianggap "acara khusus" — bukan mata pelajaran
      * reguler. Baris ini dilewati secara diam-diam (tidak masuk rowErrors).
@@ -59,9 +61,10 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
         'literasi',
     ];
 
-    public function __construct(string $delimiter = ',')
+    public function __construct(string $delimiter = ',', ?int $targetTahunAjaranId = null)
     {
         $this->delimiter = $delimiter;
+        $this->targetTahunAjaranId = $targetTahunAjaranId;
     }
 
     // ── WithCustomCsvSettings ─────────────────────────────────────
@@ -80,7 +83,7 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
      * delimiter yang paling dominan — lebih andal dari cek satu baris karena
      * file dengan BOM atau komentar bisa menyebabkan false-positive.
      */
-    public static function createWithAutoDelimiter(?string $filePath = null): self
+    public static function createWithAutoDelimiter(?string $filePath = null, ?int $targetTahunAjaranId = null): self
     {
         $delimiter = ',';
 
@@ -107,7 +110,7 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
             }
         }
 
-        return new self($delimiter);
+        return new self($delimiter, $targetTahunAjaranId);
     }
 
     // ── Main collection handler ───────────────────────────────────
@@ -887,9 +890,16 @@ class JadwalImport implements ToCollection, WithHeadingRow, WithCustomCsvSetting
             return $this->tahunAjaran;
         }
 
-        $this->tahunAjaran = TahunAjaran::withoutGlobalScope(TestingDataScope::class)
-            ->where('is_active', true)
-            ->first();
+        $query = TahunAjaran::withoutGlobalScope(TestingDataScope::class)
+            ->where('is_testing_data', $this->targetIsTestingData() ? 1 : 0);
+
+        if ($this->targetTahunAjaranId !== null) {
+            $query->whereKey($this->targetTahunAjaranId);
+        } else {
+            $query->where('is_active', true);
+        }
+
+        $this->tahunAjaran = $query->first();
 
         return $this->tahunAjaran;
     }

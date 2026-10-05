@@ -3,7 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\Kelas;
+use App\Models\JadwalPelajaran;
+use App\Models\JamPelajaran;
+use App\Models\MataPelajaran;
 use App\Models\Siswa;
+use App\Models\TahunAjaran;
 use App\Models\User;
 use Database\Seeders\UserSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -88,7 +92,7 @@ class BulkResetAccessTest extends TestCase
             ->assertSee('Reset / Hapus Semua Data Guru')
             ->assertSee('Reset / Hapus Semua Data Kelas &amp; Jurusan', false)
             ->assertSee('Reset / Hapus Semua Data Ruangan')
-            ->assertSee('Reset / Hapus Semua Jadwal Pelajaran');
+            ->assertSee('Hapus Semua Jadwal Pelajaran (Tahun Ajaran:');
     }
 
     public function test_super_admin_via_sub_role_melihat_kartu_zona_berbahaya(): void
@@ -137,5 +141,63 @@ class BulkResetAccessTest extends TestCase
         $this->assertDatabaseCount('siswa', 0);
         // Struktur lain (kelas) tidak ikut terhapus oleh reset siswa.
         $this->assertDatabaseCount('kelas', 1);
+    }
+
+    public function test_super_admin_reset_jadwal_hanya_menghapus_tahun_ajaran_target(): void
+    {
+        $activeTahunAjaran = TahunAjaran::create([
+            'tahun_ajaran' => '2025/2026',
+            'semester' => 'Ganjil',
+            'is_active' => true,
+        ]);
+        $targetTahunAjaran = TahunAjaran::create([
+            'tahun_ajaran' => '2024/2025',
+            'semester' => 'Genap',
+            'is_active' => false,
+        ]);
+        $kelas = Kelas::create(['tingkat' => 'X', 'nama_kelas' => 'TKJ Reset']);
+        $mapel = MataPelajaran::create(['nama_mapel' => 'Matematika Reset', 'kode_mapel' => 'MTR']);
+        $guru = User::create([
+            'username' => 'guru.reset',
+            'nama' => 'Guru Reset',
+            'password' => 'secret',
+            'role' => User::ROLE_GURU,
+            'is_active' => true,
+        ]);
+        $jam = JamPelajaran::create([
+            'hari' => 'Senin',
+            'kategori_hari' => 'Senin-Kamis',
+            'jam_ke' => 1,
+            'jam_mulai' => '07:00:00',
+            'jam_selesai' => '07:45:00',
+            'jenis' => 'kbm',
+        ]);
+
+        foreach ([$activeTahunAjaran, $targetTahunAjaran] as $tahunAjaran) {
+            JadwalPelajaran::create([
+                'group_id' => (string) \Illuminate\Support\Str::uuid(),
+                'hari' => 'Senin',
+                'id_jam' => $jam->id,
+                'id_kelas' => $kelas->id,
+                'id_mapel' => $mapel->id,
+                'id_guru' => $guru->id,
+                'id_tahun_ajaran' => $tahunAjaran->id,
+            ]);
+        }
+
+        $this->actingAs($this->superAdmin())
+            ->post(route('import.reset-jadwal'), [
+                'tahun_ajaran_id' => $targetTahunAjaran->id,
+                'reset_confirm' => 'HAPUS DATA JADWAL',
+            ])
+            ->assertRedirect(route('import.index'))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseMissing('jadwal_pelajaran', [
+            'id_tahun_ajaran' => $targetTahunAjaran->id,
+        ]);
+        $this->assertDatabaseHas('jadwal_pelajaran', [
+            'id_tahun_ajaran' => $activeTahunAjaran->id,
+        ]);
     }
 }

@@ -573,14 +573,22 @@ class UserController extends Controller
         $this->abortIfCurrentUser($user, 'Anda tidak dapat melakukan tindakan manajemen pada akun Anda sendiri.');
         $this->abortIfNonItMutation();
         $this->abortIfProtectedAccount($user);
+        abort_if(
+            $user->isCurrentlySuspended(),
+            403,
+            'Akun sedang di-suspend. Lakukan unsuspend terlebih dahulu sebelum mengubah status aktif.'
+        );
 
+        $wasActive = $user->is_active;
         $user->update([
-            'is_active' => ! $user->is_active,
+            'is_active' => ! $wasActive,
         ]);
 
-        $statusLabel = $user->is_active ? 'diaktifkan' : 'dinonaktifkan';
+        $message = $wasActive
+            ? 'Akun berhasil dinonaktifkan.'
+            : 'Akun berhasil diaktifkan kembali.';
 
-        return redirect()->route('admin.users.index')->with('success', "Status akun {$user->nama} berhasil {$statusLabel}.");
+        return redirect()->route('admin.users.index')->with('success', $message);
     }
 
     /**
@@ -614,6 +622,7 @@ class UserController extends Controller
 
         // ==== UNSUSPEND: hapus batas waktu & kembalikan status aktif ====
         if ($request->input('action') === 'unsuspend' || $request->boolean('unsuspend')) {
+            $wasSuspended = $user->isCurrentlySuspended();
             $user->update([
                 'suspended_until' => null,
                 'is_active' => true,
@@ -621,9 +630,13 @@ class UserController extends Controller
 
             return back()->with(
                 'success',
-                "Akun {$user->nama} berhasil diaktifkan kembali (unsuspend). Seluruh batas suspend telah dihapus."
+                $wasSuspended
+                    ? 'Akun berhasil di-unsuspend.'
+                    : 'Akun berhasil diaktifkan kembali.'
             );
         }
+
+        abort_if(! $user->is_active, 403, 'Akun nonaktif tidak dapat di-suspend.');
 
         // Durasi suspend: default 1 jam; opsi lain 1 hari (24 jam).
         $duration = (string) $request->input('duration', '1h');

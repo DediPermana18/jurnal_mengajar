@@ -78,6 +78,7 @@ class LoginApprovalController extends Controller
                 'request_id' => $requestId,
             ]);
 
+            $user->markOffline();
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();

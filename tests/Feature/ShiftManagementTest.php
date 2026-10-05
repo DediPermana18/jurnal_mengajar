@@ -106,6 +106,7 @@ class ShiftManagementTest extends TestCase
     public function test_admin_can_update_shift(): void
     {
         $shift = $this->makeShift('Shift 1 (Pagi)');
+        $shift->forceFill(['jam_selesai' => '14:00'])->save();
 
         $response = $this->actingAs($this->admin)
             ->put(route('admin.shift-pelajaran.update', $shift->id), [
@@ -121,6 +122,7 @@ class ShiftManagementTest extends TestCase
             'id' => $shift->id,
             'nama_shift' => 'Shift 1 (Pagi) - Revisi',
             'jam_mulai' => '06:30',
+            'jam_selesai' => '14:00',
             'is_active' => false,
         ]);
     }

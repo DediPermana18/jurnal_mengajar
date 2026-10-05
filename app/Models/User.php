@@ -517,6 +517,20 @@ class User extends Authenticatable
     }
 
     /**
+     * Tandai user offline tanpa mengubah updated_at, yang merepresentasikan
+     * waktu perubahan data user dan bukan waktu aktivitas.
+     */
+    public function markOffline(): void
+    {
+        self::withoutTimestamps(function (): void {
+            $this->forceFill([
+                'last_active_at' => now()->subMinutes(self::ONLINE_WINDOW_MINUTES + 1),
+                'is_idle' => false,
+            ])->save();
+        });
+    }
+
+    /**
      * Apakah user ini adalah Satpam / Petugas Keamanan?
      * Diidentifikasi dari role 'admin' + sub_role 'satpam' (skema baru)
      * atau role lama 'piket_satpam'.

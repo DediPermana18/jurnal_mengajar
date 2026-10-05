@@ -40,6 +40,7 @@ class AuthController extends Controller
             $user = Auth::user();
 
             if ($maintenanceActive && ! $user->canBypassMaintenance()) {
+                $user->markOffline();
                 Auth::logout();
                 request()->session()->invalidate();
                 request()->session()->regenerateToken();
@@ -423,6 +424,7 @@ class AuthController extends Controller
             (string) $request->session()->get(SingleDeviceSessionService::LOCK_KEY, '')
         );
 
+        $request->user()?->markOffline();
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

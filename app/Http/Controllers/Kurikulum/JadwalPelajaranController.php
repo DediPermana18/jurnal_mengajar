@@ -11,6 +11,7 @@ use App\Models\JadwalPelajaran;
 use App\Models\JamPelajaran;
 use App\Models\JamPulang;
 use App\Models\Kelas;
+use App\Models\Jurusan;
 use App\Models\MataPelajaran;
 use App\Models\PengaturanJadwal;
 use App\Models\Ruangan;
@@ -64,7 +65,7 @@ class JadwalPelajaranController extends Controller
 
         // 2. Filter yang aktif
         $hariList = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
-        $selectedHari = $request->get('hari', 'Senin');
+        $selectedHari = $request->query('hari', 'Senin');
         if (! in_array($selectedHari, $hariList)) {
             $selectedHari = 'Senin';
         }
@@ -246,14 +247,41 @@ class JadwalPelajaranController extends Controller
      */
     public function monitoringSlotKosong(Request $request)
     {
-        $tahunAktif = $this->resolveTahunAjaranContext($request);
+        $tahunAjaranList = TahunAjaran::forCurrentContext()
+            ->orderByDesc('tahun_ajaran')
+            ->orderBy('semester')
+            ->get();
+        $requestedTahunAjaranId = $request->query('tahun_ajaran_id');
+        $tahunAktif = is_numeric($requestedTahunAjaranId)
+            ? $tahunAjaranList->firstWhere('id', (int) $requestedTahunAjaranId)
+            : null;
+        $tahunAktif ??= $tahunAjaranList->firstWhere('is_active', true) ?? $tahunAjaranList->first();
         $hariList = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
 
-        // Filter pencarian nama kelas & hari (GET params).
+        // Filter pencarian nama kelas, tingkat, jurusan, dan hari (GET params).
         $keyword = trim((string) $request->input('search', ''));
         $selectedHari = (string) $request->input('hari', '');
+        $tingkatOptions = [
+            'X' => ['X', '10'],
+            'XI' => ['XI', '11'],
+            'XII' => ['XII', '12'],
+        ];
+        $selectedTingkat = (string) $request->input('tingkat', '');
+        if (! array_key_exists($selectedTingkat, $tingkatOptions)) {
+            $selectedTingkat = '';
+        }
+        $jurusanOptions = Jurusan::query()
+            ->orderBy('nama_jurusan')
+            ->get(['id', 'nama_jurusan', 'kode_jurusan']);
+        $jurusanId = $request->input('jurusan_id');
+        $selectedJurusanId = is_numeric($jurusanId)
+            && $jurusanOptions->contains(fn (Jurusan $jurusan) => (int) $jurusan->id === (int) $jurusanId)
+                ? (int) $jurusanId
+                : '';
 
         $kelasList = Kelas::with('jurusan')
+            ->when($selectedTingkat !== '', fn ($q) => $q->whereIn('tingkat', $tingkatOptions[$selectedTingkat]))
+            ->when($selectedJurusanId !== '', fn ($q) => $q->where('id_jurusan', $selectedJurusanId))
             ->when($keyword !== '', function ($q) use ($keyword) {
                 $q->where(function ($sub) use ($keyword) {
                     $sub->where('nama_kelas', 'like', "%{$keyword}%")
@@ -270,9 +298,18 @@ class JadwalPelajaranController extends Controller
             ->orderBy('nama_kelas')
             ->get();
 
-        // Semua jadwal ter-plot pada tahun ajaran aktif.
-        $jadwalTerplot = JadwalPelajaran::with('jamPelajaran')
-            ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
+        // Semua jadwal ter-plot pada Tahun Ajaran & Semester yang dipilih.
+        // Relasi slot dibaca tanpa scope aktif agar data tahun arsip juga terhitung.
+        $jadwalTerplot = JadwalPelajaran::with([
+            'jamPelajaran' => fn ($q) => $q
+                ->withoutGlobalScope(ActiveTahunAjaranScope::class)
+                ->ofTahunAjaran($tahunAktif?->id, (bool) ($tahunAktif?->is_active ?? false)),
+        ])
+            ->when(
+                $tahunAktif,
+                fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id),
+                fn ($q) => $q->whereNull('id_tahun_ajaran')
+            )
             ->get();
 
         // Bucket jam_ke yang sudah ter-plot per (kelas, hari).
@@ -390,7 +427,13 @@ class JadwalPelajaranController extends Controller
             'totalSlotKosong',
             'hariList',
             'keyword',
-            'selectedHari'
+            'selectedHari',
+            'tahunAjaranList',
+            'tahunAktif',
+            'tingkatOptions',
+            'selectedTingkat',
+            'jurusanOptions',
+            'selectedJurusanId'
         ));
     }
 

@@ -130,7 +130,7 @@
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                     <h6 class="fw-bold text-dark mb-0">
                         <i class="bi bi-clock-history me-1 text-primary"></i> Pilih Jam Pelajaran
-                        <span class="badge bg-light text-dark border rounded-3 ms-1 px-2 py-1" style="font-size: 0.7rem;">{{ $kategoriHari }}</span>
+                        <span class="badge bg-light text-dark border rounded-3 ms-1 px-2 py-1" style="font-size: 0.7rem;">Hari Terdeteksi: {{ $hari }}</span>
                     </h6>
                     <span class="ms-auto small text-muted d-flex align-items-center gap-3">
                         <span class="d-inline-flex align-items-center gap-1">

@@ -405,8 +405,8 @@ public function test_halaman_kelola_user_menampilkan_tombol_suspend_darurat_dan_
             ->get(route('admin.users.index'))
             ->assertOk();
 
-        // Hanya akun yang suspended_until-nya masih masa depan ber-badge "Suspended (s/d HH:mm)".
-        $this->assertSame(1, substr_count($response->getContent(), 'Suspended (s/d '));
+        // Hanya akun yang suspended_until-nya masih masa depan ber-badge "Di-Suspend (s/d HH:mm)".
+        $this->assertSame(1, substr_count($response->getContent(), 'Di-Suspend (s/d '));
         // Akun yang sudah lewat waktunya tampil normal (status Aktif).
         $response->assertSee($expired->nama)
             ->assertSee('Aktif');

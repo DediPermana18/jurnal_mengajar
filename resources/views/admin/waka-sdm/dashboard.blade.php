@@ -3,7 +3,7 @@
 @section('title', 'Dashboard Waka SDM - WebJournal')
 
 @section('content')
-<div class="container-fluid px-0">
+<div class="container-fluid min-h-full bg-slate-50/70 px-0">
 
     {{-- Mapper badge warna (dari model/controller) Bootstrap -> Tailwind.
          Halaman ini 100% Tailwind; hanya lebar progress bar yang memakai
@@ -41,13 +41,13 @@
     {{-- ============================================================== --}}
     <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
         {{-- Sisi Kiri: Group Navigasi / Aksi --}}
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="inline-flex flex-wrap items-center gap-1 rounded-xl bg-slate-200/60 p-1">
             <a href="{{ route('waka-sdm.rekap-izin') }}"
-               class="inline-flex items-center gap-2 rounded-lg bg-white border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50">
-                <i class="bi bi-calendar2-check text-sky-600"></i> Rekap Izin & Cuti
+               class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-all hover:bg-white/70 hover:text-blue-600">
+                <i class="bi bi-calendar2-check"></i> Rekap Izin & Cuti
             </a>
             <a href="{{ route('waka-sdm.rekap-presensi-guru') }}"
-               class="inline-flex items-center gap-2 rounded-lg bg-sky-600 text-white px-4 py-2 text-sm font-semibold shadow-sm transition-colors hover:bg-sky-700">
+               class="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-blue-600 shadow-sm transition-all hover:shadow-md">
                 <i class="bi bi-bar-chart-line"></i> Rekap Performa KBM
             </a>
         </div>
@@ -91,7 +91,7 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
 
         {{-- Card 1: Guru Hadir Hari Ini --}}
-        <div class="bg-white border border-slate-200/80 rounded-xl shadow-sm p-4 sm:p-5 flex flex-col justify-between">
+        <div class="bg-white border border-slate-200/80 rounded-xl shadow-sm hover:shadow-md transition-all p-4 sm:p-5 flex flex-col justify-between">
             <div class="flex items-start justify-between mb-3">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Guru Hadir Hari Ini</p>
@@ -100,7 +100,7 @@
                         <span class="text-xs sm:text-sm text-slate-400">/ {{ $totalGuruTerjadwalHariIni }} Terjadwal</span>
                     </div>
                 </div>
-                <div class="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-600 text-lg sm:text-xl shrink-0">
+                <div class="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-100 text-emerald-600 text-lg sm:text-xl shrink-0">
                     <i class="bi bi-person-check-fill"></i>
                 </div>
             </div>
@@ -116,7 +116,7 @@
         </div>
 
         {{-- Card 2: Guru Izin / Sakit / Cuti Hari Ini --}}
-        <div class="bg-white border border-slate-200/80 rounded-xl shadow-sm p-4 sm:p-5 flex flex-col justify-between">
+        <div class="bg-white border border-slate-200/80 rounded-xl shadow-sm hover:shadow-md transition-all p-4 sm:p-5 flex flex-col justify-between">
             <div class="flex items-start justify-between mb-3">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Guru Izin / Sakit / Cuti</p>
@@ -125,7 +125,7 @@
                         <span class="text-xs sm:text-sm text-slate-400">Guru</span>
                     </div>
                 </div>
-                <div class="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-50 text-amber-600 text-lg sm:text-xl shrink-0">
+                <div class="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-100 text-amber-600 text-lg sm:text-xl shrink-0">
                     <i class="bi bi-person-dash-fill"></i>
                 </div>
             </div>
@@ -139,7 +139,7 @@
         </div>
 
         {{-- Card 3: Total Kelas Kosong --}}
-        <div class="bg-white border border-slate-200/80 rounded-xl shadow-sm p-4 sm:p-5 flex flex-col justify-between">
+        <div class="bg-white border border-slate-200/80 rounded-xl shadow-sm hover:shadow-md transition-all p-4 sm:p-5 flex flex-col justify-between">
             <div class="flex items-start justify-between mb-3">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Kelas Kosong / Belum Diisi</p>
@@ -148,14 +148,14 @@
                         <span class="text-xs sm:text-sm text-slate-400">Kelas</span>
                     </div>
                 </div>
-                <div class="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl text-lg sm:text-xl shrink-0 {{ $totalKelasKosong > 0 ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500' }}">
+                <div class="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-rose-100 text-rose-600 text-lg sm:text-xl shrink-0">
                     <i class="bi bi-door-closed-fill"></i>
                 </div>
             </div>
             <div class="flex items-center justify-between text-xs text-slate-500 pt-2">
                 <span>{{ $sesiKosongHariIni }} Sesi Belum Terisi</span>
                 @if($totalKelasKosong > 0)
-                    <span class="inline-flex items-center rounded-full bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 text-xs font-semibold">
+                    <span class="inline-flex items-center rounded-full bg-rose-50 text-rose-600 border border-rose-200 px-2 py-0.5 text-xs font-semibold">
                         Perlu Piket
                     </span>
                 @else
@@ -167,7 +167,7 @@
         </div>
 
         {{-- Card 4: Kehadiran Guru Bulan Ini --}}
-        <div class="bg-white border border-slate-200/80 rounded-xl shadow-sm p-4 sm:p-5 flex flex-col justify-between">
+        <div class="bg-white border border-slate-200/80 rounded-xl shadow-sm hover:shadow-md transition-all p-4 sm:p-5 flex flex-col justify-between">
             <div class="flex items-start justify-between mb-3">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Kehadiran Bulan {{ \Carbon\Carbon::now()->translatedFormat('F') }}</p>
@@ -175,17 +175,17 @@
                         <span class="text-2xl sm:text-3xl font-bold text-slate-800">{{ $persentaseKehadiranBulanIni }}%</span>
                     </div>
                 </div>
-                <div class="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-sky-50 text-sky-600 text-lg sm:text-xl shrink-0">
+                <div class="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-blue-100 text-blue-600 text-lg sm:text-xl shrink-0">
                     <i class="bi bi-award-fill"></i>
                 </div>
             </div>
             <div class="pt-2">
                 <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mb-2">
-                    <div class="h-full bg-sky-500 rounded-full" style="width: {{ $persentaseKehadiranBulanIni }}%"></div>
+                    <div class="h-full bg-blue-500 rounded-full" style="width: {{ $persentaseKehadiranBulanIni }}%"></div>
                 </div>
                 <div class="flex items-center justify-between text-xs text-slate-500">
                     <span>Target: 95.0%</span>
-                    <span class="font-semibold text-sky-600">Kinerja Baik</span>
+                    <span class="font-semibold text-blue-600">Kinerja Baik</span>
                 </div>
             </div>
         </div>
@@ -200,7 +200,7 @@
     <div class="grid grid-cols-1 w-full gap-6 mb-6">
 
         {{-- Widget Atas: Guru Tidak Hadir / Izin Hari Ini (full-width) --}}
-        <div class="w-full bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden flex flex-col h-auto">
+        <div class="w-full bg-white border border-slate-200/80 rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col h-auto">
             <div class="shrink-0 flex items-center justify-between flex-wrap gap-2 px-5 py-4 border-b border-slate-100">
                 <div>
                     <div class="flex items-center gap-2">
@@ -211,15 +211,15 @@
                     </div>
                     <p class="text-xs text-slate-500 mt-1">Daftar guru yang berhalangan hadir dan status penugasan guru pengganti.</p>
                 </div>
-                <span class="inline-flex items-center rounded-full bg-amber-50 text-amber-600 border border-amber-200 px-2.5 py-1 text-xs font-semibold">
+                <span class="inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold {{ $guruIzinHariIniList->isEmpty() ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-600 border border-amber-200' }}">
                     {{ $guruIzinHariIniList->count() }} Guru
                 </span>
             </div>
 
             @if($guruIzinHariIniList->isEmpty())
-                <div class="flex-1 flex flex-col items-center justify-center text-center py-6 px-4">
-                    <div class="flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 mb-3">
-                        <i class="bi bi-check2-circle text-xl"></i>
+                <div class="flex-1 flex flex-col items-center justify-center text-center py-10 px-6">
+                    <div class="flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 mb-4">
+                        <i class="bi bi-calendar2-check text-2xl"></i>
                     </div>
                     <h6 class="text-sm font-bold text-slate-800 mb-1">Semua guru terjadwal hadir hari ini.</h6>
                     <p class="text-xs text-slate-500 mb-0">Tidak ada pengajuan izin, sakit, atau dinas luar yang aktif untuk hari ini.</p>
@@ -299,7 +299,7 @@
         {{-- Widget Bawah: Pantauan Kelas Kosong (Jam Ini) — full-width.
              Paginasi 5 data/halaman lewat mini arrow di header (query param
              `page`) supaya card tidak memanjang terlalu jauh ke bawah. --}}
-        <div class="w-full bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden flex flex-col h-auto">
+        <div class="w-full bg-white border border-slate-200/80 rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col h-auto">
             <div class="shrink-0 flex items-center justify-between flex-wrap gap-2 px-5 py-4 border-b border-slate-100">
                 <div class="min-w-0">
                     <div class="flex items-center gap-2">

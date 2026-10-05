@@ -318,10 +318,12 @@ class SingleDeviceSessionTest extends TestCase
 
         $user = User::where('username', 'petugas_aktif')->firstOrFail();
         $this->assertNotEmpty($user->current_session_id);
+        $this->assertTrue($user->isOnline());
 
         $this->post(route('logout'))->assertRedirect(route('login'));
 
         $this->assertNull($user->fresh()->current_session_id);
+        $this->assertFalse($user->fresh()->isOnline());
         $this->assertGuest();
     }
 

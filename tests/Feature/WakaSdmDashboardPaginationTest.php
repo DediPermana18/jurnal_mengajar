@@ -65,6 +65,25 @@ class WakaSdmDashboardPaginationTest extends TestCase
         return $map[Carbon::now()->format('l')] ?? 'Senin';
     }
 
+    public function test_dashboard_memakai_visual_stat_card_dan_empty_state_modern(): void
+    {
+        $html = $this->actingAs($this->wakaSdm())
+            ->get(route('waka-sdm.dashboard'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('bg-slate-50/70', $html);
+        $this->assertSame(4, substr_count($html, 'shadow-sm hover:shadow-md transition-all p-4 sm:p-5'));
+        $this->assertStringContainsString('bg-emerald-100 text-emerald-600', $html);
+        $this->assertStringContainsString('bg-amber-100 text-amber-600', $html);
+        $this->assertStringContainsString('bg-rose-100 text-rose-600', $html);
+        $this->assertStringContainsString('bg-blue-100 text-blue-600', $html);
+        $this->assertStringContainsString('bg-slate-200/60 p-1', $html);
+        $this->assertStringContainsString('bg-white px-4 py-2 text-sm font-semibold text-blue-600 shadow-sm', $html);
+        $this->assertStringContainsString('bg-emerald-50 text-emerald-700 border border-emerald-200', $html);
+        $this->assertStringContainsString('bi-calendar2-check text-2xl', $html);
+    }
+
     /**
      * Seed 25 sesi KBM pada hari ini.
      */
@@ -205,7 +224,7 @@ class WakaSdmDashboardPaginationTest extends TestCase
 
         // Wrapper card: tinggi otomatis, tidak dikunci.
         $this->assertStringContainsString(
-            'rounded-xl shadow-sm overflow-hidden flex flex-col h-auto"',
+            'rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col h-auto"',
             $kartu
         );
 
@@ -241,7 +260,7 @@ class WakaSdmDashboardPaginationTest extends TestCase
         // Kedua card full-width.
         $this->assertSame(
             2,
-            substr_count($html, 'w-full bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden flex flex-col h-auto"')
+            substr_count($html, 'w-full bg-white border border-slate-200/80 rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col h-auto"')
         );
 
         // Urutan vertikal: Guru Tidak Hadir (atas) sebelum Pantauan Kelas Kosong (bawah).

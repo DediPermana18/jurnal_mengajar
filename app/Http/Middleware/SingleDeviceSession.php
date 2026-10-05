@@ -38,8 +38,7 @@ class SingleDeviceSession
         // depan): sesi berjalan langsung dikeluarkan dengan pesan eksplisit
         // sampai kapan akun diblokir. Berlaku untuk semua driver session.
         if ($user->isCurrentlySuspended()) {
-            $user->forceFill(['is_idle' => false])->save();
-
+            $user->markOffline();
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
@@ -55,8 +54,7 @@ class SingleDeviceSession
         // (file/cookie tidak dihapus lewat tabel `sessions`). Menutup celah
         // ketika current_session_id sudah dilepas menjadi null.
         if (! $user->is_active) {
-            $user->forceFill(['is_idle' => false])->save();
-
+            $user->markOffline();
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
@@ -78,8 +76,7 @@ class SingleDeviceSession
 
         if ($deviceLock !== $boundSessionId) {
             // Sesi ini sudah di-revoke oleh perangkat lain. Keluarkan paksa.
-            $user->forceFill(['is_idle' => false])->save();
-
+            $user->markOffline();
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();

@@ -1150,6 +1150,27 @@
                             @csrf
 
                             <div class="mb-4">
+                                <label for="tahunAjaranJadwalImport" class="form-label fw-semibold" style="font-size:0.875rem;color:#374151;">
+                                    Target Tahun Ajaran &amp; Semester <span class="text-danger">*</span>
+                                </label>
+                                <select class="form-select @error('tahun_ajaran_id') is-invalid @enderror"
+                                        id="tahunAjaranJadwalImport"
+                                        name="tahun_ajaran_id"
+                                        required>
+                                    @forelse($targetTahunAjaranList as $tahunAjaran)
+                                        <option value="{{ $tahunAjaran->id }}" @selected((int) $selectedTahunAjaranId === (int) $tahunAjaran->id)>
+                                            {{ $tahunAjaran->tahun_ajaran }} - {{ $tahunAjaran->semester }}
+                                        </option>
+                                    @empty
+                                        <option value="" selected disabled>Tidak ada Tahun Ajaran pada konteks ini</option>
+                                    @endforelse
+                                </select>
+                                @error('tahun_ajaran_id')
+                                    <div class="text-danger mt-2" style="font-size:0.8rem;">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="mb-4">
                                 <label for="fileJadwalImport" class="form-label fw-semibold" style="font-size:0.875rem;color:#374151;">File Jadwal <span class="text-danger">*</span></label>
                                 <div class="dropzone-import" id="dropzoneJadwal">
                                     <i class="bi bi-cloud-arrow-up dz-icon"></i>
@@ -1219,7 +1240,7 @@
                     </div>
                     <div class="card-import-body">
                         <p class="mb-3" style="font-size:0.85rem;color:#7f1d1d;">
-                            Menghapus <strong>seluruh slot jadwal pelajaran</strong> pada konteks data ini.
+                            Menghapus <strong>seluruh slot jadwal pelajaran</strong> pada Tahun Ajaran yang dipilih.
                             <strong>Jurnal mengajar yang sudah dibuat tidak ikut terhapus</strong>, namun kehilangan referensi jadwalnya.
                             Gunakan hanya saat akan import ulang plotting jadwal dari awal.
                         </p>
@@ -1229,10 +1250,11 @@
                                 data-reset-route="{{ route('import.reset-jadwal') }}"
                                 data-reset-label="seluruh Jadwal Pelajaran"
                                 data-reset-phrase="HAPUS DATA JADWAL"
+                                data-reset-year-selector="#tahunAjaranJadwalImport"
                                 data-bs-toggle="modal"
                                 data-bs-target="#modalResetData">
                             <i class="bi bi-trash3"></i>
-                            <span>Reset / Hapus Semua Jadwal Pelajaran</span>
+                            <span data-reset-button-text>Hapus Semua Jadwal Pelajaran (Tahun Ajaran: {{ $selectedTahunAjaran ? $selectedTahunAjaran->tahun_ajaran.' - '.$selectedTahunAjaran->semester : 'Belum tersedia' }})</span>
                         </button>
                     </div>
                 </div>
@@ -1347,9 +1369,10 @@
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <form method="POST" id="formResetData" action="" class="modal-content">
             @csrf
+            <input type="hidden" name="tahun_ajaran_id" id="resetTahunAjaranId">
             <div class="modal-header" style="background:#fef2f2;border-bottom:1px solid #fee2e2;">
                 <h5 class="modal-title fw-bold text-danger" id="modalResetDataLabel">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Konfirmasi Hapus Masal Data
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i><span id="resetModalTitleText">Konfirmasi Hapus Masal Data</span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
             </div>
@@ -1807,10 +1830,35 @@
         const btnReset = document.getElementById('btnConfirmReset');
         const lblText  = document.getElementById('resetLabelText');
         const phText   = document.getElementById('resetPhraseText');
+        const titleText = document.getElementById('resetModalTitleText');
+        const resetTahunAjaranId = document.getElementById('resetTahunAjaranId');
 
         if (!modalEl || !form || !input || !btnReset) return;
 
         let expectedPhrase = '';
+
+        function updateJadwalResetLabel(btn) {
+            const selector = btn.dataset.resetYearSelector;
+            if (!selector) return;
+
+            const select = document.querySelector(selector);
+            const selectedOption = select && select.selectedOptions[0];
+            if (!select || !selectedOption || !select.value) return;
+
+            const title = 'Hapus Semua Jadwal Pelajaran (Tahun Ajaran: ' + selectedOption.textContent.trim() + ')';
+            btn.querySelector('[data-reset-button-text]').textContent = title;
+            btn.dataset.resetTitle = title;
+            btn.dataset.resetLabel = 'seluruh Jadwal Pelajaran (Tahun Ajaran: ' + selectedOption.textContent.trim() + ')';
+            resetTahunAjaranId.value = select.value;
+        }
+
+        const jadwalTargetSelect = document.getElementById('tahunAjaranJadwalImport');
+        const jadwalResetButton = document.querySelector('[data-reset-year-selector]');
+        if (jadwalTargetSelect && jadwalResetButton) {
+            jadwalTargetSelect.addEventListener('change', function () {
+                updateJadwalResetLabel(jadwalResetButton);
+            });
+        }
 
         function lockReset() {
             input.value = '';
@@ -1820,10 +1868,12 @@
         // Tombol "Reset / Hapus Semua Data ..." (di setiap tab) → isi modal.
         document.querySelectorAll('[data-reset-route]').forEach(function (btn) {
             btn.addEventListener('click', function () {
+                updateJadwalResetLabel(btn);
                 expectedPhrase = (btn.dataset.resetPhrase || '').toUpperCase();
                 form.setAttribute('action', btn.dataset.resetRoute);
                 lblText.textContent = btn.dataset.resetLabel || 'seluruh data';
                 phText.textContent  = expectedPhrase;
+                if (titleText) titleText.textContent = btn.dataset.resetTitle || 'Konfirmasi Hapus Masal Data';
                 lockReset();
             });
         });

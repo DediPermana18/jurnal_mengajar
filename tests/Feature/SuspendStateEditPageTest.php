@@ -144,7 +144,7 @@ class SuspendStateEditPageTest extends TestCase
         $this->actingAs($tu)
             ->post(route('admin.users.toggle-suspend', $target->id), ['action' => 'unsuspend'])
             ->assertRedirect()
-            ->assertSessionHas('success');
+            ->assertSessionHas('success', 'Akun berhasil di-unsuspend.');
 
         $fresh = $target->fresh();
         $this->assertNull($fresh->suspended_until);
@@ -152,7 +152,20 @@ class SuspendStateEditPageTest extends TestCase
         $this->assertFalse($fresh->isCurrentlySuspended());
     }
 
-    public function test_unsuspend_mengaktifkan_akun_nonaktif_permanen(): void
+    public function test_akun_nonaktif_tidak_bisa_diberi_suspend_sementara(): void
+    {
+        $tu = $this->makeTu();
+        $target = $this->makeUser('waka_kurikulum', false);
+
+        $this->actingAs($tu)
+            ->post(route('admin.users.toggle-suspend', $target->id))
+            ->assertForbidden();
+
+        $this->assertNull($target->fresh()->suspended_until);
+        $this->assertFalse($target->fresh()->is_active);
+    }
+
+    public function test_aktivasi_akun_nonaktif_menggunakan_pesan_aktivasi_biasa(): void
     {
         $tu = $this->makeTu();
         $target = $this->makeUser('waka_kurikulum', false);
@@ -160,7 +173,7 @@ class SuspendStateEditPageTest extends TestCase
         $this->actingAs($tu)
             ->post(route('admin.users.toggle-suspend', $target->id), ['action' => 'unsuspend'])
             ->assertRedirect()
-            ->assertSessionHas('success');
+            ->assertSessionHas('success', 'Akun berhasil diaktifkan kembali.');
 
         $fresh = $target->fresh();
         $this->assertTrue($fresh->is_active);
@@ -275,7 +288,7 @@ class SuspendStateEditPageTest extends TestCase
         $this->assertStringNotContainsString('data-suspend-url="'.$suspendUrl.'"', $html);
     }
 
-    public function test_index_akun_nonaktif_permanen_menampilkan_tombol_unsuspend(): void
+    public function test_index_akun_nonaktif_menampilkan_badge_dan_tidak_menampilkan_aksi_suspend(): void
     {
         $tu = $this->makeTu();
         $off = $this->makeUser('waka_kurikulum', false);
@@ -285,11 +298,12 @@ class SuspendStateEditPageTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $suspendUrl = route('admin.users.toggle-suspend', $off->id);
-
-        $this->assertStringContainsString('name="action" value="unsuspend"', $html);
-        $this->assertStringContainsString('action="'.$suspendUrl.'"', $html);
-        $this->assertStringNotContainsString('data-suspend-url="'.$suspendUrl.'"', $html);
+        $this->assertStringContainsString('Nonaktif', $html);
+        $this->assertStringNotContainsString('name="action" value="unsuspend"', $html);
+        $this->assertStringNotContainsString(
+            'data-suspend-url="'.route('admin.users.toggle-suspend', $off->id).'"',
+            $html
+        );
     }
 
     public function test_index_akun_aktif_menampilkan_tombol_suspend_darurat_modal(): void

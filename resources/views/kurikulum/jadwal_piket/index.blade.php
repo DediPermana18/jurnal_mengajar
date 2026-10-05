@@ -206,103 +206,6 @@
 
                 // ===== Pengelompokan data per kategori (format SK + shift dinamis) =====
                 $wakaHariIni       = $petugasHariIni->whereNotNull('waka_user_id');
-                $koorPagiHariIni   = $petugasHariIni->whereNotNull('koordinator_pagi_user_id');
-                $koorSiangHariIni  = $petugasHariIni->whereNotNull('koordinator_siang_user_id');
-
-                // Kumpulkan ID koordinator pagi & siang agar bisa dikecualikan
-                // dari daftar petugas — mencegah nama koordinator muncul dua kali.
-                $koorPagiIds  = $koorPagiHariIni->pluck('koordinator_pagi_user_id')->filter()->unique()->values()->all();
-                $koorSiangIds = $koorSiangHariIni->pluck('koordinator_siang_user_id')->filter()->unique()->values()->all();
-
-                // Petugas SK (format kolom dedikasi), dikecualikan koordinator.
-                $petugasPagiSk  = $petugasHariIni
-                    ->whereNotNull('petugas_pagi_user_id')
-                    ->filter(fn ($r) => ! in_array($r->petugas_pagi_user_id, $koorPagiIds, true));
-                $petugasSiangSk = $petugasHariIni
-                    ->whereNotNull('petugas_siang_user_id')
-                    ->filter(fn ($r) => ! in_array($r->petugas_siang_user_id, $koorSiangIds, true));
-
-                // Petugas berbasis shift (user_id + shift_id),
-                // dikecualikan juga bila user adalah koordinator pagi/siang.
-                $allKoorIds = array_unique(array_merge($koorPagiIds, $koorSiangIds));
-                $shiftRows = $petugasHariIni->whereNotNull('shift_id');
-                $petugasPagiShift  = $shiftRows
-                    ->filter(fn ($r) => str_starts_with(strtolower((string) optional($r->shift)->nama), 'pagi')
-                        && ! in_array($r->user_id, $allKoorIds, true));
-                $petugasSiangShift = $shiftRows
-                    ->filter(fn ($r) => str_starts_with(strtolower((string) optional($r->shift)->nama), 'siang')
-                        && ! in_array($r->user_id, $allKoorIds, true));
-
-                // Shift di luar Pagi/Siang (jika sekolah punya shift lain)
-                $rowsShiftLain = $shiftRows
-                    ->reject(fn ($r) => str_starts_with(strtolower((string) optional($r->shift)->nama), 'pagi')
-                        || str_starts_with(strtolower((string) optional($r->shift)->nama), 'siang'))
-                    ->groupBy(fn ($r) => optional($r->shift)->nama ?? 'Lainnya');
-
-                // ===== Pengelompokan visual: Grup Pagi vs Grup Siang (Soft Badges & Clean Spacing) =====
-                $groups = collect([
-                    [
-                        'title'    => 'SHIFT PAGI',
-                        'icon'     => 'bi-sun-fill',
-                        'header'   => 'bg-amber-100/80 text-amber-800 border border-amber-200/80',
-                        'wrapper'  => 'bg-amber-50/20 border border-amber-200/60',
-                        'sections' => collect([
-                            [
-                                'label'  => 'Koordinator Pagi',
-                                'icon'   => 'bi-flag-fill',
-                                'badge'  => 'bg-sky-50 text-sky-700 border border-sky-200/80',
-                                'rows'   => $koorPagiHariIni,
-                                'person' => fn ($row) => $row->koordinatorPagi,
-                            ],
-                            [
-                                'label'  => 'Petugas Pagi',
-                                'icon'   => 'bi-sun-fill',
-                                'badge'  => 'bg-blue-50 text-blue-700 border border-blue-200/80',
-                                'rows'   => $petugasPagiSk->merge($petugasPagiShift),
-                                'person' => fn ($row) => $row->petugas_pagi_user_id ? $row->petugasPagi : $row->user,
-                            ],
-                        ]),
-                    ],
-                    [
-                        'title'    => 'SHIFT SIANG',
-                        'icon'     => 'bi-moon-stars-fill',
-                        'header'   => 'bg-indigo-100/80 text-indigo-800 border border-indigo-200/80',
-                        'wrapper'  => 'bg-indigo-50/20 border border-indigo-200/60',
-                        'sections' => collect([
-                            [
-                                'label'  => 'Koordinator Siang',
-                                'icon'   => 'bi-moon-stars-fill',
-                                'badge'  => 'bg-indigo-50 text-indigo-700 border border-indigo-200/80',
-                                'rows'   => $koorSiangHariIni,
-                                'person' => fn ($row) => $row->koordinatorSiang,
-                            ],
-                            [
-                                'label'  => 'Petugas Siang',
-                                'icon'   => 'bi-moon-fill',
-                                'badge'  => 'bg-slate-100 text-slate-700 border border-slate-200/80',
-                                'rows'   => $petugasSiangSk->merge($petugasSiangShift),
-                                'person' => fn ($row) => $row->petugas_siang_user_id ? $row->petugasSiang : $row->user,
-                            ],
-                        ]),
-                    ],
-                ]);
-
-                // Shift tambahan di luar Pagi/Siang (jika ada) — grup netral terpisah
-                if ($rowsShiftLain->isNotEmpty()) {
-                    $groups->push([
-                        'title'    => 'SHIFT LAINNYA',
-                        'icon'     => 'bi-people-fill',
-                        'header'   => 'bg-gray-100 text-gray-700 border border-gray-200',
-                        'wrapper'  => 'bg-gray-50/40 border border-gray-200',
-                        'sections' => collect($rowsShiftLain->map(fn ($groupRows, $namaShift) => [
-                            'label'  => 'Petugas '.$namaShift,
-                            'icon'   => 'bi-people-fill',
-                            'badge'  => 'bg-gray-100 text-gray-700 border border-gray-200',
-                            'rows'   => $groupRows,
-                            'person' => fn ($row) => $row->user,
-                        ])->values()),
-                    ]);
-                }
             @endphp
 
             <div class="tab-pane fade {{ $isActive ? 'show active' : '' }}"
@@ -396,7 +299,7 @@
                                 </div>
                             </div>
                         @else
-                            {{-- Kolom info: Waka Piket (global/harian) + Grup Pagi & Siang --}}
+                            {{-- Kolom info: Waka Piket dan grup shift aktif --}}
                             <div class="d-flex flex-column gap-4">
                                 {{-- Waka Piket: penanggung jawab harian (global) --}}
                                 @php
@@ -458,26 +361,33 @@
                                     @endif
                                 </div>
 
-                                {{-- Shift Groups (Pagi & Siang) --}}
-                                @foreach($groups as $group)
+                                {{-- Shift groups dari seluruh shift aktif --}}
+                                @foreach($activeShifts as $shift)
                                     @php
-                                        $groupSections = $group['sections']->values();
+                                        $shiftGroup = $shiftGroupsByHari[$hari][$shift->id] ?? [
+                                            'count' => 0,
+                                            'coordinators' => collect(),
+                                            'workers' => collect(),
+                                        ];
                                     @endphp
-                                    <div class="rounded-4 border p-3.5 {{ $group['wrapper'] }}">
+                                    <div class="rounded-4 border p-3.5 bg-gray-50/40 border-gray-200">
                                         <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-                                            <span class="shift-badge {{ $group['header'] }} d-inline-flex align-items-center gap-1.5 fw-bold">
-                                                <i class="bi {{ $group['icon'] }}"></i>{{ $group['title'] }}
+                                            <span class="shift-badge bg-gray-100 text-gray-700 border border-gray-200 d-inline-flex align-items-center gap-1.5 fw-bold">
+                                                <i class="bi bi-people-fill"></i>{{ $shift->nama }}
                                             </span>
                                             <span class="text-muted" style="font-size: 0.75rem;">
-                                                {{ $group['sections']->sum(fn ($s) => $s['rows']->count()) }} guru bertugas
+                                                {{ $shiftGroup['count'] }} guru bertugas
                                             </span>
+                                            <span class="text-muted" style="font-size: 0.75rem;">{{ $shift->jam_label }}</span>
                                         </div>
 
                                         <div class="d-flex flex-column gap-3">
-                                            @foreach($groupSections as $sec)
+                                            @foreach([
+                                                ['label' => 'Koordinator '.$shift->nama, 'icon' => 'bi-flag-fill', 'badge' => 'bg-sky-50 text-sky-700 border border-sky-200/80', 'rows' => $shiftGroup['coordinators']],
+                                                ['label' => 'Petugas '.$shift->nama, 'icon' => 'bi-people-fill', 'badge' => 'bg-blue-50 text-blue-700 border border-blue-200/80', 'rows' => $shiftGroup['workers']],
+                                            ] as $sec)
                                                 @php
                                                     $secRows = $sec['rows']->values();
-                                                    $person = $sec['person'];
                                                 @endphp
                                                 <div>
                                                     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
@@ -492,8 +402,11 @@
                                                     @if($secRows->isNotEmpty())
                                                         {{-- Responsive Grid Card Guru --}}
                                                         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                                            @foreach($secRows as $row)
-                                                                @php($u = $person($row))
+                                                            @foreach($secRows as $entry)
+                                                                @php
+                                                                    $row = $entry['jadwal'];
+                                                                    $u = $entry['person'];
+                                                                @endphp
                                                                 <div class="d-flex align-items-center gap-2.5 bg-white border border-gray-200/80 rounded-3 p-2 pe-2.5 min-w-0 shadow-sm" style="min-width: 0;">
                                                                     <span class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
                                                                           style="width: 34px; height: 34px; font-size: 0.72rem; font-weight: 700; color: #334155; background: #f1f5f9; border: 1px solid #e2e8f0;">
@@ -526,7 +439,7 @@
                                                             @endforeach
                                                         </div>
                                                     @else
-                                                        <span class="text-muted small" style="padding: 0.4rem 0;">Belum diisi</span>
+                                                        <span class="text-muted small" style="padding: 0.4rem 0;">Belum ada penugasan.</span>
                                                     @endif
                                                 </div>
                                             @endforeach
@@ -569,11 +482,11 @@
                     </div>
                     <div class="col-6 col-md-2">
                         <label class="form-label small fw-semibold mb-1">Mulai</label>
-                        <input type="time" name="jam_mulai" class="form-control" required>
+                        <input type="time" name="jam_mulai" class="form-control" step="60" lang="en-GB" required>
                     </div>
                     <div class="col-6 col-md-2">
                         <label class="form-label small fw-semibold mb-1">Selesai</label>
-                        <input type="time" name="jam_selesai" class="form-control" required>
+                        <input type="time" name="jam_selesai" class="form-control" step="60" lang="en-GB" required>
                     </div>
                     <div class="col-5 col-md-2">
                         <label class="form-label small fw-semibold mb-1">Maks. Petugas</label>
@@ -584,7 +497,7 @@
                         <input type="number" name="urutan" class="form-control" min="0" value="0">
                     </div>
                     <div class="col-3 col-md-2">
-                        <button class="btn btn-primary w-100"><i class="bi bi-plus-lg me-1"></i> Tambah</button>
+                        <button type="submit" class="btn btn-primary w-100"><i class="bi bi-plus-lg me-1"></i> Tambah</button>
                     </div>
                 </form>
 
@@ -619,8 +532,8 @@
                                 </td>
                                 <td>
                                     <div class="d-flex gap-2">
-                                        <input form="shift-form-{{ $shift->id }}" type="time" name="jam_mulai" value="{{ substr($shift->jam_mulai, 0, 5) }}" class="form-control" required>
-                                        <input form="shift-form-{{ $shift->id }}" type="time" name="jam_selesai" value="{{ substr($shift->jam_selesai, 0, 5) }}" class="form-control" required>
+                                        <input form="shift-form-{{ $shift->id }}" type="time" name="jam_mulai" value="{{ substr($shift->jam_mulai, 0, 5) }}" class="form-control" step="60" lang="en-GB" required>
+                                        <input form="shift-form-{{ $shift->id }}" type="time" name="jam_selesai" value="{{ substr($shift->jam_selesai, 0, 5) }}" class="form-control" step="60" lang="en-GB" required>
                                     </div>
                                 </td>
                                 <td>
@@ -652,7 +565,10 @@
             </div>
 
             <div class="modal-footer border-0 pb-4 px-4">
-                <button type="button" class="btn btn-light border rounded-3 px-4 fw-semibold" data-bs-dismiss="modal">Selesai</button>
+                <div id="shift-save-status" class="small me-auto" role="status" aria-live="polite"></div>
+                <button type="button" id="save-shifts-and-close" class="btn btn-primary rounded-3 px-4 fw-semibold">
+                    Simpan &amp; Selesai
+                </button>
             </div>
         </div>
     </div>
@@ -661,7 +577,18 @@
 @push('scripts')
 <script>
     // Auto-save toggle status active shift via instant AJAX & form submit handler
-    document.addEventListener('DOMContentLoaded', function () {
+    function initializeShiftSettings() {
+        var pendingShiftToggleRequests = {};
+        var readShiftJson = async function (response) {
+            if (!response.headers.get('content-type')?.includes('application/json')) {
+                if (response.redirected) {
+                    throw new Error('Sesi mungkin telah berakhir. Muat ulang halaman dan coba lagi.');
+                }
+                throw new Error('Server mengirim respons bukan JSON (HTTP ' + response.status + ').');
+            }
+            return response.json();
+        };
+
         // 1. Direct event listener (change) pada checkbox status Aktif
         document.querySelectorAll('.shift-toggle-active').forEach(function (checkbox) {
             checkbox.addEventListener('change', function () {
@@ -678,20 +605,30 @@
                 var token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
                     || document.querySelector('input[name="_token"]')?.value;
 
-                fetch(url, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': token,
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        is_active: isActive,
-                        toggle_active_only: 1
-                    })
+                var previousToggleRequest = pendingShiftToggleRequests[shiftId] || Promise.resolve();
+                var toggleRequest = previousToggleRequest.catch(function () {}).then(function () {
+                    return fetch(url, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': token,
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            is_active: isActive,
+                            toggle_active_only: 1
+                        })
+                    });
                 })
-                .then(function (res) { return res.json(); })
+                .then(function (res) {
+                    return readShiftJson(res).then(function (data) {
+                        if (!res.ok) {
+                            throw new Error(data.message || 'Gagal memperbarui status aktif shift.');
+                        }
+                        return data;
+                    });
+                })
                 .then(function (data) {
                     if (data && data.success) {
                         var currentStatus = Boolean(data.is_active);
@@ -700,13 +637,19 @@
                             hiddenInput.value = currentStatus ? '1' : '0';
                         }
                     } else {
-                        alert('Gagal memperbarui status aktif shift.');
+                        throw new Error('Gagal memperbarui status aktif shift.');
                     }
                 })
                 .catch(function (err) {
                     console.error(err);
                     alert('Terjadi kesalahan koneksi saat memperbarui status shift.');
+                })
+                .finally(function () {
+                    if (pendingShiftToggleRequests[shiftId] === toggleRequest) {
+                        delete pendingShiftToggleRequests[shiftId];
+                    }
                 });
+                pendingShiftToggleRequests[shiftId] = toggleRequest;
             });
         });
 
@@ -724,18 +667,91 @@
                 }
             });
         });
-    });
+
+        var saveButton = document.getElementById('save-shifts-and-close');
+        var saveStatus = document.getElementById('shift-save-status');
+        var shiftModalEl = document.getElementById('shiftModal');
+
+        if (saveButton && saveStatus && shiftModalEl) {
+            saveButton.addEventListener('click', async function () {
+                var originalLabel = saveButton.textContent.trim();
+                var forms = Array.from(shiftModalEl.querySelectorAll('form[id^="shift-form-"]'));
+                var shiftRows = forms.filter(function (form) {
+                    return form.id.indexOf('shift-form-page-') !== 0;
+                });
+
+                saveButton.disabled = true;
+                saveButton.textContent = 'Menyimpan...';
+                saveStatus.className = 'small me-auto text-muted';
+                saveStatus.textContent = '';
+
+                try {
+                    await Promise.all(Object.values(pendingShiftToggleRequests));
+
+                    for (var form of shiftRows) {
+                        var shiftId = form.id.replace('shift-form-', '');
+                        var hiddenInput = form.querySelector('input.shift-is-active-hidden');
+                        var checkbox = shiftModalEl.querySelector('.shift-toggle-active[data-shift-id="' + shiftId + '"]');
+                        if (checkbox && hiddenInput) {
+                            hiddenInput.value = checkbox.checked ? '1' : '0';
+                        }
+
+                        var response = await fetch(form.action, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            body: new URLSearchParams(new FormData(form))
+                        });
+                        var result = await readShiftJson(response);
+
+                        if (!response.ok || !result.success) {
+                            var messages = result.errors
+                                ? Object.values(result.errors).flat().join(' ')
+                                : (result.message || 'Gagal menyimpan perubahan shift.');
+                            throw new Error(messages);
+                        }
+                    }
+
+                    saveStatus.className = 'small me-auto text-success';
+                    saveStatus.textContent = 'Semua perubahan shift berhasil disimpan.';
+                    bootstrap.Modal.getOrCreateInstance(shiftModalEl).hide();
+                    window.location.reload();
+                } catch (error) {
+                    saveStatus.className = 'small me-auto text-danger';
+                    saveStatus.textContent = error.message || 'Gagal menyimpan perubahan shift.';
+                } finally {
+                    saveButton.disabled = false;
+                    saveButton.textContent = originalLabel;
+                }
+            });
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeShiftSettings, { once: true });
+    } else {
+        initializeShiftSettings();
+    }
 
     // Buka kembali modal Pengaturan Shift & Kuota setelah simpan/hapus shift
     // dikirim dari dalam modal (flag from_shift_modal), termasuk saat validasi gagal.
-    document.addEventListener('DOMContentLoaded', function () {
+    function reopenShiftSettingsModal() {
         var shiftModalEl = document.getElementById('shiftModal');
         var reopen = {{ session('open_shift_modal') ? 'true' : 'false' }}
             || '{{ old('from_shift_modal') ? '1' : '' }}' === '1';
         if (shiftModalEl && reopen) {
             bootstrap.Modal.getOrCreateInstance(shiftModalEl).show();
         }
-    });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', reopenShiftSettingsModal, { once: true });
+    } else {
+        reopenShiftSettingsModal();
+    }
 
     // Konfirmasi "Kosongkan Jadwal" per hari (event delegation, sekali pasang).
     // Pesan menyebutkan nama hari & jumlah penugasan agar tidak salah hapus hari.

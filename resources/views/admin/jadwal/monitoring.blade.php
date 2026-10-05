@@ -16,9 +16,29 @@
                     Daftar kelas dengan slot KBM yang belum di-plot agar plotting lebih cepat.
                 </p>
             </div>
-            <a href="{{ route('admin.jadwal.index') }}" class="btn btn-light border rounded-3 px-4 py-2 fw-semibold shadow-sm">
-                <i class="bi bi-arrow-left me-1"></i> Kembali ke Plotting Jadwal
-            </a>
+            <div class="d-flex align-items-end flex-wrap gap-2">
+                <form action="{{ route('admin.jadwal.monitoring') }}" method="GET" class="mb-0">
+                    <label for="selectTahunAjaranMonitoring" class="form-label small fw-semibold text-muted mb-1">
+                        Tahun Ajaran &amp; Semester
+                    </label>
+                    <input type="hidden" name="search" value="{{ $keyword ?? '' }}">
+                    <input type="hidden" name="tingkat" value="{{ $selectedTingkat ?? '' }}">
+                    <input type="hidden" name="jurusan_id" value="{{ $selectedJurusanId ?? '' }}">
+                    <input type="hidden" name="hari" value="{{ $selectedHari ?? '' }}">
+                    <select name="tahun_ajaran_id" id="selectTahunAjaranMonitoring" class="form-select bg-white rounded-3 shadow-sm" style="min-width: 240px; cursor: pointer;" onchange="this.form.submit()">
+                        @forelse($tahunAjaranList as $tahun)
+                            <option value="{{ $tahun->id }}" {{ (int) ($tahunAktif?->id ?? 0) === (int) $tahun->id ? 'selected' : '' }}>
+                                {{ $tahun->tahun_ajaran }} — {{ $tahun->semester }}{{ $tahun->is_active ? ' (Aktif)' : '' }}
+                            </option>
+                        @empty
+                            <option value="" selected disabled>Belum ada Tahun Ajaran</option>
+                        @endforelse
+                    </select>
+                </form>
+                <a href="{{ route('admin.jadwal.index') }}" class="btn btn-light border rounded-3 px-4 py-2 fw-semibold shadow-sm">
+                    <i class="bi bi-arrow-left me-1"></i> Kembali ke Plotting Jadwal
+                </a>
+            </div>
         </div>
     </div>
 
@@ -74,8 +94,9 @@
             <form action="{{ route('admin.jadwal.monitoring') }}" method="GET"
                   class="d-flex flex-column gap-3"
                   id="formFilterMonitoring">
-                <div class="d-flex flex-wrap align-items-center gap-3">
-                    <div class="flex-grow-1 position-relative" style="min-width: 240px; max-width: 450px;">
+                <input type="hidden" name="tahun_ajaran_id" value="{{ $tahunAktif?->id }}">
+                <div class="d-flex flex-column flex-xl-row align-items-stretch align-items-xl-center gap-2">
+                    <div class="flex-grow-1 position-relative" style="min-width: 220px;">
                         <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.9rem;"></i>
                         <input type="text"
                                name="search"
@@ -85,6 +106,24 @@
                                placeholder="Cari kelas (contoh: X - AK 1)...">
                     </div>
                     <div style="width: 180px;">
+                        <select name="tingkat" id="selectFilterTingkat" class="form-select bg-light rounded-3" style="cursor: pointer;" onchange="this.form.submit()">
+                            <option value="">Semua Tingkatan</option>
+                            @foreach($tingkatOptions as $tingkat => $tingkatAliases)
+                                <option value="{{ $tingkat }}" {{ ($selectedTingkat ?? '') === $tingkat ? 'selected' : '' }}>Kelas {{ $tingkat }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div style="width: 220px;">
+                        <select name="jurusan_id" id="selectFilterJurusan" class="form-select bg-light rounded-3" style="cursor: pointer;" onchange="this.form.submit()">
+                            <option value="">Semua Jurusan</option>
+                            @foreach($jurusanOptions as $jurusan)
+                                <option value="{{ $jurusan->id }}" {{ (string) ($selectedJurusanId ?? '') === (string) $jurusan->id ? 'selected' : '' }}>
+                                    {{ $jurusan->nama_jurusan }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div style="width: 160px;">
                         <select name="hari" id="selectFilterHari" class="form-select bg-light rounded-3" style="cursor: pointer;" onchange="this.form.submit()">
                             <option value="" {{ ($selectedHari ?? '') === '' ? 'selected' : '' }}>Semua Hari</option>
                             @foreach(['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'] as $hariOpt)
@@ -92,10 +131,13 @@
                             @endforeach
                         </select>
                     </div>
+                    <a href="{{ route('admin.jadwal.monitoring', ['tahun_ajaran_id' => $tahunAktif?->id]) }}" class="btn btn-outline-secondary rounded-3 text-nowrap">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Filter
+                    </a>
                 </div>
 
                 {{-- Indikator Filter Aktif & Reset --}}
-                @if(($keyword ?? '') !== '' || ($selectedHari ?? '') !== '')
+                @if(($keyword ?? '') !== '' || ($selectedHari ?? '') !== '' || ($selectedTingkat ?? '') !== '' || ($selectedJurusanId ?? '') !== '')
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2 border-top" style="border-color: #f1f5f9 !important;">
                         <div class="d-flex flex-wrap align-items-center gap-1.5" style="font-size: 0.8rem; color: #64748b;">
                             <span class="fw-semibold text-dark"><i class="bi bi-funnel-fill text-primary me-1"></i>Filter Aktif:</span>
@@ -105,11 +147,15 @@
                             @if(($selectedHari ?? '') !== '')
                                 <span class="badge bg-light text-primary border border-primary-subtle px-2 py-1">Hari: {{ $selectedHari }}</span>
                             @endif
+                            @if(($selectedTingkat ?? '') !== '')
+                                <span class="badge bg-light text-dark border px-2 py-1">Tingkat: Kelas {{ $selectedTingkat }}</span>
+                            @endif
+                            @if(($selectedJurusanId ?? '') !== '')
+                                <span class="badge bg-light text-dark border px-2 py-1">
+                                    Jurusan: {{ $jurusanOptions->firstWhere('id', $selectedJurusanId)?->nama_jurusan }}
+                                </span>
+                            @endif
                         </div>
-                        <a href="{{ route('admin.jadwal.monitoring') }}" class="btn btn-sm btn-outline-secondary rounded-2 px-2 py-1 text-decoration-none d-inline-flex align-items-center gap-1" style="font-size: 0.78rem;">
-                            <i class="bi bi-arrow-counterclockwise"></i>
-                            <span>Reset Filter</span>
-                        </a>
                     </div>
                 @endif
             </form>

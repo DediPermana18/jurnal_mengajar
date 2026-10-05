@@ -642,6 +642,53 @@ class JadwalPiketTest extends TestCase
         $response->assertSee('Belum ada penugasan piket hari Rabu');
     }
 
+    public function test_index_menampilkan_shift_aktif_tambahan_dan_menyembunyikan_shift_nonaktif(): void
+    {
+        $admin = User::create([
+            'nama' => 'Admin Kurikulum',
+            'username' => 'admin_index_shift_dinamis',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+        $guru = User::create([
+            'nama' => 'Guru Shift Sore',
+            'username' => 'guru_shift_sore',
+            'password' => bcrypt('password'),
+            'role' => 'guru',
+            'is_active' => true,
+        ]);
+        $shiftSore = ShiftPiket::create([
+            'nama' => 'Sore',
+            'jam_mulai' => '15:00',
+            'jam_selesai' => '18:00',
+            'maksimal_petugas' => 4,
+            'urutan' => 3,
+            'is_active' => true,
+        ]);
+        ShiftPiket::create([
+            'nama' => 'Malam Nonaktif',
+            'jam_mulai' => '18:00',
+            'jam_selesai' => '21:00',
+            'maksimal_petugas' => 4,
+            'urutan' => 4,
+            'is_active' => false,
+        ]);
+        JadwalPiket::create([
+            'hari' => 'Senin',
+            'minggu_ke' => 1,
+            'shift_id' => $shiftSore->id,
+            'user_id' => $guru->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('kurikulum.jadwal-piket.index', ['minggu_ke' => 1]))
+            ->assertOk()
+            ->assertSee('Petugas Sore')
+            ->assertSee('Guru Shift Sore')
+            ->assertDontSee('Petugas Malam Nonaktif');
+    }
+
     public function test_index_menampilkan_tombol_dan_modal_pengaturan_shift_untuk_admin(): void
     {
         $admin = User::create([
@@ -652,13 +699,34 @@ class JadwalPiketTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->actingAs($admin)
+        $response = $this->actingAs($admin)
             ->get(route('kurikulum.jadwal-piket.index'))
             ->assertOk()
             ->assertSee('Pengaturan Shift & Kuota', false)
             ->assertSee('Tambah Petugas Piket')
             ->assertSee('shiftModal')
             ->assertSee('kurikulum/jadwal-piket/shifts');
+
+        $html = $response->getContent();
+        $this->assertStringContainsString('type="submit" class="btn btn-primary w-100"', $html);
+        $this->assertStringContainsString('id="save-shifts-and-close" class="btn btn-primary rounded-3 px-4 fw-semibold"', $html);
+        $this->assertStringContainsString('Simpan &amp; Selesai', $html);
+        $this->assertStringContainsString('new URLSearchParams(new FormData(form))', $html);
+        $this->assertStringContainsString("'Accept': 'application/json'", $html);
+        $this->assertStringContainsString("'X-Requested-With': 'XMLHttpRequest'", $html);
+        $this->assertStringContainsString('readShiftJson(response)', $html);
+        $this->assertStringContainsString("bootstrap.Modal.getOrCreateInstance(shiftModalEl).hide();", $html);
+        $this->assertStringContainsString('window.location.reload();', $html);
+        $this->assertStringContainsString("document.readyState === 'loading'", $html);
+        $this->assertStringContainsString('initializeShiftSettings();', $html);
+        $this->assertSame(6, substr_count($html, 'type="time"'));
+        $this->assertSame(6, substr_count($html, 'step="60" lang="en-GB"'));
+
+        $shiftSettingsHtml = $this->get(route('kurikulum.jadwal-piket.shifts'))
+            ->assertOk()
+            ->getContent();
+        $this->assertSame(6, substr_count($shiftSettingsHtml, 'type="time"'));
+        $this->assertSame(6, substr_count($shiftSettingsHtml, 'step="60" lang="en-GB"'));
     }
 
     public function test_store_shift_dari_modal_redirect_balik_dan_buka_kembali_modal(): void
@@ -694,6 +762,131 @@ class JadwalPiketTest extends TestCase
             ->get(route('kurikulum.jadwal-piket.index'))
             ->assertOk()
             ->assertSee('var reopen = true');
+    }
+
+    public function test_store_shift_menerima_jam_hh_mm_dan_memvalidasi_urutan_waktu(): void
+    {
+        $admin = User::create([
+            'nama' => 'Admin Kurikulum',
+            'username' => 'admin_validasi_shift',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+
+        $validResponse = $this->actingAs($admin)
+            ->post(route('kurikulum.jadwal-piket.shifts.store'), [
+                'nama' => 'Pagi',
+                'jam_mulai' => '07:00',
+                'jam_selesai' => '12:00',
+                'maksimal_petugas' => 4,
+            ]);
+
+        $validResponse->assertRedirect()
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+        $this->assertDatabaseHas('shift_piket', [
+            'nama' => 'Pagi',
+            'jam_mulai' => '07:00',
+            'jam_selesai' => '12:00',
+        ]);
+
+        foreach (['07:00', '06:59'] as $jamSelesai) {
+            $this->from(route('kurikulum.jadwal-piket.index'))
+                ->post(route('kurikulum.jadwal-piket.shifts.store'), [
+                    'nama' => 'Shift Tidak Valid',
+                    'jam_mulai' => '07:00',
+                    'jam_selesai' => $jamSelesai,
+                    'maksimal_petugas' => 4,
+                ])
+                ->assertRedirect(route('kurikulum.jadwal-piket.index'))
+                ->assertSessionHasErrors('jam_selesai');
+        }
+    }
+
+    public function test_endpoint_shift_mengembalikan_json_saat_diminta_oleh_ajax(): void
+    {
+        $admin = User::create([
+            'nama' => 'Admin JSON Shift',
+            'username' => 'admin_json_store_shift',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('kurikulum.jadwal-piket.shifts.store'), [
+                'nama' => 'Shift JSON',
+                'jam_mulai' => '13:00',
+                'jam_selesai' => '17:00',
+                'maksimal_petugas' => 3,
+                'urutan' => 9,
+            ])
+            ->assertCreated()
+            ->assertJson([
+                'success' => true,
+                'message' => 'Shift piket berhasil ditambahkan.',
+            ]);
+
+        $this->assertDatabaseHas('shift_piket', ['nama' => 'Shift JSON']);
+
+        $shift = ShiftPiket::where('nama', 'Shift JSON')->firstOrFail();
+        $this->actingAs($admin)
+            ->putJson(route('kurikulum.jadwal-piket.shifts.update', $shift), [
+                'nama' => 'Shift JSON',
+                'jam_mulai' => '17:00',
+                'jam_selesai' => '16:00',
+                'maksimal_petugas' => 3,
+                'urutan' => 9,
+            ])
+            ->assertUnprocessable()
+            ->assertJson([
+                'success' => false,
+                'message' => 'Data shift tidak valid.',
+            ])
+            ->assertJsonValidationErrors('jam_selesai');
+    }
+
+    public function test_update_shift_menerima_format_jam_hh_mm_dan_menolak_jam_selesai_yang_tidak_setelah_mulai(): void
+    {
+        $admin = User::create([
+            'nama' => 'Admin Kurikulum',
+            'username' => 'admin_update_validasi_shift',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+        $shift = ShiftPiket::create([
+            'nama' => 'Pagi',
+            'jam_mulai' => '07:00',
+            'jam_selesai' => '12:00',
+            'maksimal_petugas' => 4,
+            'urutan' => 0,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->put(route('kurikulum.jadwal-piket.shifts.update', $shift), [
+                'nama' => 'Pagi',
+                'jam_mulai' => '07:30',
+                'jam_selesai' => '12:30',
+                'maksimal_petugas' => 4,
+                'urutan' => 0,
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $this->from(route('kurikulum.jadwal-piket.index'))
+            ->put(route('kurikulum.jadwal-piket.shifts.update', $shift), [
+                'nama' => 'Pagi',
+                'jam_mulai' => '12:30',
+                'jam_selesai' => '12:30',
+                'maksimal_petugas' => 4,
+                'urutan' => 0,
+            ])
+            ->assertRedirect(route('kurikulum.jadwal-piket.index'))
+            ->assertSessionHasErrors('jam_selesai');
     }
 
     public function test_store_shift_tanpa_dari_modal_tidak_membuka_modal(): void
@@ -762,6 +955,51 @@ class JadwalPiketTest extends TestCase
             'id' => $shiftSore->id,
             'nama' => 'Sore',
             'is_active' => 1,
+        ]);
+    }
+
+    public function test_update_shift_via_json_menyimpan_seluruh_data_shift(): void
+    {
+        $admin = User::create([
+            'nama' => 'Admin Kurikulum',
+            'username' => 'admin_json_update_shift',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+        $shift = ShiftPiket::create([
+            'nama' => 'Sore',
+            'jam_mulai' => '15:00',
+            'jam_selesai' => '18:00',
+            'maksimal_petugas' => 3,
+            'urutan' => 3,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->putJson(route('kurikulum.jadwal-piket.shifts.update', $shift), [
+                'nama' => 'Sore Revisi',
+                'jam_mulai' => '14:30',
+                'jam_selesai' => '18:30',
+                'maksimal_petugas' => 5,
+                'urutan' => 7,
+                'is_active' => false,
+                'from_shift_modal' => 1,
+            ])
+            ->assertOk()
+            ->assertJson([
+                'success' => true,
+                'message' => 'Shift piket berhasil diperbarui.',
+            ]);
+
+        $this->assertDatabaseHas('shift_piket', [
+            'id' => $shift->id,
+            'nama' => 'Sore Revisi',
+            'jam_mulai' => '14:30',
+            'jam_selesai' => '18:30',
+            'maksimal_petugas' => 5,
+            'urutan' => 7,
+            'is_active' => false,
         ]);
     }
 

@@ -50,7 +50,6 @@ class ShiftPelajaran extends Model implements TestingDataContextAware
         'nama_shift',
         'keterangan',
         'jam_mulai',
-        'jam_selesai',
         'is_active',
         'grade_levels',
         'is_testing_data',

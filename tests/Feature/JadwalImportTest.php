@@ -142,6 +142,65 @@ class JadwalImportTest extends TestCase
         $this->assertEquals($jamSenin2->id, $jadwal->id_jam);
     }
 
+    public function test_import_targets_selected_tahun_ajaran_without_overwriting_another_year(): void
+    {
+        $targetTahunAjaran = TahunAjaran::create([
+            'tahun_ajaran' => '2024/2025',
+            'semester' => 'Genap',
+            'is_active' => false,
+        ]);
+        $kelas = Kelas::create(['nama_kelas' => 'RPL Target', 'tingkat' => 'X']);
+        $mapel = MataPelajaran::create(['nama_mapel' => 'Matematika Target', 'kode_mapel' => 'MTKT']);
+        $guru = User::create([
+            'nama' => 'Pak Target',
+            'username' => 'target_'.Str::random(4),
+            'password' => bcrypt('password'),
+            'role' => User::ROLE_GURU,
+            'is_active' => true,
+        ]);
+        $jam = JamPelajaran::create([
+            'hari' => 'Senin',
+            'kategori_hari' => 'Senin-Kamis',
+            'jam_ke' => 1,
+            'jam_mulai' => '07:00:00',
+            'jam_selesai' => '07:45:00',
+            'jenis' => 'kbm',
+        ]);
+        $jadwalAktif = JadwalPelajaran::create([
+            'group_id' => (string) Str::uuid(),
+            'hari' => 'Senin',
+            'id_jam' => $jam->id,
+            'id_kelas' => $kelas->id,
+            'id_mapel' => $mapel->id,
+            'id_guru' => $guru->id,
+            'id_tahun_ajaran' => TahunAjaran::aktif()->id,
+        ]);
+
+        $import = new JadwalImport(',', (int) $targetTahunAjaran->id);
+        $import->collection(new Collection([
+            [
+                'kelas' => 'X RPL Target',
+                'hari' => 'Senin',
+                'jam' => '1',
+                'mata_pelajaran' => 'Matematika Target',
+                'guru' => 'Pak Target',
+            ],
+        ]));
+
+        $this->assertSame(1, $import->importedCount);
+        $this->assertSame(0, $import->updatedCount);
+        $this->assertDatabaseHas('jadwal_pelajaran', [
+            'id_kelas' => $kelas->id,
+            'id_tahun_ajaran' => $targetTahunAjaran->id,
+            'id_guru' => $guru->id,
+        ]);
+        $this->assertDatabaseHas('jadwal_pelajaran', [
+            'id' => $jadwalAktif->id,
+            'id_tahun_ajaran' => TahunAjaran::aktif()->id,
+            'id_guru' => $guru->id,
+        ]);
+    }
+
     public function test_skips_non_kbm_slots_like_istirahat_and_agenda_rutin(): void
     {
         $kelas = Kelas::create(['nama_kelas' => 'RPL 1', 'tingkat' => 'X']);

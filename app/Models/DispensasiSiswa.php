@@ -304,6 +304,25 @@ class DispensasiSiswa extends Model
     }
 
     /**
+     * Status tampilan Kadaluarsa, termasuk surat aktif yang batas JP-nya sudah
+     * terlewati sebelum status tersimpan diperbarui oleh proses auto-expire.
+     */
+    public function isKadaluarsaSaatIni(): bool
+    {
+        if ($this->isExpired()) {
+            return true;
+        }
+
+        if (! $this->isStatusAktifMenungguKeluar() || $this->keluar_gerbang_at !== null) {
+            return false;
+        }
+
+        $batas = $this->batasKadaluarsa();
+
+        return $batas !== null && now()->greaterThanOrEqualTo($batas);
+    }
+
+    /**
      * Apakah surat berstatus Dibatalkan (pembatalan ber-TTD siswa)?
      */
     public function isDibatalkan(): bool
@@ -702,6 +721,10 @@ class DispensasiSiswa extends Model
      */
     public function getStatusLabelAttribute(): string
     {
+        if ($this->isKadaluarsaSaatIni()) {
+            return self::STATUS_LABELS[self::STATUS_EXPIRED];
+        }
+
         if ($this->status === self::STATUS_FINAL) {
             return 'Final';
         }
@@ -714,6 +737,11 @@ class DispensasiSiswa extends Model
      */
     public function getStatusGuruPiketBadgeAttribute(): string
     {
+        if ($this->isKadaluarsaSaatIni()) {
+            return self::STATUS_BADGES[self::STATUS_EXPIRED]
+                .' rounded-pill px-2 py-2 whitespace-nowrap';
+        }
+
         if ($this->kembali_at !== null) {
             return 'bg-success text-white rounded-pill px-2 py-2 whitespace-nowrap';
         }
@@ -730,6 +758,10 @@ class DispensasiSiswa extends Model
      */
     public function getStatusGuruPiketLabelAttribute(): string
     {
+        if ($this->isKadaluarsaSaatIni()) {
+            return self::STATUS_LABELS[self::STATUS_EXPIRED];
+        }
+
         if ($this->kembali_at !== null) {
             return 'Siswa Kembali';
         }
@@ -746,6 +778,10 @@ class DispensasiSiswa extends Model
      */
     public function getStatusBadgeAttribute(): string
     {
+        if ($this->isKadaluarsaSaatIni()) {
+            return self::STATUS_BADGES[self::STATUS_EXPIRED];
+        }
+
         return self::STATUS_BADGES[$this->status] ?? 'bg-secondary-subtle text-secondary border border-secondary-subtle';
     }
 

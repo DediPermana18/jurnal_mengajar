@@ -505,7 +505,7 @@ class TrashController extends Controller
 
             case 'jam-pelajaran':
                 $shift = $record->shift_id
-                    ? ShiftPelajaran::withTrashed()->find($record->shift_id)
+                    ? ShiftPelajaran::find($record->shift_id)
                     : null;
 
                 return [

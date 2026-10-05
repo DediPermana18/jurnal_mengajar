@@ -13,9 +13,11 @@ use App\Models\JadwalPelajaran;
 use App\Models\Kelas;
 use App\Models\Scopes\TestingDataScope;
 use App\Models\Siswa;
+use App\Models\TahunAjaran;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Excel as ExcelFormat;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -30,6 +32,20 @@ class DataImportController extends Controller
         // (real saat user asli Admin TU, atau saat Petugas IT Switch View As
         // Admin TU; testing hanya untuk Petugas IT / QA Tester murni).
         $testing = SiswaImport::isImportTestingContext(request()->user());
+        $targetTahunAjaranList = TahunAjaran::withoutGlobalScope(TestingDataScope::class)
+            ->where('is_testing_data', $testing ? 1 : 0)
+            ->orderByDesc('is_active')
+            ->orderByDesc('id')
+            ->get();
+        $activeTahunAjaran = $targetTahunAjaranList->firstWhere('is_active', true);
+        $requestedTahunAjaranId = old(
+            'tahun_ajaran_id',
+            session('selected_tahun_ajaran_id', $activeTahunAjaran?->id ?? $targetTahunAjaranList->first()?->id)
+        );
+        $selectedTahunAjaran = $targetTahunAjaranList->firstWhere('id', (int) $requestedTahunAjaranId)
+            ?? $activeTahunAjaran
+            ?? $targetTahunAjaranList->first();
+        $selectedTahunAjaranId = $selectedTahunAjaran?->id;
 
         $dataKelas = Kelas::query()
             ->withoutGlobalScope(TestingDataScope::class)
@@ -52,9 +68,38 @@ class DataImportController extends Controller
         $totalJadwal = JadwalPelajaran::query()
             ->withoutGlobalScope(TestingDataScope::class)
             ->where('is_testing_data', $testing ? 1 : 0)
+            ->when($selectedTahunAjaranId, fn ($query) => $query->where('id_tahun_ajaran', $selectedTahunAjaranId))
             ->count();
 
-        return view('admin.import.index', compact('dataKelas', 'totalSiswa', 'totalGuru', 'totalJadwal'));
+        return view('admin.import.index', compact(
+            'dataKelas',
+            'totalSiswa',
+            'totalGuru',
+            'totalJadwal',
+            'targetTahunAjaranList',
+            'selectedTahunAjaran',
+            'selectedTahunAjaranId'
+        ));
+    }
+
+    /**
+     * Pastikan target berada pada partisi import/reset milik pengguna saat ini.
+     */
+    private function validateTargetTahunAjaran(Request $request): int
+    {
+        $testing = $this->resetScope($request);
+        $validated = $request->validate([
+            'tahun_ajaran_id' => [
+                'required',
+                'integer',
+                Rule::exists('tahun_ajaran', 'id')->where('is_testing_data', $testing),
+            ],
+        ], [
+            'tahun_ajaran_id.required' => 'Target Tahun Ajaran & Semester wajib dipilih.',
+            'tahun_ajaran_id.exists' => 'Target Tahun Ajaran & Semester tidak valid untuk konteks data ini.',
+        ]);
+
+        return (int) $validated['tahun_ajaran_id'];
     }
 
     /**
@@ -391,10 +436,12 @@ class DataImportController extends Controller
             'file_jadwal.mimes'   => 'Format file harus .xlsx, .xls, atau .csv.',
             'file_jadwal.max'     => 'Ukuran file maksimal 10 MB.',
         ]);
+        $tahunAjaranId = $this->validateTargetTahunAjaran($request);
 
         try {
             $importer = JadwalImport::createWithAutoDelimiter(
-                $request->file('file_jadwal')->getRealPath()
+                $request->file('file_jadwal')->getRealPath(),
+                $tahunAjaranId
             );
 
             $extension = strtolower(
@@ -419,7 +466,8 @@ class DataImportController extends Controller
 
             $session = redirect()->route('import.index')
                 ->with('success', $successMsg)
-                ->with('active_tab', 'jadwal');
+                ->with('active_tab', 'jadwal')
+                ->with('selected_tahun_ajaran_id', $tahunAjaranId);
 
             if (! empty($importer->rowErrors)) {
                 $session = $session->with('import_warnings', $importer->rowErrors);
@@ -431,11 +479,13 @@ class DataImportController extends Controller
             // Kelas tidak ditemukan → rollback otomatis (dalam DB::transaction)
             return redirect()->route('import.index')
                 ->with('error', $e->getMessage())
-                ->with('active_tab', 'jadwal');
+                ->with('active_tab', 'jadwal')
+                ->with('selected_tahun_ajaran_id', $tahunAjaranId);
         } catch (\Throwable $e) {
             return redirect()->route('import.index')
                 ->with('error', 'Import jadwal gagal: '.$e->getMessage())
-                ->with('active_tab', 'jadwal');
+                ->with('active_tab', 'jadwal')
+                ->with('selected_tahun_ajaran_id', $tahunAjaranId);
         }
     }
 
@@ -619,16 +669,19 @@ class DataImportController extends Controller
     {
         $this->authorizeBulkReset();
         $this->validateResetConfirmation($request, 'HAPUS DATA JADWAL');
+        $tahunAjaranId = $this->validateTargetTahunAjaran($request);
         $scope = $this->resetScope($request);
 
-        $deleted = DB::transaction(function () use ($scope) {
+        $deleted = DB::transaction(function () use ($scope, $tahunAjaranId) {
             return DB::table('jadwal_pelajaran')
                 ->where('is_testing_data', $scope)
+                ->where('id_tahun_ajaran', $tahunAjaranId)
                 ->delete();
         });
 
         return redirect()->route('import.index')
             ->with('success', 'Seluruh Data Jadwal Pelajaran Berhasil Dihapus ('.number_format($deleted).' slot).')
-            ->with('active_tab', 'jadwal');
+            ->with('active_tab', 'jadwal')
+            ->with('selected_tahun_ajaran_id', $tahunAjaranId);
     }
 }

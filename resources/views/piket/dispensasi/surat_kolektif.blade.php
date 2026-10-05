@@ -80,6 +80,30 @@
                 || ($backUser->hasActiveRole() && $backUser->activeRole() === 'waka_kesiswaan'))
             ? route('waka-kesiswaan.dispensasi.approval.index')
             : route('piket.dispensasi.index');
+        $approvalUrl = $kolektif->approval_token
+            ? route('dispen.approval.show', $kolektif->approval_token)
+            : null;
+        $approvalNama = $siswaItems
+            ->map(fn ($item) => $item->siswa->nama ?? 'Siswa')
+            ->implode(', ');
+        $approvalKelas = $siswaItems
+            ->map(fn ($item) => $item->siswa?->kelas?->nama_lengkap ?? $item->siswa?->kelas?->nama_kelas)
+            ->filter()
+            ->unique()
+            ->implode(', ');
+        $approvalMessage = "Yth. Bapak/Ibu Waka Kesiswaan,\n\n"
+            ."Mohon berkenan untuk memberikan persetujuan & tanda tangan digital untuk Surat Dispensasi Siswa:\n"
+            ."• Nama: *".$approvalNama."*\n"
+            ."• Kelas: ".($approvalKelas ?: '-')."\n"
+            ."• Alasan: ".$kolektif->alasan."\n\n"
+            ."Silakan klik link berikut untuk melakukan tanda tangan:\n".$approvalUrl;
+        $approvalStatuses = [
+            \App\Models\DispensasiSiswa::STATUS_PENDING,
+            \App\Models\DispensasiSiswa::STATUS_PENDING_WAKA,
+            \App\Models\DispensasiSiswa::STATUS_DISETUJUI,
+            \App\Models\DispensasiSiswa::STATUS_APPROVED,
+            \App\Models\DispensasiSiswa::STATUS_FINAL,
+        ];
     @endphp
 
     {{-- Toolbar (tidak tercetak) --}}
@@ -92,11 +116,21 @@
             </div>
             <div class="d-flex flex-wrap align-items-center gap-2">
                 <span class="badge {{ $kolektif->status_badge }} rounded-pill px-3 py-2">{{ $kolektif->status_label }}</span>
+                @if($approvalUrl && in_array($kolektif->status, $approvalStatuses, true))
+                    <button type="button" class="btn btn-outline-secondary rounded-3 btn-toolbar-icon" data-copy-url="{{ $approvalUrl }}">
+                        <i class="bi bi-clipboard-check"></i> Salin Link TTD Waka
+                    </button>
+                    <a href="https://api.whatsapp.com/send?text={{ rawurlencode($approvalMessage) }}"
+                       target="_blank" rel="noopener noreferrer" class="btn btn-success rounded-3 btn-toolbar-icon">
+                        <i class="bi bi-whatsapp"></i> Kirim WA ke Waka
+                    </a>
+                @endif
                 <button type="button" onclick="window.print()" class="btn btn-primary rounded-3 px-4 fw-semibold shadow-sm btn-toolbar-icon">
                     <i class="bi bi-printer"></i> Cetak / Save PDF
                 </button>
             </div>
         </div>
+        <div id="approval-copy-feedback" class="small mt-2" role="status" aria-live="polite"></div>
     </div>
 
     {{-- Surat --}}
@@ -305,5 +339,38 @@
             });
         </script>
     @endif
+    <script>
+        document.querySelectorAll('[data-copy-url]').forEach(function (button) {
+            button.addEventListener('click', async function () {
+                var url = button.dataset.copyUrl;
+                var feedback = document.getElementById('approval-copy-feedback');
+                try {
+                    await navigator.clipboard.writeText(url);
+                    feedback.className = 'small mt-2 text-success';
+                    feedback.textContent = 'Link approval berhasil disalin!';
+                } catch (error) {
+                    var field = document.createElement('textarea');
+                    field.value = url;
+                    field.setAttribute('readonly', '');
+                    field.style.position = 'fixed';
+                    field.style.opacity = '0';
+                    document.body.appendChild(field);
+                    field.select();
+                    var copied = false;
+                    try {
+                        copied = document.execCommand('copy');
+                    } catch (copyError) {
+                        copied = false;
+                    } finally {
+                        document.body.removeChild(field);
+                    }
+                    feedback.className = copied ? 'small mt-2 text-success' : 'small mt-2 text-danger';
+                    feedback.textContent = copied
+                        ? 'Link approval berhasil disalin!'
+                        : 'Gagal menyalin link. Silakan salin URL secara manual.';
+                }
+            });
+        });
+    </script>
 </body>
 </html>

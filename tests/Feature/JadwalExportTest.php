@@ -205,5 +205,7 @@ class JadwalExportTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.jadwal.index'));
         $response->assertStatus(200);
         $response->assertSee('Plotting Jadwal Kelas');
+        $response->assertSee('<option value="" selected disabled>-- Pilih Kelas --</option>', false);
+        $response->assertSee('Pilih Kelas untuk Menampilkan Jadwal');
     }
 }

@@ -28,8 +28,8 @@
             <form method="POST" action="{{ route('kurikulum.jadwal-piket.shifts.store') }}" class="row g-3 align-items-end">
                 @csrf
                 <div class="col-12 col-md-3"><label class="form-label">Nama Shift</label><input name="nama" class="form-control" required placeholder="Contoh: Jumat"></div>
-                <div class="col-6 col-md-2"><label class="form-label">Mulai</label><input type="time" name="jam_mulai" class="form-control" required></div>
-                <div class="col-6 col-md-2"><label class="form-label">Selesai</label><input type="time" name="jam_selesai" class="form-control" required></div>
+                <div class="col-6 col-md-2"><label class="form-label">Mulai</label><input type="time" name="jam_mulai" class="form-control" step="60" lang="en-GB" required></div>
+                <div class="col-6 col-md-2"><label class="form-label">Selesai</label><input type="time" name="jam_selesai" class="form-control" step="60" lang="en-GB" required></div>
                 <div class="col-6 col-md-2"><label class="form-label">Maks. Petugas</label><input type="number" name="maksimal_petugas" class="form-control" min="1" max="100" value="4" required></div>
                 <div class="col-6 col-md-1"><label class="form-label">Urutan</label><input type="number" name="urutan" class="form-control" min="0" value="0"></div>
                 <div class="col-12 col-md-2"><button class="btn btn-primary w-100"><i class="bi bi-plus-lg me-1"></i> Tambah</button></div>
@@ -54,8 +54,8 @@
                         </td>
                         <td>
                             <div class="d-flex gap-2">
-                                <input form="shift-form-page-{{ $shift->id }}" type="time" name="jam_mulai" value="{{ substr($shift->jam_mulai, 0, 5) }}" class="form-control" required>
-                                <input form="shift-form-page-{{ $shift->id }}" type="time" name="jam_selesai" value="{{ substr($shift->jam_selesai, 0, 5) }}" class="form-control" required>
+                                <input form="shift-form-page-{{ $shift->id }}" type="time" name="jam_mulai" value="{{ substr($shift->jam_mulai, 0, 5) }}" class="form-control" step="60" lang="en-GB" required>
+                                <input form="shift-form-page-{{ $shift->id }}" type="time" name="jam_selesai" value="{{ substr($shift->jam_selesai, 0, 5) }}" class="form-control" step="60" lang="en-GB" required>
                             </div>
                         </td>
                         <td>
@@ -89,6 +89,16 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        var readShiftJson = async function (response) {
+            if (!response.headers.get('content-type')?.includes('application/json')) {
+                if (response.redirected) {
+                    throw new Error('Sesi mungkin telah berakhir. Muat ulang halaman dan coba lagi.');
+                }
+                throw new Error('Server mengirim respons bukan JSON (HTTP ' + response.status + ').');
+            }
+            return response.json();
+        };
+
         // 1. Direct event listener (change) pada checkbox status Aktif
         document.querySelectorAll('.shift-toggle-active').forEach(function (checkbox) {
             checkbox.addEventListener('change', function () {
@@ -118,7 +128,14 @@
                         toggle_active_only: 1
                     })
                 })
-                .then(function (res) { return res.json(); })
+                .then(function (res) {
+                    return readShiftJson(res).then(function (data) {
+                        if (!res.ok) {
+                            throw new Error(data.message || 'Gagal memperbarui status aktif shift.');
+                        }
+                        return data;
+                    });
+                })
                 .then(function (data) {
                     if (data && data.success) {
                         var currentStatus = Boolean(data.is_active);

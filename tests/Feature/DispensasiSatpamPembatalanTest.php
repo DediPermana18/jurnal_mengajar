@@ -115,6 +115,37 @@ class DispensasiSatpamPembatalanTest extends TestCase
         $this->artisan('dispensasi:auto-expire')->assertExitCode(0);
     }
 
+    public function test_status_kadaluarsa_di_list_dan_surat_detail_sinkron_sebelum_auto_expire(): void
+    {
+        $this->buatJamPelajaran();
+        $piket = $this->makeUser('guru');
+        JadwalPiket::create(['hari' => 'Senin', 'user_id' => $piket->id]);
+        [$kelas, $siswa] = $this->buatKelasSiswa();
+        $dispen = $this->buatDispenSiswa($piket, $siswa);
+
+        Carbon::setTestNow(Carbon::create(2026, 8, 31, 10, 0));
+        $dispen->refresh();
+
+        $this->assertSame(DispensasiSiswa::STATUS_DISETUJUI, $dispen->getRawOriginal('status'));
+        $this->assertSame('Kadaluarsa', $dispen->status_label);
+        $this->assertSame(
+            $dispen->status_badge.' rounded-pill px-2 py-2 whitespace-nowrap',
+            $dispen->status_guru_piket_badge
+        );
+        $this->assertSame('Kadaluarsa', $dispen->status_guru_piket_label);
+
+        $this->actingAs($piket)
+            ->get(route('piket.dispensasi.index'))
+            ->assertOk()
+            ->assertSee('Kadaluarsa')
+            ->assertDontSee('Menunggu Keluar');
+
+        $this->get(route('piket.dispensasi.surat', $dispen->id))
+            ->assertOk()
+            ->assertSee('Kadaluarsa')
+            ->assertDontSee('Menunggu Keluar');
+    }
+
     public function test_satpam_konfirmasi_keluar_gerbang_mengubah_status_siswa_out(): void
     {
         $piket = $this->makeUser('guru');

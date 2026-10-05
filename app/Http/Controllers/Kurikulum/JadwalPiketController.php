@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class JadwalPiketController extends Controller
 {
@@ -70,6 +71,50 @@ class JadwalPiketController extends Controller
 
         // Modal "Pengaturan Shift & Kuota" di halaman utama membutuhkan daftar shift.
         $shifts = ShiftPiket::orderBy('urutan')->orderBy('id')->get();
+        $activeShifts = ShiftPiket::where('is_active', true)->orderBy('urutan')->orderBy('id')->get();
+        $legacyShiftIds = [
+            'koordinator_pagi_user_id' => $activeShifts
+                ->first(fn (ShiftPiket $shift) => str_starts_with(mb_strtolower($shift->nama), 'pagi'))
+                ?->id,
+            'petugas_pagi_user_id' => $activeShifts
+                ->first(fn (ShiftPiket $shift) => str_starts_with(mb_strtolower($shift->nama), 'pagi'))
+                ?->id,
+            'koordinator_siang_user_id' => $activeShifts
+                ->first(fn (ShiftPiket $shift) => str_starts_with(mb_strtolower($shift->nama), 'siang'))
+                ?->id,
+            'petugas_siang_user_id' => $activeShifts
+                ->first(fn (ShiftPiket $shift) => str_starts_with(mb_strtolower($shift->nama), 'siang'))
+                ?->id,
+        ];
+        $shiftGroupsByHari = [];
+        foreach ($hariList as $hari) {
+            $hariRows = $jadwalByHari[$hari] ?? collect();
+            foreach ($activeShifts as $shift) {
+                $rows = $hariRows->where('shift_id', $shift->id);
+                foreach ($legacyShiftIds as $field => $shiftId) {
+                    if ($shiftId === $shift->id) {
+                        $rows = $rows->merge($hariRows->whereNotNull($field));
+                    }
+                }
+                $rows = $rows->unique('id')->values();
+                $present = fn (JadwalPiket $row) => [
+                    'jadwal' => $row,
+                    'person' => $row->user
+                        ?? $row->koordinatorPagi
+                        ?? $row->koordinatorSiang
+                        ?? $row->petugasPagi
+                        ?? $row->petugasSiang,
+                ];
+                $isCoordinator = fn (JadwalPiket $row) => $row->koordinator_pagi_user_id
+                    || $row->koordinator_siang_user_id;
+
+                $shiftGroupsByHari[$hari][$shift->id] = [
+                    'count' => $rows->count(),
+                    'coordinators' => $rows->filter($isCoordinator)->map($present)->values(),
+                    'workers' => $rows->reject($isCoordinator)->map($present)->values(),
+                ];
+            }
+        }
 
         // ID guru yang sudah terpilih per hari (untuk pre-check checkbox)
         $selectedByHari = [];
@@ -79,7 +124,7 @@ class JadwalPiketController extends Controller
 
         return view('kurikulum.jadwal_piket.index', compact(
             'hariList', 'jadwalByHari', 'guruList', 'allJadwal', 'selectedByHari', 'canManage',
-            'mingguKe', 'shifts'
+            'mingguKe', 'shifts', 'activeShifts', 'shiftGroupsByHari'
         ));
     }
 
@@ -584,18 +629,64 @@ class JadwalPiketController extends Controller
         return max(1, min(4, (int) $request->input('minggu_ke', ceil($now->day / 7))));
     }
 
-    public function storeShift(Request $request)
+    private function jamSelesaiSetelahMulai(Request $request): \Closure
+    {
+        return function ($attribute, $value, $fail) use ($request) {
+            $jamMulai = $request->input('jam_mulai');
+            $formatTime = '/^(?:[01]\d|2[0-3]):[0-5]\d$/D';
+
+            if (is_string($value)
+                && is_string($jamMulai)
+                && preg_match($formatTime, $value)
+                && preg_match($formatTime, $jamMulai)
+                && $value <= $jamMulai) {
+                $fail('Jam selesai harus setelah jam mulai.');
+            }
+        };
+    }
+
+    public function storeShift(Request $request): JsonResponse|RedirectResponse
     {
         $this->authorizeManage();
-        $data = $request->validate([
-            'nama' => 'required|string|max:100',
-            'jam_mulai' => 'required|date_format:H:i',
-            'jam_selesai' => 'required|date_format:H:i|after:jam_mulai',
-            'maksimal_petugas' => 'required|integer|min:1|max:100',
-            'urutan' => 'nullable|integer|min:0|max:1000',
-        ]);
-        $data['is_active'] = $request->boolean('is_active');
-        ShiftPiket::create($data);
+        try {
+            $data = $request->validate([
+                'nama' => 'required|string|max:100',
+                'jam_mulai' => 'required|date_format:H:i',
+                'jam_selesai' => ['required', 'date_format:H:i', $this->jamSelesaiSetelahMulai($request)],
+                'maksimal_petugas' => 'required|integer|min:1|max:100',
+                'urutan' => 'nullable|integer|min:0|max:1000',
+            ]);
+            $data['is_active'] = $request->boolean('is_active');
+            ShiftPiket::create($data);
+        } catch (ValidationException $exception) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data shift tidak valid.',
+                    'errors' => $exception->errors(),
+                ], 422);
+            }
+
+            throw $exception;
+        } catch (Throwable $exception) {
+            report($exception);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Terjadi kesalahan saat menyimpan shift.',
+                ], 500);
+            }
+
+            throw $exception;
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Shift piket berhasil ditambahkan.',
+            ], 201);
+        }
 
         // Kalau form dikirim dari modal di halaman utama, buka kembali modalnya.
         if ($request->boolean('from_shift_modal')) {
@@ -605,32 +696,62 @@ class JadwalPiketController extends Controller
         return back()->with('success', 'Shift piket berhasil ditambahkan.');
     }
 
-    public function updateShift(Request $request, ShiftPiket $shift)
+    public function updateShift(Request $request, ShiftPiket $shift): JsonResponse|RedirectResponse
     {
         $this->authorizeManage();
 
-        // Support AJAX auto-save / toggle is_active status
-        if ($request->wantsJson() || $request->ajax() || $request->has('toggle_active_only')) {
-            $shift->update([
-                'is_active' => $request->boolean('is_active'),
-            ]);
+        try {
+            // Support AJAX auto-save / toggle is_active status
+            if ($request->boolean('toggle_active_only')) {
+                $shift->update([
+                    'is_active' => $request->boolean('is_active'),
+                ]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Status aktif shift berhasil diperbarui.',
-                'is_active' => (bool) $shift->is_active,
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Status aktif shift berhasil diperbarui.',
+                    'is_active' => (bool) $shift->is_active,
+                ]);
+            }
+
+            $data = $request->validate([
+                'nama' => 'required|string|max:100',
+                'jam_mulai' => 'required|date_format:H:i',
+                'jam_selesai' => ['required', 'date_format:H:i', $this->jamSelesaiSetelahMulai($request)],
+                'maksimal_petugas' => 'required|integer|min:1|max:100',
+                'urutan' => 'nullable|integer|min:0|max:1000',
             ]);
+            $data['is_active'] = $request->boolean('is_active');
+            $shift->update($data);
+        } catch (ValidationException $exception) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data shift tidak valid.',
+                    'errors' => $exception->errors(),
+                ], 422);
+            }
+
+            throw $exception;
+        } catch (Throwable $exception) {
+            report($exception);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Terjadi kesalahan saat menyimpan shift.',
+                ], 500);
+            }
+
+            throw $exception;
         }
 
-        $data = $request->validate([
-            'nama' => 'required|string|max:100',
-            'jam_mulai' => 'required|date_format:H:i',
-            'jam_selesai' => 'required|date_format:H:i|after:jam_mulai',
-            'maksimal_petugas' => 'required|integer|min:1|max:100',
-            'urutan' => 'nullable|integer|min:0|max:1000',
-        ]);
-        $data['is_active'] = $request->boolean('is_active');
-        $shift->update($data);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Shift piket berhasil diperbarui.',
+            ]);
+        }
 
         if ($request->boolean('from_shift_modal')) {
             return back()->with(['success' => 'Shift piket berhasil diperbarui.', 'open_shift_modal' => true]);

@@ -140,8 +140,8 @@
                         <label class="form-label fw-bold text-dark mb-2" style="font-size: 0.9rem;">
                             <i class="bi bi-door-open-fill text-primary me-1"></i> Pilih Kelas
                         </label>
-                        <select name="id_kelas" id="selectKelas" class="form-select rounded-lg w-full" onchange="this.form.submit()">
-                            <option value="">-- Pilih Kelas --</option>
+                        <select name="id_kelas" id="selectKelas" class="form-select rounded-lg w-full">
+                            <option value="" {{ $selectedKelas ? '' : 'selected' }} disabled>-- Pilih Kelas --</option>
                             @foreach($kelasList as $kelas)
                                 <option value="{{ $kelas->id }}" {{ $selectedKelas && $selectedKelas->id == $kelas->id ? 'selected' : '' }}>
                                     {{ $kelas->nama_lengkap }}
@@ -850,9 +850,17 @@
             });
 
             selectKelasEl.addEventListener('change', function () {
+                const url = new URL(window.location.href);
+                const currentHari = url.searchParams.get('hari') || @json($selectedHari);
+
                 if (this.value) {
-                    document.getElementById('filterForm').submit();
+                    url.searchParams.set('id_kelas', this.value);
+                } else {
+                    url.searchParams.delete('id_kelas');
                 }
+
+                url.searchParams.set('hari', currentHari);
+                window.location.href = url.toString();
             });
         }
 

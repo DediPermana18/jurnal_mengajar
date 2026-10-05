@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\JamPelajaran;
 use App\Models\Kelas;
+use App\Models\ShiftPelajaran;
 use App\Models\Siswa;
 use App\Models\User;
 use Database\Seeders\UserSeeder;
@@ -99,10 +100,11 @@ class TrashManagementTest extends TestCase
         ], $overrides));
     }
 
-    private function makeJamPelajaran(): JamPelajaran
+    private function makeJamPelajaran(?int $shiftId = null): JamPelajaran
     {
         return JamPelajaran::create([
             'kategori_hari' => 'Senin-Kamis',
+            'shift_id' => $shiftId,
             'jam_ke' => 1,
             'jam_mulai' => '08:00:00',
             'jam_selesai' => '08:45:00',
@@ -261,7 +263,12 @@ class TrashManagementTest extends TestCase
 
     public function test_jam_pelajaran_kini_soft_deletable_dan_muncul_di_trash(): void
     {
-        $jam = $this->makeJamPelajaran();
+        $shift = ShiftPelajaran::create([
+            'nama_shift' => 'Shift 1 Pagi',
+            'jam_mulai' => '07:00:00',
+            'is_active' => true,
+        ]);
+        $jam = $this->makeJamPelajaran($shift->id);
         $jam->delete();
 
         $this->assertSoftDeleted('jam_pelajaran', ['id' => $jam->id]);
@@ -269,7 +276,8 @@ class TrashManagementTest extends TestCase
         $this->actingAs($this->superAdmin())
             ->get(route('admin.trash.index'))
             ->assertOk()
-            ->assertSee('08:00–08:45');
+            ->assertSee('08:00–08:45')
+            ->assertSee('Shift 1 Pagi');
     }
 
     public function test_jam_pelajaran_bisa_di_restore_dari_trash(): void

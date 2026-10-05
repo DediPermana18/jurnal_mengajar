@@ -93,6 +93,26 @@ class JadwalIdJamResolusiTest extends TestCase
         ]);
     }
 
+    public function test_filter_hari_jumat_dipertahankan_dan_disediakan_untuk_handler_pilih_kelas(): void
+    {
+        $response = $this->actingAs($this->admin)
+            ->get(route('admin.jadwal.index', [
+                'id_kelas' => $this->kelas->id,
+                'hari' => 'Jumat',
+            ]))
+            ->assertOk()
+            ->assertViewHas('selectedHari', 'Jumat');
+
+        $response->assertSee(
+            "const currentHari = url.searchParams.get('hari') || \"Jumat\";",
+            false
+        );
+        $response->assertSee(
+            "url.searchParams.set('hari', currentHari);",
+            false
+        );
+    }
+
     /**
      * Buat satu baris jadwal (group_id wajib NOT NULL).
      */

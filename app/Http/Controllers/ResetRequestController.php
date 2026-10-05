@@ -337,6 +337,7 @@ class ResetRequestController extends Controller
         // dikeluarkan sesinya, sehingga redirect ke /login benar-benar sampai
         // ke formulir login publik — bukan dialihkan AuthController ke
         // dashboard admin/guru sesuai role.
+        $request->user()?->markOffline();
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

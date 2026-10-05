@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\JadwalPelajaran;
+use App\Models\AppSetting;
 use App\Models\JamPelajaran;
 use App\Models\Kelas;
 use App\Models\Scopes\ActiveTahunAjaranScope;
@@ -48,20 +49,26 @@ class JamSlotResolver
             return (int) $kelas->shift_id;
         }
 
-        // Bila kelas belum di-bind shift, cari shift aktif yang melayani
-        // tingkatan kelas (mode Multi-Shift).
+        // Tanpa binding kelas, deteksi shift dari tingkat hanya pada mode
+        // Multi-Shift. Query model tetap mengikuti konteks testing global.
         if (! $kelas->tingkat) {
             return null;
         }
 
-        $tingkat = match (strtoupper(trim($kelas->tingkat))) {
-            'X' => '10', 'XI' => '11', 'XII' => '12', default => (string) $kelas->tingkat
-        };
+        $mode = $tahunAktif?->effective_schedule_mode ?? AppSetting::scheduleMode();
+        if ($mode !== AppSetting::SCHEDULE_SHIFT) {
+            return null;
+        }
 
-        $shift = ShiftPelajaran::forCurrentContext()
-            ->where('is_active', true)
+        $tingkat = strtoupper(trim((string) $kelas->tingkat));
+        $shift = ShiftPelajaran::where('is_active', true)
+            ->orderBy('id')
             ->get()
-            ->first(fn ($s) => ($s->grade_levels ?? []) && $s->servesGrade($tingkat));
+            ->first(function ($shift) use ($tingkat) {
+                $levels = $shift->grade_levels ?? [];
+
+                return ! empty($levels) && in_array($tingkat, $levels, true);
+            });
 
         return $shift?->id;
     }
